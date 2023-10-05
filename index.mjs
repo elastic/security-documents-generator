@@ -1,6 +1,6 @@
 #! /usr/bin/env node
 import { program } from 'commander';
-import { generateFakeAlerts, deleteAllAlerts } from './commands/alerts.mjs';
+import { generateFakeAlerts, deleteAllAlerts, generateGraph } from './commands/alerts.mjs';
 import { fetchRiskScore } from './commands/risk-score.mjs';
 
 
@@ -9,6 +9,12 @@ program
   .argument('<n>', 'integer argument', parseInt)
   .description('Generate fake alerts')
   .action(generateFakeAlerts)
+
+program
+  .command('generate-graph')
+  // .argument('<n>', 'integer argument', parseInt)
+  .description('Generate fake graph')
+  .action(generateGraph)
 
 program
   .command('delete-alerts')

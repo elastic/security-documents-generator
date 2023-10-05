@@ -1,12 +1,14 @@
 {
     "elastic": {
-        "node": "http://localhost:9200/",
-        "username": "elastic",
-        "password": "changeme"
+        "node": "https://im-rule-test-e5f9b0.es.us-east-1.aws.elastic.cloud/",
+        "apiKey":""
+
+
     },
     "kibana": {
-        "node": "http://localhost:5601/",
-        "username": "elastic",
-        "password": "changeme"
+        "node": "https://im-rule-test-e5f9b0.kb.us-east-1.aws.elastic.cloud",
+        "apiKey": ""
+
+
     }
 }
