@@ -4,11 +4,5 @@
         "apiKey":""
 
 
-    },
-    "kibana": {
-        "node": "https://im-rule-test-e5f9b0.kb.us-east-1.aws.elastic.cloud",
-        "apiKey": ""
-
-
     }
 }
