@@ -1,7 +1,0 @@
-{
-    "elastic": {
-        "node": "",
-        "apiKey":""
-    },
-    "eventIndex": "my-index"
-}
