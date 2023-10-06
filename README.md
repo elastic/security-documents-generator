@@ -2,6 +2,8 @@
 
 ## Getting started
 
+### copy `config.dev.json` to `config.json`
+
 1. Install dependecies
 `npm i`
 
