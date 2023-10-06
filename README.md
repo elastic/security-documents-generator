@@ -2,10 +2,41 @@
 
 ## Getting started
 
+### copy `config.dev.json` to `config.json`
+
 1. Install dependecies
 `npm i`
 
-2. Change `config.json` and provide credentials for elasticsearch/kibana.
+2. Change `config.json` and provide credentials for elasticsearch.
+
+
+## How to generate data for serverless project
+
+1. Get your Elasticsearch url. 
+   
+   Go to Cloud -> Projects -> Your serverless project.
+
+   Then click Endpoints -> View and copy paste your ES URL to `config.json` into `elastic.node` field.
+
+2. Generate API key
+
+   Go to Cloud -> Projects -> Api Keys -> Manage project API keys
+
+   Create a new API key and past it to `config.json` into `elastic.apiKey` field.
+
+3. (Optional) Change if you want index name in `config.json` in `eventIndex` field. 
+  
+   By default - `my-index`
+
+4. (Optional) Change mappings in `eventMappings.json` file.
+
+5. (Optional) Change event structure in `createEvents.mjs` file
+
+6. Run `node index.mjs generate-events n`. Where `n` is the amount of documents that will be generated.
+
+7. `node index.mjs delete-events` to remove all documents from event index after your test.
+
+
 
 ## Commands
 
