@@ -1,6 +1,6 @@
 import { faker } from '@faker-js/faker';
 
-export default function createAlerts() {
+export default function createAlerts(override = {}) {
    return {
         "kibana.alert.start": "2023-04-11T20:18:15.816Z",
         "kibana.alert.last_detected": "2023-04-11T20:18:15.816Z",
@@ -47,13 +47,13 @@ export default function createAlerts() {
         "kibana.alert.rule.tags": [],
         "@timestamp": Date.now(),
         "host": {
-            "name": faker.datatype.uuid(),
+            "name": Math.floor(Math.random() * 50000),
             "os": {
                 "full": "server"
             }
         },
         "user": {
-            "name": faker.datatype.uuid(),
+            "name": Math.floor(Math.random() * 50000),
         },
         "event.kind": "signal",
         "kibana.alert.original_time": "2023-04-11T20:17:14.851Z",
@@ -101,6 +101,7 @@ export default function createAlerts() {
         "kibana.alert.rule.meta.kibana_siem_app_url": "http://localhost:5601/app/security",
         "kibana.alert.rule.risk_score": 21,
         "kibana.alert.rule.severity": "low",
-        "kibana.alert.uuid": faker.datatype.uuid()
+        "kibana.alert.uuid": faker.datatype.uuid(),
+        ...override
     }
 }
