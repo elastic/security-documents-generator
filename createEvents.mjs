@@ -11,7 +11,6 @@ export default function createEvents(override = {}) {
       },
       "executable": faker.datatype.string(),
       "pid": 25877,
-      "start": "2023-10-06T11:43:13.661Z",
       "hash": {
         "sha1": faker.datatype.string(),
       },

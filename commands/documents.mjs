@@ -73,13 +73,14 @@ const indexCheck = async (index, mappings) => {
             body: {
                 mappings: mappings,
                 settings: {
-                    "index.mapping.total_fields.limit": 2000
+                    "index.mapping.total_fields.limit": 10000
                 },
             }
         });
         console.log('Index created', index)
     } catch (error) {
-        console.log('Index creation failed', error)
+        console.log('Index creation failed', JSON.stringify(error))
+        throw error;
     } 
 
 }
