@@ -1,8 +1,7 @@
 {
     "elastic": {
-        "node": "https://im-rule-test-e5f9b0.es.us-east-1.aws.elastic.cloud/",
+        "node": "",
         "apiKey":""
-
-
-    }
+    },
+    "eventIndex": "my-index"
 }
