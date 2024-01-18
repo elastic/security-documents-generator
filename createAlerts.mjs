@@ -46,15 +46,6 @@ export default function createAlerts(override = {}) {
         ],
         "kibana.alert.rule.tags": [],
         "@timestamp": Date.now(),
-        "host": {
-            "name": Math.floor(Math.random() * 50000),
-            "os": {
-                "full": "server"
-            }
-        },
-        "user": {
-            "name": Math.floor(Math.random() * 50000),
-        },
         "event.kind": "signal",
         "kibana.alert.original_time": "2023-04-11T20:17:14.851Z",
         "kibana.alert.ancestors": [
