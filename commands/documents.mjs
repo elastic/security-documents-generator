@@ -24,7 +24,7 @@ const generateDocs = async ({
     amount,
     index
 }) => {
-    let limit = 25000;
+    let limit = 30000;
     let generated = 0;
 
 
@@ -32,7 +32,7 @@ const generateDocs = async ({
         let docs = createDocuments(Math.min(limit, amount), generated, createDocs, index);
         try {
             const result = await client.bulk({ body: docs, refresh: true });
-            generated += result.items.length;
+            generated += result.items.length / 2;
             console.log(`${result.items.length} documents created, ${amount - generated} left`);
         } catch (err) {
             console.log('Error: ', err)
@@ -44,18 +44,24 @@ const generateDocs = async ({
 const createDocuments = (n, generated, createDoc, index) => {
     return Array(n).fill(null).reduce((acc, val, i) => {
        let count = Math.floor((generated + i)/10)
-        const alert = createDoc(
-            {
-                host:{
-                    name: `Host ${count}`
-                },
-                user: {
-                    name: `User ${count}`
-                }
-            }
-        );
+        let alert = createDoc({
+            id_field:"host.name",
+            id_value:`Host ${generated + i}`,
+            // host: {
+            //     name:`Host ${generated + i}`,
+            // }
+        });
         acc.push({ index: { _index: index } })
-        acc.push(alert)
+        acc.push({...alert})
+         alert = createDoc({
+            id_field:"user.name",
+            id_value:`User ${generated + i}`,
+            // user: {
+            //     name:`User ${generated + i}`,
+            // }
+        });
+        acc.push({ index: { _index: index } })
+        acc.push({...alert})
         return acc
     }, [])
 };
@@ -89,7 +95,7 @@ const indexCheck = async (index, mappings) => {
 export const generateAlerts = async (n) => {
     await indexCheck(ALERT_INDEX, alertMappings);
 
-    console.log('Generating events...');
+    console.log('Generating alerts...');
 
     await generateDocs({
         createDocs: createAlerts,
