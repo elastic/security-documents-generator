@@ -1,7 +1,13 @@
 {
     "elastic": {
-        "node": "",
-        "apiKey":""
+        "node": "http://localhost:9200",
+        "username": "elastic",
+        "password": "changeme"
     },
-    "eventIndex": "my-index"
+    "kibana": {
+        "node": "http://localhost:9200",
+        "username": "elastic",
+        "password": "changeme"
+    },
+    "eventIndex": ""
 }
