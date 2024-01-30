@@ -4,6 +4,7 @@ import { chunk } from "lodash-es";
 import moment from "moment";
 import auditbeatMappings from "../mappings/auditbeat.json" assert { type: "json" };
 import { assignAssetCriticality, enableRiskScore, createRule } from "./api.mjs";
+import { ENTITY_STORE_OPTIONS } from "../constants.mjs";
 
 let client = getEsClient();
 let EVENT_INDEX_NAME = "auditbeat-8.12.0-2024.01.18-000001";
@@ -113,7 +114,10 @@ const assignAssetCriticalityToEntities = async (entities, field) => {
  * Then Generate events, assign asset criticality, create rule and enable risk engine
  * @param {*} param0
  */
-export const generateEntityStore = async ({ users = 10, hosts = 10 }) => {
+export const generateEntityStore = async ({ users = 10, hosts = 10, options}) => {
+  if(options.includes(ENTITY_STORE_OPTIONS.seed)) {
+    faker.seed(12345);
+  }
   try {
     const generatedUsers = faker.helpers.multiple(createRandomUser, {
       count: users,
@@ -136,18 +140,25 @@ export const generateEntityStore = async ({ users = 10, hosts = 10 }) => {
     console.log("Users events ingested");
     await ingestEvents(eventsForHosts);
     console.log("Hosts events ingested");
-    console.log(generatedUsers)
 
-    await assignAssetCriticalityToEntities(generatedUsers, "user.name");
-    console.log("Assigned asset criticality to users");
-    await assignAssetCriticalityToEntities(generatedHosts, "host.name");
-    console.log("Assigned asset criticality to hosts");
+    if(options.includes(ENTITY_STORE_OPTIONS.criticality)) {
+      await assignAssetCriticalityToEntities(generatedUsers, "user.name");
+      console.log("Assigned asset criticality to users");
+      await assignAssetCriticalityToEntities(generatedHosts, "host.name");
+      console.log("Assigned asset criticality to hosts");
+    }
+    
+    if(options.includes(ENTITY_STORE_OPTIONS.riskEngine)) {
+      await enableRiskScore();
+      console.log("Risk score enabled");
+    }
+    
 
-    await enableRiskScore();
-    console.log("Risk score enabled");
-
-    await createRule();
-    console.log("Rule created");
+    if(options.includes(ENTITY_STORE_OPTIONS.rule)) {
+      await createRule();
+      console.log("Rule created");
+    }
+  
 
     console.log("Finished generating entity store");
   } catch (error) {

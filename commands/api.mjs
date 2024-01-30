@@ -26,7 +26,6 @@ export const kibanaFetch = async (url, params, apiVersion = 1) => {
     ...params,
   });
   const data = await result.json();
-  console.log(data)
   return data;
 };
 
