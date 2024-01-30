@@ -40,9 +40,10 @@ const withKibanaValidation =
       return console.log("Please provide kibana node in config.json");
     }
     const hasPassword = config.kibana.username && config.kibana.password;
-    if (!hasPassword) {
+    const hasApiKey = config.kibana.apiKey;
+    if (!hasApiKey && !hasPassword) {
       console.log(
-        "Please provide elastic apiKey or username/password in config.json"
+        "Please provide kibana apiKey or username/password in config.json"
       );
       return;
     }
