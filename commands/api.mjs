@@ -7,13 +7,18 @@ export const kibanaFetch = async (url, params, apiVersion = 1) => {
 
   headers.append("Content-Type", "application/json");
   headers.append("kbn-xsrf", "true");
-  headers.set(
-    "Authorization",
-    "Basic " +
-      Buffer.from(
-        config.kibana.username + ":" + config.kibana.password
-      ).toString("base64")
-  );
+  if(config.kibana.apiKey) {
+    headers.set("Authorization", "ApiKey " + config.kibana.apiKey)
+  } else {
+    headers.set(
+      "Authorization",
+      "Basic " +
+        Buffer.from(
+          config.kibana.username + ":" + config.kibana.password
+        ).toString("base64")
+    );
+  }
+  
   headers.set("x-elastic-internal-origin", "kibana");
   headers.set("elastic-api-version", apiVersion);
   const result = await fetch(new URL(url, config.kibana.node), {
