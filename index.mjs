@@ -13,6 +13,8 @@ import {
   generateEntityStore,
 } from "./commands/entity-store.mjs";
 import config from "./config.json" assert { type: "json" };
+import inquirer from "inquirer";
+import { ENTITY_STORE_OPTIONS } from "./constants.mjs";
 
 const withEsValidation =
   (fn) =>
@@ -83,7 +85,69 @@ program
 program
   .command("entity-store")
   .description("Generate entity store")
-  .action(withKibanaValidation(withEsValidation(generateEntityStore)));
+  .action(
+    withKibanaValidation(
+      withEsValidation(() => {
+        inquirer
+          .prompt([
+            {
+              type: "checkbox",
+              message: "Select options",
+              name: "options",
+              choices: [
+                {
+                  name: "Seed (stable random data)",
+                  value: ENTITY_STORE_OPTIONS.seed,
+                  checked: true,
+                },
+                {
+                  name: "Assign asset criticality",
+                  value: ENTITY_STORE_OPTIONS.criticality,
+                  checked: true,
+                },
+                {
+                  name: "Enable Risk Engine",
+                  value: ENTITY_STORE_OPTIONS.riskEngine,
+                  checked: true,
+                },
+                {
+                  name: "Create detection rule",
+                  value: ENTITY_STORE_OPTIONS.rule,
+                  checked: true,
+                },
+              ],
+            },
+            {
+              type: 'input',
+              name: 'users',
+              message: "How many users",
+              default() {
+                return 10;
+              },
+            },
+            {
+              type: 'input',
+              name: 'hosts',
+              message: "How many hosts",
+              default() {
+                return 10;
+              },
+            },
+          ])
+          .then((answers) => {
+            const users = parseInt(answers.users);
+            const hosts = parseInt(answers.hosts);
+            generateEntityStore({
+              users,
+              hosts,
+              options: answers.options,
+            });
+          });
+      })
+    )
+  );
+
+cleanEntityStore;
 
 program
   .command("clean-entity-store")
