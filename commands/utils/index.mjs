@@ -9,14 +9,16 @@ export const getEsClient = () => {
     !(config.elastic.username && config.elastic.password)
   )
     return client;
-
+  const auth = {}
+  if(config.elastic.apiKey) {
+    auth.apiKey = config.elastic.apiKey
+  } else {
+    auth.username = config.elastic.username
+    auth.password = config.elastic.password
+  }
   client = new Client({
     node: config.elastic.node,
-    auth: {
-      // apiKey: config.elastic.apiKey,
-      username: config.elastic.username,
-      password: config.elastic.password,
-    },
+    auth,
   });
 
   return client;
