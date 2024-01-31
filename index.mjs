@@ -14,41 +14,41 @@ import {
 } from "./commands/entity-store.mjs";
 import config from "./config.json" assert { type: "json" };
 import inquirer from "inquirer";
-import { ENTITY_STORE_OPTIONS } from "./constants.mjs";
+import { ENTITY_STORE_OPTIONS, generateNewSeed } from "./constants.mjs";
 
 const withEsValidation =
   (fn) =>
-  (...args) => {
-    if (!config.elastic.node) {
-      return console.log("Please provide elastic node in config.json");
-    }
-    const hasApiKey = config.elastic.apiKey;
-    const hasPassword = config.elastic.username && config.elastic.password;
-    if (!hasApiKey && !hasPassword) {
-      console.log(
-        "Please provide elastic apiKey or username/password in config.json"
-      );
-      return;
-    }
-    return fn(...args);
-  };
+    (...args) => {
+      if (!config.elastic.node) {
+        return console.log("Please provide elastic node in config.json");
+      }
+      const hasApiKey = config.elastic.apiKey;
+      const hasPassword = config.elastic.username && config.elastic.password;
+      if (!hasApiKey && !hasPassword) {
+        console.log(
+          "Please provide elastic apiKey or username/password in config.json"
+        );
+        return;
+      }
+      return fn(...args);
+    };
 
 const withKibanaValidation =
   (fn) =>
-  (...args) => {
-    if (!config.kibana.node) {
-      return console.log("Please provide kibana node in config.json");
-    }
-    const hasPassword = config.kibana.username && config.kibana.password;
-    const hasApiKey = config.kibana.apiKey;
-    if (!hasApiKey && !hasPassword) {
-      console.log(
-        "Please provide kibana apiKey or username/password in config.json"
-      );
-      return;
-    }
-    return fn(...args);
-  };
+    (...args) => {
+      if (!config.kibana.node) {
+        return console.log("Please provide kibana node in config.json");
+      }
+      const hasPassword = config.kibana.username && config.kibana.password;
+      const hasApiKey = config.kibana.apiKey;
+      if (!hasApiKey && !hasPassword) {
+        console.log(
+          "Please provide kibana apiKey or username/password in config.json"
+        );
+        return;
+      }
+      return fn(...args);
+    };
 
 program
   .command("generate-alerts")
@@ -135,12 +135,33 @@ program
               },
             },
           ])
+          .then(answers => {
+            const seed = generateNewSeed();
+            if (answers.options.includes(ENTITY_STORE_OPTIONS.seed)) {
+              return inquirer.prompt([
+                {
+                  type: "input",
+                  name: "seed",
+                  message: `Enter seed to generate stable random data or <enter> to use a new seed`,
+                  default() {
+                    return seed;
+                  },
+                },
+              ]).then(seedAnswer => {
+                return { ...answers, ...seedAnswer };
+              })
+            }
+            return { ...answers, seed }
+          })
           .then((answers) => {
+
             const users = parseInt(answers.users);
             const hosts = parseInt(answers.hosts);
+            const seed = parseInt(answers.seed)
             generateEntityStore({
               users,
               hosts,
+              seed,
               options: answers.options,
             });
           });

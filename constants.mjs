@@ -4,3 +4,7 @@ export const ENTITY_STORE_OPTIONS = {
   riskEngine: "riskEngine",
   rule: "rule",
 };
+
+export const generateNewSeed = () => {
+  return Math.round(Math.random() * 100000);
+}
