@@ -4,10 +4,12 @@ import { chunk } from "lodash-es";
 import moment from "moment";
 import auditbeatMappings from "../mappings/auditbeat.json" assert { type: "json" };
 import { assignAssetCriticality, enableRiskScore, createRule } from "./api.mjs";
-import { ENTITY_STORE_OPTIONS } from "../constants.mjs";
+import { ENTITY_STORE_OPTIONS, generateNewSeed } from "../constants.mjs";
 
 let client = getEsClient();
 let EVENT_INDEX_NAME = "auditbeat-8.12.0-2024.01.18-000001";
+
+const offset = () => Math.random() * 1000;
 
 const ASSET_CRITICALITY = [
   "very_important",
@@ -33,7 +35,7 @@ export const createRandomHost = () => {
 
 export const createFactoryRandomEventForHost = (name) => () => {
   return {
-    "@timestamp": moment().format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
+    "@timestamp": moment().subtract(offset(), "h").format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
     message: `Host ${faker.hacker.phrase()}`,
     service: {
       type: "system",
@@ -52,7 +54,7 @@ export const createFactoryRandomEventForHost = (name) => () => {
 
 export const createFactoryRandomEventForUser = (name) => () => {
   return {
-    "@timestamp": moment().format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
+    "@timestamp": moment().subtract(offset(), "h").format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
     message: `User ${faker.hacker.phrase()}`,
     service: {
       type: "system",
@@ -114,9 +116,9 @@ const assignAssetCriticalityToEntities = async (entities, field) => {
  * Then Generate events, assign asset criticality, create rule and enable risk engine
  * @param {*} param0
  */
-export const generateEntityStore = async ({ users = 10, hosts = 10, options}) => {
-  if(options.includes(ENTITY_STORE_OPTIONS.seed)) {
-    faker.seed(12345);
+export const generateEntityStore = async ({ users = 10, hosts = 10, seed = generateNewSeed(), options }) => {
+  if (options.includes(ENTITY_STORE_OPTIONS.seed)) {
+    faker.seed(seed);
   }
   try {
     const generatedUsers = faker.helpers.multiple(createRandomUser, {
@@ -141,24 +143,24 @@ export const generateEntityStore = async ({ users = 10, hosts = 10, options}) =>
     await ingestEvents(eventsForHosts);
     console.log("Hosts events ingested");
 
-    if(options.includes(ENTITY_STORE_OPTIONS.criticality)) {
+    if (options.includes(ENTITY_STORE_OPTIONS.criticality)) {
       await assignAssetCriticalityToEntities(generatedUsers, "user.name");
       console.log("Assigned asset criticality to users");
       await assignAssetCriticalityToEntities(generatedHosts, "host.name");
       console.log("Assigned asset criticality to hosts");
     }
-    
-    if(options.includes(ENTITY_STORE_OPTIONS.riskEngine)) {
+
+    if (options.includes(ENTITY_STORE_OPTIONS.riskEngine)) {
       await enableRiskScore();
       console.log("Risk score enabled");
     }
-    
 
-    if(options.includes(ENTITY_STORE_OPTIONS.rule)) {
+
+    if (options.includes(ENTITY_STORE_OPTIONS.rule)) {
       await createRule();
       console.log("Rule created");
     }
-  
+
 
     console.log("Finished generating entity store");
   } catch (error) {
