@@ -36,10 +36,11 @@ Examles of config:
         "password": "changeme"
     },
     "kibana": {
-        "node": "http://localhost:9200",
+        "node": "http://127.0.0.1:5601",
         "username": "elastic",
         "password": "changeme"
-    }
+    },
+    "eventIndex": ""
 }
 ```
 
