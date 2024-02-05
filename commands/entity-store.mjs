@@ -33,6 +33,8 @@ export const createRandomHost = () => {
   };
 };
 
+
+
 export const createFactoryRandomEventForHost = (name) => () => {
   return {
     "@timestamp": moment().subtract(offset(), "h").format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
@@ -138,10 +140,14 @@ export const generateEntityStore = async ({ users = 10, hosts = 10, seed = gener
       createFactoryRandomEventForHost
     );
 
-    await ingestEvents(eventsForUsers);
+    const relational = matchUsersAndHosts(eventsForUsers, eventsForHosts)
+    console.log("Matched users and hosts", JSON.stringify(relational))
+
+    await ingestEvents(relational.users);
     console.log("Users events ingested");
-    await ingestEvents(eventsForHosts);
+    await ingestEvents(relational.hosts);
     console.log("Hosts events ingested");
+
 
     if (options.includes(ENTITY_STORE_OPTIONS.criticality)) {
       await assignAssetCriticalityToEntities(generatedUsers, "user.name");
@@ -197,3 +203,18 @@ export const cleanEntityStore = async () => {
     console.log(error);
   }
 };
+
+
+const matchUsersAndHosts = (users, hosts) => {
+
+  let half = Math.floor(users.length / 2);
+  console.log("Half", half)
+
+  const [_users, remainingUsers] = chunk(users, half);
+  const [_hosts, remainingHosts] = chunk(hosts, half);
+
+  return {
+    users: _users.map((user, index) => ({ ...user, host: hosts[index].host })).concat(remainingUsers),
+    hosts: _hosts.map((host, index) => ({ ...host, user: users[index].user })).concat(remainingHosts)
+  };
+}
