@@ -9,7 +9,7 @@ import { ENTITY_STORE_OPTIONS, generateNewSeed } from "../constants.mjs";
 let client = getEsClient();
 let EVENT_INDEX_NAME = "auditbeat-8.12.0-2024.01.18-000001";
 
-const offset = () => Math.random() * 1000;
+const offset = () => faker.number.int({ max: 1000 })
 
 const ASSET_CRITICALITY = [
   "very_important",
@@ -141,7 +141,6 @@ export const generateEntityStore = async ({ users = 10, hosts = 10, seed = gener
     );
 
     const relational = matchUsersAndHosts(eventsForUsers, eventsForHosts)
-    console.log("Matched users and hosts", JSON.stringify(relational))
 
     await ingestEvents(relational.users);
     console.log("Users events ingested");
@@ -206,15 +205,23 @@ export const cleanEntityStore = async () => {
 
 
 const matchUsersAndHosts = (users, hosts) => {
-
-  let half = Math.floor(users.length / 2);
-  console.log("Half", half)
-
-  const [_users, remainingUsers] = chunk(users, half);
-  const [_hosts, remainingHosts] = chunk(hosts, half);
+  const splitIndex = faker.number.int({ max: users.length - 1 });
 
   return {
-    users: _users.map((user, index) => ({ ...user, host: hosts[index].host })).concat(remainingUsers),
-    hosts: _hosts.map((host, index) => ({ ...host, user: users[index].user })).concat(remainingHosts)
+    users: users
+      .slice(0, splitIndex)
+      .map(user => {
+        const index = faker.number.int({ max: hosts.length - 1 });
+        return { ...user, host: hosts[index].host }
+      })
+      .concat(users.slice(splitIndex)),
+
+    hosts: hosts.
+      slice(0, splitIndex)
+      .map(host => {
+        const index = faker.number.int({ max: users.length - 1 });
+        return { ...host, user: users[index].user }
+      })
+      .concat(hosts.slice(splitIndex))
   };
 }
