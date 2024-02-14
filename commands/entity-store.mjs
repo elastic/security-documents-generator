@@ -9,7 +9,7 @@ import { ENTITY_STORE_OPTIONS, generateNewSeed } from "../constants.mjs";
 let client = getEsClient();
 let EVENT_INDEX_NAME = "auditbeat-8.12.0-2024.01.18-000001";
 
-const offset = () => Math.random() * 1000;
+const offset = () => faker.number.int({ max: 1000 })
 
 const ASSET_CRITICALITY = [
   "very_important",
@@ -32,6 +32,8 @@ export const createRandomHost = () => {
     assetCriticality: faker.helpers.arrayElement(ASSET_CRITICALITY),
   };
 };
+
+
 
 export const createFactoryRandomEventForHost = (name) => () => {
   return {
@@ -138,10 +140,13 @@ export const generateEntityStore = async ({ users = 10, hosts = 10, seed = gener
       createFactoryRandomEventForHost
     );
 
-    await ingestEvents(eventsForUsers);
+    const relational = matchUsersAndHosts(eventsForUsers, eventsForHosts)
+
+    await ingestEvents(relational.users);
     console.log("Users events ingested");
-    await ingestEvents(eventsForHosts);
+    await ingestEvents(relational.hosts);
     console.log("Hosts events ingested");
+
 
     if (options.includes(ENTITY_STORE_OPTIONS.criticality)) {
       await assignAssetCriticalityToEntities(generatedUsers, "user.name");
@@ -197,3 +202,26 @@ export const cleanEntityStore = async () => {
     console.log(error);
   }
 };
+
+
+const matchUsersAndHosts = (users, hosts) => {
+  const splitIndex = faker.number.int({ max: users.length - 1 });
+
+  return {
+    users: users
+      .slice(0, splitIndex)
+      .map(user => {
+        const index = faker.number.int({ max: hosts.length - 1 });
+        return { ...user, host: hosts[index].host }
+      })
+      .concat(users.slice(splitIndex)),
+
+    hosts: hosts.
+      slice(0, splitIndex)
+      .map(host => {
+        const index = faker.number.int({ max: users.length - 1 });
+        return { ...host, user: users[index].user }
+      })
+      .concat(hosts.slice(splitIndex))
+  };
+}
