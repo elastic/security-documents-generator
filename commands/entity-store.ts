@@ -1,10 +1,10 @@
 import { faker } from "@faker-js/faker";
-import { getEsClient, indexCheck } from "./utils/index.mjs";
+import { getEsClient, indexCheck } from "./utils/index";
 import { chunk } from "lodash-es";
 import moment from "moment";
 import auditbeatMappings from "../mappings/auditbeat.json" assert { type: "json" };
-import { assignAssetCriticality, enableRiskScore, createRule } from "./api.mjs";
-import { ENTITY_STORE_OPTIONS, generateNewSeed } from "../constants.mjs";
+import { assignAssetCriticality, enableRiskScore, createRule } from "./api";
+import { ENTITY_STORE_OPTIONS, generateNewSeed } from "../constants";
 
 let client = getEsClient();
 let EVENT_INDEX_NAME = "auditbeat-8.12.0-2024.01.18-000001";

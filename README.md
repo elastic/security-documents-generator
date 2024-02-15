@@ -68,7 +68,7 @@ Examles of config:
 
 ### Alert document
 
-To modify alert document, you can change `createAlert.mjs` file.
+To modify alert document, you can change `createAlert.ts` file.
 
 
 ### How to test Risk Score Api
@@ -100,7 +100,7 @@ npm start test-risk-score
 
 4. (Optional) Change mappings in `eventMappings.json` file.
 
-5. (Optional) Change event structure in `createEvents.mjs` file
+5. (Optional) Change event structure in `createEvents.ts` file
 
 6. Run `npm start generate-events n`. Where `n` is the amount of documents that will be generated.
 

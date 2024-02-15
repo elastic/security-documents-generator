@@ -1,9 +1,9 @@
 
-import createAlerts from "../createAlerts.mjs";
-import createEvents from "../createEvents.mjs";
+import createAlerts from "../createAlerts";
+import createEvents from "../createEvents";
 import alertMappings from "../mappings/alertMappings.json" assert { type: "json" };
 import eventMappings from "../mappings/eventMappings.json" assert { type: "json" };
-import { getEsClient, indexCheck } from "./utils/index.mjs";
+import { getEsClient, indexCheck } from "./utils/index";
 
 import config from "../config.json" assert { type: "json" };
 

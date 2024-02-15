@@ -6,15 +6,15 @@ import {
   deleteAllEvents,
   generateGraph,
   generateEvents,
-} from "./commands/documents.mjs";
-import { fetchRiskScore } from "./commands/api.mjs";
+} from "./commands/documents";
+import { fetchRiskScore } from "./commands/api";
 import {
   cleanEntityStore,
   generateEntityStore,
-} from "./commands/entity-store.mjs";
+} from "./commands/entity-store";
 import config from "./config.json" assert { type: "json" };
 import inquirer from "inquirer";
-import { ENTITY_STORE_OPTIONS, generateNewSeed } from "./constants.mjs";
+import { ENTITY_STORE_OPTIONS, generateNewSeed } from "./constants";
 
 const withEsValidation =
   (fn) =>
