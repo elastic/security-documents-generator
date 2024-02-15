@@ -12,11 +12,7 @@ let EVENT_INDEX_NAME = "auditbeat-8.12.0-2024.01.18-000001";
 const offset = () => faker.number.int({ max: 1000 })
 
 const ASSET_CRITICALITY = [
-  "very_important",
-  "not_important",
-  "normal",
-  "important",
-  "unknown",
+  "low_impact", "medium_impact", "high_impact", "extreme_impact", "unknown",
 ];
 
 export const createRandomUser = () => {
