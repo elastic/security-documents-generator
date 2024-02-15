@@ -1,18 +1,23 @@
 
-import createAlerts from "../createAlerts";
+import createAlerts, { FakeAlert } from "../createAlerts";
 import createEvents from "../createEvents";
 import alertMappings from "../mappings/alertMappings.json" assert { type: "json" };
 import eventMappings from "../mappings/eventMappings.json" assert { type: "json" };
 import { getEsClient, indexCheck } from "./utils/index";
 
 import config from "../config.json" assert { type: "json" };
+import { BulkRequest } from "@elastic/elasticsearch/lib/api/types";
 
 let client = getEsClient();
+
 
 const ALERT_INDEX = ".alerts-security.alerts-default";
 const EVENT_INDEX = config.eventIndex;
 
 const generateDocs = async ({ createDocs, amount, index }) => {
+  if (!client) {
+    throw new Error('failed to create ES client');
+  }
   let limit = 30000;
   let generated = 0;
 
@@ -35,11 +40,14 @@ const generateDocs = async ({ createDocs, amount, index }) => {
   }
 };
 
-const createDocuments = (n, generated, createDoc, index) => {
+interface DocumentCreator {
+	(descriptor: { id_field: string, id_value: string }): object;
+}
+
+const createDocuments = (n: number, generated: number, createDoc: DocumentCreator, index: string): unknown[] => {
   return Array(n)
     .fill(null)
-    .reduce((acc, val, i) => {
-      let count = Math.floor((generated + i) / 10);
+    .reduce((acc, _, i) => {
       let alert = createDoc({
         id_field: "host.name",
         id_value: `Host ${generated + i}`,
@@ -57,7 +65,7 @@ const createDocuments = (n, generated, createDoc, index) => {
 };
 
 
-export const generateAlerts = async (n) => {
+export const generateAlerts = async (n: number) => {
   await indexCheck(ALERT_INDEX, alertMappings);
 
   console.log("Generating alerts...");
@@ -71,7 +79,7 @@ export const generateAlerts = async (n) => {
   console.log("Finished gerating alerts");
 };
 
-export const generateEvents = async (n) => {
+export const generateEvents = async (n: number) => {
   await indexCheck(EVENT_INDEX, eventMappings);
 
   console.log("Generating events...");
@@ -86,11 +94,18 @@ export const generateEvents = async (n) => {
 };
 
 export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
-  await alertIndexCheck();
+  //await alertIndexCheck(); TODO
   console.log("Generating alerts graph...");
 
   const clusters = [];
-  let alerts = [];
+
+  /**
+   * The type you can pass to the bulk API, if you're working with Fake Alerts.
+   * This accepts partial docs, full docs, and other docs that indicate _index, _id, and such
+   */
+  type FakeAlertBulkOperations = BulkRequest<FakeAlert, FakeAlert>['operations'] extends infer A ? A extends undefined ? never : A: never;
+
+  let alerts: FakeAlertBulkOperations[] = [];
   for (let i = 0; i < users; i++) {
     let userCluster = [];
     for (let j = 0; j < maxHosts; j++) {
@@ -109,7 +124,7 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
     clusters.push(userCluster);
   }
 
-  let lastAlertFromCluster = null;
+  let lastAlertFromCluster: FakeAlert | null  = null;
   clusters.forEach((cluster) => {
     if (lastAlertFromCluster) {
       const alert = createAlerts({

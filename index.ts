@@ -17,8 +17,8 @@ import inquirer from "inquirer";
 import { ENTITY_STORE_OPTIONS, generateNewSeed } from "./constants";
 
 const withEsValidation =
-  (fn) =>
-    (...args) => {
+  <F extends (...a: A) => R, A extends unknown[], R>(fn: F) =>
+    (...args: A) => {
       if (!config.elastic.node) {
         return console.log("Please provide elastic node in config.json");
       }
@@ -34,8 +34,8 @@ const withEsValidation =
     };
 
 const withKibanaValidation =
-  (fn) =>
-    (...args) => {
+  <F extends (...a: A) => R, A extends unknown[], R>(fn: F) =>
+    (...args: A) => {
       if (!config.kibana.node) {
         return console.log("Please provide kibana node in config.json");
       }
