@@ -8,12 +8,12 @@ import { getConfig } from '../get_config';
 import { MappingTypeMapping, BulkOperationContainer } from '@elastic/elasticsearch/lib/api/types';
 
 const config = getConfig();
-const client = getEsClient(); 
+const client = getEsClient();
 
 const ALERT_INDEX = '.alerts-security.alerts-default';
-const EVENT_INDEX = config.eventIndex;
+const EVENT_INDEX = config.eventIndex ?? '';
 
-const generateDocs = async ({ createDocs, amount, index }: {createDocs: DocumentCreator; amount: number; index: string}) => {
+const generateDocs = async ({ createDocs, amount, index }: { createDocs: DocumentCreator; amount: number; index: string }) => {
   if (!client) {
     throw new Error('failed to create ES client');
   }
@@ -29,7 +29,7 @@ const generateDocs = async ({ createDocs, amount, index }: {createDocs: Document
     );
     try {
       const result = await client.bulk({ body: docs, refresh: true });
-      generated += result.items.length / 2;
+      generated += result.items.length;
       console.log(
         `${result.items.length} documents created, ${amount - generated} left`
       );
@@ -40,24 +40,37 @@ const generateDocs = async ({ createDocs, amount, index }: {createDocs: Document
 };
 
 interface DocumentCreator {
-	(descriptor: { id_field: string, id_value: string }): object;
+  (override: object): object;
 }
+
+const NUMBER_OF_HOSTS = 100;
+const NUMBER_OF_USERS = 100;
+
 
 const createDocuments = (n: number, generated: number, createDoc: DocumentCreator, index: string): unknown[] => {
   return Array(n)
     .fill(null)
+    // +    .reduce((acc, val, i) => {
     .reduce((acc, _, i) => {
-      let alert = createDoc({
-        id_field: 'host.name',
-        id_value: `Host ${generated + i}`,
+      // let alert = createDoc({
+      //   id_field: 'host.name',
+      //   id_value: `Host ${generated + i}`,
+      // });
+      // acc.push({ index: { _index: index } });
+      // acc.push({ ...alert });
+      // alert = createDoc({
+      //   id_field: 'user.name',
+      //   id_value: `User ${generated + i}`,
+      // });
+
+      const alert = createDoc({
+        'host.name': 'test-host' + (generated + i) % NUMBER_OF_HOSTS, 
+        'user.name': 'test-user' + (generated + i) % NUMBER_OF_USERS,
       });
-      acc.push({ index: { _index: index } });
-      acc.push({ ...alert });
-      alert = createDoc({
-        id_field: 'user.name',
-        id_value: `User ${generated + i}`,
-      });
-      acc.push({ index: { _index: index } });
+
+
+
+      acc.push({ index: { _index: index, op_type: 'create' } });
       acc.push({ ...alert });
       return acc;
     }, []);
@@ -96,9 +109,9 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
   //await alertIndexCheck(); TODO
   console.log('Generating alerts graph...');
 
-  type AlertOverride ={host: { name: string }; user: { name: string }}; 
+  type AlertOverride = { host: { name: string }; user: { name: string } };
 
-  const clusters: (ReturnType<typeof createAlerts>&AlertOverride)[][] = [];
+  const clusters: (ReturnType<typeof createAlerts> & AlertOverride)[][] = [];
 
   /**
    * The type you can pass to the bulk API, if you're working with Fake Alerts.
@@ -123,7 +136,7 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
     clusters.push(userCluster);
   }
 
-  let lastAlertFromCluster: (ReturnType<typeof createAlerts>&AlertOverride) | null  = null;
+  let lastAlertFromCluster: (ReturnType<typeof createAlerts> & AlertOverride) | null = null;
   clusters.forEach((cluster) => {
     if (lastAlertFromCluster) {
       const alert = createAlerts({
