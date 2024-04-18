@@ -1,11 +1,15 @@
-import { URL } from "node:url";
+import urlJoin from 'url-join';
 import fetch, { Headers } from "node-fetch";
 import config from "../config.json" assert { type: "json" };
 
-export const kibanaFetch = async (url, params, apiVersion = 1) => {
+const appendPathToKibanaNode = (path) => urlJoin(config.kibana.node, path);
+
+export const kibanaFetch = async (path, params, apiVersion = 1) => {
+
+  const url = appendPathToKibanaNode(path);
+
   try {
     let headers = new Headers();
-
     headers.append("Content-Type", "application/json");
     headers.append("kbn-xsrf", "true");
     if (config.kibana.apiKey) {
@@ -22,7 +26,7 @@ export const kibanaFetch = async (url, params, apiVersion = 1) => {
 
     headers.set("x-elastic-internal-origin", "kibana");
     headers.set("elastic-api-version", apiVersion);
-    const result = await fetch(new URL(url, config.kibana.node), {
+    const result = await fetch(url, {
       headers: headers,
       ...params,
     });
