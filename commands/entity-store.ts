@@ -205,19 +205,6 @@ export const cleanEntityStore = async () => {
   }
 };
 
-type JSONValue = 
-  | string
-  | number
-  | boolean
-  | null
-  | JSONObject
-  | JSONArray;
-
-interface JSONObject {
-  [key: string]: JSONValue;
-}
-
-interface JSONArray extends Array<JSONValue> {}
 const matchUsersAndHosts = <U extends object, H extends object, UA extends { user: U }, HA extends { host: H }>(users: Array<UA>, hosts: Array<HA>): { users: Array<UA&{host?:H;}>, hosts: Array<HA&{user?:U}> } => {
   const splitIndex = faker.number.int({ max: users.length - 1 });
 

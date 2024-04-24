@@ -104,7 +104,7 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
    * The type you can pass to the bulk API, if you're working with Fake Alerts.
    * This accepts partial docs, full docs, and other docs that indicate _index, _id, and such
    */
-  type FakeAlertBulkOperations = BulkOperationContainer | Partial<FakeAlert<AlertOverride>>;//, Partial<FakeAlert<AlertOverride>>>['operations'];
+  type FakeAlertBulkOperations = BulkOperationContainer | Partial<FakeAlert<AlertOverride>>;
 
   let alerts: FakeAlertBulkOperations[] = [];
   for (let i = 0; i < users; i++) {
