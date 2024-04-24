@@ -5,6 +5,7 @@ import moment from "moment";
 import auditbeatMappings from "../mappings/auditbeat.json" assert { type: "json" };
 import { assignAssetCriticality, enableRiskScore, createRule } from "./api";
 import { ENTITY_STORE_OPTIONS, generateNewSeed } from "../constants";
+import { BulkOperationContainer, BulkUpdateAction } from "@elastic/elasticsearch/lib/api/types";
 
 let client = getEsClient();
 let EVENT_INDEX_NAME = "auditbeat-8.12.0-2024.01.18-000001";
@@ -31,7 +32,7 @@ export const createRandomHost = () => {
 
 
 
-export const createFactoryRandomEventForHost = (name) => () => {
+export const createFactoryRandomEventForHost = (name: string) => () => {
   return {
     "@timestamp": moment().subtract(offset(), "h").format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
     message: `Host ${faker.hacker.phrase()}`,
@@ -50,7 +51,7 @@ export const createFactoryRandomEventForHost = (name) => () => {
   };
 };
 
-export const createFactoryRandomEventForUser = (name) => () => {
+export const createFactoryRandomEventForUser = (name: string) => () => {
   return {
     "@timestamp": moment().subtract(offset(), "h").format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
     message: `User ${faker.hacker.phrase()}`,
@@ -65,7 +66,10 @@ export const createFactoryRandomEventForUser = (name) => () => {
   };
 };
 
-const ingestEvents = async (events) => {
+const ingestEvents = async (events: Array<object>) => {
+
+	type TDocument = object;
+	type TPartialDocument = Partial<TDocument>;
 
   await indexCheck(EVENT_INDEX_NAME, auditbeatMappings);
 
@@ -74,30 +78,32 @@ const ingestEvents = async (events) => {
   for (let chunk of chunks) {
     try {
       // Make bulk request
-      let ingestRequest = chunk.reduce((acc, event) => {
+      let ingestRequest = chunk.reduce((acc: (BulkOperationContainer | BulkUpdateAction<TDocument, TPartialDocument> | TDocument)[], event) => {
         acc.push({ index: { _index: EVENT_INDEX_NAME } });
         acc.push(event);
         return acc;
       }, []);
-      const result = await client.bulk({ body: ingestRequest, refresh: true });
+      if (!client) throw new Error;
+	      await client.bulk({ operations: ingestRequest, refresh: true });
     } catch (err) {
       console.log("Error: ", err);
     }
   }
 };
 
-export const generateEvents = (entities, createEventFactory) => {
+export const generateEvents = <F extends unknown>(entities: { name: string; assetCriticality: string; }[], createEventFactory: (entityName: string) => () => F): F[] => {
   const eventsPerEntity = 10;
+  const acc: F[] = [];
   return entities.reduce((acc, entity) => {
     const events = faker.helpers.multiple(createEventFactory(entity.name), {
       count: eventsPerEntity,
     });
     acc.push(...events);
     return acc;
-  }, []);
+  }, acc);
 };
 
-const assignAssetCriticalityToEntities = async (entities, field) => {
+const assignAssetCriticalityToEntities = async (entities: { name: string; assetCriticality: string; }[], field: string) => {
   for (const entity of entities) {
     const { name, assetCriticality } = entity;
     if (assetCriticality === "unknown") return;
@@ -112,9 +118,8 @@ const assignAssetCriticalityToEntities = async (entities, field) => {
 /**
  * Generate entities first
  * Then Generate events, assign asset criticality, create rule and enable risk engine
- * @param {*} param0
  */
-export const generateEntityStore = async ({ users = 10, hosts = 10, seed = generateNewSeed(), options }) => {
+export const generateEntityStore = async ({ users = 10, hosts = 10, seed = generateNewSeed(), options }: { users: number; hosts: number; seed: number; options: string[]}) => {
   if (options.includes(ENTITY_STORE_OPTIONS.seed)) {
     faker.seed(seed);
   }
@@ -173,6 +178,7 @@ export const cleanEntityStore = async () => {
   console.log("Deleting all entity-store data...");
   try {
     console.log("Deleted all events");
+    if (!client) throw new Error;
     await client.deleteByQuery({
       index: EVENT_INDEX_NAME,
       refresh: true,
@@ -199,14 +205,26 @@ export const cleanEntityStore = async () => {
   }
 };
 
+type JSONValue = 
+  | string
+  | number
+  | boolean
+  | null
+  | JSONObject
+  | JSONArray;
 
-const matchUsersAndHosts = (users, hosts) => {
+interface JSONObject {
+  [key: string]: JSONValue;
+}
+
+interface JSONArray extends Array<JSONValue> {}
+const matchUsersAndHosts = <U extends object, H extends object, UA extends { user: U }, HA extends { host: H }>(users: Array<UA>, hosts: Array<HA>): { users: Array<UA&{host?:H;}>, hosts: Array<HA&{user?:U}> } => {
   const splitIndex = faker.number.int({ max: users.length - 1 });
 
   return {
     users: users
       .slice(0, splitIndex)
-      .map(user => {
+      .map((user): UA&{host?:H} => {
         const index = faker.number.int({ max: hosts.length - 1 });
         return { ...user, host: hosts[index].host }
       })
@@ -214,7 +232,7 @@ const matchUsersAndHosts = (users, hosts) => {
 
     hosts: hosts.
       slice(0, splitIndex)
-      .map(host => {
+      .map((host): HA&{user?:U} => {
         const index = faker.number.int({ max: users.length - 1 });
         return { ...host, user: users[index].user }
       })

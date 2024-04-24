@@ -6,15 +6,14 @@ import eventMappings from "../mappings/eventMappings.json" assert { type: "json"
 import { getEsClient, indexCheck } from "./utils/index";
 
 import config from "../config.json" assert { type: "json" };
-import { BulkRequest } from "@elastic/elasticsearch/lib/api/types";
+import { BulkOperationContainer } from "@elastic/elasticsearch/lib/api/typesWithBodyKey";
 
 let client = getEsClient();
-
 
 const ALERT_INDEX = ".alerts-security.alerts-default";
 const EVENT_INDEX = config.eventIndex;
 
-const generateDocs = async ({ createDocs, amount, index }) => {
+const generateDocs = async ({ createDocs, amount, index }: {createDocs: DocumentCreator; amount: number; index: string}) => {
   if (!client) {
     throw new Error('failed to create ES client');
   }
@@ -97,13 +96,15 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
   //await alertIndexCheck(); TODO
   console.log("Generating alerts graph...");
 
-  const clusters = [];
+  type AlertOverride ={host: { name: string }; user: { name: string }}; 
+
+  const clusters: (ReturnType<typeof createAlerts>&AlertOverride)[][] = [];
 
   /**
    * The type you can pass to the bulk API, if you're working with Fake Alerts.
    * This accepts partial docs, full docs, and other docs that indicate _index, _id, and such
    */
-  type FakeAlertBulkOperations = BulkRequest<FakeAlert, FakeAlert>['operations'] extends infer A ? A extends undefined ? never : A: never;
+  type FakeAlertBulkOperations = BulkOperationContainer | Partial<FakeAlert<AlertOverride>>;//, Partial<FakeAlert<AlertOverride>>>['operations'];
 
   let alerts: FakeAlertBulkOperations[] = [];
   for (let i = 0; i < users; i++) {
@@ -124,7 +125,7 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
     clusters.push(userCluster);
   }
 
-  let lastAlertFromCluster: FakeAlert | null  = null;
+  let lastAlertFromCluster: (ReturnType<typeof createAlerts>&AlertOverride) | null  = null;
   clusters.forEach((cluster) => {
     if (lastAlertFromCluster) {
       const alert = createAlerts({
@@ -150,6 +151,7 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
   });
 
   try {
+	  if (!client) throw new Error;
     const result = await client.bulk({ body: alerts, refresh: true });
     console.log(`${result.items.length} alerts created`);
   } catch (err) {
@@ -161,6 +163,7 @@ export const deleteAllAlerts = async () => {
   console.log("Deleting all alerts...");
   try {
     console.log("Deleted all alerts");
+    if (!client) throw new Error;
     await client.deleteByQuery({
       index: ALERT_INDEX,
       refresh: true,
@@ -180,6 +183,7 @@ export const deleteAllEvents = async () => {
   console.log("Deleting all events...");
   try {
     console.log("Deleted all events");
+    if (!client) throw new Error;
     await client.deleteByQuery({
       index: EVENT_INDEX,
       refresh: true,

@@ -12,40 +12,40 @@ import {
   cleanEntityStore,
   generateEntityStore,
 } from "./commands/entity-store";
-import config from "./config.json" assert { type: "json" };
+import config from './typed_config';
 import inquirer from "inquirer";
 import { ENTITY_STORE_OPTIONS, generateNewSeed } from "./constants";
 
+type CommandFn = (...args: any[]) => void | Promise<void>;
+
 const withEsValidation =
-  <F extends (...a: A) => R, A extends unknown[], R>(fn: F) =>
-    (...args: A) => {
+  <F extends CommandFn>(fn: F) =>
+    (...args: Parameters<F>) => {
       if (!config.elastic.node) {
-        return console.log("Please provide elastic node in config.json");
+        throw new Error("Please provide elastic node in config.json");
       }
       const hasApiKey = config.elastic.apiKey;
       const hasPassword = config.elastic.username && config.elastic.password;
       if (!hasApiKey && !hasPassword) {
-        console.log(
+        throw new Error(
           "Please provide elastic apiKey or username/password in config.json"
         );
-        return;
       }
       return fn(...args);
     };
 
 const withKibanaValidation =
-  <F extends (...a: A) => R, A extends unknown[], R>(fn: F) =>
-    (...args: A) => {
+  <F extends CommandFn>(fn: F) =>
+    (...args: Parameters<F>) => {
       if (!config.kibana.node) {
-        return console.log("Please provide kibana node in config.json");
+        throw new Error("Please provide kibana node in config.json");
       }
       const hasPassword = config.kibana.username && config.kibana.password;
       const hasApiKey = config.kibana.apiKey;
       if (!hasApiKey && !hasPassword) {
-        console.log(
+        throw new Error(
           "Please provide kibana apiKey or username/password in config.json"
         );
-        return;
       }
       return fn(...args);
     };
@@ -83,6 +83,13 @@ program
   .description("Test risk score API")
   .action(withEsValidation(fetchRiskScore));
 
+type EntityStoreAnswers = {
+	options: string[];
+	users: number;
+	hosts: number;
+	seed: number;
+};
+
 program
   .command("entity-store")
   .description("Generate entity store")
@@ -90,7 +97,7 @@ program
     withKibanaValidation(
       withEsValidation(() => {
         inquirer
-          .prompt([
+          .prompt<EntityStoreAnswers>([
             {
               type: "checkbox",
               message: "Select options",
@@ -122,14 +129,20 @@ program
               type: 'input',
               name: 'users',
               message: "How many users",
-              default() {
+	      default() {
                 return 10;
               },
+		  filter(input) {
+		    return parseInt(input, 10);
+		  },
             },
             {
               type: 'input',
               name: 'hosts',
               message: "How many hosts",
+		  filter(input) {
+		    return parseInt(input, 10);
+		  },
               default() {
                 return 10;
               },
@@ -138,11 +151,14 @@ program
           .then(answers => {
             const seed = generateNewSeed();
             if (answers.options.includes(ENTITY_STORE_OPTIONS.seed)) {
-              return inquirer.prompt([
+              return inquirer.prompt<{ seed: number }>([
                 {
                   type: "input",
                   name: "seed",
                   message: `Enter seed to generate stable random data or <enter> to use a new seed`,
+		  filter(input) {
+		    return parseInt(input, 10);
+		  },
                   default() {
                     return seed;
                   },
@@ -155,9 +171,8 @@ program
           })
           .then((answers) => {
 
-            const users = parseInt(answers.users);
-            const hosts = parseInt(answers.hosts);
-            const seed = parseInt(answers.seed)
+		  const {
+			  users,hosts,seed}=answers;
             generateEntityStore({
               users,
               hosts,

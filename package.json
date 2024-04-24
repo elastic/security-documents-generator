@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "typecheck": "tsc --noEmit",
     "start": "tsx index"
   },
   "author": "",
@@ -12,6 +13,7 @@
   "dependencies": {
     "@elastic/elasticsearch": "^8.6.0",
     "@faker-js/faker": "^8.0.0",
+    "@types/lodash-es": "^4.17.12",
     "chalk": "^5.2.0",
     "commander": "^10.0.0",
     "conf": "^11.0.1",

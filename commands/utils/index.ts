@@ -1,5 +1,5 @@
-import { Client } from "@elastic/elasticsearch";
-import config from "../../config.json" assert { type: "json" };
+import { Client, ClientOptions } from "@elastic/elasticsearch";
+import config from '../../typed_config';
 
 export const getEsClient = () => {
   let client = null;
@@ -9,12 +9,14 @@ export const getEsClient = () => {
     !(config.elastic.username && config.elastic.password)
   )
     return client;
-  const auth = {}
+  let auth;
   if(config.elastic.apiKey) {
-    auth.apiKey = config.elastic.apiKey
-  } else {
-    auth.username = config.elastic.username
-    auth.password = config.elastic.password
+    auth = {apiKey : config.elastic.apiKey};
+  } else if (config.elastic.username && config.elastic.password){
+	  auth = {
+    username : config.elastic.username,
+    password : config.elastic.password,
+	  };
   }
   client = new Client({
     node: config.elastic.node,
@@ -24,8 +26,11 @@ export const getEsClient = () => {
   return client;
 };
 
-export const indexCheck = async (index, mappings) => {
+export const indexCheck = async (index: string, mappings: object) => {
   let client = getEsClient();
+  if (!client) {
+    throw new Error;
+  }
   const isExist = await client.indices.exists({ index: index });
   if (isExist) return;
 
