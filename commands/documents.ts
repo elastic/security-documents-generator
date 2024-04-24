@@ -1,5 +1,5 @@
 
-import createAlerts, { FakeAlert } from "../createAlerts";
+import createAlerts from "../createAlerts";
 import createEvents from "../createEvents";
 import alertMappings from "../mappings/alertMappings.json" assert { type: "json" };
 import eventMappings from "../mappings/eventMappings.json" assert { type: "json" };
@@ -104,7 +104,7 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
    * The type you can pass to the bulk API, if you're working with Fake Alerts.
    * This accepts partial docs, full docs, and other docs that indicate _index, _id, and such
    */
-  type FakeAlertBulkOperations = BulkOperationContainer | Partial<FakeAlert<AlertOverride>>;
+  type FakeAlertBulkOperations = BulkOperationContainer | Partial<AlertOverride>;
 
   let alerts: FakeAlertBulkOperations[] = [];
   for (let i = 0; i < users; i++) {

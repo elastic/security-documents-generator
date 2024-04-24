@@ -1,7 +1,5 @@
 import { faker } from '@faker-js/faker';
 
-export type FakeAlert<Override extends {}> = ExplodeFieldNames<ReturnType<typeof createAlerts> & Override>;
-
 function baseCreateAlerts() {
    return {
         "kibana.alert.start": "2023-04-11T20:18:15.816Z",
@@ -101,28 +99,3 @@ function baseCreateAlerts() {
 export default function createAlerts<O extends {}>(override: O): O & ReturnType<typeof baseCreateAlerts> {
 	return { ...baseCreateAlerts(), ...override };
 }
-
-type DotToObject<T extends string, V> = T extends `${infer First}.${infer Rest}`
-  ? { [K in First]: DotToObject<Rest, V> }
-  : { [K in T]: V };
-
-// Improved MergeObjects to handle nested structures more robustly
-type MergeObjects<T, U> = T & U extends object
-  ? { [P in keyof (T & U)]: P extends keyof T
-      ? P extends keyof U
-        ? MergeObjects<T[P], U[P]>
-        : T[P]
-      : P extends keyof U
-      ? U[P]
-      : never }
-  : T & U;
-
-// Utility to recursively apply MergeObjects to an array of objects
-type RecursivelyMergeUnion<T> = (T extends any ? (arg: T) => void : never) extends (arg: infer U) => void
-  ? U
-  : never;
-
-// Transform and merge the properties using RecursivelyMergeUnion
-type ExplodeFieldNames<T> = RecursivelyMergeUnion<{
-  [K in keyof T]: K extends string ? DotToObject<K, T[K]> : never;
-}[keyof T]>;
