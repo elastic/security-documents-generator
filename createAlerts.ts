@@ -2,20 +2,6 @@ import { faker } from '@faker-js/faker';
 
 export type FakeAlert<Override extends {}> = ExplodeFieldNames<ReturnType<typeof createAlerts> & Override>;
 
-type JSONValue = 
-  | string
-  | number
-  | boolean
-  | null
-  | JSONObject
-  | JSONArray;
-
-interface JSONObject {
-  [key: string]: JSONValue;
-}
-
-interface JSONArray extends Array<JSONValue> {}
-
 function baseCreateAlerts() {
    return {
         "kibana.alert.start": "2023-04-11T20:18:15.816Z",
