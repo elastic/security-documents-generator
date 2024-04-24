@@ -1,18 +1,29 @@
-import { faker } from "@faker-js/faker";
-import { getEsClient, indexCheck } from "./utils/index.mjs";
-import { chunk } from "lodash-es";
-import moment from "moment";
-import auditbeatMappings from "../mappings/auditbeat.json" assert { type: "json" };
-import { assignAssetCriticality, enableRiskScore, createRule } from "./api.mjs";
-import { ENTITY_STORE_OPTIONS, generateNewSeed } from "../constants.mjs";
+import { faker } from '@faker-js/faker';
+import { getEsClient, indexCheck } from './utils/index.mjs';
+import { chunk } from 'lodash-es';
+import moment from 'moment';
+import auditbeatMappings from '../mappings/auditbeat.json' assert { type: 'json' };
+import { assignAssetCriticality, enableRiskScore, createRule } from './api.mjs';
+import { ENTITY_STORE_OPTIONS, generateNewSeed } from '../constants.mjs';
+import { createAgentDocument } from './utils/create_agent_document.mjs';
+import config from '../config.json' assert { type: 'json' };
 
 let client = getEsClient();
-let EVENT_INDEX_NAME = "auditbeat-8.12.0-2024.01.18-000001";
+let EVENT_INDEX_NAME = 'auditbeat-8.12.0-2024.01.18-000001';
+const AGENT_INDEX_NAME = '.fleet-agents-7';
 
-const offset = () => faker.number.int({ max: 1000 })
+if (config.eventDateOffsetHours !== undefined) {
+  console.log(`Using event date offset: ${config.eventDateOffsetHours} hours`);
+}
+const offset = () =>
+  config.eventDateOffsetHours ?? faker.number.int({ max: 1000 });
 
 const ASSET_CRITICALITY = [
-  "low_impact", "medium_impact", "high_impact", "extreme_impact", "unknown",
+  'low_impact',
+  'medium_impact',
+  'high_impact',
+  'extreme_impact',
+  'unknown',
 ];
 
 export const createRandomUser = () => {
@@ -29,14 +40,15 @@ export const createRandomHost = () => {
   };
 };
 
-
-
 export const createFactoryRandomEventForHost = (name) => () => {
   return {
-    "@timestamp": moment().subtract(offset(), "h").format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
+    '@timestamp': moment()
+      .utc()
+      .subtract(offset, 'h')
+      .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
     message: `Host ${faker.hacker.phrase()}`,
     service: {
-      type: "system",
+      type: 'system',
     },
     host: {
       name,
@@ -44,7 +56,7 @@ export const createFactoryRandomEventForHost = (name) => () => {
       ip: faker.internet.ip(),
       mac: faker.internet.mac(),
       os: {
-        name: faker.helpers.arrayElement(["Windows", "Linux", "MacOS"]),
+        name: faker.helpers.arrayElement(['Windows', 'Linux', 'MacOS']),
       },
     },
   };
@@ -52,10 +64,12 @@ export const createFactoryRandomEventForHost = (name) => () => {
 
 export const createFactoryRandomEventForUser = (name) => () => {
   return {
-    "@timestamp": moment().subtract(offset(), "h").format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
+    '@timestamp': moment()
+      .subtract(offset(), 'h')
+      .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
     message: `User ${faker.hacker.phrase()}`,
     service: {
-      type: "system",
+      type: 'system',
     },
     user: {
       name,
@@ -65,26 +79,29 @@ export const createFactoryRandomEventForUser = (name) => () => {
   };
 };
 
-const ingestEvents = async (events) => {
+const ingestEvents = async (events) => ingest(EVENT_INDEX_NAME, events, auditbeatMappings);
 
-  await indexCheck(EVENT_INDEX_NAME, auditbeatMappings);
+const ingestAgents = async (agents) => ingest(AGENT_INDEX_NAME, agents);
 
-  let chunks = chunk(events, 10000);
+const ingest = async (index, documents, mapping) => {
+  await indexCheck(index, mapping);
+
+  let chunks = chunk(documents, 10000);
 
   for (let chunk of chunks) {
     try {
       // Make bulk request
-      let ingestRequest = chunk.reduce((acc, event) => {
-        acc.push({ index: { _index: EVENT_INDEX_NAME } });
-        acc.push(event);
+      let ingestRequest = chunk.reduce((acc, document) => {
+        acc.push({ index: { _index: index } });
+        acc.push(document);
         return acc;
       }, []);
-      const result = await client.bulk({ body: ingestRequest, refresh: true });
+      return await client.bulk({ body: ingestRequest, refresh: true });
     } catch (err) {
-      console.log("Error: ", err);
+      console.log('Error: ', err);
     }
   }
-};
+}
 
 export const generateEvents = (entities, createEventFactory) => {
   const eventsPerEntity = 10;
@@ -100,7 +117,7 @@ export const generateEvents = (entities, createEventFactory) => {
 const assignAssetCriticalityToEntities = async (entities, field) => {
   for (const entity of entities) {
     const { name, assetCriticality } = entity;
-    if (assetCriticality === "unknown") return;
+    if (assetCriticality === 'unknown') return;
     await assignAssetCriticality({
       id_field: field,
       id_value: name,
@@ -114,7 +131,12 @@ const assignAssetCriticalityToEntities = async (entities, field) => {
  * Then Generate events, assign asset criticality, create rule and enable risk engine
  * @param {*} param0
  */
-export const generateEntityStore = async ({ users = 10, hosts = 10, seed = generateNewSeed(), options }) => {
+export const generateEntityStore = async ({
+  users = 10,
+  hosts = 10,
+  seed = generateNewSeed(),
+  options,
+}) => {
   if (options.includes(ENTITY_STORE_OPTIONS.seed)) {
     faker.seed(seed);
   }
@@ -136,43 +158,45 @@ export const generateEntityStore = async ({ users = 10, hosts = 10, seed = gener
       createFactoryRandomEventForHost
     );
 
-    const relational = matchUsersAndHosts(eventsForUsers, eventsForHosts)
+    const relational = matchUsersAndHosts(eventsForUsers, eventsForHosts);
 
     await ingestEvents(relational.users);
-    console.log("Users events ingested");
+    console.log('Users events ingested');
     await ingestEvents(relational.hosts);
-    console.log("Hosts events ingested");
-
+    console.log('Hosts events ingested');
 
     if (options.includes(ENTITY_STORE_OPTIONS.criticality)) {
-      await assignAssetCriticalityToEntities(generatedUsers, "user.name");
-      console.log("Assigned asset criticality to users");
-      await assignAssetCriticalityToEntities(generatedHosts, "host.name");
-      console.log("Assigned asset criticality to hosts");
+      await assignAssetCriticalityToEntities(generatedUsers, 'user.name');
+      console.log('Assigned asset criticality to users');
+      await assignAssetCriticalityToEntities(generatedHosts, 'host.name');
+      console.log('Assigned asset criticality to hosts');
     }
 
     if (options.includes(ENTITY_STORE_OPTIONS.riskEngine)) {
       await enableRiskScore();
-      console.log("Risk score enabled");
+      console.log('Risk score enabled');
     }
-
 
     if (options.includes(ENTITY_STORE_OPTIONS.rule)) {
       await createRule();
-      console.log("Rule created");
+      console.log('Rule created');
     }
 
+    if (options.includes(ENTITY_STORE_OPTIONS.agent)) {
+      const agents = generatedHosts.map((host) => createAgentDocument({ hostname: host.name }));
+      const result = await ingestAgents(agents);
+    }
 
-    console.log("Finished generating entity store");
+    console.log('Finished generating entity store');
   } catch (error) {
-    console.log("Error: ", error);
+    console.log('Error: ', error);
   }
 };
 
 export const cleanEntityStore = async () => {
-  console.log("Deleting all entity-store data...");
+  console.log('Deleting all entity-store data...');
   try {
-    console.log("Deleted all events");
+    console.log('Deleted all events');
     await client.deleteByQuery({
       index: EVENT_INDEX_NAME,
       refresh: true,
@@ -183,7 +207,7 @@ export const cleanEntityStore = async () => {
       },
     });
 
-    console.log("Deleted asset criticality");
+    console.log('Deleted asset criticality');
     await client.deleteByQuery({
       index: '.asset-criticality.asset-criticality-default',
       refresh: true,
@@ -194,11 +218,10 @@ export const cleanEntityStore = async () => {
       },
     });
   } catch (error) {
-    console.log("Failed to clean data");
+    console.log('Failed to clean data');
     console.log(error);
   }
 };
-
 
 const matchUsersAndHosts = (users, hosts) => {
   const splitIndex = faker.number.int({ max: users.length - 1 });
@@ -206,18 +229,18 @@ const matchUsersAndHosts = (users, hosts) => {
   return {
     users: users
       .slice(0, splitIndex)
-      .map(user => {
+      .map((user) => {
         const index = faker.number.int({ max: hosts.length - 1 });
-        return { ...user, host: hosts[index].host }
+        return { ...user, host: hosts[index].host };
       })
       .concat(users.slice(splitIndex)),
 
-    hosts: hosts.
-      slice(0, splitIndex)
-      .map(host => {
+    hosts: hosts
+      .slice(0, splitIndex)
+      .map((host) => {
         const index = faker.number.int({ max: users.length - 1 });
-        return { ...host, user: users[index].user }
+        return { ...host, user: users[index].user };
       })
-      .concat(hosts.slice(splitIndex))
+      .concat(hosts.slice(splitIndex)),
   };
-}
+};
