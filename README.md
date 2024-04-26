@@ -5,7 +5,7 @@
 ### copy `config.dev.json` to `config.json`
 
 1. Install dependecies
-`npm i`
+`yarn`
 
 2. Change `config.json` and provide credentials for elasticsearch.
 
@@ -50,20 +50,20 @@ Examles of config:
 
 ### Entity store
 
-`npm start entity-store` - Generate data for entity store
+`yarn start entity-store` - Generate data for entity store
 
-`npm start clean-entity-store` - Clean data for entity store
+`yarn start clean-entity-store` - Clean data for entity store
 
 ### Alerts
-`npm start help` - To see the commands list
+`yarn start help` - To see the commands list
 
-`npm start generate-alerts <n>` - Generate *n* alerts
+`yarn start generate-alerts <n>` - Generate *n* alerts
 
-`npm start delete-alerts` - Delete all alerts
+`yarn start delete-alerts` - Delete all alerts
 
 ### Api tests
 
-`npm start test-risk-score` - Test risk score API time response
+`yarn start test-risk-score` - Test risk score API time response
 
 
 ### Alert document
@@ -75,9 +75,9 @@ To modify alert document, you can change `createAlert.ts` file.
 
 Example list of command for testing Risk Score API woth 10.000 alerts.
 ```
-npm start delete-alerts
-npm start generate-alerts 10000
-npm start test-risk-score
+yarn start delete-alerts
+yarn start generate-alerts 10000
+yarn start test-risk-score
 ```
 
 ## How to generate data for serverless project
@@ -102,6 +102,6 @@ npm start test-risk-score
 
 5. (Optional) Change event structure in `createEvents.ts` file
 
-6. Run `npm start generate-events n`. Where `n` is the amount of documents that will be generated.
+6. Run `yarn start generate-events n`. Where `n` is the amount of documents that will be generated.
 
-7. `npm start delete-events` to remove all documents from event index after your test.
+7. `yarn start delete-events` to remove all documents from event index after your test.
