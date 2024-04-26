@@ -119,8 +119,6 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
         },
       });
       userCluster.push(alert);
-      // alerts.push({ index: { _index: ALERT_INDEX, _id: alert['kibana.alert.uuid'] } })
-      // alerts.push(alert)
     }
     clusters.push(userCluster);
   }
