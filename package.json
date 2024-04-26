@@ -1,17 +1,19 @@
 {
-  "name": "fake-alerts-generator",
+  "name": "security-documents-generator",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "index.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.mjs"
+    "typecheck": "tsc --noEmit",
+    "start": "tsx index"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@elastic/elasticsearch": "^8.6.0",
     "@faker-js/faker": "^8.0.0",
+    "@types/lodash-es": "^4.17.12",
     "chalk": "^5.2.0",
     "commander": "^10.0.0",
     "conf": "^11.0.1",
@@ -20,6 +22,11 @@
     "moment": "^2.29.4",
     "node-fetch": "^3.3.1",
     "url-join": "^5.0.0",
-    "uuidv4": "^6.2.13"
+    "uuidv4": "^6.2.13",
+    "tsx": "^4.7.1"
+  },
+  "devDependencies": {
+    "@types/inquirer": "^9.0.7",
+    "typescript": "^5.3.3"
   }
 }
