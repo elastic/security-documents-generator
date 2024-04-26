@@ -12,28 +12,85 @@ let EVENT_INDEX_NAME = "auditbeat-8.12.0-2024.01.18-000001";
 
 const offset = () => faker.number.int({ max: 1000 })
 
-const ASSET_CRITICALITY = [
-  "low_impact", "medium_impact", "high_impact", "extreme_impact", "unknown",
+type AssetCriticality = "low_impact" | "medium_impact" | "high_impact" | "extreme_impact" | "unknown";
+
+const ASSET_CRITICALITY: AssetCriticality[] = [
+  "low_impact",
+  "medium_impact",
+  "high_impact",
+  "extreme_impact",
+  "unknown",
 ];
 
-export const createRandomUser = () => {
+enum EntityTypes {
+  User = "user",
+  Host = "host",
+}
+
+interface BaseEntity {
+  name: string;
+  assetCriticality: AssetCriticality;
+}
+interface User extends BaseEntity {
+  type: EntityTypes.User;
+}
+
+interface Host extends BaseEntity {
+  type: EntityTypes.Host;
+}
+
+interface BaseEvent {
+  "@timestamp": string;
+  message: string;
+  service: {
+    type: string;
+  };
+}
+
+interface EventUser {
+  name: string;
+  id: number;
+  entity_id: string;
+}
+
+interface EventHost {
+  name: string;
+  id: number;
+  ip: string;
+  mac: string;
+  os: {
+    name: string;
+  };
+}
+interface UserEvent extends BaseEvent {
+  user: EventUser;
+  host?: EventHost;
+}
+
+interface HostEvent extends BaseEvent {
+  host: EventHost;
+  user?: EventUser;
+}
+
+type Event = UserEvent | HostEvent;
+
+export const createRandomUser = (): User => {
   return {
     name: `User-${faker.internet.userName()}`,
     assetCriticality: faker.helpers.arrayElement(ASSET_CRITICALITY),
+    type: EntityTypes.User,
   };
 };
 
-export const createRandomHost = () => {
+export const createRandomHost= (): Host  => {
   return {
     name: `Host-${faker.internet.domainName()}`,
     assetCriticality: faker.helpers.arrayElement(ASSET_CRITICALITY),
+    type: EntityTypes.Host,
   };
 };
 
-
-
-export const createFactoryRandomEventForHost = (name: string) => () => {
-  return {
+export const createRandomEventForHost = (name: string): HostEvent => ({
     "@timestamp": moment().subtract(offset(), "h").format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
     message: `Host ${faker.hacker.phrase()}`,
     service: {
@@ -48,11 +105,9 @@ export const createFactoryRandomEventForHost = (name: string) => () => {
         name: faker.helpers.arrayElement(["Windows", "Linux", "MacOS"]),
       },
     },
-  };
-};
+  });
 
-export const createFactoryRandomEventForUser = (name: string) => () => {
-  return {
+export const createRandomEventForUser = (name: string): UserEvent => ({
     "@timestamp": moment().subtract(offset(), "h").format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
     message: `User ${faker.hacker.phrase()}`,
     service: {
@@ -63,8 +118,7 @@ export const createFactoryRandomEventForUser = (name: string) => () => {
       id: faker.number.int({ max: 10000 }),
       entity_id: faker.string.nanoid(),
     },
-  };
-};
+  });
 
 const ingestEvents = async (events: Array<object>) => {
 
@@ -91,11 +145,12 @@ const ingestEvents = async (events: Array<object>) => {
   }
 };
 
-export const generateEvents = <F extends unknown>(entities: { name: string; assetCriticality: string; }[], createEventFactory: (entityName: string) => () => F): F[] => {
+// E = Entity, EV = Event
+export const generateEvents = <E extends User | Host, EV = E extends User ? UserEvent : HostEvent>(entities: E[], createEvent: (entityName: string) => EV): EV[] => {
   const eventsPerEntity = 10;
-  const acc: F[] = [];
+  const acc: EV[] = [];
   return entities.reduce((acc, entity) => {
-    const events = faker.helpers.multiple(createEventFactory(entity.name), {
+    const events = faker.helpers.multiple(() => createEvent(entity.name), {
       count: eventsPerEntity,
     });
     acc.push(...events);
@@ -103,7 +158,7 @@ export const generateEvents = <F extends unknown>(entities: { name: string; asse
   }, acc);
 };
 
-const assignAssetCriticalityToEntities = async (entities: { name: string; assetCriticality: string; }[], field: string) => {
+const assignAssetCriticalityToEntities = async (entities: BaseEntity[], field: string) => {
   for (const entity of entities) {
     const { name, assetCriticality } = entity;
     if (assetCriticality === "unknown") return;
@@ -134,11 +189,11 @@ export const generateEntityStore = async ({ users = 10, hosts = 10, seed = gener
 
     let eventsForUsers = generateEvents(
       generatedUsers,
-      createFactoryRandomEventForUser
+      createRandomEventForUser
     );
     let eventsForHosts = generateEvents(
       generatedHosts,
-      createFactoryRandomEventForHost
+      createRandomEventForHost
     );
 
     const relational = matchUsersAndHosts(eventsForUsers, eventsForHosts)
@@ -205,23 +260,26 @@ export const cleanEntityStore = async () => {
   }
 };
 
-const matchUsersAndHosts = <U extends object, H extends object, UA extends { user: U }, HA extends { host: H }>(users: Array<UA>, hosts: Array<HA>): { users: Array<UA&{host?:H;}>, hosts: Array<HA&{user?:U}> } => {
+const matchUsersAndHosts = (users: UserEvent[], hosts: HostEvent[]): {
+  users: UserEvent[];
+  hosts: HostEvent[];
+} => {
   const splitIndex = faker.number.int({ max: users.length - 1 });
 
   return {
     users: users
       .slice(0, splitIndex)
-      .map((user): UA&{host?:H} => {
+      .map((user) => {
         const index = faker.number.int({ max: hosts.length - 1 });
-        return { ...user, host: hosts[index].host }
+        return { ...user, host: hosts[index].host } as UserEvent;
       })
-      .concat(users.slice(splitIndex)),
+      .concat(users.slice(splitIndex)) as UserEvent[],
 
     hosts: hosts.
       slice(0, splitIndex)
-      .map((host): HA&{user?:U} => {
+      .map((host) => {
         const index = faker.number.int({ max: users.length - 1 });
-        return { ...host, user: users[index].user }
+        return { ...host, user: users[index].user } as HostEvent;
       })
       .concat(hosts.slice(splitIndex))
   };
