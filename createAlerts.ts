@@ -1,6 +1,6 @@
 import { faker } from '@faker-js/faker';
 
-export default function createAlerts(override = {}) {
+function baseCreateAlerts() {
    return {
         "kibana.alert.start": "2023-04-11T20:18:15.816Z",
         "kibana.alert.last_detected": "2023-04-11T20:18:15.816Z",
@@ -93,6 +93,9 @@ export default function createAlerts(override = {}) {
         "kibana.alert.rule.risk_score": 21,
         "kibana.alert.rule.severity": "low",
         "kibana.alert.uuid": faker.datatype.uuid(),
-        ...override
     }
+}
+
+export default function createAlerts<O extends {}>(override: O): O & ReturnType<typeof baseCreateAlerts> {
+	return { ...baseCreateAlerts(), ...override };
 }
