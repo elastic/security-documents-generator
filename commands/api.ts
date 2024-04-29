@@ -3,13 +3,7 @@ import fetch, { Headers } from "node-fetch";
 import { getConfig } from '../get_config';
 
 const config = getConfig();
-
-const appendPathToKibanaNode = (path: string) => {
-  if (!config.kibana.node) {
-    throw new Error("Kibana node not set");
-  }
-  return urlJoin(config.kibana.node, path)
-}
+const appendPathToKibanaNode = (path: string) => urlJoin(config.kibana.node, path);
 
 export const kibanaFetch = async (path: string, params: object, apiVersion = '1') => {
   const url = appendPathToKibanaNode(path);
