@@ -101,34 +101,34 @@ export const createRandomHost= (): Host  => {
 };
 
 export const createRandomEventForHost = (name: string): HostEvent => ({
-    "@timestamp": moment().subtract(offset(), "h").format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
-    message: `Host ${faker.hacker.phrase()}`,
-    service: {
-      type: "system",
+  "@timestamp": moment().subtract(offset(), "h").format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
+  message: `Host ${faker.hacker.phrase()}`,
+  service: {
+    type: "system",
+  },
+  host: {
+    name,
+    id: faker.number.int({ max: 10000 }),
+    ip: faker.internet.ip(),
+    mac: faker.internet.mac(),
+    os: {
+      name: faker.helpers.arrayElement(["Windows", "Linux", "MacOS"]),
     },
-    host: {
-      name,
-      id: faker.number.int({ max: 10000 }),
-      ip: faker.internet.ip(),
-      mac: faker.internet.mac(),
-      os: {
-        name: faker.helpers.arrayElement(["Windows", "Linux", "MacOS"]),
-      },
-    },
-  });
+  },
+});
 
 export const createRandomEventForUser = (name: string): UserEvent => ({
-    "@timestamp": moment().subtract(offset(), "h").format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
-    message: `User ${faker.hacker.phrase()}`,
-    service: {
-      type: "system",
-    },
-    user: {
-      name,
-      id: faker.number.int({ max: 10000 }),
-      entity_id: faker.string.nanoid(),
-    },
-  });
+  "@timestamp": moment().subtract(offset(), "h").format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
+  message: `User ${faker.hacker.phrase()}`,
+  service: {
+    type: "system",
+  },
+  user: {
+    name,
+    id: faker.number.int({ max: 10000 }),
+    entity_id: faker.string.nanoid(),
+  },
+});
 
 const ingestEvents = async (events: Event[]) => ingest(EVENT_INDEX_NAME, events, auditbeatMappings as MappingTypeMapping);
 
@@ -151,7 +151,7 @@ const ingest = async (index: string, documents: Array<object>, mapping?: Mapping
         return acc;
       }, []);
       if (!client) throw new Error;
-        await client.bulk({ operations: ingestRequest, refresh: true });
+      await client.bulk({ operations: ingestRequest, refresh: true });
     } catch (err) {
       console.log("Error: ", err);
     }
