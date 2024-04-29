@@ -10,7 +10,7 @@ import { BulkOperationContainer } from "@elastic/elasticsearch/lib/api/typesWith
 import { MappingTypeMapping } from "@elastic/elasticsearch/lib/api/types";
 
 const config = getConfig();
-let client = getEsClient();
+const client = getEsClient();
 
 const ALERT_INDEX = ".alerts-security.alerts-default";
 const EVENT_INDEX = config.eventIndex;
@@ -19,11 +19,11 @@ const generateDocs = async ({ createDocs, amount, index }: {createDocs: Document
   if (!client) {
     throw new Error('failed to create ES client');
   }
-  let limit = 30000;
+  const limit = 30000;
   let generated = 0;
 
   while (generated < amount) {
-    let docs = createDocuments(
+    const docs = createDocuments(
       Math.min(limit, amount),
       generated,
       createDocs,
@@ -108,9 +108,9 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
    */
   type FakeAlertBulkOperations = BulkOperationContainer | Partial<AlertOverride>;
 
-  let alerts: FakeAlertBulkOperations[] = [];
+  const alerts: FakeAlertBulkOperations[] = [];
   for (let i = 0; i < users; i++) {
-    let userCluster = [];
+    const userCluster = [];
     for (let j = 0; j < maxHosts; j++) {
       const alert = createAlerts({
         host: {

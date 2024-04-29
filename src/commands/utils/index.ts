@@ -26,7 +26,7 @@ export const getEsClient = () => {
 };
 
 export const indexCheck = async (index: string, mappings?: MappingTypeMapping) => {
-  let client = getEsClient();
+  const client = getEsClient();
   if (!client) {
     throw new Error;
   }

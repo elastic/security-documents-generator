@@ -9,8 +9,8 @@ import { BulkOperationContainer, BulkUpdateAction, MappingTypeMapping } from "@e
 import { getConfig } from "../get_config";
 
 const config = getConfig();
-let client = getEsClient();
-let EVENT_INDEX_NAME = "auditbeat-8.12.0-2024.01.18-000001";
+const client = getEsClient();
+const EVENT_INDEX_NAME = "auditbeat-8.12.0-2024.01.18-000001";
 const AGENT_INDEX_NAME = ".fleet-agents-7";
 
 if (config.eventDateOffsetHours !== undefined) {
@@ -140,12 +140,12 @@ const ingestAgents = async (agents: Agent[]) => ingest(AGENT_INDEX_NAME, agents)
 const ingest = async (index: string, documents: Array<object>, mapping?: MappingTypeMapping) => {
   await indexCheck(index, mapping);
 
-  let chunks = chunk(documents, 10000);
+  const chunks = chunk(documents, 10000);
 
-  for (let chunk of chunks) {
+  for (const chunk of chunks) {
     try {
       // Make bulk request
-      let ingestRequest = chunk.reduce((acc: (BulkOperationContainer | BulkUpdateAction<TDocument, TPartialDocument> | TDocument)[], event) => {
+      const ingestRequest = chunk.reduce((acc: (BulkOperationContainer | BulkUpdateAction<TDocument, TPartialDocument> | TDocument)[], event) => {
         acc.push({ index: { _index: index } });
         acc.push(event);
         return acc;
@@ -200,11 +200,11 @@ export const generateEntityStore = async ({ users = 10, hosts = 10, seed = gener
       count: hosts,
     });
 
-    let eventsForUsers = generateEvents(
+    const eventsForUsers = generateEvents(
       generatedUsers,
       createRandomEventForUser
     );
-    let eventsForHosts = generateEvents(
+    const eventsForHosts = generateEvents(
       generatedHosts,
       createRandomEventForHost
     );

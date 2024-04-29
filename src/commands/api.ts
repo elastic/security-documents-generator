@@ -9,7 +9,7 @@ export const kibanaFetch = async (path: string, params: object, apiVersion = '1'
   const url = appendPathToKibanaNode(path);
 
   try {
-    let headers = new Headers();
+    const headers = new Headers();
     headers.append("Content-Type", "application/json");
     headers.append("kbn-xsrf", "true");
     if ('apiKey' in config.kibana) {

@@ -31,7 +31,9 @@ export const getConfig = (): ConfigType => {
 		return config;
 	}
 
-	const configJson = JSON.parse(fs.readFileSync('config.json', 'utf8'));
+	// get config relative to the file
+	const configPath = __dirname + '/../config.json';
+	const configJson = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
 	if(!configJson.eventIndex) {
 		configJson.eventIndex = 'logs-testlogs-default';

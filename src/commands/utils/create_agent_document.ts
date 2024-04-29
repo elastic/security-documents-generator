@@ -3,7 +3,7 @@ import moment from 'moment';
 
 export const createAgentDocument = ({
   hostname
-} : {
+}: {
   hostname: string;
 }) => {
   const agentId = uuidv4();
