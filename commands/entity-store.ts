@@ -1,38 +1,96 @@
 import { faker } from "@faker-js/faker";
-import { getEsClient, indexCheck } from "./utils/index.mjs";
+import { getEsClient, indexCheck } from "./utils/index";
 import { chunk } from "lodash-es";
 import moment from "moment";
 import auditbeatMappings from "../mappings/auditbeat.json" assert { type: "json" };
-import { assignAssetCriticality, enableRiskScore, createRule } from "./api.mjs";
-import { ENTITY_STORE_OPTIONS, generateNewSeed } from "../constants.mjs";
+import { assignAssetCriticality, enableRiskScore, createRule } from "./api";
+import { ENTITY_STORE_OPTIONS, generateNewSeed } from "../constants";
+import { BulkOperationContainer, BulkUpdateAction } from "@elastic/elasticsearch/lib/api/types";
 
 let client = getEsClient();
 let EVENT_INDEX_NAME = "auditbeat-8.12.0-2024.01.18-000001";
 
 const offset = () => faker.number.int({ max: 1000 })
 
-const ASSET_CRITICALITY = [
-  "low_impact", "medium_impact", "high_impact", "extreme_impact", "unknown",
+type AssetCriticality = "low_impact" | "medium_impact" | "high_impact" | "extreme_impact" | "unknown";
+
+const ASSET_CRITICALITY: AssetCriticality[] = [
+  "low_impact",
+  "medium_impact",
+  "high_impact",
+  "extreme_impact",
+  "unknown",
 ];
 
-export const createRandomUser = () => {
+enum EntityTypes {
+  User = "user",
+  Host = "host",
+}
+
+interface BaseEntity {
+  name: string;
+  assetCriticality: AssetCriticality;
+}
+interface User extends BaseEntity {
+  type: EntityTypes.User;
+}
+
+interface Host extends BaseEntity {
+  type: EntityTypes.Host;
+}
+
+interface BaseEvent {
+  "@timestamp": string;
+  message: string;
+  service: {
+    type: string;
+  };
+}
+
+interface EventUser {
+  name: string;
+  id: number;
+  entity_id: string;
+}
+
+interface EventHost {
+  name: string;
+  id: number;
+  ip: string;
+  mac: string;
+  os: {
+    name: string;
+  };
+}
+interface UserEvent extends BaseEvent {
+  user: EventUser;
+  host?: EventHost;
+}
+
+interface HostEvent extends BaseEvent {
+  host: EventHost;
+  user?: EventUser;
+}
+
+type Event = UserEvent | HostEvent;
+
+export const createRandomUser = (): User => {
   return {
     name: `User-${faker.internet.userName()}`,
     assetCriticality: faker.helpers.arrayElement(ASSET_CRITICALITY),
+    type: EntityTypes.User,
   };
 };
 
-export const createRandomHost = () => {
+export const createRandomHost= (): Host  => {
   return {
     name: `Host-${faker.internet.domainName()}`,
     assetCriticality: faker.helpers.arrayElement(ASSET_CRITICALITY),
+    type: EntityTypes.Host,
   };
 };
 
-
-
-export const createFactoryRandomEventForHost = (name) => () => {
-  return {
+export const createRandomEventForHost = (name: string): HostEvent => ({
     "@timestamp": moment().subtract(offset(), "h").format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
     message: `Host ${faker.hacker.phrase()}`,
     service: {
@@ -47,11 +105,9 @@ export const createFactoryRandomEventForHost = (name) => () => {
         name: faker.helpers.arrayElement(["Windows", "Linux", "MacOS"]),
       },
     },
-  };
-};
+  });
 
-export const createFactoryRandomEventForUser = (name) => () => {
-  return {
+export const createRandomEventForUser = (name: string): UserEvent => ({
     "@timestamp": moment().subtract(offset(), "h").format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
     message: `User ${faker.hacker.phrase()}`,
     service: {
@@ -62,10 +118,12 @@ export const createFactoryRandomEventForUser = (name) => () => {
       id: faker.number.int({ max: 10000 }),
       entity_id: faker.string.nanoid(),
     },
-  };
-};
+  });
 
-const ingestEvents = async (events) => {
+const ingestEvents = async (events: Array<object>) => {
+
+	type TDocument = object;
+	type TPartialDocument = Partial<TDocument>;
 
   await indexCheck(EVENT_INDEX_NAME, auditbeatMappings);
 
@@ -74,30 +132,33 @@ const ingestEvents = async (events) => {
   for (let chunk of chunks) {
     try {
       // Make bulk request
-      let ingestRequest = chunk.reduce((acc, event) => {
+      let ingestRequest = chunk.reduce((acc: (BulkOperationContainer | BulkUpdateAction<TDocument, TPartialDocument> | TDocument)[], event) => {
         acc.push({ index: { _index: EVENT_INDEX_NAME } });
         acc.push(event);
         return acc;
       }, []);
-      const result = await client.bulk({ body: ingestRequest, refresh: true });
+      if (!client) throw new Error;
+	      await client.bulk({ operations: ingestRequest, refresh: true });
     } catch (err) {
       console.log("Error: ", err);
     }
   }
 };
 
-export const generateEvents = (entities, createEventFactory) => {
+// E = Entity, EV = Event
+export const generateEvents = <E extends User | Host, EV = E extends User ? UserEvent : HostEvent>(entities: E[], createEvent: (entityName: string) => EV): EV[] => {
   const eventsPerEntity = 10;
+  const acc: EV[] = [];
   return entities.reduce((acc, entity) => {
-    const events = faker.helpers.multiple(createEventFactory(entity.name), {
+    const events = faker.helpers.multiple(() => createEvent(entity.name), {
       count: eventsPerEntity,
     });
     acc.push(...events);
     return acc;
-  }, []);
+  }, acc);
 };
 
-const assignAssetCriticalityToEntities = async (entities, field) => {
+const assignAssetCriticalityToEntities = async (entities: BaseEntity[], field: string) => {
   for (const entity of entities) {
     const { name, assetCriticality } = entity;
     if (assetCriticality === "unknown") return;
@@ -112,9 +173,8 @@ const assignAssetCriticalityToEntities = async (entities, field) => {
 /**
  * Generate entities first
  * Then Generate events, assign asset criticality, create rule and enable risk engine
- * @param {*} param0
  */
-export const generateEntityStore = async ({ users = 10, hosts = 10, seed = generateNewSeed(), options }) => {
+export const generateEntityStore = async ({ users = 10, hosts = 10, seed = generateNewSeed(), options }: { users: number; hosts: number; seed: number; options: string[]}) => {
   if (options.includes(ENTITY_STORE_OPTIONS.seed)) {
     faker.seed(seed);
   }
@@ -129,11 +189,11 @@ export const generateEntityStore = async ({ users = 10, hosts = 10, seed = gener
 
     let eventsForUsers = generateEvents(
       generatedUsers,
-      createFactoryRandomEventForUser
+      createRandomEventForUser
     );
     let eventsForHosts = generateEvents(
       generatedHosts,
-      createFactoryRandomEventForHost
+      createRandomEventForHost
     );
 
     const relational = matchUsersAndHosts(eventsForUsers, eventsForHosts)
@@ -173,6 +233,7 @@ export const cleanEntityStore = async () => {
   console.log("Deleting all entity-store data...");
   try {
     console.log("Deleted all events");
+    if (!client) throw new Error;
     await client.deleteByQuery({
       index: EVENT_INDEX_NAME,
       refresh: true,
@@ -199,24 +260,26 @@ export const cleanEntityStore = async () => {
   }
 };
 
-
-const matchUsersAndHosts = (users, hosts) => {
+const matchUsersAndHosts = (users: UserEvent[], hosts: HostEvent[]): {
+  users: UserEvent[];
+  hosts: HostEvent[];
+} => {
   const splitIndex = faker.number.int({ max: users.length - 1 });
 
   return {
     users: users
       .slice(0, splitIndex)
-      .map(user => {
+      .map((user) => {
         const index = faker.number.int({ max: hosts.length - 1 });
-        return { ...user, host: hosts[index].host }
+        return { ...user, host: hosts[index].host } as UserEvent;
       })
-      .concat(users.slice(splitIndex)),
+      .concat(users.slice(splitIndex)) as UserEvent[],
 
     hosts: hosts.
       slice(0, splitIndex)
-      .map(host => {
+      .map((host) => {
         const index = faker.number.int({ max: users.length - 1 });
-        return { ...host, user: users[index].user }
+        return { ...host, user: users[index].user } as HostEvent;
       })
       .concat(hosts.slice(splitIndex))
   };

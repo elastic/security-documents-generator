@@ -1,14 +1,16 @@
 import { URL } from "node:url";
 import fetch, { Headers } from "node-fetch";
-import config from "../config.json" assert { type: "json" };
+import { getConfig } from '../get_config';
 
-export const kibanaFetch = async (url, params, apiVersion = 1) => {
+const config = getConfig();
+
+export const kibanaFetch = async (url: string, params: object, apiVersion = '1') => {
   try {
     let headers = new Headers();
 
     headers.append("Content-Type", "application/json");
     headers.append("kbn-xsrf", "true");
-    if (config.kibana.apiKey) {
+    if ('apiKey' in config.kibana) {
       headers.set("Authorization", "ApiKey " + config.kibana.apiKey);
     } else {
       headers.set(
@@ -26,10 +28,15 @@ export const kibanaFetch = async (url, params, apiVersion = 1) => {
       headers: headers,
       ...params,
     });
-    const data = await result.json();
-    if(data.statusCode && data.statusCode !== 200) {
+    const data: unknown = await result.json();
+    if (!data || typeof data !== 'object') {
+	    throw new Error;
+    }
+
+    if('statusCode' in data && data.statusCode !== 200) {
       console.log(data)
-      throw new Error(data.message)
+      // TODO
+      throw new Error((data as any).message)
     }
     return data;
   } catch (e) {
@@ -38,7 +45,7 @@ export const kibanaFetch = async (url, params, apiVersion = 1) => {
 };
 
 export const fetchRiskScore = async () => {
-  return kibanaFetch(`/internal/risk_score/scores`, {
+  await kibanaFetch(`/internal/risk_score/scores`, {
     method: "POST",
     body: JSON.stringify({}),
   });
@@ -55,7 +62,7 @@ export const assignAssetCriticality = async ({
   id_field,
   id_value,
   criticality_level,
-}) => {
+}: {id_field: string; id_value: string; criticality_level: string}) => {
   return kibanaFetch(`/internal/asset_criticality`, {
     method: "POST",
     body: JSON.stringify({
