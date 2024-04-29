@@ -10,8 +10,8 @@ import { getConfig } from "../get_config";
 
 const config = getConfig();
 let client = getEsClient();
-let EVENT_INDEX_NAME = 'auditbeat-8.12.0-2024.01.18-000001';
-const AGENT_INDEX_NAME = '.fleet-agents-7';
+let EVENT_INDEX_NAME = "auditbeat-8.12.0-2024.01.18-000001";
+const AGENT_INDEX_NAME = ".fleet-agents-7";
 
 if (config.eventDateOffsetHours !== undefined) {
   console.log(`Using event date offset: ${config.eventDateOffsetHours} hours`);
@@ -104,7 +104,7 @@ export const createRandomEventForHost = (name: string): HostEvent => ({
     "@timestamp": moment().subtract(offset(), "h").format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
     message: `Host ${faker.hacker.phrase()}`,
     service: {
-      type: 'system',
+      type: "system",
     },
     host: {
       name,
@@ -112,7 +112,7 @@ export const createRandomEventForHost = (name: string): HostEvent => ({
       ip: faker.internet.ip(),
       mac: faker.internet.mac(),
       os: {
-        name: faker.helpers.arrayElement(['Windows', 'Linux', 'MacOS']),
+        name: faker.helpers.arrayElement(["Windows", "Linux", "MacOS"]),
       },
     },
   });
@@ -121,7 +121,7 @@ export const createRandomEventForUser = (name: string): UserEvent => ({
     "@timestamp": moment().subtract(offset(), "h").format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
     message: `User ${faker.hacker.phrase()}`,
     service: {
-      type: 'system',
+      type: "system",
     },
     user: {
       name,
@@ -153,7 +153,7 @@ const ingest = async (index: string, documents: Array<object>, mapping?: Mapping
       if (!client) throw new Error;
 	      await client.bulk({ operations: ingestRequest, refresh: true });
     } catch (err) {
-      console.log('Error: ', err);
+      console.log("Error: ", err);
     }
   }
 }
@@ -174,7 +174,7 @@ export const generateEvents = <E extends User | Host, EV = E extends User ? User
 const assignAssetCriticalityToEntities = async (entities: BaseEntity[], field: string) => {
   for (const entity of entities) {
     const { name, assetCriticality } = entity;
-    if (assetCriticality === 'unknown') return;
+    if (assetCriticality === "unknown") return;
     await assignAssetCriticality({
       id_field: field,
       id_value: name,
@@ -212,25 +212,25 @@ export const generateEntityStore = async ({ users = 10, hosts = 10, seed = gener
     const relational = matchUsersAndHosts(eventsForUsers, eventsForHosts);
 
     await ingestEvents(relational.users);
-    console.log('Users events ingested');
+    console.log("Users events ingested");
     await ingestEvents(relational.hosts);
-    console.log('Hosts events ingested');
+    console.log("Hosts events ingested");
 
     if (options.includes(ENTITY_STORE_OPTIONS.criticality)) {
-      await assignAssetCriticalityToEntities(generatedUsers, 'user.name');
-      console.log('Assigned asset criticality to users');
-      await assignAssetCriticalityToEntities(generatedHosts, 'host.name');
-      console.log('Assigned asset criticality to hosts');
+      await assignAssetCriticalityToEntities(generatedUsers, "user.name");
+      console.log("Assigned asset criticality to users");
+      await assignAssetCriticalityToEntities(generatedHosts, "host.name");
+      console.log("Assigned asset criticality to hosts");
     }
 
     if (options.includes(ENTITY_STORE_OPTIONS.riskEngine)) {
       await enableRiskScore();
-      console.log('Risk score enabled');
+      console.log("Risk score enabled");
     }
 
     if (options.includes(ENTITY_STORE_OPTIONS.rule)) {
       await createRule();
-      console.log('Rule created');
+      console.log("Rule created");
     }
 
     if (options.includes(ENTITY_STORE_OPTIONS.agent)) {
@@ -238,14 +238,14 @@ export const generateEntityStore = async ({ users = 10, hosts = 10, seed = gener
       const result = await ingestAgents(agents);
     }
 
-    console.log('Finished generating entity store');
+    console.log("Finished generating entity store");
   } catch (error) {
-    console.log('Error: ', error);
+    console.log("Error: ", error);
   }
 };
 
 export const cleanEntityStore = async () => {
-  console.log('Deleting all entity-store data...');
+  console.log("Deleting all entity-store data...");
   try {
     console.log("Deleted all events");
     if (!client) throw new Error;
@@ -259,9 +259,9 @@ export const cleanEntityStore = async () => {
       },
     });
 
-    console.log('Deleted asset criticality');
+    console.log("Deleted asset criticality");
     await client.deleteByQuery({
-      index: '.asset-criticality.asset-criticality-default',
+      index: ".asset-criticality.asset-criticality-default",
       refresh: true,
       body: {
         query: {
@@ -270,7 +270,7 @@ export const cleanEntityStore = async () => {
       },
     });
   } catch (error) {
-    console.log('Failed to clean data');
+    console.log("Failed to clean data");
     console.log(error);
   }
 };
