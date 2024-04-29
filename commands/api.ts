@@ -1,6 +1,8 @@
 import urlJoin from 'url-join';
 import fetch, { Headers } from "node-fetch";
-import config from '../typed_config';
+import { getConfig } from '../get_config';
+
+const config = getConfig();
 
 const appendPathToKibanaNode = (path: string) => {
   if (!config.kibana.node) {
@@ -16,7 +18,7 @@ export const kibanaFetch = async (path: string, params: object, apiVersion = '1'
     let headers = new Headers();
     headers.append("Content-Type", "application/json");
     headers.append("kbn-xsrf", "true");
-    if (config.kibana.apiKey) {
+    if ('apiKey' in config.kibana) {
       headers.set("Authorization", "ApiKey " + config.kibana.apiKey);
     } else {
       headers.set(

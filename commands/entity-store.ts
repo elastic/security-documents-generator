@@ -6,7 +6,9 @@ import auditbeatMappings from "../mappings/auditbeat.json" assert { type: "json"
 import { assignAssetCriticality, enableRiskScore, createRule } from "./api";
 import { ENTITY_STORE_OPTIONS, generateNewSeed } from "../constants";
 import { BulkOperationContainer, BulkUpdateAction, MappingTypeMapping } from "@elastic/elasticsearch/lib/api/types";
-import config from "../typed_config";
+import { getConfig } from "../get_config";
+
+const config = getConfig();
 let client = getEsClient();
 let EVENT_INDEX_NAME = 'auditbeat-8.12.0-2024.01.18-000001';
 const AGENT_INDEX_NAME = '.fleet-agents-7';
