@@ -151,7 +151,7 @@ const ingest = async (index: string, documents: Array<object>, mapping?: Mapping
         return acc;
       }, []);
       if (!client) throw new Error;
-	      await client.bulk({ operations: ingestRequest, refresh: true });
+        await client.bulk({ operations: ingestRequest, refresh: true });
     } catch (err) {
       console.log("Error: ", err);
     }
@@ -235,7 +235,8 @@ export const generateEntityStore = async ({ users = 10, hosts = 10, seed = gener
 
     if (options.includes(ENTITY_STORE_OPTIONS.agent)) {
       const agents = generatedHosts.map((host) => createAgentDocument({ hostname: host.name }));
-      const result = await ingestAgents(agents);
+      await ingestAgents(agents);
+      console.log("Agents ingested");
     }
 
     console.log("Finished generating entity store");

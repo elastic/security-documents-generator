@@ -1,4 +1,4 @@
-import { Client, ClientOptions } from "@elastic/elasticsearch";
+import { Client } from "@elastic/elasticsearch";
 import { getConfig } from '../../get_config';
 import { MappingTypeMapping } from "@elastic/elasticsearch/lib/api/types";
 
@@ -12,10 +12,10 @@ export const getEsClient = () => {
   if("apiKey" in config.elastic) {
     auth = {apiKey : config.elastic.apiKey};
   } else if (config.elastic.username && config.elastic.password){
-	  auth = {
-    username : config.elastic.username,
-    password : config.elastic.password,
-	  };
+    auth = {
+      username : config.elastic.username,
+      password : config.elastic.password,
+    };
   }
   client = new Client({
     node: config.elastic.node,

@@ -18,9 +18,9 @@ export const kibanaFetch = async (path: string, params: object, apiVersion = '1'
       headers.set(
         "Authorization",
         "Basic " +
-          Buffer.from(
-            config.kibana.username + ":" + config.kibana.password
-          ).toString("base64")
+        Buffer.from(
+          config.kibana.username + ":" + config.kibana.password
+        ).toString("base64")
       );
     }
 
@@ -32,13 +32,13 @@ export const kibanaFetch = async (path: string, params: object, apiVersion = '1'
     });
     const data: unknown = await result.json();
     if (!data || typeof data !== 'object') {
-	    throw new Error;
+      throw new Error;
     }
 
-    if('statusCode' in data && data.statusCode !== 200) {
+    if ('statusCode' in data && data.statusCode !== 200) {
       console.log(data)
       // TODO
-      throw new Error((data as any).message)
+      throw new Error(`Failed to fetch data from ${url}, error: ${JSON.stringify(data)}`)
     }
     return data;
   } catch (e) {
@@ -64,7 +64,7 @@ export const assignAssetCriticality = async ({
   id_field,
   id_value,
   criticality_level,
-}: {id_field: string; id_value: string; criticality_level: string}) => {
+}: { id_field: string; id_value: string; criticality_level: string }) => {
   return kibanaFetch(`/internal/asset_criticality`, {
     method: "POST",
     body: JSON.stringify({

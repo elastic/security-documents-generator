@@ -96,6 +96,6 @@ function baseCreateAlerts() {
     }
 }
 
-export default function createAlerts<O extends {}>(override: O): O & ReturnType<typeof baseCreateAlerts> {
+export default function createAlerts<O extends object>(override: O): O & ReturnType<typeof baseCreateAlerts> {
 	return { ...baseCreateAlerts(), ...override };
 }

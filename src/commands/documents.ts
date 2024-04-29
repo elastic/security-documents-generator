@@ -151,7 +151,7 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
   });
 
   try {
-	  if (!client) throw new Error;
+    if (!client) throw new Error;
     const result = await client.bulk({ body: alerts, refresh: true });
     console.log(`${result.items.length} alerts created`);
   } catch (err) {
