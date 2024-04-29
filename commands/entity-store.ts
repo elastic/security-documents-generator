@@ -156,7 +156,7 @@ const ingest = async (index: string, documents: Array<object>, mapping?: Mapping
       console.log("Error: ", err);
     }
   }
-}
+};
 
 // E = Entity, EV = Event
 export const generateEvents = <E extends User | Host, EV = E extends User ? UserEvent : HostEvent>(entities: E[], createEvent: (entityName: string) => EV): EV[] => {
@@ -209,7 +209,7 @@ export const generateEntityStore = async ({ users = 10, hosts = 10, seed = gener
       createRandomEventForHost
     );
 
-    const relational = matchUsersAndHosts(eventsForUsers, eventsForHosts);
+    const relational = matchUsersAndHosts(eventsForUsers, eventsForHosts)
 
     await ingestEvents(relational.users);
     console.log("Users events ingested");
@@ -261,7 +261,7 @@ export const cleanEntityStore = async () => {
 
     console.log("Deleted asset criticality");
     await client.deleteByQuery({
-      index: ".asset-criticality.asset-criticality-default",
+      index: '.asset-criticality.asset-criticality-default',
       refresh: true,
       body: {
         query: {
@@ -296,6 +296,6 @@ const matchUsersAndHosts = (users: UserEvent[], hosts: HostEvent[]): {
         const index = faker.number.int({ max: users.length - 1 });
         return { ...host, user: users[index].user } as HostEvent;
       })
-      .concat(hosts.slice(splitIndex)),
+      .concat(hosts.slice(splitIndex))
   };
-};
+}
