@@ -1,6 +1,6 @@
-import { Client } from "@elastic/elasticsearch";
+import { Client } from '@elastic/elasticsearch';
 import { getConfig } from '../../get_config';
-import { MappingTypeMapping } from "@elastic/elasticsearch/lib/api/types";
+import { MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
 
 const config = getConfig();
 
@@ -9,7 +9,7 @@ export * from './create_agent_document';
 export const getEsClient = () => {
   let client = null;
   let auth;
-  if("apiKey" in config.elastic) {
+  if('apiKey' in config.elastic) {
     auth = {apiKey : config.elastic.apiKey};
   } else if (config.elastic.username && config.elastic.password){
     auth = {
@@ -33,7 +33,7 @@ export const indexCheck = async (index: string, mappings?: MappingTypeMapping) =
   const isExist = await client.indices.exists({ index: index });
   if (isExist) return;
 
-  console.log("Index does not exist, creating...");
+  console.log('Index does not exist, creating...');
 
   try {
     await client.indices.create({
@@ -41,13 +41,13 @@ export const indexCheck = async (index: string, mappings?: MappingTypeMapping) =
       body: {
         mappings: mappings,
         settings: {
-          "index.mapping.total_fields.limit": 10000,
+          'index.mapping.total_fields.limit': 10000,
         },
       },
     });
-    console.log("Index created", index);
+    console.log('Index created', index);
   } catch (error) {
-    console.log("Index creation failed", JSON.stringify(error));
+    console.log('Index creation failed', JSON.stringify(error));
     throw error;
   }
 };

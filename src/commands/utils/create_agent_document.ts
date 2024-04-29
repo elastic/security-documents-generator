@@ -81,7 +81,7 @@ export const createAgentDocument = ({
           },
         ],
         type: 'fleet-server',
-        message: "Healthy: communicating with pid '153'",
+        message: 'Healthy: communicating with pid \'153\'',
         status: 'HEALTHY',
       },
       {
@@ -101,7 +101,7 @@ export const createAgentDocument = ({
           },
         ],
         type: 'apm',
-        message: "Healthy: communicating with pid '179'",
+        message: 'Healthy: communicating with pid \'179\'',
         status: 'HEALTHY',
       },
     ],
