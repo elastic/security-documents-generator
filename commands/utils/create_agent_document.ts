@@ -1,4 +1,4 @@
-import { uuid } from 'uuidv4';
+import { v4 as uuidv4 } from 'uuid';
 import moment from 'moment';
 
 export const createAgentDocument = ({
@@ -6,7 +6,7 @@ export const createAgentDocument = ({
 } : {
   hostname: string;
 }) => {
-  const agentId = uuid();
+  const agentId = uuidv4();
 
   const nowTimestamp = moment().utc().toISOString();
 
