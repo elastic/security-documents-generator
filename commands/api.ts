@@ -1,6 +1,8 @@
 import { URL } from "node:url";
 import fetch, { Headers } from "node-fetch";
-import config from '../typed_config';
+import { getConfig } from '../get_config';
+
+const config = getConfig();
 
 export const kibanaFetch = async (url: string, params: object, apiVersion = '1') => {
   try {
@@ -8,7 +10,7 @@ export const kibanaFetch = async (url: string, params: object, apiVersion = '1')
 
     headers.append("Content-Type", "application/json");
     headers.append("kbn-xsrf", "true");
-    if (config.kibana.apiKey) {
+    if ('apiKey' in config.kibana) {
       headers.set("Authorization", "ApiKey " + config.kibana.apiKey);
     } else {
       headers.set(

@@ -1,16 +1,12 @@
 import { Client, ClientOptions } from "@elastic/elasticsearch";
-import config from '../../typed_config';
+import { getConfig } from '../../get_config';
+
+const config = getConfig();
 
 export const getEsClient = () => {
   let client = null;
-  if (!config.elastic.node) return client;
-  if (
-    !config.elastic.apiKey &&
-    !(config.elastic.username && config.elastic.password)
-  )
-    return client;
   let auth;
-  if(config.elastic.apiKey) {
+  if("apiKey" in config.elastic) {
     auth = {apiKey : config.elastic.apiKey};
   } else if (config.elastic.username && config.elastic.password){
 	  auth = {

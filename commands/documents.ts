@@ -5,9 +5,10 @@ import alertMappings from "../mappings/alertMappings.json" assert { type: "json"
 import eventMappings from "../mappings/eventMappings.json" assert { type: "json" };
 import { getEsClient, indexCheck } from "./utils/index";
 
-import config from "../config.json" assert { type: "json" };
+import { getConfig } from "../get_config";
 import { BulkOperationContainer } from "@elastic/elasticsearch/lib/api/typesWithBodyKey";
 
+const config = getConfig();
 let client = getEsClient();
 
 const ALERT_INDEX = ".alerts-security.alerts-default";

@@ -96,7 +96,7 @@ yarn start test-risk-score
 
 3. (Optional) Change if you want index name in `config.json` in `eventIndex` field. 
   
-   By default - `my-index`
+   By default - `logs-testlogs-default`
 
 4. (Optional) Change mappings in `eventMappings.json` file.
 
