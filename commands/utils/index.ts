@@ -1,7 +1,10 @@
 import { Client, ClientOptions } from "@elastic/elasticsearch";
 import { getConfig } from '../../get_config';
+import { MappingTypeMapping } from "@elastic/elasticsearch/lib/api/types";
 
 const config = getConfig();
+
+export * from './create_agent_document';
 
 export const getEsClient = () => {
   let client = null;
@@ -22,7 +25,7 @@ export const getEsClient = () => {
   return client;
 };
 
-export const indexCheck = async (index: string, mappings: object) => {
+export const indexCheck = async (index: string, mappings?: MappingTypeMapping) => {
   let client = getEsClient();
   if (!client) {
     throw new Error;

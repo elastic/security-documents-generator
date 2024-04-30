@@ -87,6 +87,11 @@ program
                 value: ENTITY_STORE_OPTIONS.rule,
                 checked: true,
               },
+              {
+                name: "Generate fake elastic agents for hosts",
+                value: ENTITY_STORE_OPTIONS.agent,
+                checked: true,
+              },
             ],
           },
           {

@@ -3,6 +3,7 @@ export const ENTITY_STORE_OPTIONS = {
   criticality: "criticality",
   riskEngine: "riskEngine",
   rule: "rule",
+  agent: "agent",
 };
 
 export const generateNewSeed = () => {

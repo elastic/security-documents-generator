@@ -19,6 +19,7 @@ const Config = t.type({
   elastic: Node,
   kibana: Node,
   eventIndex: t.string,
+  eventDateOffsetHours: t.number,
 });
 
 type ConfigType = t.TypeOf<typeof Config>;

@@ -1,16 +1,26 @@
 import { faker } from "@faker-js/faker";
-import { getEsClient, indexCheck } from "./utils/index";
+import { getEsClient, indexCheck, createAgentDocument } from "./utils";
 import { chunk } from "lodash-es";
 import moment from "moment";
 import auditbeatMappings from "../mappings/auditbeat.json" assert { type: "json" };
 import { assignAssetCriticality, enableRiskScore, createRule } from "./api";
 import { ENTITY_STORE_OPTIONS, generateNewSeed } from "../constants";
-import { BulkOperationContainer, BulkUpdateAction } from "@elastic/elasticsearch/lib/api/types";
+import { BulkOperationContainer, BulkUpdateAction, MappingTypeMapping } from "@elastic/elasticsearch/lib/api/types";
+import { getConfig } from "../get_config";
 
+const config = getConfig();
 let client = getEsClient();
 let EVENT_INDEX_NAME = "auditbeat-8.12.0-2024.01.18-000001";
+const AGENT_INDEX_NAME = ".fleet-agents-7";
 
-const offset = () => faker.number.int({ max: 1000 })
+if (config.eventDateOffsetHours !== undefined) {
+  console.log(`Using event date offset: ${config.eventDateOffsetHours} hours`);
+}
+
+const offset = () =>
+  config.eventDateOffsetHours ?? faker.number.int({ max: 1000 });
+
+type Agent = ReturnType<typeof createAgentDocument>;
 
 type AssetCriticality = "low_impact" | "medium_impact" | "high_impact" | "extreme_impact" | "unknown";
 
@@ -120,20 +130,23 @@ export const createRandomEventForUser = (name: string): UserEvent => ({
     },
   });
 
-const ingestEvents = async (events: Array<object>) => {
+const ingestEvents = async (events: Event[]) => ingest(EVENT_INDEX_NAME, events, auditbeatMappings as MappingTypeMapping);
 
 	type TDocument = object;
 	type TPartialDocument = Partial<TDocument>;
 
-  await indexCheck(EVENT_INDEX_NAME, auditbeatMappings);
+const ingestAgents = async (agents: Agent[]) => ingest(AGENT_INDEX_NAME, agents);
 
-  let chunks = chunk(events, 10000);
+const ingest = async (index: string, documents: Array<object>, mapping?: MappingTypeMapping) => {
+  await indexCheck(index, mapping);
+
+  let chunks = chunk(documents, 10000);
 
   for (let chunk of chunks) {
     try {
       // Make bulk request
       let ingestRequest = chunk.reduce((acc: (BulkOperationContainer | BulkUpdateAction<TDocument, TPartialDocument> | TDocument)[], event) => {
-        acc.push({ index: { _index: EVENT_INDEX_NAME } });
+        acc.push({ index: { _index: index } });
         acc.push(event);
         return acc;
       }, []);
@@ -203,7 +216,6 @@ export const generateEntityStore = async ({ users = 10, hosts = 10, seed = gener
     await ingestEvents(relational.hosts);
     console.log("Hosts events ingested");
 
-
     if (options.includes(ENTITY_STORE_OPTIONS.criticality)) {
       await assignAssetCriticalityToEntities(generatedUsers, "user.name");
       console.log("Assigned asset criticality to users");
@@ -216,12 +228,15 @@ export const generateEntityStore = async ({ users = 10, hosts = 10, seed = gener
       console.log("Risk score enabled");
     }
 
-
     if (options.includes(ENTITY_STORE_OPTIONS.rule)) {
       await createRule();
       console.log("Rule created");
     }
 
+    if (options.includes(ENTITY_STORE_OPTIONS.agent)) {
+      const agents = generatedHosts.map((host) => createAgentDocument({ hostname: host.name }));
+      const result = await ingestAgents(agents);
+    }
 
     console.log("Finished generating entity store");
   } catch (error) {

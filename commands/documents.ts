@@ -7,6 +7,7 @@ import { getEsClient, indexCheck } from "./utils/index";
 
 import { getConfig } from "../get_config";
 import { BulkOperationContainer } from "@elastic/elasticsearch/lib/api/typesWithBodyKey";
+import { MappingTypeMapping } from "@elastic/elasticsearch/lib/api/types";
 
 const config = getConfig();
 let client = getEsClient();
@@ -66,7 +67,7 @@ const createDocuments = (n: number, generated: number, createDoc: DocumentCreato
 
 
 export const generateAlerts = async (n: number) => {
-  await indexCheck(ALERT_INDEX, alertMappings);
+  await indexCheck(ALERT_INDEX, alertMappings as MappingTypeMapping);
 
   console.log("Generating alerts...");
 
@@ -80,7 +81,7 @@ export const generateAlerts = async (n: number) => {
 };
 
 export const generateEvents = async (n: number) => {
-  await indexCheck(EVENT_INDEX, eventMappings);
+  await indexCheck(EVENT_INDEX, eventMappings as MappingTypeMapping);
 
   console.log("Generating events...");
 
