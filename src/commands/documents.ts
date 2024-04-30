@@ -4,13 +4,11 @@ import createEvents from '../createEvents';
 import alertMappings from '../mappings/alertMappings.json' assert { type: 'json' };
 import eventMappings from '../mappings/eventMappings.json' assert { type: 'json' };
 import { getEsClient, indexCheck } from './utils/index';
-
 import { getConfig } from '../get_config';
-import { BulkOperationContainer } from '@elastic/elasticsearch/lib/api/typesWithBodyKey';
-import { MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
+import { MappingTypeMapping, BulkOperationContainer } from '@elastic/elasticsearch/lib/api/types';
 
 const config = getConfig();
-const client = getEsClient();
+const client = getEsClient(); 
 
 const ALERT_INDEX = '.alerts-security.alerts-default';
 const EVENT_INDEX = config.eventIndex;
