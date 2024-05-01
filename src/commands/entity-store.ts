@@ -1,17 +1,17 @@
-import { faker } from "@faker-js/faker";
-import { getEsClient, indexCheck, createAgentDocument } from "./utils";
-import { chunk } from "lodash-es";
-import moment from "moment";
-import auditbeatMappings from "../mappings/auditbeat.json" assert { type: "json" };
-import { assignAssetCriticality, enableRiskScore, createRule } from "./api";
-import { ENTITY_STORE_OPTIONS, generateNewSeed } from "../constants";
-import { BulkOperationContainer, BulkUpdateAction, MappingTypeMapping } from "@elastic/elasticsearch/lib/api/types";
-import { getConfig } from "../get_config";
+import { faker } from '@faker-js/faker';
+import { getEsClient, indexCheck, createAgentDocument } from './utils';
+import { chunk } from 'lodash-es';
+import moment from 'moment';
+import auditbeatMappings from '../mappings/auditbeat.json' assert { type: 'json' };
+import { assignAssetCriticality, enableRiskScore, createRule } from './api';
+import { ENTITY_STORE_OPTIONS, generateNewSeed } from '../constants';
+import { BulkOperationContainer, BulkUpdateAction, MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
+import { getConfig } from '../get_config';
 
 const config = getConfig();
-let client = getEsClient();
-let EVENT_INDEX_NAME = "auditbeat-8.12.0-2024.01.18-000001";
-const AGENT_INDEX_NAME = ".fleet-agents-7";
+const client = getEsClient();
+const EVENT_INDEX_NAME = 'auditbeat-8.12.0-2024.01.18-000001';
+const AGENT_INDEX_NAME = '.fleet-agents-7';
 
 if (config.eventDateOffsetHours !== undefined) {
   console.log(`Using event date offset: ${config.eventDateOffsetHours} hours`);
@@ -22,19 +22,19 @@ const offset = () =>
 
 type Agent = ReturnType<typeof createAgentDocument>;
 
-type AssetCriticality = "low_impact" | "medium_impact" | "high_impact" | "extreme_impact" | "unknown";
+type AssetCriticality = 'low_impact' | 'medium_impact' | 'high_impact' | 'extreme_impact' | 'unknown';
 
 const ASSET_CRITICALITY: AssetCriticality[] = [
-  "low_impact",
-  "medium_impact",
-  "high_impact",
-  "extreme_impact",
-  "unknown",
+  'low_impact',
+  'medium_impact',
+  'high_impact',
+  'extreme_impact',
+  'unknown',
 ];
 
 enum EntityTypes {
-  User = "user",
-  Host = "host",
+  User = 'user',
+  Host = 'host',
 }
 
 interface BaseEntity {
@@ -50,7 +50,7 @@ interface Host extends BaseEntity {
 }
 
 interface BaseEvent {
-  "@timestamp": string;
+  '@timestamp': string;
   message: string;
   service: {
     type: string;
@@ -101,34 +101,34 @@ export const createRandomHost= (): Host  => {
 };
 
 export const createRandomEventForHost = (name: string): HostEvent => ({
-    "@timestamp": moment().subtract(offset(), "h").format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
-    message: `Host ${faker.hacker.phrase()}`,
-    service: {
-      type: "system",
+  '@timestamp': moment().subtract(offset(), 'h').format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+  message: `Host ${faker.hacker.phrase()}`,
+  service: {
+    type: 'system',
+  },
+  host: {
+    name,
+    id: faker.number.int({ max: 10000 }),
+    ip: faker.internet.ip(),
+    mac: faker.internet.mac(),
+    os: {
+      name: faker.helpers.arrayElement(['Windows', 'Linux', 'MacOS']),
     },
-    host: {
-      name,
-      id: faker.number.int({ max: 10000 }),
-      ip: faker.internet.ip(),
-      mac: faker.internet.mac(),
-      os: {
-        name: faker.helpers.arrayElement(["Windows", "Linux", "MacOS"]),
-      },
-    },
-  });
+  },
+});
 
 export const createRandomEventForUser = (name: string): UserEvent => ({
-    "@timestamp": moment().subtract(offset(), "h").format("yyyy-MM-DDTHH:mm:ss.SSSSSSZ"),
-    message: `User ${faker.hacker.phrase()}`,
-    service: {
-      type: "system",
-    },
-    user: {
-      name,
-      id: faker.number.int({ max: 10000 }),
-      entity_id: faker.string.nanoid(),
-    },
-  });
+  '@timestamp': moment().subtract(offset(), 'h').format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+  message: `User ${faker.hacker.phrase()}`,
+  service: {
+    type: 'system',
+  },
+  user: {
+    name,
+    id: faker.number.int({ max: 10000 }),
+    entity_id: faker.string.nanoid(),
+  },
+});
 
 const ingestEvents = async (events: Event[]) => ingest(EVENT_INDEX_NAME, events, auditbeatMappings as MappingTypeMapping);
 
@@ -140,20 +140,20 @@ const ingestAgents = async (agents: Agent[]) => ingest(AGENT_INDEX_NAME, agents)
 const ingest = async (index: string, documents: Array<object>, mapping?: MappingTypeMapping) => {
   await indexCheck(index, mapping);
 
-  let chunks = chunk(documents, 10000);
+  const chunks = chunk(documents, 10000);
 
-  for (let chunk of chunks) {
+  for (const chunk of chunks) {
     try {
       // Make bulk request
-      let ingestRequest = chunk.reduce((acc: (BulkOperationContainer | BulkUpdateAction<TDocument, TPartialDocument> | TDocument)[], event) => {
+      const ingestRequest = chunk.reduce((acc: (BulkOperationContainer | BulkUpdateAction<TDocument, TPartialDocument> | TDocument)[], event) => {
         acc.push({ index: { _index: index } });
         acc.push(event);
         return acc;
       }, []);
       if (!client) throw new Error;
-	      await client.bulk({ operations: ingestRequest, refresh: true });
+      await client.bulk({ operations: ingestRequest, refresh: true });
     } catch (err) {
-      console.log("Error: ", err);
+      console.log('Error: ', err);
     }
   }
 };
@@ -174,7 +174,7 @@ export const generateEvents = <E extends User | Host, EV = E extends User ? User
 const assignAssetCriticalityToEntities = async (entities: BaseEntity[], field: string) => {
   for (const entity of entities) {
     const { name, assetCriticality } = entity;
-    if (assetCriticality === "unknown") return;
+    if (assetCriticality === 'unknown') return;
     await assignAssetCriticality({
       id_field: field,
       id_value: name,
@@ -200,11 +200,11 @@ export const generateEntityStore = async ({ users = 10, hosts = 10, seed = gener
       count: hosts,
     });
 
-    let eventsForUsers = generateEvents(
+    const eventsForUsers = generateEvents(
       generatedUsers,
       createRandomEventForUser
     );
-    let eventsForHosts = generateEvents(
+    const eventsForHosts = generateEvents(
       generatedHosts,
       createRandomEventForHost
     );
@@ -212,42 +212,43 @@ export const generateEntityStore = async ({ users = 10, hosts = 10, seed = gener
     const relational = matchUsersAndHosts(eventsForUsers, eventsForHosts)
 
     await ingestEvents(relational.users);
-    console.log("Users events ingested");
+    console.log('Users events ingested');
     await ingestEvents(relational.hosts);
-    console.log("Hosts events ingested");
+    console.log('Hosts events ingested');
 
     if (options.includes(ENTITY_STORE_OPTIONS.criticality)) {
-      await assignAssetCriticalityToEntities(generatedUsers, "user.name");
-      console.log("Assigned asset criticality to users");
-      await assignAssetCriticalityToEntities(generatedHosts, "host.name");
-      console.log("Assigned asset criticality to hosts");
+      await assignAssetCriticalityToEntities(generatedUsers, 'user.name');
+      console.log('Assigned asset criticality to users');
+      await assignAssetCriticalityToEntities(generatedHosts, 'host.name');
+      console.log('Assigned asset criticality to hosts');
     }
 
     if (options.includes(ENTITY_STORE_OPTIONS.riskEngine)) {
       await enableRiskScore();
-      console.log("Risk score enabled");
+      console.log('Risk score enabled');
     }
 
     if (options.includes(ENTITY_STORE_OPTIONS.rule)) {
       await createRule();
-      console.log("Rule created");
+      console.log('Rule created');
     }
 
     if (options.includes(ENTITY_STORE_OPTIONS.agent)) {
       const agents = generatedHosts.map((host) => createAgentDocument({ hostname: host.name }));
-      const result = await ingestAgents(agents);
+      await ingestAgents(agents);
+      console.log('Agents ingested');
     }
 
-    console.log("Finished generating entity store");
+    console.log('Finished generating entity store');
   } catch (error) {
-    console.log("Error: ", error);
+    console.log('Error: ', error);
   }
 };
 
 export const cleanEntityStore = async () => {
-  console.log("Deleting all entity-store data...");
+  console.log('Deleting all entity-store data...');
   try {
-    console.log("Deleted all events");
+    console.log('Deleted all events');
     if (!client) throw new Error;
     await client.deleteByQuery({
       index: EVENT_INDEX_NAME,
@@ -259,7 +260,7 @@ export const cleanEntityStore = async () => {
       },
     });
 
-    console.log("Deleted asset criticality");
+    console.log('Deleted asset criticality');
     await client.deleteByQuery({
       index: '.asset-criticality.asset-criticality-default',
       refresh: true,
@@ -270,7 +271,7 @@ export const cleanEntityStore = async () => {
       },
     });
   } catch (error) {
-    console.log("Failed to clean data");
+    console.log('Failed to clean data');
     console.log(error);
   }
 };

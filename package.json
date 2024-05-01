@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck": "tsc --noEmit",
-    "start": "tsx index"
+    "start": "tsx src/index",
+    "lint": "eslint ./src"
   },
   "author": "",
   "license": "ISC",
@@ -28,9 +29,14 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "eslint": "<9.0.0",
     "@types/inquirer": "^9.0.7",
     "@types/uuid": "^9.0.8",
+    "@typescript-eslint/eslint-plugin": "^7.7.1",
+    "@typescript-eslint/parser": "^7.7.1",
     "esbuild": "^0.20.2",
+    "eslint-config-airbnb": "^19.0.4",
+    "eslint-config-airbnb-typescript": "^18.0.0",
     "typescript": "^5.3.3"
   }
 }
