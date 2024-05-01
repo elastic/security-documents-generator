@@ -1,29 +1,27 @@
 
-import createAlerts from "../createAlerts";
-import createEvents from "../createEvents";
-import alertMappings from "../mappings/alertMappings.json" assert { type: "json" };
-import eventMappings from "../mappings/eventMappings.json" assert { type: "json" };
-import { getEsClient, indexCheck } from "./utils/index";
-
-import { getConfig } from "../get_config";
-import { BulkOperationContainer } from "@elastic/elasticsearch/lib/api/typesWithBodyKey";
-import { MappingTypeMapping } from "@elastic/elasticsearch/lib/api/types";
+import createAlerts from '../createAlerts';
+import createEvents from '../createEvents';
+import alertMappings from '../mappings/alertMappings.json' assert { type: 'json' };
+import eventMappings from '../mappings/eventMappings.json' assert { type: 'json' };
+import { getEsClient, indexCheck } from './utils/index';
+import { getConfig } from '../get_config';
+import { MappingTypeMapping, BulkOperationContainer } from '@elastic/elasticsearch/lib/api/types';
 
 const config = getConfig();
-let client = getEsClient();
+const client = getEsClient(); 
 
-const ALERT_INDEX = ".alerts-security.alerts-default";
+const ALERT_INDEX = '.alerts-security.alerts-default';
 const EVENT_INDEX = config.eventIndex;
 
 const generateDocs = async ({ createDocs, amount, index }: {createDocs: DocumentCreator; amount: number; index: string}) => {
   if (!client) {
     throw new Error('failed to create ES client');
   }
-  let limit = 30000;
+  const limit = 30000;
   let generated = 0;
 
   while (generated < amount) {
-    let docs = createDocuments(
+    const docs = createDocuments(
       Math.min(limit, amount),
       generated,
       createDocs,
@@ -36,7 +34,7 @@ const generateDocs = async ({ createDocs, amount, index }: {createDocs: Document
         `${result.items.length} documents created, ${amount - generated} left`
       );
     } catch (err) {
-      console.log("Error: ", err);
+      console.log('Error: ', err);
     }
   }
 };
@@ -50,13 +48,13 @@ const createDocuments = (n: number, generated: number, createDoc: DocumentCreato
     .fill(null)
     .reduce((acc, _, i) => {
       let alert = createDoc({
-        id_field: "host.name",
+        id_field: 'host.name',
         id_value: `Host ${generated + i}`,
       });
       acc.push({ index: { _index: index } });
       acc.push({ ...alert });
       alert = createDoc({
-        id_field: "user.name",
+        id_field: 'user.name',
         id_value: `User ${generated + i}`,
       });
       acc.push({ index: { _index: index } });
@@ -69,7 +67,7 @@ const createDocuments = (n: number, generated: number, createDoc: DocumentCreato
 export const generateAlerts = async (n: number) => {
   await indexCheck(ALERT_INDEX, alertMappings as MappingTypeMapping);
 
-  console.log("Generating alerts...");
+  console.log('Generating alerts...');
 
   await generateDocs({
     createDocs: createAlerts,
@@ -77,13 +75,13 @@ export const generateAlerts = async (n: number) => {
     index: ALERT_INDEX,
   });
 
-  console.log("Finished gerating alerts");
+  console.log('Finished gerating alerts');
 };
 
 export const generateEvents = async (n: number) => {
   await indexCheck(EVENT_INDEX, eventMappings as MappingTypeMapping);
 
-  console.log("Generating events...");
+  console.log('Generating events...');
 
   await generateDocs({
     createDocs: createEvents,
@@ -91,12 +89,12 @@ export const generateEvents = async (n: number) => {
     index: EVENT_INDEX,
   });
 
-  console.log("Finished generating events");
+  console.log('Finished generating events');
 };
 
 export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
   //await alertIndexCheck(); TODO
-  console.log("Generating alerts graph...");
+  console.log('Generating alerts graph...');
 
   type AlertOverride ={host: { name: string }; user: { name: string }}; 
 
@@ -108,9 +106,9 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
    */
   type FakeAlertBulkOperations = BulkOperationContainer | Partial<AlertOverride>;
 
-  let alerts: FakeAlertBulkOperations[] = [];
+  const alerts: FakeAlertBulkOperations[] = [];
   for (let i = 0; i < users; i++) {
-    let userCluster = [];
+    const userCluster = [];
     for (let j = 0; j < maxHosts; j++) {
       const alert = createAlerts({
         host: {
@@ -137,13 +135,13 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
         },
       });
       alerts.push({
-        index: { _index: ALERT_INDEX, _id: alert["kibana.alert.uuid"] },
+        index: { _index: ALERT_INDEX, _id: alert['kibana.alert.uuid'] },
       });
       alerts.push(alert);
     }
     cluster.forEach((alert) => {
       alerts.push({
-        index: { _index: ALERT_INDEX, _id: alert["kibana.alert.uuid"] },
+        index: { _index: ALERT_INDEX, _id: alert['kibana.alert.uuid'] },
       });
       alerts.push(alert);
       lastAlertFromCluster = alert;
@@ -151,18 +149,18 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
   });
 
   try {
-	  if (!client) throw new Error;
+    if (!client) throw new Error;
     const result = await client.bulk({ body: alerts, refresh: true });
     console.log(`${result.items.length} alerts created`);
   } catch (err) {
-    console.log("Error: ", err);
+    console.log('Error: ', err);
   }
 };
 
 export const deleteAllAlerts = async () => {
-  console.log("Deleting all alerts...");
+  console.log('Deleting all alerts...');
   try {
-    console.log("Deleted all alerts");
+    console.log('Deleted all alerts');
     if (!client) throw new Error;
     await client.deleteByQuery({
       index: ALERT_INDEX,
@@ -174,15 +172,15 @@ export const deleteAllAlerts = async () => {
       },
     });
   } catch (error) {
-    console.log("Failed to delete alerts");
+    console.log('Failed to delete alerts');
     console.log(error);
   }
 };
 
 export const deleteAllEvents = async () => {
-  console.log("Deleting all events...");
+  console.log('Deleting all events...');
   try {
-    console.log("Deleted all events");
+    console.log('Deleted all events');
     if (!client) throw new Error;
     await client.deleteByQuery({
       index: EVENT_INDEX,
@@ -194,7 +192,7 @@ export const deleteAllEvents = async () => {
       },
     });
   } catch (error) {
-    console.log("Failed to delete events");
+    console.log('Failed to delete events');
     console.log(error);
   }
 };
