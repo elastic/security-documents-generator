@@ -13,7 +13,7 @@ function baseCreateAlerts() {
       'author': [],
       'false_positives': [],
       'from': 'now-360s',
-      'rule_id': faker.datatype.uuid(),
+      'rule_id': faker.string.uuid(),
       'max_signals': 100,
       'risk_score_mapping': [],
       'severity_mapping': [],
@@ -36,11 +36,11 @@ function baseCreateAlerts() {
     },
     'kibana.alert.rule.category': 'Custom Query Rule',
     'kibana.alert.rule.consumer': 'siem',
-    'kibana.alert.rule.execution.uuid': faker.datatype.uuid(),
+    'kibana.alert.rule.execution.uuid': faker.string.uuid(),
     'kibana.alert.rule.name': '1',
     'kibana.alert.rule.producer': 'siem',
     'kibana.alert.rule.rule_type_id': 'siem.queryRule',
-    'kibana.alert.rule.uuid': faker.datatype.uuid(),
+    'kibana.alert.rule.uuid': faker.string.uuid(),
     'kibana.space_ids': [
       'default'
     ],
@@ -92,7 +92,7 @@ function baseCreateAlerts() {
     'kibana.alert.rule.meta.kibana_siem_app_url': 'http://localhost:5601/app/security',
     'kibana.alert.rule.risk_score': 21,
     'kibana.alert.rule.severity': 'low',
-    'kibana.alert.uuid': faker.datatype.uuid(),
+    'kibana.alert.uuid': faker.string.uuid(),
   }
 }
 
