@@ -45,7 +45,7 @@ function baseCreateAlerts() {
       'default'
     ],
     'kibana.alert.rule.tags': [],
-    '@timestamp': Date.now(),
+    "@timestamp": faker.date.recent({ days: 20 }).getTime(),
     'event.kind': 'signal',
     'kibana.alert.original_time': '2023-04-11T20:17:14.851Z',
     'kibana.alert.ancestors': [
@@ -61,7 +61,7 @@ function baseCreateAlerts() {
     'kibana.alert.depth': 1,
     'kibana.alert.reason': 'event on Host 4 created low alert 1.',
     'kibana.alert.severity': 'low',
-    'kibana.alert.risk_score': 21,
+    'kibana.alert.risk_score': faker.number.int(100),
     'kibana.alert.rule.actions': [],
     'kibana.alert.rule.author': [],
     'kibana.alert.rule.created_at': '2023-04-11T20:15:52.473Z',
@@ -93,7 +93,7 @@ function baseCreateAlerts() {
     'kibana.alert.rule.risk_score': 21,
     'kibana.alert.rule.severity': 'low',
     'kibana.alert.uuid': faker.string.uuid(),
-  }
+  };
 }
 
 export default function createAlerts<O extends object>(override: O): O & ReturnType<typeof baseCreateAlerts> {
