@@ -11,7 +11,6 @@ const config = getConfig();
 const client = getEsClient(); 
 
 const ALERT_INDEX = '.alerts-security.alerts-default';
-const EVENT_INDEX = config.eventIndex;
 
 const generateDocs = async ({ createDocs, amount, index }: {createDocs: DocumentCreator; amount: number; index: string}) => {
   if (!client) {
@@ -78,15 +77,17 @@ export const generateAlerts = async (n: number) => {
   console.log('Finished gerating alerts');
 };
 
+// this creates asset criticality not events? 
 export const generateEvents = async (n: number) => {
-  await indexCheck(EVENT_INDEX, eventMappings as MappingTypeMapping);
+  if(!config.eventIndex) { throw new Error('eventIndex not defined in config'); }
+  await indexCheck(config.eventIndex, eventMappings as MappingTypeMapping);
 
   console.log('Generating events...');
 
   await generateDocs({
     createDocs: createEvents,
     amount: n,
-    index: EVENT_INDEX,
+    index: config.eventIndex,
   });
 
   console.log('Finished generating events');
@@ -179,11 +180,12 @@ export const deleteAllAlerts = async () => {
 
 export const deleteAllEvents = async () => {
   console.log('Deleting all events...');
+  if (!config.eventIndex) { throw new Error('eventIndex not defined in config'); }
   try {
     console.log('Deleted all events');
     if (!client) throw new Error;
     await client.deleteByQuery({
-      index: EVENT_INDEX,
+      index: config.eventIndex,
       refresh: true,
       body: {
         query: {
