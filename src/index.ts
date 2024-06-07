@@ -17,9 +17,16 @@ import { ENTITY_STORE_OPTIONS, generateNewSeed } from './constants';
 
 program
   .command('generate-alerts')
-  .argument('<n>', 'integer argument', parseInt)
+  .option('-n <n>', 'number of alerts')
+  .option('-h <h>', 'number of hosts')
+  .option('-u <h>', 'number of users')
   .description('Generate fake alerts')
-  .action(generateAlerts);
+  .action((options) => {
+    const alertsCount = parseInt(options.n || 1);
+    const hostCount = parseInt(options.h || 1);
+    const userCount = parseInt(options.u || 1);
+    generateAlerts(alertsCount, userCount, hostCount);
+  });
 
 program
   .command('generate-events')
