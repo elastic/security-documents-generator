@@ -57,7 +57,7 @@ Examles of config:
 ### Alerts
 `yarn start help` - To see the commands list
 
-`yarn start generate-alerts <n>` - Generate *n* alerts
+`yarn start generate-alerts -n <number of alerts> -h <number of hosts within the alerts> -u <number of users within the alerts>
 
 `yarn start delete-alerts` - Delete all alerts
 
@@ -76,7 +76,7 @@ To modify alert document, you can change `createAlert.ts` file.
 Example list of command for testing Risk Score API woth 10.000 alerts.
 ```
 yarn start delete-alerts
-yarn start generate-alerts 10000
+yarn start generate-alerts -n 10000 -h 100 -u 100
 yarn start test-risk-score
 ```
 

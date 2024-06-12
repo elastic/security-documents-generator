@@ -18,8 +18,8 @@ const Node = t.union([NodeWithCredentials, NodeWithAPIKey]);
 const Config = t.type({
   elastic: Node,
   kibana: Node,
-  eventIndex: t.string,
-  eventDateOffsetHours: t.number,
+  eventIndex: t.union([t.string, t.undefined]),
+  eventDateOffsetHours: t.union([t.number, t.undefined]),
 });
 
 type ConfigType = t.TypeOf<typeof Config>;
