@@ -1,17 +1,19 @@
 
 import createAlerts from '../createAlerts';
 import createEvents from '../createEvents';
-import alertMappings from '../mappings/alertMappings.json' assert { type: 'json' };
 import eventMappings from '../mappings/eventMappings.json' assert { type: 'json' };
 import { getEsClient, indexCheck } from './utils/index';
 import { getConfig } from '../get_config';
 import { MappingTypeMapping, BulkOperationContainer } from '@elastic/elasticsearch/lib/api/types';
+import pMap from 'p-map';
+import _ from 'lodash';
+import cliProgress from 'cli-progress';
+import { faker } from '@faker-js/faker';
 
 const config = getConfig();
 const client = getEsClient(); 
 
 const ALERT_INDEX = '.alerts-security.alerts-default';
-const EVENT_INDEX = config.eventIndex;
 
 const generateDocs = async ({ createDocs, amount, index }: {createDocs: DocumentCreator; amount: number; index: string}) => {
   if (!client) {
@@ -28,19 +30,37 @@ const generateDocs = async ({ createDocs, amount, index }: {createDocs: Document
       index
     );
     try {
-      const result = await client.bulk({ body: docs, refresh: true });
+      const result = await bulkUpsert(docs);
       generated += result.items.length / 2;
-      console.log(
-        `${result.items.length} documents created, ${amount - generated} left`
-      );
     } catch (err) {
       console.log('Error: ', err);
+      process.exit(1);
     }
+  }
+};
+
+const bulkUpsert = async (docs: unknown[]) => {
+  if (!client) {
+    throw new Error('failed to create ES client');
+  }
+  try {
+    return client.bulk({ body: docs, refresh: true });
+  } catch (err) {
+    console.log('Error: ', err);
+    process.exit(1);
   }
 };
 
 interface DocumentCreator {
 	(descriptor: { id_field: string, id_value: string }): object;
+}
+
+const alertToBatchOps = (alert: object, index: string): unknown[] => {
+  return [
+    { index: { _index: index } },
+    { ...alert },
+  ];
+
 }
 
 const createDocuments = (n: number, generated: number, createDoc: DocumentCreator, index: string): unknown[] => {
@@ -64,29 +84,71 @@ const createDocuments = (n: number, generated: number, createDoc: DocumentCreato
 };
 
 
-export const generateAlerts = async (n: number) => {
-  await indexCheck(ALERT_INDEX, alertMappings as MappingTypeMapping);
+export const generateAlerts = async (alertCount: number, hostCount: number, userCount: number) => {
 
-  console.log('Generating alerts...');
+  if (userCount > alertCount) {
+    console.log('User count should be less than alert count');
+    process.exit(1);
+  }
 
-  await generateDocs({
-    createDocs: createAlerts,
-    amount: n,
-    index: ALERT_INDEX,
-  });
+  if (hostCount > alertCount) {
+    console.log('Host count should be less than alert count');
+    process.exit(1);
+  }
 
-  console.log('Finished gerating alerts');
+  console.log(`Generating ${alertCount} alerts containing ${hostCount} hosts and ${userCount} users.`);
+  const concurrency = 10; // how many batches to send in parallel
+  const batchSize = 2500; // number of alerts in a batch
+  const no_overrides = {};
+
+  const batchOpForIndex = ({ userName, hostName } : { userName: string, hostName: string }) => alertToBatchOps(createAlerts(no_overrides, { userName, hostName }), ALERT_INDEX);
+
+
+  console.log('Generating entity names...');
+  const userNames = Array.from({ length: userCount }, () => faker.internet.userName());
+  const hostNames = Array.from({ length: hostCount }, () => faker.internet.domainName());
+
+  console.log('Assigning entity names...')
+  const alertEntityNames = Array.from({ length: alertCount }, (_, i) => ({
+    userName: userNames[i % userCount],
+    hostName: hostNames[i % hostCount],
+  }));
+  
+  console.log('Entity names assigned. Batching...');
+  const operationBatches = _.chunk(alertEntityNames, batchSize).map((batch) => 
+    batch.flatMap(batchOpForIndex)
+  );
+
+  console.log('Batching complete. Sending to ES...');
+
+  console.log(`Sending in ${operationBatches.length} batches of ${batchSize} alerts, with up to ${concurrency} batches in parallel\n\n`);
+  const progress = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
+
+  progress.start(operationBatches.length, 0);
+
+  await pMap(
+    operationBatches,
+    async (operations) => {
+      await bulkUpsert(operations);
+      progress.increment();
+    },  
+    { concurrency }
+  );
+
+  progress.stop();
 };
 
+// this creates asset criticality not events? 
 export const generateEvents = async (n: number) => {
-  await indexCheck(EVENT_INDEX, eventMappings as MappingTypeMapping);
+  if(!config.eventIndex) { throw new Error('eventIndex not defined in config'); }
+  await indexCheck(config.eventIndex, eventMappings as MappingTypeMapping);
 
   console.log('Generating events...');
 
   await generateDocs({
     createDocs: createEvents,
     amount: n,
-    index: EVENT_INDEX,
+    index: config.eventIndex,
   });
 
   console.log('Finished generating events');
@@ -112,10 +174,10 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
     for (let j = 0; j < maxHosts; j++) {
       const alert = createAlerts({
         host: {
-          name: `Host ${i}${j}`,
+          name: 'Host mark',
         },
         user: {
-          name: `User ${i}`,
+          name: 'User pablo',
         },
       });
       userCluster.push(alert);
@@ -179,11 +241,12 @@ export const deleteAllAlerts = async () => {
 
 export const deleteAllEvents = async () => {
   console.log('Deleting all events...');
+  if (!config.eventIndex) { throw new Error('eventIndex not defined in config'); }
   try {
     console.log('Deleted all events');
     if (!client) throw new Error;
     await client.deleteByQuery({
-      index: EVENT_INDEX,
+      index: config.eventIndex,
       refresh: true,
       body: {
         query: {

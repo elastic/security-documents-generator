@@ -1,7 +1,16 @@
 import { faker } from '@faker-js/faker';
 
-function baseCreateAlerts() {
+function baseCreateAlerts({
+  userName = 'user-1',
+  hostName = 'host-1',
+} : {
+  userName?: string,
+  hostName?: string,
+} = {
+}) {
   return {
+    'host.name': hostName,
+    'user.name': userName,
     'kibana.alert.start': '2023-04-11T20:18:15.816Z',
     'kibana.alert.last_detected': '2023-04-11T20:18:15.816Z',
     'kibana.version': '8.7.0',
@@ -59,7 +68,7 @@ function baseCreateAlerts() {
     'kibana.alert.status': 'active',
     'kibana.alert.workflow_status': 'open',
     'kibana.alert.depth': 1,
-    'kibana.alert.reason': 'event on Host 4 created low alert 1.',
+    'kibana.alert.reason': 'event on ' + hostName +  'created low alert 1.',
     'kibana.alert.severity': 'low',
     'kibana.alert.risk_score': 21,
     'kibana.alert.rule.actions': [],
@@ -96,6 +105,13 @@ function baseCreateAlerts() {
   }
 }
 
-export default function createAlerts<O extends object>(override: O): O & ReturnType<typeof baseCreateAlerts> {
-  return { ...baseCreateAlerts(), ...override };
+export default function createAlerts<O extends object>(override: O, {
+  userName,
+  hostName,
+} : {
+  userName?: string,
+  hostName?: string,
+} = {
+}): O & ReturnType<typeof baseCreateAlerts> {
+  return { ...baseCreateAlerts({ userName, hostName}), ...override };
 }
