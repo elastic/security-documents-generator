@@ -46,7 +46,7 @@ function baseCreateAlerts({
     'kibana.alert.rule.category': 'Custom Query Rule',
     'kibana.alert.rule.consumer': 'siem',
     'kibana.alert.rule.execution.uuid': faker.string.uuid(),
-    'kibana.alert.rule.name': '1',
+    'kibana.alert.rule.name': 'Alert create by documents-generator',
     'kibana.alert.rule.producer': 'siem',
     'kibana.alert.rule.rule_type_id': 'siem.queryRule',
     'kibana.alert.rule.uuid': faker.string.uuid(),
@@ -105,6 +105,8 @@ function baseCreateAlerts({
   }
 }
 
+export type BaseCreateAlertsReturnType = ReturnType<typeof baseCreateAlerts>;
+
 export default function createAlerts<O extends object>(override: O, {
   userName,
   hostName,
@@ -112,6 +114,6 @@ export default function createAlerts<O extends object>(override: O, {
   userName?: string,
   hostName?: string,
 } = {
-}): O & ReturnType<typeof baseCreateAlerts> {
+}): O & BaseCreateAlertsReturnType {
   return { ...baseCreateAlerts({ userName, hostName}), ...override };
 }
