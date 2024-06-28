@@ -1,5 +1,5 @@
 
-import createAlerts from '../createAlerts';
+import createAlerts, { BaseCreateAlertsReturnType } from '../createAlerts';
 import createEvents from '../createEvents';
 import eventMappings from '../mappings/eventMappings.json' assert { type: 'json' };
 import { getEsClient, indexCheck } from './utils/index';
@@ -55,9 +55,9 @@ interface DocumentCreator {
 	(descriptor: { id_field: string, id_value: string }): object;
 }
 
-const alertToBatchOps = (alert: object, index: string): unknown[] => {
+const alertToBatchOps = (alert: BaseCreateAlertsReturnType, index: string): unknown[] => {
   return [
-    { index: { _index: index } },
+    { index: { _index: index, _id: alert['kibana.alert.uuid'] } },
     { ...alert },
   ];
 
