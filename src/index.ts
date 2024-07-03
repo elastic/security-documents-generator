@@ -7,7 +7,7 @@ import {
   generateGraph,
   generateEvents,
 } from './commands/documents';
-import { fetchRiskScore } from './commands/api';
+import { kibanaApi } from './utils/';
 import {
   cleanEntityStore,
   generateEntityStore,
@@ -61,7 +61,7 @@ program
 program
   .command('test-risk-score')
   .description('Test risk score API')
-  .action(fetchRiskScore);
+  .action(kibanaApi.fetchRiskScore);
 
 type EntityStoreAnswers = {
   options: string[];

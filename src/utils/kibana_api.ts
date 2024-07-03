@@ -5,6 +5,14 @@ import { getConfig } from '../get_config';
 const config = getConfig();
 const appendPathToKibanaNode = (path: string) => urlJoin(config.kibana.node, path);
 
+type ResponseError = Error & { statusCode: number };
+
+const throwResponseError = (message: string, statusCode: number) => {
+  const error = new Error(message) as ResponseError;
+  error.statusCode = statusCode;
+  throw error;
+}
+
 export const kibanaFetch = async <T>(path: string, params: object, apiVersion = '1'): Promise<T> => {
   const url = appendPathToKibanaNode(path);
 
@@ -36,8 +44,7 @@ export const kibanaFetch = async <T>(path: string, params: object, apiVersion = 
     }
 
     if (result.status >= 400) {
-      console.log(data)
-      throw new Error(`Failed to fetch data from ${url}, error: ${JSON.stringify(data)}`)
+      throwResponseError('Failed to fetch data', result.status);
     }
     return data;
   } catch (e) {
@@ -111,4 +118,27 @@ export const deleteRule = async (ruleId: string, space?: string) => {
     },
     '2023-10-31'
   );
+}
+
+export const createSpace = async (space: string) => {
+  return kibanaFetch('/api/spaces/space', {
+    method: 'POST',
+    body: JSON.stringify({
+      id: space,
+      name: space,
+      description: 'Created by security-documents-generator for testing',
+      disabledFeatures: [],
+    }),
+  });
+}
+
+export const getSpace = async (space: string): Promise<boolean> => {
+  try {
+    await kibanaFetch(`/api/spaces/space/${space}`, {
+      method: 'GET',
+    });
+  } catch (e) {
+    return false;
+  }
+  return true;
 }

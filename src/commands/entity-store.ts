@@ -3,7 +3,7 @@ import { getEsClient, indexCheck, createAgentDocument } from './utils';
 import { chunk } from 'lodash-es';
 import moment from 'moment';
 import auditbeatMappings from '../mappings/auditbeat.json' assert { type: 'json' };
-import { assignAssetCriticality, enableRiskScore, createRule } from './api';
+import { assignAssetCriticality, enableRiskScore, createRule } from '../utils/kibana_api';
 import { ENTITY_STORE_OPTIONS, generateNewSeed } from '../constants';
 import { BulkOperationContainer, BulkUpdateAction, MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
 import { getConfig } from '../get_config';
