@@ -21,7 +21,7 @@ program
   .option('-n <n>', 'number of alerts')
   .option('-h <h>', 'number of hosts')
   .option('-u <h>', 'number of users')
-  .option('-s <h>', 'space')
+  .option('-s <h>', 'space (will be created if it does not exist)')
   .description('Generate fake alerts')
   .action(async (options) => {
     const alertsCount = parseInt(options.n || 1);
