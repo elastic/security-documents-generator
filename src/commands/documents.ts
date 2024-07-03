@@ -9,11 +9,10 @@ import pMap from 'p-map';
 import _ from 'lodash';
 import cliProgress from 'cli-progress';
 import { faker } from '@faker-js/faker';
+import { getAlertIndex } from '../utils';
 
 const config = getConfig();
 const client = getEsClient(); 
-
-const getAlertIndex = (space: string) => `.alerts-security.alerts-${space}`;
 
 const generateDocs = async ({ createDocs, amount, index }: {createDocs: DocumentCreator; amount: number; index: string}) => {
   if (!client) {

@@ -14,7 +14,7 @@ import {
 } from './commands/entity-store';
 import inquirer from 'inquirer';
 import { ENTITY_STORE_OPTIONS, generateNewSeed } from './constants';
-import { initializeSpace } from './commands/utils/initialize_space';
+import { initializeSpace } from './utils/initialize_space';
 
 program
   .command('generate-alerts')
