@@ -14,18 +14,26 @@ import {
 } from './commands/entity-store';
 import inquirer from 'inquirer';
 import { ENTITY_STORE_OPTIONS, generateNewSeed } from './constants';
+import { initializeSpace } from './commands/utils/initialize_space';
 
 program
   .command('generate-alerts')
   .option('-n <n>', 'number of alerts')
   .option('-h <h>', 'number of hosts')
   .option('-u <h>', 'number of users')
+  .option('-s <h>', 'space')
   .description('Generate fake alerts')
-  .action((options) => {
+  .action(async (options) => {
     const alertsCount = parseInt(options.n || 1);
     const hostCount = parseInt(options.h || 1);
     const userCount = parseInt(options.u || 1);
-    generateAlerts(alertsCount, userCount, hostCount);
+    const space = options.s || 'default';
+
+    if(space !== 'default') {
+      await initializeSpace(space);
+    }
+    
+    generateAlerts(alertsCount, userCount, hostCount, space);
   });
 
 program
