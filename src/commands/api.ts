@@ -74,7 +74,7 @@ export const assignAssetCriticality = async ({
   });
 };
 
-export const createRule = ({space, id } : {space?: string, id?: string}): Promise<{ id : string }> => {
+export const createRule = ({space, id } : {space?: string, id?: string} = {}): Promise<{ id : string }> => {
 
   const url = space ? `/s/${space}/api/detection_engine/rules` : '/api/detection_engine/rules';
   return kibanaFetch<{ id : string }>(
