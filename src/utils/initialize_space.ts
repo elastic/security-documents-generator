@@ -24,13 +24,8 @@ const alertIndexExistsInSpace = async (space: string): Promise<boolean> => {
   console.log(`Checking if index ${index} exists`);
   const exists = await client.indices.exists({ index });
 
-  if (exists) {
-    console.log(`Index ${index} exists`);
-    return true;
-  }
-
-  console.log(`Index ${index} does not exist`);
-  return false;
+  console.log(exists ? `Index ${index} exists` :  `Index ${index} does not exist`);
+  return exists;
 }
 
 const ensureSpaceExists = async (space: string) => {
