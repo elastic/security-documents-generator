@@ -7,25 +7,33 @@ import {
   generateGraph,
   generateEvents,
 } from './commands/documents';
-import { fetchRiskScore } from './commands/api';
+import { kibanaApi } from './utils/';
 import {
   cleanEntityStore,
   generateEntityStore,
 } from './commands/entity-store';
 import inquirer from 'inquirer';
 import { ENTITY_STORE_OPTIONS, generateNewSeed } from './constants';
+import { initializeSpace } from './utils/initialize_space';
 
 program
   .command('generate-alerts')
   .option('-n <n>', 'number of alerts')
   .option('-h <h>', 'number of hosts')
   .option('-u <h>', 'number of users')
+  .option('-s <h>', 'space (will be created if it does not exist)')
   .description('Generate fake alerts')
-  .action((options) => {
+  .action(async (options) => {
     const alertsCount = parseInt(options.n || 1);
     const hostCount = parseInt(options.h || 1);
     const userCount = parseInt(options.u || 1);
-    generateAlerts(alertsCount, userCount, hostCount);
+    const space = options.s || 'default';
+
+    if(space !== 'default') {
+      await initializeSpace(space);
+    }
+    
+    generateAlerts(alertsCount, userCount, hostCount, space);
   });
 
 program
@@ -53,7 +61,7 @@ program
 program
   .command('test-risk-score')
   .description('Test risk score API')
-  .action(fetchRiskScore);
+  .action(kibanaApi.fetchRiskScore);
 
 type EntityStoreAnswers = {
   options: string[];

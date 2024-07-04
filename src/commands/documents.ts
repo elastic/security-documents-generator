@@ -9,11 +9,10 @@ import pMap from 'p-map';
 import _ from 'lodash';
 import cliProgress from 'cli-progress';
 import { faker } from '@faker-js/faker';
+import { getAlertIndex } from '../utils';
 
 const config = getConfig();
 const client = getEsClient(); 
-
-const ALERT_INDEX = '.alerts-security.alerts-default';
 
 const generateDocs = async ({ createDocs, amount, index }: {createDocs: DocumentCreator; amount: number; index: string}) => {
   if (!client) {
@@ -84,7 +83,7 @@ const createDocuments = (n: number, generated: number, createDoc: DocumentCreato
 };
 
 
-export const generateAlerts = async (alertCount: number, hostCount: number, userCount: number) => {
+export const generateAlerts = async (alertCount: number, hostCount: number, userCount: number, space: string) => {
 
   if (userCount > alertCount) {
     console.log('User count should be less than alert count');
@@ -101,7 +100,7 @@ export const generateAlerts = async (alertCount: number, hostCount: number, user
   const batchSize = 2500; // number of alerts in a batch
   const no_overrides = {};
 
-  const batchOpForIndex = ({ userName, hostName } : { userName: string, hostName: string }) => alertToBatchOps(createAlerts(no_overrides, { userName, hostName }), ALERT_INDEX);
+  const batchOpForIndex = ({ userName, hostName } : { userName: string, hostName: string }) => alertToBatchOps(createAlerts(no_overrides, { userName, hostName }), getAlertIndex(space));
 
 
   console.log('Generating entity names...');
@@ -197,13 +196,13 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
         },
       });
       alerts.push({
-        index: { _index: ALERT_INDEX, _id: alert['kibana.alert.uuid'] },
+        index: { _index: getAlertIndex('default'), _id: alert['kibana.alert.uuid'] },
       });
       alerts.push(alert);
     }
     cluster.forEach((alert) => {
       alerts.push({
-        index: { _index: ALERT_INDEX, _id: alert['kibana.alert.uuid'] },
+        index: { _index: getAlertIndex('default'), _id: alert['kibana.alert.uuid'] },
       });
       alerts.push(alert);
       lastAlertFromCluster = alert;
@@ -225,7 +224,7 @@ export const deleteAllAlerts = async () => {
     console.log('Deleted all alerts');
     if (!client) throw new Error;
     await client.deleteByQuery({
-      index: ALERT_INDEX,
+      index: '.alerts-security.alerts-*',
       refresh: true,
       body: {
         query: {
