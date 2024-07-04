@@ -57,7 +57,7 @@ Examles of config:
 ### Alerts
 `yarn start help` - To see the commands list
 
-`yarn start generate-alerts -n <number of alerts> -h <number of hosts within the alerts> -u <number of users within the alerts>
+`yarn start generate-alerts -n <number of alerts> -h <number of hosts within the alerts> -u <number of users within the alerts> -s <optional space>`
 
 `yarn start delete-alerts` - Delete all alerts
 

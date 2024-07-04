@@ -5,7 +5,15 @@ import { getConfig } from '../get_config';
 const config = getConfig();
 const appendPathToKibanaNode = (path: string) => urlJoin(config.kibana.node, path);
 
-export const kibanaFetch = async (path: string, params: object, apiVersion = '1') => {
+type ResponseError = Error & { statusCode: number };
+
+const throwResponseError = (message: string, statusCode: number) => {
+  const error = new Error(message) as ResponseError;
+  error.statusCode = statusCode;
+  throw error;
+}
+
+export const kibanaFetch = async <T>(path: string, params: object, apiVersion = '1'): Promise<T> => {
   const url = appendPathToKibanaNode(path);
 
   try {
@@ -30,19 +38,17 @@ export const kibanaFetch = async (path: string, params: object, apiVersion = '1'
       headers: headers,
       ...params,
     });
-    const data: unknown = await result.json();
+    const data= await result.json() as T;
     if (!data || typeof data !== 'object') {
       throw new Error;
     }
 
-    if ('statusCode' in data && data.statusCode !== 200) {
-      console.log(data)
-      // TODO
-      throw new Error(`Failed to fetch data from ${url}, error: ${JSON.stringify(data)}`)
+    if (result.status >= 400) {
+      throwResponseError('Failed to fetch data', result.status);
     }
     return data;
   } catch (e) {
-    console.log(e);
+    throw new Error(`Failed to fetch data from ${url}`);
   }
 };
 
@@ -75,9 +81,11 @@ export const assignAssetCriticality = async ({
   });
 };
 
-export const createRule = () => {
-  return kibanaFetch(
-    '/api/detection_engine/rules',
+export const createRule = ({space, id } : {space?: string, id?: string} = {}): Promise<{ id : string }> => {
+
+  const url = space ? `/s/${space}/api/detection_engine/rules` : '/api/detection_engine/rules';
+  return kibanaFetch<{ id : string }>(
+    url,
     {
       method: 'POST',
       body: JSON.stringify({
@@ -85,7 +93,7 @@ export const createRule = () => {
         description: 'Tests a simple query',
         enabled: true,
         risk_score: 70,
-        rule_id: 'rule-1',
+        rule_id: id || 'rule-1',
         severity: 'high',
         index: ['auditbeat-*'],
         type: 'query',
@@ -97,3 +105,40 @@ export const createRule = () => {
     '2023-10-31'
   );
 };
+
+export const deleteRule = async (ruleId: string, space?: string) => {
+  const url = space ? `/s/${space}/api/detection_engine/rules` : '/api/detection_engine/rules';
+  return kibanaFetch(
+    url + '?rule_id=' + ruleId,
+    {
+      method: 'DELETE',
+      body: JSON.stringify({
+        rule_id: ruleId,
+      }),
+    },
+    '2023-10-31'
+  );
+}
+
+export const createSpace = async (space: string) => {
+  return kibanaFetch('/api/spaces/space', {
+    method: 'POST',
+    body: JSON.stringify({
+      id: space,
+      name: space,
+      description: 'Created by security-documents-generator for testing',
+      disabledFeatures: [],
+    }),
+  });
+}
+
+export const getSpace = async (space: string): Promise<boolean> => {
+  try {
+    await kibanaFetch(`/api/spaces/space/${space}`, {
+      method: 'GET',
+    });
+  } catch (e) {
+    return false;
+  }
+  return true;
+}
