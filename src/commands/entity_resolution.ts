@@ -9,7 +9,7 @@ import { exec } from 'child_process';
 
 const BATCH_SIZE = 1000;
 const CONCURRENCY = 10;
-
+const RULE_ID = 'er-demo-match-all';
 const ECS_USER_MAPPINGS = {
   properties: {
     'user.name': {
@@ -33,6 +33,7 @@ const ECS_USER_MAPPINGS = {
 
 const client = getEsClient(); 
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const addMetaToLine = (line: any) => {
   line._meta = {
     is_demo_data: true,
@@ -42,7 +43,7 @@ const addMetaToLine = (line: any) => {
 
 const clearData = async () => {
   try {
-    await client.deleteByQuery({
+    const res = await client.deleteByQuery({
       index: '*',
       body: {
         query: {
@@ -54,13 +55,15 @@ const clearData = async () => {
       ignore_unavailable: true,
       refresh: true,
     });
+
+    console.log('Deleted log documents: ', res.deleted, '❌');
   } catch (err) {
     console.log('Error: ', err);
     process.exit(1);
   }
 
   try {
-    await client.deleteByQuery({
+    const res1 = await client.deleteByQuery({
       index: '.entities.v1.latest.secsol-ea-entity-store',
       body: {
         query: {
@@ -70,14 +73,16 @@ const clearData = async () => {
       ignore_unavailable: true,
       refresh: true,
     });
+
+    console.log('Deleted entity store documents: ', res1.deleted, '❌');
   } catch (err) {
     console.log('Error: ', err);
     process.exit(1);
   }
 
   try {
-    await client.deleteByQuery({
-      index: '.entities.v1.history.secsol-ea-entity-store',
+    const res2 = await client.deleteByQuery({
+      index: '.entities.v1.history.secsol-ea-entity-store*',
       body: {
         query: {
           match_all: {},
@@ -86,6 +91,28 @@ const clearData = async () => {
       ignore_unavailable: true,
       refresh: true,
     });
+
+    console.log('Deleted entity store history documents: ', res2.deleted, '❌');
+  } catch (err) {
+    console.log('Error: ', err);
+    process.exit(1);
+  }
+
+  // delete alerts where the rule_id is the one we created
+  try {
+    const res3 =     await client.deleteByQuery({
+      index: '.alerts-security.alerts-*',
+      refresh: true,
+      body: {
+        query: {
+          match: {
+            'kibana.alert.rule.parameters.rule_id': RULE_ID,
+          },
+        }
+      },
+    });
+
+    console.log('Deleted alerts: ', res3.deleted, '❌');
   } catch (err) {
     console.log('Error: ', err);
     process.exit(1);
@@ -273,7 +300,7 @@ const importFile = async (filePath: string, lineToOperation: (line: any) => [any
 }
 
 const createMatchAllRule = async () => {
-  const rule = await getRule('er-demo-match-all');
+  const rule = await getRule(RULE_ID);
 
   if (rule) {
     console.log('Match all rule already exists.');
@@ -281,7 +308,7 @@ const createMatchAllRule = async () => {
   }
 
   await createRule({
-    id: 'er-demo-match-all',
+    id: RULE_ID,
   });
   console.log('Match all rule created.');
 }
@@ -306,7 +333,7 @@ const batchIndexDocsWithProgress = async (generator: AsyncGenerator<unknown[], v
   );
 
   progress.stop();
-  console.log(`Indexed ${docCount} documents`);
+  console.log('Indexed ', docCount, '✅');
 }
 
 export const setupEntityResolutionDemo = async ({
@@ -315,20 +342,21 @@ export const setupEntityResolutionDemo = async ({
 }: { mini: boolean, deleteData : boolean }) => {
 
   if(deleteData) {
-    console.log('Deleting existing demo data...');
+    console.log('Deleting existing demo data first...');
     await clearData();
   }
-  
+
   console.log(`Setting up${mini ? ' mini' : ''} entity resolution demo...`);
-  // create a rule which matches everything 
+  // create a rule which matches everything, handy for exploring all the different entity views
   await createMatchAllRule();
   // install the packages to get the mappings in place
   await installPackages();
-  // create the Okta system component template
+  // create @custom component templates to get user.name and user.email field mappings
+  // which the inttegrations don't provide
+  // we will eventually have to release a new version of the integrations to include these mappings
   await createOktaSystemComponentTemplate();
-  // create the Okta user component template
   await createOktaUserComponentTemplate();
-  
+  // now load all the data
   await importLogData({ mini });
   await importOktaSystemData({ mini });
   await importOktaUserData({ mini });
@@ -337,6 +365,8 @@ Entity resolution demo setup complete.
 
 Now go and install the model!
 
-    ---->> ${appendPathToKibanaNode('/app/security/entity_analytics_management')} <<----
+    CLICK HERE ---->> ${appendPathToKibanaNode('/app/security/entity_analytics_management')} <<---- CLICK HERE
+
+Once installed, ${mini ? 'Mark Hopkin should have matches' : 'See here:\n\n https://github.com/elastic/security-ml/blob/gus/entity_resoluton_data_generation/projects/entity_resolution_poc_2024/test_data_generation/seed_data_with_name_variations_and_user_agent_gen.json \n\nfor all the seed data names'}
   `);
 };
