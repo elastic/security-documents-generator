@@ -164,7 +164,7 @@ const bulkUpsert = async (docs: unknown[]) => {
   }
 };
 
-const PACKAGES_TO_INSTALL = ['entityanalytics_okta', 'okta', 'system'];
+const PACKAGES_TO_INSTALL = ['entityanalytics_okta', 'okta', 'system', 'entityanalytics_entra_id'];
 
 const installPackages = async () => {
   console.log('Installing packages...');
@@ -273,6 +273,14 @@ const createOktaUserComponentTemplate = async () => {
   });
 }
 
+const createEntraIdUserComponentTemplate = async () => {
+  console.log('Creating entra id user custom component template...');
+  await createComponentTemplate({
+    name: 'logs-entityanalytics_entra_id.user@custom',
+    mappings: ECS_USER_MAPPINGS,
+  });
+}
+
 const importOktaUserData = async ({ mini = false  } : { mini : boolean; }) => {
   const filePath = getFilePath('okta_user_generated.jsonl', mini);
   const index = 'logs-entityanalytics_okta.user-default';
@@ -289,6 +297,25 @@ const importOktaUserData = async ({ mini = false  } : { mini : boolean; }) => {
     ]
   };
   console.log('Importing Okta user data...');
+  await importFile(filePath, lineToOperation);
+}
+
+const importEntraIdUserData = async ({ mini = false  } : { mini : boolean; }) => {
+  const filePath = getFilePath('entra_id_user_generated.jsonl', mini);
+  const index = 'logs-entityanalytics_entra_id.user-default';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const lineToOperation = (line: any): [any,any] => {
+    line['@timestamp'] = getTimeStamp();
+    line.user = {
+      name: line.azure_ad.displayName,
+      email: line.azure_ad.mail
+    }
+    return [
+      { create: { _index: index } },
+      line,
+    ]
+  };
+  console.log('Importing Entra ID user data...');
   await importFile(filePath, lineToOperation);
 }
 
@@ -356,10 +383,12 @@ export const setupEntityResolutionDemo = async ({
   // we will eventually have to release a new version of the integrations to include these mappings
   await createOktaSystemComponentTemplate();
   await createOktaUserComponentTemplate();
+  await createEntraIdUserComponentTemplate();
   // now load all the data
   await importLogData({ mini });
   await importOktaSystemData({ mini });
   await importOktaUserData({ mini });
+  await importEntraIdUserData({ mini });
   console.log(`
 Entity resolution demo setup complete. 
 
@@ -367,6 +396,6 @@ Now go and install the model!
 
     CLICK HERE ---->> ${appendPathToKibanaNode('/app/security/entity_analytics_management')} <<---- CLICK HERE
 
-Once installed, ${mini ? 'Mark Hopkin should have matches' : 'See here:\n\n https://github.com/elastic/security-ml/blob/gus/entity_resoluton_data_generation/projects/entity_resolution_poc_2024/test_data_generation/seed_data_with_name_variations_and_user_agent_gen.json \n\nfor all the seed data names'}
+Once installed, ${mini ? 'Mark Hopkin should have matches' : 'See here:\n\n https://github.com/elastic/security-ml/blob/gus/entity_resoluton_data_generation/projects/entity_resolution_poc_2024/test_data_generation/seed_data_with_name_variations_and_user_agent_gen_and_groups.json \n\nfor all the seed data names'}
   `);
 };
