@@ -137,6 +137,56 @@ const getfFileLineCount = async (filePath: string): Promise<number>  => {
   });
 }
 
+const VARIANT_TYPES = {
+  DO_NOTHING: 'DO_NOTHING',
+  INITIAL_FIRSTNAME: 'INITIAL_FIRSTNAME',
+  INITIAL_LASTNAME: 'INITIAL_LASTNAME',
+  REMOVE_LASTNAME: 'REMOVE_LASTNAME',
+}
+
+const VARIANT_TYPE_ORDER = [
+  VARIANT_TYPES.DO_NOTHING,
+  VARIANT_TYPES.DO_NOTHING,
+  VARIANT_TYPES.INITIAL_FIRSTNAME,
+  VARIANT_TYPES.INITIAL_LASTNAME,
+  VARIANT_TYPES.REMOVE_LASTNAME
+];
+
+const getVariantType = (index: number) => {
+  return VARIANT_TYPE_ORDER[index % VARIANT_TYPE_ORDER.length];
+}
+type MaybeStringArray = string | string[];
+
+const getEmailVariant = (email: string | string[], index: number): MaybeStringArray => {
+  try {
+    if(Array.isArray(email)) {
+    // this means there are already variants
+      return email;
+    }
+    const [name, domain] = email.split('@');
+    const [first, last] = name.split('.');
+
+    if(!first || !last || !domain) {
+      console.log('Unexpected email format: ', email);
+      return email;
+    }
+    switch(getVariantType(index)) {
+    case VARIANT_TYPES.DO_NOTHING:
+      return email;
+    case VARIANT_TYPES.INITIAL_FIRSTNAME:
+      return `${first[0]}.${last}@${domain}`;
+    case VARIANT_TYPES.INITIAL_LASTNAME:
+      return `${first}.${last[0]}@${domain}`;
+    case VARIANT_TYPES.REMOVE_LASTNAME:
+      return `${first}@${domain}`;
+    }
+    console.log('Unexpected variant type: ', getVariantType(index));
+    return email;
+  } catch (err) {
+    console.log(`Error creating email variant ${email}: `, err);
+    process.exit(1);
+  }
+}
 
 
 const dataStreamFieldsToIndexName = (dataStreamFields: { dataset: string; namespace: string; type: string }) => {
@@ -185,7 +235,7 @@ const installPackages = async () => {
 
 // take a jsonl file and return a generator which yields batches of operations
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const jsonlFileToBatchGenerator = (filePath: string, batchSize: number, lineToOperation: (line: any) => [any,any]): AsyncGenerator<unknown[], void, void> => {
+const jsonlFileToBatchGenerator = (filePath: string, batchSize: number, lineToOperation: (line: any, index: number) => [any,any]): AsyncGenerator<unknown[], void, void> => {
   const rl = readline.createInterface({
     input: fs.createReadStream(filePath),
   });
@@ -193,16 +243,18 @@ const jsonlFileToBatchGenerator = (filePath: string, batchSize: number, lineToOp
   const generator = async function* () {
 
     let batch: unknown[] = [];
+    let i = 0;
     for await (const line of rl) {
       const lineJson = JSON.parse(line);
       const lineWithMeta = addMetaToLine(lineJson);
-      const [index, doc] = lineToOperation(lineWithMeta);
+      const [index, doc] = lineToOperation(lineWithMeta, i);
       batch.push(index);
       batch.push(doc);
       if (batch.length / 2 >= batchSize) {
         yield batch;
         batch = [];
       }
+      i++;
     }
     if (batch.length > 0) {
       yield batch;
@@ -217,13 +269,16 @@ const getFilePath = (fileName: string, mini: boolean) => {
 }
 
 
-const importLogData = async ({ mini = false  } : { mini : boolean; }) => {
+const importLogData = async ({ mini = false, keepEmails = false  } : { mini : boolean; keepEmails: boolean}) => {
   const filePath = getFilePath('generated_logs.jsonl', mini);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const lineToOperation = (line: any): [any,any] => {
+  const lineToOperation = (line: any, i : number): [any,any] => {
     if(line.data_stream && line.data_stream.dataset && line.data_stream.namespace && line.data_stream.type) {
       const index = dataStreamFieldsToIndexName(line.data_stream);
       line['@timestamp'] = getTimeStamp();
+      if(line.user && line.user.email) {
+        line.user.email = keepEmails ? line.user.email : getEmailVariant(line.user.email, i);
+      }
       return [
         { create: { _index: index } },
         line,
@@ -245,16 +300,15 @@ const createOktaSystemComponentTemplate = async () => {
   });
 }
 
-const importOktaSystemData = async ({ mini = false  } : { mini : boolean; }) => {
+const importOktaSystemData = async ({ mini = false, keepEmails = false  } : { mini : boolean; keepEmails: boolean}) => {
   const filePath = getFilePath('okta_system_generated.jsonl', mini);
-
   const index = 'logs-okta.system-default';
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const lineToOperation = (line: any): [any,any] => {
+  const lineToOperation = (line: any, i: number): [any,any] => {
     line['@timestamp'] = getTimeStamp();
     line.user = {
       name: line.actor.display_name,
-      email: line.actor.alternate_id,
+      email: keepEmails ? line.actor.alternate_id : getEmailVariant(line.actor.alternate_id,i),
     }
     return [
       { create: { _index: index } },
@@ -281,15 +335,15 @@ const createEntraIdUserComponentTemplate = async () => {
   });
 }
 
-const importOktaUserData = async ({ mini = false  } : { mini : boolean; }) => {
+const importOktaUserData = async ({ mini = false, keepEmails = false  } : { mini : boolean; keepEmails: boolean}) => {
   const filePath = getFilePath('okta_user_generated.jsonl', mini);
   const index = 'logs-entityanalytics_okta.user-default';
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const lineToOperation = (line: any): [any,any] => {
+  const lineToOperation = (line: any, i: number): [any,any] => {
     line['@timestamp'] = getTimeStamp();
     line.user = {
       name: line.profile.first_name + ' ' + line.profile.last_name,
-      email: line.email
+      email: keepEmails ? line.email : getEmailVariant(line.email,i),
     }
     return [
       { create: { _index: index } },
@@ -300,15 +354,15 @@ const importOktaUserData = async ({ mini = false  } : { mini : boolean; }) => {
   await importFile(filePath, lineToOperation);
 }
 
-const importEntraIdUserData = async ({ mini = false  } : { mini : boolean; }) => {
+const importEntraIdUserData = async ({ mini = false, keepEmails = false  } : { mini : boolean; keepEmails: boolean}) => {
   const filePath = getFilePath('entra_id_user_generated.jsonl', mini);
   const index = 'logs-entityanalytics_entra_id.user-default';
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const lineToOperation = (line: any): [any,any] => {
+  const lineToOperation = (line: any, i: number): [any,any] => {
     line['@timestamp'] = getTimeStamp();
     line.user = {
       name: line.azure_ad.displayName,
-      email: line.azure_ad.mail
+      email: keepEmails ? line.azure_ad.mail : getEmailVariant(line.azure_ad.mail,i),
     }
     return [
       { create: { _index: index } },
@@ -320,7 +374,7 @@ const importEntraIdUserData = async ({ mini = false  } : { mini : boolean; }) =>
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const importFile = async (filePath: string, lineToOperation: (line: any) => [any, any]) => {
+const importFile = async (filePath: string, lineToOperation: (line: any, index: number) => [any, any]) => {
   const lineCountInFile = await getfFileLineCount(filePath);
   const batchGenerator = jsonlFileToBatchGenerator(filePath, BATCH_SIZE, lineToOperation);
   await batchIndexDocsWithProgress(batchGenerator, lineCountInFile);
@@ -366,7 +420,8 @@ const batchIndexDocsWithProgress = async (generator: AsyncGenerator<unknown[], v
 export const setupEntityResolutionDemo = async ({
   mini = false,
   deleteData = false,
-}: { mini: boolean, deleteData : boolean }) => {
+  keepEmails = false,
+}: { mini: boolean, deleteData : boolean, keepEmails: boolean }) => {
 
   if(deleteData) {
     console.log('Deleting existing demo data first...');
@@ -385,10 +440,10 @@ export const setupEntityResolutionDemo = async ({
   await createOktaUserComponentTemplate();
   await createEntraIdUserComponentTemplate();
   // now load all the data
-  await importLogData({ mini });
-  await importOktaSystemData({ mini });
-  await importOktaUserData({ mini });
-  await importEntraIdUserData({ mini });
+  await importLogData({ mini, keepEmails });
+  await importOktaSystemData({ mini, keepEmails });
+  await importOktaUserData({ mini, keepEmails});
+  await importEntraIdUserData({ mini, keepEmails});
   console.log(`
 Entity resolution demo setup complete. 
 

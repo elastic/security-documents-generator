@@ -68,9 +68,10 @@ program
   .command('entity-resolution-demo')
   .option('--mini', 'Only load the mini dataset', false)
   .option('--delete', 'Delete old data', false)
+  .option('--keep-emails', 'No Email variants', false)
   .description('Load entity resolution demo data')
-  .action(({ mini, delete: deleteData }) =>{ 
-    setupEntityResolutionDemo({ mini, deleteData })
+  .action(({ mini, deleteData, keepEmails }) =>{ 
+    setupEntityResolutionDemo({ mini, deleteData, keepEmails });
   });
 
 type EntityStoreAnswers = {
