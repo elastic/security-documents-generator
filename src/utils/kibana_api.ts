@@ -3,7 +3,7 @@ import fetch, { Headers } from 'node-fetch';
 import { getConfig } from '../get_config';
 
 const config = getConfig();
-const appendPathToKibanaNode = (path: string) => urlJoin(config.kibana.node, path);
+export const appendPathToKibanaNode = (path: string) => urlJoin(config.kibana.node, path);
 
 type ResponseError = Error & { statusCode: number };
 
@@ -13,9 +13,9 @@ const throwResponseError = (message: string, statusCode: number) => {
   throw error;
 }
 
-export const kibanaFetch = async <T>(path: string, params: object, apiVersion = '1'): Promise<T> => {
+export const kibanaFetch = async <T>(path: string, params: object, apiVersion = '1', ignoreStatuses: number | number[] = []): Promise<T> => {
   const url = appendPathToKibanaNode(path);
-
+  const ignoreStatusesArray = Array.isArray(ignoreStatuses) ? ignoreStatuses : [ignoreStatuses];
   try {
     const headers = new Headers();
     headers.append('Content-Type', 'application/json');
@@ -43,12 +43,12 @@ export const kibanaFetch = async <T>(path: string, params: object, apiVersion = 
       throw new Error;
     }
 
-    if (result.status >= 400) {
-      throwResponseError('Failed to fetch data', result.status);
+    if (result.status >= 400 && !ignoreStatusesArray.includes(result.status)) {
+      throwResponseError(`Failed to fetch data from ${url}, status: ${result.status}, data: ${JSON.stringify(data)}`, result.status);
     }
     return data;
   } catch (e) {
-    throw new Error(`Failed to fetch data from ${url}`);
+    throw new Error(`Failed to fetch data from ${url}, error: ${e}`);
   }
 };
 
@@ -89,13 +89,13 @@ export const createRule = ({space, id } : {space?: string, id?: string} = {}): P
     {
       method: 'POST',
       body: JSON.stringify({
-        name: 'Alert Testing Query',
+        name: 'Match All',
         description: 'Tests a simple query',
         enabled: true,
         risk_score: 70,
         rule_id: id || 'rule-1',
         severity: 'high',
-        index: ['auditbeat-*'],
+        index: ['logs-*','metrics-*'],
         type: 'query',
         query: '*:*',
         from: 'now-40d',
@@ -105,6 +105,21 @@ export const createRule = ({space, id } : {space?: string, id?: string} = {}): P
     '2023-10-31'
   );
 };
+
+export const getRule = async (ruleId: string, space?: string) => {
+  const url = space ? `/s/${space}/api/detection_engine/rules` : '/api/detection_engine/rules';
+  try {
+    return await kibanaFetch(
+      url + '?rule_id=' + ruleId,
+      {
+        method: 'GET',
+      },
+      '2023-10-31'
+    );
+  } catch (e) {
+    return null;
+  }
+}
 
 export const deleteRule = async (ruleId: string, space?: string) => {
   const url = space ? `/s/${space}/api/detection_engine/rules` : '/api/detection_engine/rules';
@@ -119,6 +134,45 @@ export const deleteRule = async (ruleId: string, space?: string) => {
     '2023-10-31'
   );
 }
+
+export const createComponentTemplate = async ({ name, mappings, space }: { name: string; mappings: object; space?: string }) => {
+  const url = space ? `/s/${space}/api/index_management/component_templates` : '/api/index_management/component_templates';
+  const ignoreStatus = 409;
+  return kibanaFetch(
+    url,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        name,
+        template: {
+          mappings,
+        },
+        _kbnMeta: {
+          usedBy: [],
+          isManaged: false,
+        },
+      }),
+    },
+    '2023-10-31',
+    ignoreStatus
+  );
+}
+export const installPackage = async ({ packageName, version = 'latest', space  }: {packageName: string; version?: string; space?: string;}) => {
+  let url = space ? `/s/${space}/api/fleet/epm/packages/${packageName}` : `/api/fleet/epm/packages/${packageName}`;
+
+  if (version !== 'latest') {
+    url = `${url}/${version}`;
+  }
+
+  return kibanaFetch(
+    url,
+    {
+      method: 'POST',
+    },
+    '2023-10-31'
+  );
+}
+
 
 export const createSpace = async (space: string) => {
   return kibanaFetch('/api/spaces/space', {

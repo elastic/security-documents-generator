@@ -7,6 +7,7 @@ import {
   generateGraph,
   generateEvents,
 } from './commands/documents';
+import { setupEntityResolutionDemo } from './commands/entity_resolution';
 import { kibanaApi } from './utils/';
 import {
   cleanEntityStore,
@@ -62,6 +63,16 @@ program
   .command('test-risk-score')
   .description('Test risk score API')
   .action(kibanaApi.fetchRiskScore);
+
+program
+  .command('entity-resolution-demo')
+  .option('--mini', 'Only load the mini dataset', false)
+  .option('--delete', 'Delete old data', false)
+  .option('--keep-emails', 'No Email variants', false)
+  .description('Load entity resolution demo data')
+  .action(({ mini, deleteData, keepEmails }) =>{ 
+    setupEntityResolutionDemo({ mini, deleteData, keepEmails });
+  });
 
 type EntityStoreAnswers = {
   options: string[];
