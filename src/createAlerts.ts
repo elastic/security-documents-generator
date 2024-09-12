@@ -3,9 +3,11 @@ import { faker } from '@faker-js/faker';
 function baseCreateAlerts({
   userName = 'user-1',
   hostName = 'host-1',
+  space = 'default'
 } : {
   userName?: string,
-  hostName?: string,
+    hostName?: string,
+  space?: string,
 } = {
 }) {
   return {
@@ -51,7 +53,7 @@ function baseCreateAlerts({
     'kibana.alert.rule.rule_type_id': 'siem.queryRule',
     'kibana.alert.rule.uuid': faker.string.uuid(),
     'kibana.space_ids': [
-      'default'
+      space
     ],
     'kibana.alert.rule.tags': [],
     '@timestamp': Date.now(),
@@ -110,10 +112,12 @@ export type BaseCreateAlertsReturnType = ReturnType<typeof baseCreateAlerts>;
 export default function createAlerts<O extends object>(override: O, {
   userName,
   hostName,
+  space
 } : {
   userName?: string,
-  hostName?: string,
+    hostName?: string,
+  space?: string,
 } = {
 }): O & BaseCreateAlertsReturnType {
-  return { ...baseCreateAlerts({ userName, hostName}), ...override };
+  return { ...baseCreateAlerts({ userName, hostName, space}), ...override };
 }
