@@ -1,55 +1,54 @@
 import urlJoin from 'url-join';
 import fetch, { Headers } from 'node-fetch';
 import { getConfig } from '../get_config';
+import { faker } from '@faker-js/faker';
 
 const config = getConfig();
 export const appendPathToKibanaNode = (path: string) => urlJoin(config.kibana.node, path);
 
-type ResponseError = Error & { statusCode: number };
+type ResponseError = Error & { statusCode: number, responseData: unknown };
 
-const throwResponseError = (message: string, statusCode: number) => {
+const throwResponseError = (message: string, statusCode: number, response: unknown) => {
   const error = new Error(message) as ResponseError;
   error.statusCode = statusCode;
+  error.responseData = response;
   throw error;
 }
 
 export const kibanaFetch = async <T>(path: string, params: object, apiVersion = '1', ignoreStatuses: number | number[] = []): Promise<T> => {
   const url = appendPathToKibanaNode(path);
   const ignoreStatusesArray = Array.isArray(ignoreStatuses) ? ignoreStatuses : [ignoreStatuses];
-  try {
-    const headers = new Headers();
-    headers.append('Content-Type', 'application/json');
-    headers.append('kbn-xsrf', 'true');
-    if ('apiKey' in config.kibana) {
-      headers.set('Authorization', 'ApiKey ' + config.kibana.apiKey);
-    } else {
-      headers.set(
-        'Authorization',
-        'Basic ' +
+  // try {
+  const headers = new Headers();
+  headers.append('Content-Type', 'application/json');
+  headers.append('kbn-xsrf', 'true');
+  if ('apiKey' in config.kibana) {
+    headers.set('Authorization', 'ApiKey ' + config.kibana.apiKey);
+  } else {
+    headers.set(
+      'Authorization',
+      'Basic ' +
         Buffer.from(
           config.kibana.username + ':' + config.kibana.password
         ).toString('base64')
-      );
-    }
-
-    headers.set('x-elastic-internal-origin', 'kibana');
-    headers.set('elastic-api-version', apiVersion);
-    const result = await fetch(url, {
-      headers: headers,
-      ...params,
-    });
-    const data= await result.json() as T;
-    if (!data || typeof data !== 'object') {
-      throw new Error;
-    }
-
-    if (result.status >= 400 && !ignoreStatusesArray.includes(result.status)) {
-      throwResponseError(`Failed to fetch data from ${url}, status: ${result.status}, data: ${JSON.stringify(data)}`, result.status);
-    }
-    return data;
-  } catch (e) {
-    throw new Error(`Failed to fetch data from ${url}, error: ${e}`);
+    );
   }
+
+  headers.set('x-elastic-internal-origin', 'kibana');
+  headers.set('elastic-api-version', apiVersion);
+  const result = await fetch(url, {
+    headers: headers,
+    ...params,
+  });
+  const data= await result.json() as T;
+  if (!data || typeof data !== 'object') {
+    throw new Error;
+  }
+
+  if (result.status >= 400 && !ignoreStatusesArray.includes(result.status)) {
+    throwResponseError(`Failed to fetch data from ${url}, status: ${result.status}`, result.status, data);
+  }
+  return data;
 };
 
 export const fetchRiskScore = async () => {
@@ -66,20 +65,24 @@ export const enableRiskScore = async () => {
   });
 };
 
-export const assignAssetCriticality = async ({
-  id_field,
-  id_value,
-  criticality_level,
-}: { id_field: string; id_value: string; criticality_level: string }) => {
-  return kibanaFetch('/internal/asset_criticality', {
+export const assignAssetCriticality = async (assetCriticalityRecords: Array<{ id_field: string; id_value: string; criticality_level: string }>) => {
+  return kibanaFetch('/api/asset_criticality/bulk', {
+    method: 'POST',
+    body: JSON.stringify({records: assetCriticalityRecords}),
+  }, '2023-10-31');
+};
+
+export const enableAssetCriticality = async () => {
+  return kibanaFetch('/internal/kibana/settings', {
     method: 'POST',
     body: JSON.stringify({
-      id_field,
-      id_value,
-      criticality_level,
+      changes: {
+        'securitySolution:enableAssetCriticality': true,
+      },
     }),
   });
 };
+
 
 export const createRule = ({space, id } : {space?: string, id?: string} = {}): Promise<{ id : string }> => {
 
@@ -93,7 +96,7 @@ export const createRule = ({space, id } : {space?: string, id?: string} = {}): P
         description: 'Tests a simple query',
         enabled: true,
         risk_score: 70,
-        rule_id: id || 'rule-1',
+        rule_id: id || faker.string.uuid(),
         severity: 'high',
         index: ['logs-*','metrics-*'],
         type: 'query',
