@@ -1,6 +1,7 @@
 import { Client } from '@elastic/elasticsearch';
 import { getConfig } from '../../get_config';
 import { MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
+import { exec } from 'child_process';
 
 const config = getConfig();
 
@@ -17,6 +18,9 @@ export const getEsClient = () => {
       password : config.elastic.password,
     };
   }
+
+  console.log('auth', auth);
+  console.log('config.elastic.node', config.elastic.node);
   client = new Client({
     node: config.elastic.node,
     auth,
@@ -24,6 +28,24 @@ export const getEsClient = () => {
 
   return client;
 };
+
+export const getFileLineCount = async (filePath: string): Promise<number>  => {
+  return new Promise((resolve, reject) => {
+    exec(`wc -l ${filePath}`, (error, stdout, stderr) => {
+      if (error || stderr) {
+        reject(error || stderr);
+      }
+
+      const count = parseInt(stdout.trim().split(' ')[0]);
+
+      if (isNaN(count)) {
+        console.log(`Failed to parse line count, line count: "${stdout}", split result: "${stdout.split(' ')}"`);
+        reject();
+      }
+      resolve(count);
+    });
+  });
+}
 
 export const indexCheck = async (index: string, mappings?: MappingTypeMapping) => {
   const client = getEsClient();

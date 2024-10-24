@@ -196,3 +196,53 @@ export const getSpace = async (space: string): Promise<boolean> => {
   }
   return true;
 }
+
+const _initEngine = (engineType: string, space?: string) => {
+  const url = space ? `/s/${space}/api/entity_store/engines/${engineType}/init` : `/api/entity_store/engines/${engineType}/init`;
+
+  return kibanaFetch(
+    url,
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    },
+    '2023-10-31'
+  );
+}
+const _listEngines = (space?: string) => {
+  const url = space ? `/s/${space}/api/entity_store/engines` : '/api/entity_store/engines';
+
+  const res = kibanaFetch(
+    url,
+    {
+      method: 'GET',
+    },
+    '2023-10-31'
+  );
+
+  return res as Promise<{engines: Array<{ status : string }>}>;
+}
+
+const allEnginesAreStarted = async (space?: string) => {
+  const {engines} = await _listEngines(space);
+  return engines.every((engine) => engine.status === 'started');
+}
+
+export const initEntityEngineForEntityTypes = async (entityTypes: string[] = ['host', 'user'] , space?: string) => {
+  if (await allEnginesAreStarted(space)) {
+    console.log('All engines are already started');
+  }
+  await Promise.all(entityTypes.map((entityType) => _initEngine(entityType, space)));
+
+  const attempts = 10;
+  const delay = 2000;
+
+  for (let i = 0; i < attempts; i++) {
+    if (await allEnginesAreStarted(space)) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+
+  throw new Error('Failed to start engines');
+}

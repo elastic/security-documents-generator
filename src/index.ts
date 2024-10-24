@@ -13,6 +13,12 @@ import {
   cleanEntityStore,
   generateEntityStore,
 } from './commands/entity-store';
+
+import {
+  createPerfDataFile,
+  uploadPerfDataFile,
+  listPerfDataFiles,
+} from './commands/entity-store-perf';
 import inquirer from 'inquirer';
 import { ENTITY_STORE_OPTIONS, generateNewSeed } from './constants';
 import { initializeSpace } from './utils/initialize_space';
@@ -63,6 +69,47 @@ program
   .command('test-risk-score')
   .description('Test risk score API')
   .action(kibanaApi.fetchRiskScore);
+
+program
+  .command('create-perf-data')
+  .argument('<name>', 'name of the file')
+  .argument('<entity-count>', 'number of entities', parseInt)
+  .argument('<logs-per-entity>', 'number of logs per entity', parseInt)
+  .argument('[start-index]', 'for sequential data, which index to start at', parseInt, 0)
+  .description('Create performance data')
+  .action((name, entityCount, logsPerEntity, startIndex) => {
+    createPerfDataFile({ name, entityCount, logsPerEntity, startIndex });
+  });
+
+program
+  .command('upload-perf-data')
+  .argument('[file]', 'File to upload')
+  .option('--index <index>', 'Destination index')
+  .description('Upload performance data file')
+  .action(async (file, options) => {
+    let selectedFile = file;
+
+    if (!selectedFile) {
+      const files = await listPerfDataFiles();
+
+      if (files.length === 0) {
+        console.log('No files to upload');
+        process.exit(1);
+      }
+
+      const response = await inquirer.prompt<{ selectedFile: string }>([
+        {
+          type: 'list',
+          name: 'selectedFile',
+          message: 'Select a file to upload',
+          choices: files,
+        },
+      ]);
+      selectedFile = response.selectedFile;
+    }
+
+    await uploadPerfDataFile(selectedFile, options.index);
+  });
 
 program
   .command('entity-resolution-demo')
