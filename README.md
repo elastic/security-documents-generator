@@ -139,6 +139,8 @@ The count and interval can be customised:
 yarn start upload-perf-data-interval small --delete --interval 60 --count 100
 ```
 
+The entity IDs are modified before sending so that each upload creates new entities, this means there will be count * entityCount entities by the end of the test.
+
 While the files are uploaded, we poll elasticsearch for the lcuster health and the transform health, these files can be foudn in `./logs`. Where one file contains the cluster health every 5 seconds, and the other contains the transform health every 5 seconds:
 
 ```
