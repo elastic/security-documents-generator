@@ -17,6 +17,7 @@ import {
 import {
   createPerfDataFile,
   uploadPerfDataFile,
+  uploadPerfDataFileInterval,
   listPerfDataFiles,
 } from './commands/entity-store-perf';
 import inquirer from 'inquirer';
@@ -85,6 +86,7 @@ program
   .command('upload-perf-data')
   .argument('[file]', 'File to upload')
   .option('--index <index>', 'Destination index')
+  .option('--delete', 'Delete all entities before uploading')
   .description('Upload performance data file')
   .action(async (file, options) => {
     let selectedFile = file;
@@ -108,7 +110,39 @@ program
       selectedFile = response.selectedFile;
     }
 
-    await uploadPerfDataFile(selectedFile, options.index);
+    await uploadPerfDataFile(selectedFile, options.index, options.delete);
+  });
+
+program
+  .command('upload-perf-data-interval')
+  .argument('[file]', 'File to upload')
+  .option('--interval <interval>', 'interval in s', parseInt, 30)
+  .option('--count <count>', 'number of times to upload', parseInt, 10)
+  .option('--delete', 'Delete all entities before uploading')
+  .description('Upload performance data file')
+  .action(async (file, options) => {
+    let selectedFile = file;
+
+    if (!selectedFile) {
+      const files = await listPerfDataFiles();
+
+      if (files.length === 0) {
+        console.log('No files to upload');
+        process.exit(1);
+      }
+
+      const response = await inquirer.prompt<{ selectedFile: string }>([
+        {
+          type: 'list',
+          name: 'selectedFile',
+          message: 'Select a file to upload',
+          choices: files,
+        },
+      ]);
+      selectedFile = response.selectedFile;
+    }
+
+    await uploadPerfDataFileInterval(selectedFile, options.interval * 1000, options.count, options.delete);
   });
 
 program

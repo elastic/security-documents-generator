@@ -19,8 +19,6 @@ export const getEsClient = () => {
     };
   }
 
-  console.log('auth', auth);
-  console.log('config.elastic.node', config.elastic.node);
   client = new Client({
     node: config.elastic.node,
     auth,

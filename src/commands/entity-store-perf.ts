@@ -125,6 +125,24 @@ const generateHostFields = ({
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const changeHostName = (doc: Record<string, any>, addition: string ) => {
+  const newName = `${doc.host.hostname}-${addition}`;
+  doc.host.hostname = newName;
+  doc.host.name = newName;
+  doc.host.id = newName;
+  return doc;
+}
+
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const changeUserName = (doc: Record<string, any>, addition: string ) => {
+  const newName = `${doc.user.name}-${addition}`;
+  doc.user.name = newName;
+  doc.user.id = newName;
+  return doc;
+}
+
 const generateUserFields = ({ idPrefix, entityIndex }: GeneratorOptions): UserFields => {
   const id = `${idPrefix}-user-${entityIndex}`;
   return {
@@ -148,11 +166,31 @@ const getFilePath = (name: string) => {
 
 export const listPerfDataFiles = () => fs.readdirSync(DATA_DIRECTORY);
 
-const countEntities = async (name: string) => {
-  const res = await esClient.search({
+const deleteAllEntities = async () => {
+  const res = await esClient.deleteByQuery({
     index: '.entities.v1.latest*',
     body: {
-      size: 0,
+      query: {
+        match_all: {}
+      }
+    }
+  });
+
+  return res;
+}
+
+const deleteLogsIndex = async (index: string) => {
+  const res = await esClient.indices.delete({
+    index
+  }, { ignore: [404] });
+
+  return res;
+}
+
+const countEntities = async (name: string) => {
+  const res = await esClient.count({
+    index: '.entities.v1.latest*',
+    body: {
       query: {
         bool: {
           should: [
@@ -173,25 +211,23 @@ const countEntities = async (name: string) => {
     }
   });
 
-  const total = typeof res.hits.total === 'number' ? res.hits.total : (res.hits.total?.value || 0)
-  return total;
+  return res.count;
 }
 
 
-const countEntitiesUntil = async (name: string, count: number) => {
+const countEntitiesUntil = async (name: string, count: number, startTime: number) => {
   let total = 0;
-  let tries = 0;
   console.log('Polling for entities...');
   const progress = new cliProgress.SingleBar({
     format: 'Progress | {value}/{total} Entities'
   }, cliProgress.Presets.shades_classic);
   progress.start(count, 0);
 
-  while (total < count && tries < 1000 && !stop) {
+  while (total < count && !stop) {
     total = await countEntities(name);
     progress.update(total);
-    tries++;
-    await new Promise(resolve => setTimeout(resolve, 5000));
+ 
+    await new Promise(resolve => setTimeout(resolve, 2000));
   }
 
   progress.stop();
@@ -267,32 +303,24 @@ export const createPerfDataFile = ({
   });
 }
 
-export const uploadPerfDataFile = async (name: string, indexOverride?: string) => {
-
-  const index = indexOverride || `logs-perftest.${name}-default`
-  const filePath = getFilePath(name);
-
-
-  console.log(`Uploading performance data file ${name}.jsonl to index ${index}`);
-
-  if (!fs.existsSync(filePath)) {
-    console.log(`Data file ${name}.jsonl does not exist`);
-    process.exit(1);
-  }
-
-  console.log('initialising entity engines');
-  await initEntityEngineForEntityTypes(['host', 'user']);
-  console.log('entity engines initialised');
-
-  const lineCount = await getFileLineCount(filePath);
-  const logsPerEntity = await getLogsPerEntity(filePath);
-  const entityCount = lineCount / logsPerEntity;
-  console.log(`Data file ${name}.jsonl has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`);
-
+const uploadFile = async ({
+  filePath,
+  index,
+  lineCount,
+  modifyDoc,
+  onComplete
+}: {
+  filePath: string,
+  index: string,
+  lineCount: number,
+  modifyDoc?: (doc: Record<string, any>) => Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
+  onComplete?: () => void
+}) => {
   const stream = fs.createReadStream(filePath);
-  const progress = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
+  const progress = new cliProgress.SingleBar({
+    format: '{bar} | {percentage}% | {value}/{total} Documents Uploaded'
+  }, cliProgress.Presets.shades_classic);
   progress.start(lineCount, 0);
-  const startTime = Date.now();
 
   const rl = readline.createInterface({
     input: stream,
@@ -309,7 +337,16 @@ export const uploadPerfDataFile = async (name: string, indexOverride?: string) =
   await esClient.helpers.bulk<Record<string, any>>({
     datasource: lineGenerator(),
     onDocument: (doc) => {
+      if(stop) {
+        throw new Error('Stopped');
+      }
+
       doc['@timestamp'] = new Date().toISOString();
+
+      if (modifyDoc) {
+        doc = modifyDoc(doc);
+      }
+
       return {
         create: {
           _index: index,
@@ -328,14 +365,156 @@ export const uploadPerfDataFile = async (name: string, indexOverride?: string) =
     },
   });
 
-  const ingestTook = Date.now() - startTime;
   progress.stop();
+  if (onComplete) {
+    onComplete();
+  }
+};
+
+const getFileStats = async (filePath: string) => {
+  const lineCount = await getFileLineCount(filePath);
+  const logsPerEntity = await getLogsPerEntity(filePath);
+  const entityCount = lineCount / logsPerEntity;
+
+  return {lineCount, logsPerEntity, entityCount};
+}
+
+export const uploadPerfDataFile = async (name: string, indexOverride?: string, deleteEntities? : boolean) => {
+  const index = indexOverride || `logs-perftest.${name}-default`
+
+  if (deleteEntities) {
+    console.log('Deleting all entities...');
+    await deleteAllEntities();
+    console.log('All entities deleted');
+
+    console.log('Deleting logs index...');
+    await deleteLogsIndex(index);
+    console.log('Logs index deleted');
+
+  }
+  const filePath = getFilePath(name);
+
+
+  console.log(`Uploading performance data file ${name}.jsonl to index ${index}`);
+
+  if (!fs.existsSync(filePath)) {
+    console.log(`Data file ${name}.jsonl does not exist`);
+    process.exit(1);
+  }
+
+  console.log('initialising entity engines');
+  await initEntityEngineForEntityTypes(['host', 'user']);
+  console.log('entity engines initialised');
+
+  const {lineCount, logsPerEntity, entityCount} = await getFileStats(filePath);
+  console.log(`Data file ${name}.jsonl has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`);
+  const startTime = Date.now();
+
+  await uploadFile({ filePath, index, lineCount });
+  const ingestTook = Date.now() - startTime;
   console.log(`Data file ${name}.jsonl uploaded to index ${index} in ${ingestTook}ms`);
 
-  await countEntitiesUntil(name, entityCount);
+
+  await countEntitiesUntil(name, entityCount, startTime);
 
   const tookTotal = Date.now() - startTime;
 
   console.log(`Total time: ${tookTotal}ms`);
 
 }
+
+export const uploadPerfDataFileInterval = async (name: string,interval : number, uploadCount: number,  deleteEntities? : boolean) => {
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const addIdPrefix = (prefix: string) => (doc: Record<string, any>) => {
+    const isHost = !!doc.host;
+
+    if (isHost) {
+      return changeHostName(doc, prefix);
+    }
+
+    return changeUserName(doc, prefix);
+  }
+
+  const index = `logs-perftest.${name}-default`
+  const filePath = getFilePath(name);
+
+  if (deleteEntities) {
+    console.log('Deleting all entities...');
+    await deleteAllEntities();
+    console.log('All entities deleted');
+
+    console.log('Deleting logs index...');
+    await deleteLogsIndex(index);
+    console.log('Logs index deleted');
+  }
+
+  console.log(`Uploading performance data file ${name}.jsonl to index ${index}`);
+
+  if (!fs.existsSync(filePath)) {
+    console.log(`Data file ${name}.jsonl does not exist`);
+    process.exit(1);
+  }
+
+  console.log('initialising entity engines');
+
+  await initEntityEngineForEntityTypes(['host', 'user']);
+
+  console.log('entity engines initialised');
+
+  const {lineCount, logsPerEntity, entityCount} = await getFileStats(filePath);
+
+  console.log(`Data file ${name}.jsonl has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`);
+
+  const startTime = Date.now();
+
+  let previousUpload = Promise.resolve();
+
+  for (let i = 0; i < uploadCount; i++) {
+    if (stop) {
+      break;
+    }
+    let uploadCompleted = false;
+    const onComplete = () => {
+      uploadCompleted = true;
+    }
+    console.log(`Uploading ${i + 1} of ${uploadCount} then waiting ${interval / 1000}s...`);
+    previousUpload = previousUpload.then(() => uploadFile({onComplete, filePath, index, lineCount, modifyDoc: addIdPrefix(i.toString()) }));
+
+    let progress: cliProgress.SingleBar | null = null;
+    for (let j = 0; j < interval; j += 1000) {
+      if (stop) {
+        break;
+      }
+      if (uploadCompleted) {
+        if (!progress) {
+          progress = new cliProgress.SingleBar({
+            format: '{bar} | {percentage}% | Waiting to send next data'
+          }, cliProgress.Presets.shades_classic);
+
+          progress.start(interval / 1000, j + 1 / 1000);
+        } else {
+          progress.update(j + 1 / 1000);
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    progress?.update(interval / 1000);
+    progress?.stop();
+  }
+
+  await previousUpload;
+
+  const ingestTook = Date.now() - startTime;
+  console.log(`Data file ${name}.jsonl uploaded to index ${index} in ${ingestTook}ms`);
+
+  await countEntitiesUntil(name, entityCount * uploadCount, startTime);
+
+  const tookTotal = Date.now() - startTime;
+
+  console.log(`Total time: ${tookTotal}ms`);
+
+}
+
+
+
