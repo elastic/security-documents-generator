@@ -159,6 +159,7 @@ const generateUserFields = ({ idPrefix, entityIndex }: GeneratorOptions): UserFi
 
 const FIELD_LENGTH = 2;
 const DATA_DIRECTORY = __dirname + '/../../data/entity_store_perf_data';
+const LOGS_DIRECTORY = __dirname + '/../../logs'
 
 const getFilePath = (name: string) => {
   return `${DATA_DIRECTORY}/${name}${name.endsWith('.jsonl') ? '' : '.jsonl'}`;
@@ -215,7 +216,7 @@ const countEntities = async (name: string) => {
 }
 
 
-const countEntitiesUntil = async (name: string, count: number, startTime: number) => {
+const countEntitiesUntil = async (name: string, count: number) => {
   let total = 0;
   console.log('Polling for entities...');
   const progress = new cliProgress.SingleBar({
@@ -238,6 +239,80 @@ const countEntitiesUntil = async (name: string, count: number, startTime: number
 
   return total;
 };
+
+const logClusterHealthEvery = (name: string, interval: number): () => void => {
+  let stopCalled = false;
+
+  const stopCallback = () => {
+    stopCalled = true;
+  };
+
+  const logFile = `${LOGS_DIRECTORY}/${name}-${new Date().toISOString()}-cluster-health.log`;
+
+  const stream = fs.createWriteStream(logFile, { flags: 'a' });
+
+  const log = (message: string) => {
+    stream.write(`${new Date().toISOString()} - ${message}\n`);
+  }
+
+  const logClusterHealthEvery = async () => {
+    const res = await esClient.cluster.health();
+    log(JSON.stringify(res));
+  };
+
+  const int = setInterval(async () => {
+    await logClusterHealthEvery();
+
+    if (stopCalled || stop) {
+      clearInterval(int);
+      stream.end();
+    }
+  }, interval);
+
+  return stopCallback;
+}
+
+const logTransformStatsEvery = (name: string, interval: number): () => void => {
+  const TRANSFORM_NAMES = [
+    'entities-v1-latest-security_host_default',
+    'entities-v1-latest-security_user_default'
+  ]
+
+  let stopCalled = false;
+
+  const stopCallback = () => {
+    stopCalled = true;
+  };
+
+  const logFile = `${LOGS_DIRECTORY}/${name}-${new Date().toISOString()}-transform-stats.log`;
+
+  const stream = fs.createWriteStream(logFile, { flags: 'a' });
+
+  const log = (message: string) => {
+    stream.write(`${new Date().toISOString()} - ${message}\n`);
+  }
+
+  const logTransformStatsEvery = async () => {
+    for (const transform of TRANSFORM_NAMES) {
+      const res = await esClient.transform.getTransformStats({
+        transform_id: transform
+      });
+
+      log(`Transform ${transform} stats: ${JSON.stringify(res)}`);
+    }
+  };
+
+  const int = setInterval(async () => {
+    await logTransformStatsEvery();
+
+    if (stopCalled || stop) {
+      clearInterval(int);
+      stream.end();
+    }
+  }, interval);
+
+  return stopCallback;
+}
 
   
 
@@ -415,7 +490,7 @@ export const uploadPerfDataFile = async (name: string, indexOverride?: string, d
   console.log(`Data file ${name}.jsonl uploaded to index ${index} in ${ingestTook}ms`);
 
 
-  await countEntitiesUntil(name, entityCount, startTime);
+  await countEntitiesUntil(name, entityCount);
 
   const tookTotal = Date.now() - startTime;
 
@@ -424,7 +499,6 @@ export const uploadPerfDataFile = async (name: string, indexOverride?: string, d
 }
 
 export const uploadPerfDataFileInterval = async (name: string,interval : number, uploadCount: number,  deleteEntities? : boolean) => {
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addIdPrefix = (prefix: string) => (doc: Record<string, any>) => {
     const isHost = !!doc.host;
@@ -470,6 +544,9 @@ export const uploadPerfDataFileInterval = async (name: string,interval : number,
 
   let previousUpload = Promise.resolve();
 
+  const stopHealthLogging = logClusterHealthEvery(name, 5000);
+  const stopTransformsLogging = logTransformStatsEvery(name, 5000);
+
   for (let i = 0; i < uploadCount; i++) {
     if (stop) {
       break;
@@ -480,7 +557,6 @@ export const uploadPerfDataFileInterval = async (name: string,interval : number,
     }
     console.log(`Uploading ${i + 1} of ${uploadCount} then waiting ${interval / 1000}s...`);
     previousUpload = previousUpload.then(() => uploadFile({onComplete, filePath, index, lineCount, modifyDoc: addIdPrefix(i.toString()) }));
-
     let progress: cliProgress.SingleBar | null = null;
     for (let j = 0; j < interval; j += 1000) {
       if (stop) {
@@ -508,9 +584,12 @@ export const uploadPerfDataFileInterval = async (name: string,interval : number,
   const ingestTook = Date.now() - startTime;
   console.log(`Data file ${name}.jsonl uploaded to index ${index} in ${ingestTook}ms`);
 
-  await countEntitiesUntil(name, entityCount * uploadCount, startTime);
+  await countEntitiesUntil(name, entityCount * uploadCount);
 
   const tookTotal = Date.now() - startTime;
+
+  stopHealthLogging();
+  stopTransformsLogging();
 
   console.log(`Total time: ${tookTotal}ms`);
 
