@@ -1,6 +1,16 @@
 import urlJoin from 'url-join';
 import fetch, { Headers } from 'node-fetch';
 import { getConfig } from '../get_config';
+import { 
+  RISK_SCORE_SCORES_URL, 
+  RISK_SCORE_ENGINE_INIT_URL, 
+  ASSET_CRITICALITY_URL, 
+  DETECTION_ENGINE_RULES_URL,
+  COMPONENT_TEMPLATES_URL,
+  FLEET_EPM_PACKAGES_URL,
+  SPACES_URL,
+  SPACE_URL, 
+} from '../constants';
 
 const config = getConfig();
 export const appendPathToKibanaNode = (path: string) => urlJoin(config.kibana.node, path);
@@ -53,14 +63,14 @@ export const kibanaFetch = async <T>(path: string, params: object, apiVersion = 
 };
 
 export const fetchRiskScore = async () => {
-  await kibanaFetch('/internal/risk_score/scores', {
+  await kibanaFetch(RISK_SCORE_SCORES_URL, {
     method: 'POST',
     body: JSON.stringify({}),
   });
 };
 
 export const enableRiskScore = async () => {
-  return kibanaFetch('/internal/risk_score/engine/init', {
+  return kibanaFetch(RISK_SCORE_ENGINE_INIT_URL, {
     method: 'POST',
     body: JSON.stringify({}),
   });
@@ -71,7 +81,7 @@ export const assignAssetCriticality = async ({
   id_value,
   criticality_level,
 }: { id_field: string; id_value: string; criticality_level: string }) => {
-  return kibanaFetch('/internal/asset_criticality', {
+  return kibanaFetch(ASSET_CRITICALITY_URL, {
     method: 'POST',
     body: JSON.stringify({
       id_field,
@@ -82,8 +92,7 @@ export const assignAssetCriticality = async ({
 };
 
 export const createRule = ({space, id } : {space?: string, id?: string} = {}): Promise<{ id : string }> => {
-
-  const url = space ? `/s/${space}/api/detection_engine/rules` : '/api/detection_engine/rules';
+  const url = DETECTION_ENGINE_RULES_URL(space);
   return kibanaFetch<{ id : string }>(
     url,
     {
@@ -107,7 +116,7 @@ export const createRule = ({space, id } : {space?: string, id?: string} = {}): P
 };
 
 export const getRule = async (ruleId: string, space?: string) => {
-  const url = space ? `/s/${space}/api/detection_engine/rules` : '/api/detection_engine/rules';
+  const url = DETECTION_ENGINE_RULES_URL(space);
   try {
     return await kibanaFetch(
       url + '?rule_id=' + ruleId,
@@ -122,7 +131,7 @@ export const getRule = async (ruleId: string, space?: string) => {
 }
 
 export const deleteRule = async (ruleId: string, space?: string) => {
-  const url = space ? `/s/${space}/api/detection_engine/rules` : '/api/detection_engine/rules';
+  const url = DETECTION_ENGINE_RULES_URL(space);
   return kibanaFetch(
     url + '?rule_id=' + ruleId,
     {
@@ -136,7 +145,7 @@ export const deleteRule = async (ruleId: string, space?: string) => {
 }
 
 export const createComponentTemplate = async ({ name, mappings, space }: { name: string; mappings: object; space?: string }) => {
-  const url = space ? `/s/${space}/api/index_management/component_templates` : '/api/index_management/component_templates';
+  const url = COMPONENT_TEMPLATES_URL(space);
   const ignoreStatus = 409;
   return kibanaFetch(
     url,
@@ -158,11 +167,7 @@ export const createComponentTemplate = async ({ name, mappings, space }: { name:
   );
 }
 export const installPackage = async ({ packageName, version = 'latest', space  }: {packageName: string; version?: string; space?: string;}) => {
-  let url = space ? `/s/${space}/api/fleet/epm/packages/${packageName}` : `/api/fleet/epm/packages/${packageName}`;
-
-  if (version !== 'latest') {
-    url = `${url}/${version}`;
-  }
+  let url = FLEET_EPM_PACKAGES_URL(packageName, version, space);
 
   return kibanaFetch(
     url,
@@ -175,7 +180,7 @@ export const installPackage = async ({ packageName, version = 'latest', space  }
 
 
 export const createSpace = async (space: string) => {
-  return kibanaFetch('/api/spaces/space', {
+  return kibanaFetch(SPACES_URL, {
     method: 'POST',
     body: JSON.stringify({
       id: space,
@@ -188,7 +193,7 @@ export const createSpace = async (space: string) => {
 
 export const getSpace = async (space: string): Promise<boolean> => {
   try {
-    await kibanaFetch(`/api/spaces/space/${space}`, {
+    await kibanaFetch(SPACE_URL(space), {
       method: 'GET',
     });
   } catch (e) {
