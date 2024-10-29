@@ -3,7 +3,7 @@ import fs from 'fs';
 import cliProgress from 'cli-progress';
 import { getEsClient, getFileLineCount } from './utils/index';
 import readline from 'readline';
-import { initEntityEngineForEntityTypes } from '../utils/kibana_api';
+import { initEntityEngineForEntityTypes, deleteEngines } from '../utils/kibana_api';
 import { get } from 'lodash-es'
 const esClient = getEsClient();
 
@@ -429,8 +429,8 @@ const uploadFile = async ({
         document: doc,
       }
     },
-    flushBytes: 1024 * 1024 * 10,
-    flushInterval: 5000,
+    flushBytes: 1024 * 1024 * 1,
+    flushInterval: 3000,
     onSuccess: () => {
       progress.increment();
     },
@@ -498,7 +498,8 @@ export const uploadPerfDataFile = async (name: string, indexOverride?: string, d
 
 }
 
-export const uploadPerfDataFileInterval = async (name: string,interval : number, uploadCount: number,  deleteEntities? : boolean) => {
+export const uploadPerfDataFileInterval = async (name: string,intervalMs : number, uploadCount: number,  deleteEntities? : boolean, doDeleteEngines? : boolean) => {
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addIdPrefix = (prefix: string) => (doc: Record<string, any>) => {
     const isHost = !!doc.host;
@@ -513,6 +514,13 @@ export const uploadPerfDataFileInterval = async (name: string,interval : number,
   const index = `logs-perftest.${name}-default`
   const filePath = getFilePath(name);
 
+  console.log(`Uploading performance data file ${name}.jsonl every ${intervalMs}ms ${uploadCount} times to index ${index}`);
+
+  if (doDeleteEngines) {
+    console.log('Deleting all engines...');
+    await deleteEngines();
+    console.log('All engines deleted');
+  }
   if (deleteEntities) {
     console.log('Deleting all entities...');
     await deleteAllEntities();
@@ -522,8 +530,6 @@ export const uploadPerfDataFileInterval = async (name: string,interval : number,
     await deleteLogsIndex(index);
     console.log('Logs index deleted');
   }
-
-  console.log(`Uploading performance data file ${name}.jsonl to index ${index}`);
 
   if (!fs.existsSync(filePath)) {
     console.log(`Data file ${name}.jsonl does not exist`);
@@ -555,27 +561,28 @@ export const uploadPerfDataFileInterval = async (name: string,interval : number,
     const onComplete = () => {
       uploadCompleted = true;
     }
-    console.log(`Uploading ${i + 1} of ${uploadCount} then waiting ${interval / 1000}s...`);
+    const intervalS = intervalMs / 1000;
+    console.log(`Uploading ${i + 1} of ${uploadCount}, next upload in ${intervalS}s...`);
     previousUpload = previousUpload.then(() => uploadFile({onComplete, filePath, index, lineCount, modifyDoc: addIdPrefix(i.toString()) }));
     let progress: cliProgress.SingleBar | null = null;
-    for (let j = 0; j < interval; j += 1000) {
+    for (let j = 0; j < intervalS; j++) {
       if (stop) {
         break;
       }
       if (uploadCompleted) {
         if (!progress) {
           progress = new cliProgress.SingleBar({
-            format: '{bar} | {percentage}% | Waiting to send next data'
+            format: '{bar} | {value}s | waiting {total}s until next upload'
           }, cliProgress.Presets.shades_classic);
 
-          progress.start(interval / 1000, j + 1 / 1000);
+          progress.start(intervalS, j + 1);
         } else {
-          progress.update(j + 1 / 1000);
+          progress.update(j + 1);
         }
       }
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
-    progress?.update(interval / 1000);
+    progress?.update(intervalS);
     progress?.stop();
   }
 

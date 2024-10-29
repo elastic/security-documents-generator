@@ -2,6 +2,7 @@ import { Client } from '@elastic/elasticsearch';
 import { getConfig } from '../../get_config';
 import { MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
 import { exec } from 'child_process';
+import { once } from 'lodash';
 
 const config = getConfig();
 
@@ -18,6 +19,8 @@ export const getEsClient = () => {
       password : config.elastic.password,
     };
   }
+
+  once(() => console.log('Elasticsearch node:', config.elastic.node));
 
   client = new Client({
     node: config.elastic.node,

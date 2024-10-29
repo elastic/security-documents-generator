@@ -24,6 +24,8 @@ import inquirer from 'inquirer';
 import { ENTITY_STORE_OPTIONS, generateNewSeed } from './constants';
 import { initializeSpace } from './utils/initialize_space';
 
+const parseIntBase10 = (input: string) => parseInt(input, 10);
+
 program
   .command('generate-alerts')
   .option('-n <n>', 'number of alerts')
@@ -32,9 +34,9 @@ program
   .option('-s <h>', 'space (will be created if it does not exist)')
   .description('Generate fake alerts')
   .action(async (options) => {
-    const alertsCount = parseInt(options.n || 1);
-    const hostCount = parseInt(options.h || 1);
-    const userCount = parseInt(options.u || 1);
+    const alertsCount = parseIntBase10(options.n || 1);
+    const hostCount = parseIntBase10(options.h || 1);
+    const userCount = parseIntBase10(options.u || 1);
     const space = options.s || 'default';
 
     if(space !== 'default') {
@@ -46,13 +48,13 @@ program
 
 program
   .command('generate-events')
-  .argument('<n>', 'integer argument', parseInt)
+  .argument('<n>', 'integer argument', parseIntBase10)
   .description('Generate events')
   .action(generateEvents);
 
 program
   .command('generate-graph')
-  // .argument('<n>', 'integer argument', parseInt)
+  // .argument('<n>', 'integer argument', parseIntBase10)
   .description('Generate fake graph')
   .action(generateGraph);
 
@@ -74,9 +76,9 @@ program
 program
   .command('create-perf-data')
   .argument('<name>', 'name of the file')
-  .argument('<entity-count>', 'number of entities', parseInt)
-  .argument('<logs-per-entity>', 'number of logs per entity', parseInt)
-  .argument('[start-index]', 'for sequential data, which index to start at', parseInt, 0)
+  .argument('<entity-count>', 'number of entities', parseIntBase10)
+  .argument('<logs-per-entity>', 'number of logs per entity', parseIntBase10)
+  .argument('[start-index]', 'for sequential data, which index to start at', parseIntBase10, 0)
   .description('Create performance data')
   .action((name, entityCount, logsPerEntity, startIndex) => {
     createPerfDataFile({ name, entityCount, logsPerEntity, startIndex });
@@ -116,9 +118,10 @@ program
 program
   .command('upload-perf-data-interval')
   .argument('[file]', 'File to upload')
-  .option('--interval <interval>', 'interval in s', parseInt, 30)
-  .option('--count <count>', 'number of times to upload', parseInt, 10)
-  .option('--delete', 'Delete all entities before uploading')
+  .option('--interval <interval>', 'interval in s', parseIntBase10, 30)
+  .option('--count <count>', 'number of times to upload', parseIntBase10, 10)
+  .option('--deleteData', 'Delete all entities before uploading')
+  .option('--deleteEngines', 'Delete all entities before uploading')
   .description('Upload performance data file')
   .action(async (file, options) => {
     let selectedFile = file;
@@ -142,7 +145,7 @@ program
       selectedFile = response.selectedFile;
     }
 
-    await uploadPerfDataFileInterval(selectedFile, options.interval * 1000, options.count, options.delete);
+    await uploadPerfDataFileInterval(selectedFile, options.interval * 1000, options.count, options.deleteData, options.deleteEngines);
   });
 
 program

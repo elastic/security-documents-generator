@@ -3,6 +3,7 @@ import fetch, { Headers } from 'node-fetch';
 import { getConfig } from '../get_config';
 
 const config = getConfig();
+console.log('Kibana node:', config.kibana.node);
 export const appendPathToKibanaNode = (path: string) => urlJoin(config.kibana.node, path);
 
 type ResponseError = Error & { statusCode: number };
@@ -38,7 +39,7 @@ export const kibanaFetch = async <T>(path: string, params: object, apiVersion = 
       headers: headers,
       ...params,
     });
-    const data= await result.json() as T;
+    const data = await result.json() as T;
     if (!data || typeof data !== 'object') {
       throw new Error;
     }
@@ -81,10 +82,10 @@ export const assignAssetCriticality = async ({
   });
 };
 
-export const createRule = ({space, id } : {space?: string, id?: string} = {}): Promise<{ id : string }> => {
+export const createRule = ({ space, id }: { space?: string, id?: string } = {}): Promise<{ id: string }> => {
 
   const url = space ? `/s/${space}/api/detection_engine/rules` : '/api/detection_engine/rules';
-  return kibanaFetch<{ id : string }>(
+  return kibanaFetch<{ id: string }>(
     url,
     {
       method: 'POST',
@@ -95,7 +96,7 @@ export const createRule = ({space, id } : {space?: string, id?: string} = {}): P
         risk_score: 70,
         rule_id: id || 'rule-1',
         severity: 'high',
-        index: ['logs-*','metrics-*'],
+        index: ['logs-*', 'metrics-*'],
         type: 'query',
         query: '*:*',
         from: 'now-40d',
@@ -157,7 +158,7 @@ export const createComponentTemplate = async ({ name, mappings, space }: { name:
     ignoreStatus
   );
 }
-export const installPackage = async ({ packageName, version = 'latest', space  }: {packageName: string; version?: string; space?: string;}) => {
+export const installPackage = async ({ packageName, version = 'latest', space }: { packageName: string; version?: string; space?: string; }) => {
   let url = space ? `/s/${space}/api/fleet/epm/packages/${packageName}` : `/api/fleet/epm/packages/${packageName}`;
 
   if (version !== 'latest') {
@@ -209,6 +210,24 @@ const _initEngine = (engineType: string, space?: string) => {
     '2023-10-31'
   );
 }
+
+const _deleteEngine = (engineType: string, space?: string) => {
+  const url = space ? `/s/${space}/api/entity_store/engines/${engineType}` : `/api/entity_store/engines/${engineType}`;
+
+  return kibanaFetch(
+    url,
+    {
+      method: 'DELETE',
+    },
+    '2023-10-31'
+  );
+}
+
+export const deleteEngines = async (entityTypes: string[] = ['host', 'user'], space?: string) => {
+  const responses = await Promise.all(entityTypes.map((entityType) => _deleteEngine(entityType, space)));
+  console.log('Delete responses:', responses);
+}
+
 const _listEngines = (space?: string) => {
   const url = space ? `/s/${space}/api/entity_store/engines` : '/api/entity_store/engines';
 
@@ -220,25 +239,30 @@ const _listEngines = (space?: string) => {
     '2023-10-31'
   );
 
-  return res as Promise<{engines: Array<{ status : string }>}>;
+  return res as Promise<{ engines: Array<{ status: string }> }>;
 }
 
 const allEnginesAreStarted = async (space?: string) => {
-  const {engines} = await _listEngines(space);
+  const { engines } = await _listEngines(space);
+  if (engines.length === 0) {
+    return false;
+  }
   return engines.every((engine) => engine.status === 'started');
 }
 
-export const initEntityEngineForEntityTypes = async (entityTypes: string[] = ['host', 'user'] , space?: string) => {
+export const initEntityEngineForEntityTypes = async (entityTypes: string[] = ['host', 'user'], space?: string) => {
   if (await allEnginesAreStarted(space)) {
     console.log('All engines are already started');
+    return;
   }
   await Promise.all(entityTypes.map((entityType) => _initEngine(entityType, space)));
-
-  const attempts = 10;
+  const attempts = 20;
   const delay = 2000;
 
   for (let i = 0; i < attempts; i++) {
+    console.log('Checking if all engines are started attempt:', i + 1);
     if (await allEnginesAreStarted(space)) {
+      console.log('All engines are started');
       return;
     }
     await new Promise((resolve) => setTimeout(resolve, delay));
