@@ -129,14 +129,14 @@ To do this use the `upload-perf-data-interval` command. This will upload a file 
 
 ```
 # upload the small data file 10 times with 30 seconds between sends
-yarn start upload-perf-data-interval small --delete
+yarn start upload-perf-data-interval small --deleteEntities
 ```
 
 The count and interval can be customised:
 
 ```
 # upload the small data file 100 times with 60 seconds between sends
-yarn start upload-perf-data-interval small --delete --interval 60 --count 100
+yarn start upload-perf-data-interval small --deleteEntities --interval 60 --count 100
 ```
 
 The entity IDs are modified before sending so that each upload creates new entities, this means there will be count * entityCount entities by the end of the test.
