@@ -80,15 +80,16 @@ export const assignAssetCriticality = async ({
   id_field,
   id_value,
   criticality_level,
-}: { id_field: string; id_value: string; criticality_level: string }) => {
-  return kibanaFetch(ASSET_CRITICALITY_URL, {
+  version = '2023-10-31'
+}: { id_field: string; id_value: string; criticality_level: string, version?:string }) => {
+  return kibanaFetch(ASSET_CRITICALITY_URL, { 
     method: 'POST',
     body: JSON.stringify({
       id_field,
       id_value,
       criticality_level,
     }),
-  });
+  }, version);
 };
 
 export const createRule = ({space, id } : {space?: string, id?: string} = {}): Promise<{ id : string }> => {
@@ -167,7 +168,7 @@ export const createComponentTemplate = async ({ name, mappings, space }: { name:
   );
 }
 export const installPackage = async ({ packageName, version = 'latest', space  }: {packageName: string; version?: string; space?: string;}) => {
-  let url = FLEET_EPM_PACKAGES_URL(packageName, version, space);
+  const url = FLEET_EPM_PACKAGES_URL(packageName, version, space);
 
   return kibanaFetch(
     url,
