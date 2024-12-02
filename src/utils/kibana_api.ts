@@ -11,6 +11,7 @@ import {
   SPACES_URL,
   SPACE_URL, 
 } from '../constants';
+import { faker } from '@faker-js/faker';
 
 const config = getConfig();
 export const appendPathToKibanaNode = (path: string) => urlJoin(config.kibana.node, path);
@@ -103,7 +104,7 @@ export const createRule = ({space, id } : {space?: string, id?: string} = {}): P
         description: 'Tests a simple query',
         enabled: true,
         risk_score: 70,
-        rule_id: id || 'rule-1',
+        rule_id: id || `rule-${faker.number.int(1000)}`,
         severity: 'high',
         index: ['logs-*','metrics-*'],
         type: 'query',

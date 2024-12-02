@@ -35,6 +35,7 @@ const ASSET_CRITICALITY: AssetCriticality[] = [
 enum EntityTypes {
   User = 'user',
   Host = 'host',
+  Service = 'service',
 }
 
 interface BaseEntity {
@@ -47,6 +48,10 @@ interface User extends BaseEntity {
 
 interface Host extends BaseEntity {
   type: EntityTypes.Host;
+}
+
+interface Service extends BaseEntity {
+  type: EntityTypes.Service;
 }
 
 interface BaseEvent {
@@ -72,6 +77,25 @@ interface EventHost {
     name: string;
   };
 }
+
+interface ServiceEvent extends BaseEvent {
+  service: {
+    node: {
+      roles: string,
+      name: string
+    },
+    environment: string,
+    address: string,
+    name: string,
+    id: string,
+    state: string,
+    ephemeral_id: string,
+    type: string,
+    version: string,
+  };
+}
+
+
 interface UserEvent extends BaseEvent {
   user: EventUser;
   host?: EventHost;
@@ -82,7 +106,7 @@ interface HostEvent extends BaseEvent {
   user?: EventUser;
 }
 
-type Event = UserEvent | HostEvent;
+type Event = UserEvent | HostEvent | ServiceEvent;
 
 export const createRandomUser = (): User => {
   return {
@@ -99,6 +123,15 @@ export const createRandomHost= (): Host  => {
     type: EntityTypes.Host,
   };
 };
+
+export const createRandomService= (): Service  => {
+  return {
+    name: `Service-${faker.hacker.noun()}`,
+    assetCriticality: faker.helpers.arrayElement(ASSET_CRITICALITY),
+    type: EntityTypes.Service,
+  };
+};
+
 
 export const createRandomEventForHost = (name: string): HostEvent => ({
   '@timestamp': moment().subtract(offset(), 'h').format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
@@ -127,6 +160,25 @@ export const createRandomEventForUser = (name: string): UserEvent => ({
     name,
     id: faker.number.int({ max: 10000 }),
     entity_id: faker.string.nanoid(),
+  },
+});
+
+export const createRandomEventForService = (name: string): ServiceEvent => ({
+  '@timestamp': moment().subtract(offset(), 'h').format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+  message: `Service ${faker.hacker.phrase()}`,
+  service: {
+    node: {
+      roles: faker.helpers.arrayElement(['master', 'data', 'ingest']),
+      name: faker.internet.domainWord(),
+    },
+    environment: faker.helpers.arrayElement(['production', 'staging', 'development']),
+    address: faker.internet.ip(),
+    name,
+    id: faker.string.nanoid(),
+    state: faker.helpers.arrayElement(['running', 'stopped', 'starting']),
+    ephemeral_id: faker.string.nanoid(),
+    type: 'system',
+    version: faker.system.semver(),
   },
 });
 
@@ -159,7 +211,7 @@ const ingest = async (index: string, documents: Array<object>, mapping?: Mapping
 };
 
 // E = Entity, EV = Event
-export const generateEvents = <E extends User | Host, EV = E extends User ? UserEvent : HostEvent>(entities: E[], createEvent: (entityName: string) => EV): EV[] => {
+export const generateEvents = <E extends BaseEntity, EV = BaseEvent>(entities: E[], createEvent: (entityName: string) => EV): EV[] => {
   const eventsPerEntity = 10;
   const acc: EV[] = [];
   return entities.reduce((acc, entity) => {
@@ -187,7 +239,7 @@ const assignAssetCriticalityToEntities = async (entities: BaseEntity[], field: s
  * Generate entities first
  * Then Generate events, assign asset criticality, create rule and enable risk engine
  */
-export const generateEntityStore = async ({ users = 10, hosts = 10, seed = generateNewSeed(), options }: { users: number; hosts: number; seed: number; options: string[]}) => {
+export const generateEntityStore = async ({ users = 10, hosts = 10, services = 10, seed = generateNewSeed(), options }: { users: number; hosts: number; services: number; seed: number; options: string[]}) => {
   if (options.includes(ENTITY_STORE_OPTIONS.seed)) {
     faker.seed(seed);
   }
@@ -200,13 +252,22 @@ export const generateEntityStore = async ({ users = 10, hosts = 10, seed = gener
       count: hosts,
     });
 
-    const eventsForUsers = generateEvents(
+    const eventsForUsers: UserEvent[] = generateEvents(
       generatedUsers,
       createRandomEventForUser
     );
-    const eventsForHosts = generateEvents(
+    const eventsForHosts: HostEvent[] = generateEvents(
       generatedHosts,
       createRandomEventForHost
+    );
+
+    const generatedServices: Service[] = faker.helpers.multiple(createRandomService, {
+      count: services,
+    });
+
+    const eventsForServices: ServiceEvent[] = generateEvents(
+      generatedServices,
+      createRandomEventForService
     );
 
     const relational = matchUsersAndHosts(eventsForUsers, eventsForHosts)
@@ -215,6 +276,8 @@ export const generateEntityStore = async ({ users = 10, hosts = 10, seed = gener
     console.log('Users events ingested');
     await ingestEvents(relational.hosts);
     console.log('Hosts events ingested');
+    await ingestEvents(eventsForServices);
+    console.log('Services events ingested');
 
     if (options.includes(ENTITY_STORE_OPTIONS.criticality)) {
       await assignAssetCriticalityToEntities(generatedUsers, 'user.name');
