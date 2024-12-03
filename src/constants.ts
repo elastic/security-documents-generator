@@ -11,6 +11,8 @@ export const generateNewSeed = () => {
 }
 
 // API Endpoint URL's for Kibana
+export const RISK_SCORE_URL = '/internal/risk_score';
+export const RISK_SCORE_DASHBOARD_URL = (entityType: 'host' | 'user') => `/internal/risk_score/prebuilt_content/saved_objects/_bulk_create/${entityType}RiskScoreDashboards`;
 export const RISK_SCORE_SCORES_URL = '/internal/risk_score/scores';
 export const RISK_SCORE_ENGINE_INIT_URL = '/internal/risk_score/engine/init';
 export const ASSET_CRITICALITY_URL = '/api/asset_criticality';

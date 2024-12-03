@@ -9,7 +9,9 @@ import {
   COMPONENT_TEMPLATES_URL,
   FLEET_EPM_PACKAGES_URL,
   SPACES_URL,
-  SPACE_URL, 
+  SPACE_URL,
+  RISK_SCORE_URL,
+  RISK_SCORE_DASHBOARD_URL, 
 } from '../constants';
 
 const config = getConfig();
@@ -165,6 +167,30 @@ export const installPackage = async ({ packageName, version = 'latest', space  }
     },
     '2023-10-31'
   );
+}
+
+export const installLegacyRiskScore = async () => {
+  const userResponse = await kibanaFetch(RISK_SCORE_URL, {
+    method: 'POST',
+    body: JSON.stringify({ riskScoreEntity: 'user' }),
+  });
+
+  const hostResponse = await kibanaFetch(RISK_SCORE_URL, {
+    method: 'POST',
+    body: JSON.stringify({ riskScoreEntity: 'host' }),
+  });
+
+  const userDashboardsResponse = await kibanaFetch(RISK_SCORE_DASHBOARD_URL('user'), {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+
+  const hostDashboardsResponse = await kibanaFetch(RISK_SCORE_DASHBOARD_URL('host'), {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+
+  return { userResponse, hostResponse, userDashboardsResponse, hostDashboardsResponse };
 }
 
 

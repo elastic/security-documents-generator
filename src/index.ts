@@ -8,6 +8,7 @@ import {
   generateEvents,
 } from './commands/documents';
 import { setupEntityResolutionDemo } from './commands/entity_resolution';
+import { generateLegacyRiskScore } from './commands/legacy_risk_score';
 import { kibanaApi } from './utils/';
 import {
   cleanEntityStore,
@@ -212,5 +213,11 @@ program
 
     generateAssetCriticality({ users, hosts });
   });
+
+
+program
+  .command('generate-legacy-risk-score')
+  .description('Install legacy risk score and generate data')
+  .action(generateLegacyRiskScore);
 
 program.parse();
