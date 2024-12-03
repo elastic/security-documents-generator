@@ -223,17 +223,20 @@ export const generateEvents = <E extends BaseEntity, EV = BaseEvent>(entities: E
   }, acc);
 };
 
-const assignAssetCriticalityToEntities = async (entities: BaseEntity[], field: string) => {
-  for (const entity of entities) {
-    const { name, assetCriticality } = entity;
-    if (assetCriticality === 'unknown') return;
-    await assignAssetCriticality({
+export const assignAssetCriticalityToEntities = async (entities: BaseEntity[], field: string) => {
+  const chunks = chunk(entities, 10000);
+  for (const chunk of chunks) {
+    const records = chunk.filter(({assetCriticality}) => assetCriticality !== 'unknown').map(({name, assetCriticality}) => ({
       id_field: field,
       id_value: name,
       criticality_level: assetCriticality,
-    });
+    }));
+
+    if (records.length > 0) {
+      await assignAssetCriticality(records);
+    }
   }
-};
+}
 
 /**
  * Generate entities first

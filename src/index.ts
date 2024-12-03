@@ -16,6 +16,7 @@ import {
 import inquirer from 'inquirer';
 import { ENTITY_STORE_OPTIONS, generateNewSeed } from './constants';
 import { initializeSpace } from './utils/initialize_space';
+import { generateAssetCriticality } from './commands/asset_criticality';
 
 program
   .command('generate-alerts')
@@ -196,7 +197,20 @@ cleanEntityStore;
 
 program
   .command('clean-entity-store')
-  .description('Generate entity store')
+  .description('clean entity store')
   .action(cleanEntityStore);
+
+program
+  .command('generate-asset-criticality')
+  .option('-h <h>', 'number of hosts')
+  .option('-u <u>', 'number of users')
+  .description('Generate asset criticality for entities')
+  .action(async (options) => {
+
+    const users = parseInt(options.u || 10);
+    const hosts = parseInt(options.h || 10);
+
+    generateAssetCriticality({ users, hosts });
+  });
 
 program.parse();
