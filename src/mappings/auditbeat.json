@@ -3490,6 +3490,10 @@
               "name": {
                 "type": "keyword",
                 "ignore_above": 1024
+              },
+              "roles": {
+                "type": "keyword",
+                "ignore_above": 1024
               }
             }
           },
