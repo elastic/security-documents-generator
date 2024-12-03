@@ -80,18 +80,6 @@ export const assignAssetCriticality = async (assetCriticalityRecords: Array<{ id
   }, version);
 };
 
-export const enableAssetCriticality = async (version: string = '2023-10-31') => {
-  return kibanaFetch('/internal/kibana/settings', {
-    method: 'POST',
-    body: JSON.stringify({
-      changes: {
-        'securitySolution:enableAssetCriticality': true,
-      },
-    }),
-  }, version);
-};
-
-
 export const createRule = ({space, id } : {space?: string, id?: string} = {}): Promise<{ id : string }> => {
   const url = DETECTION_ENGINE_RULES_URL(space);
   return kibanaFetch<{ id : string }>(

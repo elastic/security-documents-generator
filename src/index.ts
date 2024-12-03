@@ -79,6 +79,7 @@ type EntityStoreAnswers = {
   options: string[];
   users: number;
   hosts: number;
+  services: number;
   seed: number;
 };
 
@@ -143,6 +144,17 @@ program
               return 10;
             },
           },
+          {
+            type: 'input',
+            name: 'services',
+            message: 'How many services',
+            filter(input) {
+              return parseInt(input, 10);
+            },
+            default() {
+              return 10;
+            },
+          },
         ])
         .then(answers => {
           const seed = generateNewSeed();
@@ -168,10 +180,11 @@ program
         .then((answers) => {
 
           const {
-            users, hosts, seed } = answers;
+            users, hosts, services, seed } = answers;
           generateEntityStore({
             users,
             hosts,
+            services,
             seed,
             options: answers.options,
           });
