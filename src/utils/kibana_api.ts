@@ -18,7 +18,6 @@ const throwResponseError = (message: string, statusCode: number, response: unkno
 export const kibanaFetch = async <T>(path: string, params: object, apiVersion = '1', ignoreStatuses: number | number[] = []): Promise<T> => {
   const url = appendPathToKibanaNode(path);
   const ignoreStatusesArray = Array.isArray(ignoreStatuses) ? ignoreStatuses : [ignoreStatuses];
-  // try {
   const headers = new Headers();
   headers.append('Content-Type', 'application/json');
   headers.append('kbn-xsrf', 'true');
