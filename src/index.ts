@@ -190,14 +190,14 @@ program
 program
   .command('generate-asset-criticality')
   .option('-h <h>', 'number of hosts')
-  .option('-u <h>', 'number of users')
+  .option('-u <u>', 'number of users')
   .description('Generate asset criticality for entities')
   .action(async (options) => {
 
-    const users = parseInt(options.h || 1);
-    const hosts = parseInt(options.u || 1);
+    const users = parseInt(options.u || 10);
+    const hosts = parseInt(options.h || 10);
 
-    generateAssetCriticality({users, hosts});
+    generateAssetCriticality({ users, hosts });
   });
 
 program.parse();
