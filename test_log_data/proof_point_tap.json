@@ -1,0 +1,92 @@
+//Below is a log event from Proofpoint for a delivered message from [user}@example.com to [user]@gmail.com
+//The scenario is a email exfil attack
+
+// POST /logs-logen-logen_events-proofpoint_tap-message_delivered-2024-12-12/_doc - edit this line to post to the propser index from Kinana DevTools
+ {"proofpoint_tap": {
+              "message_delivered": {
+                "cluster": "example_hosted",
+                "message_parts": {
+                  "disposition": "inline",
+                  "o_content_type": "text/plain"
+                },
+                "malware_score": 0,
+                "modules_run": "urldefense",
+                "qid": "2XX30XX029XXXX38XXX6",
+                "message_size": 70000,
+                "impostor_score": 0,
+                "policy_routes": "default_inbound",
+                "to_addresses": "jdoe@gmail.com",
+                "recipient": "jdoe@gmail.com",
+                "threat_info_map": {
+                  "threat": {
+                    "artifact": "https://example.com/view/xpxxxx6uxxxxx9y",
+                    "id": "xxxxxx425eaxxxxxxee41d9e81xxxxxxf24a96e48f6e6xxxxxxxxxxxx123456f",
+                    "time": "2022-04-01T18:24:01.050Z",
+                    "type": "url",
+                    "url": "https://threatinsight.proofpoint.com/3183a23b-d9c3-1234-1234-2babcd123478/threat/email/9fxxxxxxxxxee41d94deabcd1234e9ff24axxxxxxxxxxc5b843f",
+                    "status": "active"
+                  },
+                  "classification": "phish"
+                },
+                "header": {
+                  "replyto": "Trang, Alex & Transpose Platform Team <john.doe@example.com>",
+                  "from": "Trang, Alex & Transpose Platform Team john.doe@example.com"
+                },
+                "spam_score": 0,
+                "completely_rewritten": "true",
+                "phish_score": 0
+              },
+              "guid": "RxkxxxxxlxzxkxnxxxxDxrxwxxxxx6"
+            },
+            "tags": [
+              "logen_tag",
+              "/Proofpoint/proofpoint_tap-message_delivered-none-nested.json",
+              "proofpoint_tap",
+              "message_delivered",
+              "logen-os-tag-none",
+              "preserve_original_event"
+            ],
+            "event": {
+              "agent_id_status": "missing",
+              "ingested": "2024-11-14T00:37:26Z",
+              "kind": "event",
+              "created": "2024-11-14T00:37:57.709Z",
+              "id": "78f5fa6b-9388-469b-861b-be1ce0c70000",
+              "category": "email",
+              "type": "info",
+              "dataset": "proofpoint_tap.message_delivered"
+            },
+            "email": {
+              "attachments": {
+                "file": {
+                  "mime_type": "text/plain",
+                  "name": "text.txt",
+                  "hash": {
+                    "sha256": "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e",
+                    "md5": "b10a8db164e0754105b7a99be72e3fe5"
+                  }
+                }
+              },
+              "reply_to": {
+                "address": "john.doe@example.com"
+              },
+              "sender": {
+                "address": "xyz-abc.us1_152023242.13741304-5fabcd4567@example.com"
+              },
+              "subject": "Perfectly normal email",
+              "delivery_timestamp": "2022-03-15T15:00:20.000Z",
+              "from": {
+                "address": "john.doe@example.com"
+              },
+              "message_id": "200c524xyz1234xyz12343.5fc4b29057.20210428135110.a1234993344.dxyz1234@example.com",
+              "to": {
+                "address": "jdoe@gmail.com"
+              },
+              "x_mailer": "Mailchimp Mailer - **CIxxxxxxxxx1234**"
+            },
+            "@timestamp": "2024-11-14T00:03:57.709Z",
+            "data_stream": {
+              "dataset": "proofpoint_tap.message_delivered"
+            }
+          }
+          }
