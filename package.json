@@ -40,6 +40,6 @@
     "eslint": "<9.0.0",
     "eslint-config-airbnb": "^19.0.4",
     "eslint-config-airbnb-typescript": "^18.0.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.7.3"
   }
 }
