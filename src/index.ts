@@ -18,6 +18,12 @@ import inquirer from 'inquirer';
 import { ENTITY_STORE_OPTIONS, generateNewSeed } from './constants';
 import { initializeSpace } from './utils/initialize_space';
 import { generateAssetCriticality } from './commands/asset_criticality';
+import {
+  deleteAllPrivmonData,
+  createPrivmonData,
+  privilegeEscalation,
+  multipleLoginsFromDifferentIps,
+} from './commands/privmon';
 
 program
   .command('generate-alerts')
@@ -219,5 +225,59 @@ program
   .command('generate-legacy-risk-score')
   .description('Install legacy risk score and generate data')
   .action(generateLegacyRiskScore);
+
+program
+  .command('delete-privmon-data')
+  .description('Delete all privmon data')
+  .action(deleteAllPrivmonData);
+
+program
+  .command('create-privmon-data')
+  .option('-l <l>', 'number of logins',parseInt)
+  .option('-u <u>', 'username')
+  .option('-i', 'initialize')
+  .option('-n <n>', 'namespace')
+  .description('Create privmon data')
+  .action(async (options) => {
+    const loginsCount = parseInt(options.l || 10);
+    const username = options.u || 'mahopki';
+    const init = options.i;
+    const namespace = options.n || 'default';
+
+    await createPrivmonData({ loginsCount, username, init, namespace });
+  });
+
+program
+  .command('privilege-escalation')
+  .option('-u <u>', 'username')
+  .option('-i', 'initialize')
+  .option('-n <n>', 'namespace')
+  .description('Create privilege escalation data')
+  .action(async (options) => {
+    const username = options.u || 'mahopki';
+    const init = options.i;
+    const namespace = options.n || 'default';
+
+    await privilegeEscalation({ username, init, namespace });
+  });
+
+program
+  .command('multiple-logins')
+  .option('-u <u>', 'username')
+  .option('-c <c>', 'count', parseInt)
+  .option('-i', 'initialize')
+  .option('-n <n>', 'namespace')
+  .description('Create multiple logins data')
+  .action(async (options) => {
+    const username = options.u || 'mahopki';
+    const count = options.c || 10;
+    const init = options.i;
+    const namespace = options.n || 'default';
+
+    await multipleLoginsFromDifferentIps({ username, count, init, namespace });
+  });
+
+
+
 
 program.parse();

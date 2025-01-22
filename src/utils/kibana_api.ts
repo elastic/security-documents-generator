@@ -75,6 +75,14 @@ export const enableRiskScore = async () => {
   });
 };
 
+export const initPrivmon = async () => {
+  return kibanaFetch('/api/privmon/init', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  },
+  '2023-10-31');
+}
+
 export const assignAssetCriticality = async (assetCriticalityRecords: Array<{ id_field: string; id_value: string; criticality_level: string }>, version: string = '2023-10-31') => {
   return kibanaFetch('/api/asset_criticality/bulk', {
     method: 'POST',
