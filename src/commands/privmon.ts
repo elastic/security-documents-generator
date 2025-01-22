@@ -2,7 +2,7 @@
 import { getEsClient } from './utils/index';
 import cliProgress from 'cli-progress';
 import { faker } from '@faker-js/faker';
-import { initPrivmon } from '../utils/kibana_api';
+import { assignAssetCriticality, initPrivmon } from '../utils/kibana_api';
 const client = getEsClient(); 
 
 const PRIVMON_INDEX_PREFIX = 'risk-score.risk-monitoring';
@@ -183,6 +183,20 @@ const callInit = async () => {
   await initPrivmon();
 }
 
+export const loginToCriticalAsset = async ({namespace = 'default', username, init, hostname = 'critical_host' }: {username: string, namespace?: string, init?: boolean, hostname?: string}) => {
+  if (init) {
+    await callInit();
+  }
+  console.log(`Assigning asset criticality to host ${hostname}`);
+
+  await assignAssetCriticality([{ id_field: 'host.name', id_value: hostname, criticality_level: 'extreme_impact' }]);
+
+  console.log(`Creating login event for user ${username} to critical asset`);
+
+  const docs = [createLoginDoc({ username, hostname, ip: faker.internet.ip(), sourceIp: faker.internet.ip() })];
+
+  await bulkCreateLogins(docs, namespace);
+}
 
 export const multipleLoginsFromDifferentIps = async ({namespace = 'default', count, username, init}: {count: number, username: string, namespace?: string, init?: boolean}) => {
   if (init) {
@@ -227,6 +241,7 @@ export const createPrivmonData = async ({namespace = 'default', loginsCount, use
   }
   await multipleLoginsFromDifferentIps({ count: loginsCount, username, namespace });
   await privilegeEscalation({ username, namespace });
+  await loginToCriticalAsset({ username, namespace });
 }
 
 export const deleteAllPrivmonData = async () => {

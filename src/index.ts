@@ -23,6 +23,7 @@ import {
   createPrivmonData,
   privilegeEscalation,
   multipleLoginsFromDifferentIps,
+  loginToCriticalAsset,
 } from './commands/privmon';
 
 program
@@ -276,6 +277,24 @@ program
 
     await multipleLoginsFromDifferentIps({ username, count, init, namespace });
   });
+
+program
+  .command('critical-login')
+  .option('-u <u>', 'username')
+  .option('-h <h>', 'hostname')
+  .option('-i', 'initialize')
+  .option('-n <n>', 'namespace')
+  .description('Create critical login data')
+  .action(async (options) => {
+    const username = options.u || 'mahopki';
+    const hostname = options.h || 'critical_host';
+    const init = options.i;
+    const namespace = options.n || 'default';
+
+    await loginToCriticalAsset({ username, hostname, init, namespace });
+  });
+
+
 
 
 
