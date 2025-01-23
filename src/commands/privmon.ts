@@ -26,9 +26,7 @@ const createLoginDoc = ({ username = 'johndoe', hostname = 'riskyhost.com', ip =
   },
   'user': {
     'name': username,
-    'id': 'S-1-5-21-123456789-987654321-543216789-1001',
-    'type': 'user',
-    'domain': 'CORP'
+    'id': '1234' + username
   },
   'host': {
     'name': hostname,
@@ -66,10 +64,10 @@ const createLoginDoc = ({ username = 'johndoe', hostname = 'riskyhost.com', ip =
   'tags': ['successful-login', 'host-login', 'authentication']
 });
 
-const createPrivilegeDoc = ({ username = 'admin', targetUsername = 'johndoe', groupName = 'Domain Admins', timestamp }: { username?: string, groupName?: string, targetUsername?: string, timestamp?: string }) => ({
+const createPrivilegeDoc = ({ username = 'adminuser', targetUsername = 'mahopki', groupName = 'Domain Admins', timestamp }: { username?: string, groupName?: string, targetUsername?: string, timestamp?: string }) => ({
   '@timestamp': timestamp || new Date().toISOString(),
   'event': {
-    'action': 'Group Membership Changed',
+    'action': 'group-add',
     'category': 'privilege-escalation',
     'outcome': 'success',
     'kind': 'event',
@@ -82,14 +80,12 @@ const createPrivilegeDoc = ({ username = 'admin', targetUsername = 'johndoe', gr
   },
   'user': {
     'name': username,
-    'id': 'S-1-5-21-123456789-987654321-543216789-500',
-    'type': 'user'
+    'id': '1234' + username,
   },
   'target': {
     'user': {
       'name': targetUsername,
-      'id': 'S-1-5-21-123456789-987654321-543216789-1001',
-      'created': '2015-03-12T09:00:00.000Z'
+      'id': '1234' + targetUsername,
     }
   },
   'group': {
@@ -115,7 +111,7 @@ const createPrivilegeDoc = ({ username = 'admin', targetUsername = 'johndoe', gr
         'target_resources': [
           {
             'type': 'Group',
-            'display_name': 'Domain Admins',
+            'display_name': 'AD Domain Admin',
             'id': 'S-1-5-21-123456789-987654321-543216789-512',
             'modified_properties': [
               {
@@ -214,7 +210,7 @@ export const multipleLoginsFromDifferentIps = async ({namespace = 'default', cou
 
 export const privilegeEscalation = async ({namespace = 'default', username, init}: {username: string, namespace?: string, init?: boolean}) => {
   const NON_PRIVILEGED_GROUPS = ['Domain Users', 'Guests', 'Authenticated Users'];
-  const PRIVILEGED_GROUPS = ['Domain Admins', 'Enterprise Admins', 'Schema Admins'];
+  const PRIVILEGED_GROUPS = ['AD Domain Admin'];
 
   if (init) {
     await callInit();
@@ -228,8 +224,8 @@ export const privilegeEscalation = async ({namespace = 'default', username, init
     .map(() => faker.date.past({ years: 1 }).toISOString());
 
   const docs = [
-    ...NON_PRIVILEGED_GROUPS.map((groupName, i) => createPrivilegeDoc({ username, groupName, timestamp: NON_PRIVLEGED_GROUP_TIMESTAMPS[i] })),
-    ...PRIVILEGED_GROUPS.map((groupName) => createPrivilegeDoc({ username, groupName })),
+    ...NON_PRIVILEGED_GROUPS.map((groupName, i) => createPrivilegeDoc({ targetUsername: username, groupName, timestamp: NON_PRIVLEGED_GROUP_TIMESTAMPS[i] })),
+    ...PRIVILEGED_GROUPS.map((groupName) => createPrivilegeDoc({ targetUsername: username, groupName })),
   ];
 
   await bulkCreatePrivileges(docs, namespace);
