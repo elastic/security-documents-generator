@@ -201,11 +201,20 @@ export const multipleLoginsFromDifferentIps = async ({namespace = 'default', cou
 
   console.log(`Creating ${count} login events for user ${username}`);
 
-  const docs = Array(count)
+  const userDocs = Array(count)
     .fill(null)
     .map(() => createLoginDoc({ username, ip: faker.internet.ip(), sourceIp: faker.internet.ip() }));
 
-  await bulkCreateLogins(docs, namespace);
+  console.log(`Creating ${count * 10} login events for other users`);
+  
+  const otherUserDocs = Array(count * 10)
+    .fill(null)
+    .map(() => createLoginDoc({ username: faker.internet.userName(), ip: faker.internet.ip(), sourceIp: faker.internet.ip() }));
+
+  await bulkCreateLogins([
+    ...userDocs,
+    ...otherUserDocs
+  ], namespace);
 }
 
 export const privilegeEscalation = async ({namespace = 'default', username, init}: {username: string, namespace?: string, init?: boolean}) => {
