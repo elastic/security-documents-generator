@@ -2,7 +2,7 @@
 import { getEsClient } from './utils/index';
 import cliProgress from 'cli-progress';
 import { faker } from '@faker-js/faker';
-import { assignAssetCriticality, initPrivmon } from '../utils/kibana_api';
+import { assignAssetCriticality, initPrivmon, enableRiskScore} from '../utils/kibana_api';
 const client = getEsClient(); 
 
 const PRIVMON_INDEX_PREFIX = 'risk-score.risk-monitoring';
@@ -177,6 +177,7 @@ const bulkCreatePrivileges = async (docs: unknown[], namespace: string) => {
 const callInit = async () => {
   console.log('Initializing Privmon');
   await initPrivmon();
+  await enableRiskScore();
 }
 
 export const loginToCriticalAsset = async ({namespace = 'default', username, init, hostname = 'critical_host' }: {username: string, namespace?: string, init?: boolean, hostname?: string}) => {
@@ -190,6 +191,21 @@ export const loginToCriticalAsset = async ({namespace = 'default', username, ini
   console.log(`Creating login event for user ${username} to critical asset`);
 
   const docs = [createLoginDoc({ username, hostname, ip: faker.internet.ip(), sourceIp: faker.internet.ip() })];
+
+  await bulkCreateLogins(docs, namespace);
+}
+
+const multipleLoginsOverTime = async ({namespace = 'default', count = 10, username, init}: {count?: number, username: string, namespace?: string, init?: boolean}) => {
+  if (init) {
+    await callInit();
+  }
+
+  console.log(`Creating ${count} login events for user ${username}`);
+  const ip = faker.internet.ip();
+  const sourceIp = faker.internet.ip();
+  const docs = Array(count)
+    .fill(null)
+    .map(() => createLoginDoc({ username, ip, sourceIp }));
 
   await bulkCreateLogins(docs, namespace);
 }
@@ -240,6 +256,23 @@ export const privilegeEscalation = async ({namespace = 'default', username, init
   await bulkCreatePrivileges(docs, namespace);
 }
 
+export const createSimilarUsers = async ({ namespace = 'default', init }: { namespace?: string, init?: boolean }) => {
+  if (init) {
+    await callInit();
+  }
+
+  const variants = [
+    'johndoe',
+    'johndoe@elastic.co',
+    'john.doe',
+  ];
+
+  for (const username of variants) {
+    await privilegeEscalation({ username, namespace });
+    await multipleLoginsOverTime({ count: 10, username, namespace });
+  }
+}
+
 export const createPrivmonData = async ({namespace = 'default', loginsCount, username, init}: {loginsCount: number, username: string, namespace?: string, init?: boolean}) => {
   if (init) {
     await callInit();
@@ -247,6 +280,7 @@ export const createPrivmonData = async ({namespace = 'default', loginsCount, use
   await multipleLoginsFromDifferentIps({ count: loginsCount, username, namespace });
   await privilegeEscalation({ username, namespace });
   await loginToCriticalAsset({ username, namespace });
+  await createSimilarUsers({ namespace });
 }
 
 export const deleteAllPrivmonData = async () => {

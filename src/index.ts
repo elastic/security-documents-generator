@@ -24,6 +24,7 @@ import {
   privilegeEscalation,
   multipleLoginsFromDifferentIps,
   loginToCriticalAsset,
+  createSimilarUsers
 } from './commands/privmon';
 
 program
@@ -293,6 +294,19 @@ program
 
     await loginToCriticalAsset({ username, hostname, init, namespace });
   });
+
+program
+  .command('similar-users')
+  .option('-n <n>', 'namespace')
+  .option('-i', 'initialize')
+  .description('Create similar users data')
+  .action(async (options) => {
+    const init = options.i;
+    const namespace = options.n || 'default';
+
+    await createSimilarUsers({ init, namespace });
+  });
+
 
 
 
