@@ -264,6 +264,7 @@ export const createSimilarUsers = async ({ namespace = 'default', init }: { name
   const variants = [
     'johndoe',
     'johndoe@elastic.co',
+    'john.doe@elastic.co',
     'john.doe',
   ];
 
