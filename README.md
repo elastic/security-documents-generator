@@ -106,7 +106,6 @@ yarn start test-risk-score
 
 7. `yarn start delete-events` to remove all documents from event index after your test.
 
-
 ## Entity Store Performance Testing
 
 ### Sending one of the pre-built files
