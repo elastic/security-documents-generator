@@ -31,15 +31,15 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "@types/cli-progress": "^3.11.5",
-    "@types/inquirer": "^9.0.7",
-    "@types/uuid": "^9.0.8",
-    "@typescript-eslint/eslint-plugin": "^7.7.1",
-    "@typescript-eslint/parser": "^7.7.1",
-    "esbuild": "^0.20.2",
-    "eslint": "<9.0.0",
-    "eslint-config-airbnb": "^19.0.4",
-    "eslint-config-airbnb-typescript": "^18.0.0",
+    "@types/cli-progress": "3.11.5",
+    "@types/inquirer": "9.0.7",
+    "@types/uuid": "9.0.8",
+    "@typescript-eslint/eslint-plugin": "7.7.1",
+    "@typescript-eslint/parser": "7.7.1",
+    "esbuild": "^0.24.0",
+    "eslint": "8.57.0",
+    "eslint-config-airbnb": "19.0.4",
+    "eslint-config-airbnb-typescript": "18.0.0",
     "typescript": "^5.7.3"
   }
 }
