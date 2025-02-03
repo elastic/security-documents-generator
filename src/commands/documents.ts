@@ -95,12 +95,12 @@ export const generateAlerts = async (alertCount: number, hostCount: number, user
     process.exit(1);
   }
 
-  console.log(`Generating ${alertCount} alerts containing ${hostCount} hosts and ${userCount} users.`);
+  console.log(`Generating ${alertCount} alerts containing ${hostCount} hosts and ${userCount} users in space ${space}`);
   const concurrency = 10; // how many batches to send in parallel
   const batchSize = 2500; // number of alerts in a batch
   const no_overrides = {};
 
-  const batchOpForIndex = ({ userName, hostName } : { userName: string, hostName: string }) => alertToBatchOps(createAlerts(no_overrides, { userName, hostName }), getAlertIndex(space));
+  const batchOpForIndex = ({ userName, hostName } : { userName: string, hostName: string }) => alertToBatchOps(createAlerts(no_overrides, { userName, hostName, space }), getAlertIndex(space));
 
 
   console.log('Generating entity names...');
