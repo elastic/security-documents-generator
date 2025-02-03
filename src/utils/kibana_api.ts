@@ -95,7 +95,7 @@ export const createRule = ({space, id } : {space?: string, id?: string} = {}): P
         risk_score: 70,
         rule_id: id || faker.string.uuid(),
         severity: 'high',
-        index: ['logs-*','metrics-*'],
+        index: ['logs-*','metrics-*', 'auditbeat-*'],
         type: 'query',
         query: '*:*',
         from: 'now-40d',
