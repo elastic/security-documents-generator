@@ -8,6 +8,7 @@ import {
   generateEvents,
 } from './commands/documents';
 import { setupEntityResolutionDemo } from './commands/entity_resolution';
+import { generateLegacyRiskScore } from './commands/legacy_risk_score';
 import { kibanaApi } from './utils/';
 import {
   cleanEntityStore,
@@ -16,6 +17,7 @@ import {
 import inquirer from 'inquirer';
 import { ENTITY_STORE_OPTIONS, generateNewSeed } from './constants';
 import { initializeSpace } from './utils/initialize_space';
+import { generateAssetCriticality } from './commands/asset_criticality';
 
 program
   .command('generate-alerts')
@@ -78,6 +80,7 @@ type EntityStoreAnswers = {
   options: string[];
   users: number;
   hosts: number;
+  services: number;
   seed: number;
 };
 
@@ -142,6 +145,17 @@ program
               return 10;
             },
           },
+          {
+            type: 'input',
+            name: 'services',
+            message: 'How many services',
+            filter(input) {
+              return parseInt(input, 10);
+            },
+            default() {
+              return 10;
+            },
+          },
         ])
         .then(answers => {
           const seed = generateNewSeed();
@@ -167,10 +181,11 @@ program
         .then((answers) => {
 
           const {
-            users, hosts, seed } = answers;
+            users, hosts, services, seed } = answers;
           generateEntityStore({
             users,
             hosts,
+            services,
             seed,
             options: answers.options,
           });
@@ -183,7 +198,26 @@ cleanEntityStore;
 
 program
   .command('clean-entity-store')
-  .description('Generate entity store')
+  .description('clean entity store')
   .action(cleanEntityStore);
+
+program
+  .command('generate-asset-criticality')
+  .option('-h <h>', 'number of hosts')
+  .option('-u <u>', 'number of users')
+  .description('Generate asset criticality for entities')
+  .action(async (options) => {
+
+    const users = parseInt(options.u || 10);
+    const hosts = parseInt(options.h || 10);
+
+    generateAssetCriticality({ users, hosts });
+  });
+
+
+program
+  .command('generate-legacy-risk-score')
+  .description('Install legacy risk score and generate data')
+  .action(generateLegacyRiskScore);
 
 program.parse();
