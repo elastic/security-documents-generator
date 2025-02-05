@@ -6,7 +6,7 @@ import { getEsClient, indexCheck } from './utils/index';
 import { getConfig } from '../get_config';
 import { MappingTypeMapping, BulkOperationContainer } from '@elastic/elasticsearch/lib/api/types';
 import pMap from 'p-map';
-import _ from 'lodash';
+import { chunk } from 'lodash-es';
 import cliProgress from 'cli-progress';
 import { faker } from '@faker-js/faker';
 import { getAlertIndex } from '../utils';
@@ -114,7 +114,7 @@ export const generateAlerts = async (alertCount: number, hostCount: number, user
   }));
   
   console.log('Entity names assigned. Batching...');
-  const operationBatches = _.chunk(alertEntityNames, batchSize).map((batch) => 
+  const operationBatches = chunk(alertEntityNames, batchSize).map((batch) => 
     batch.flatMap(batchOpForIndex)
   );
 
