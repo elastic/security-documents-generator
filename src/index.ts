@@ -276,8 +276,6 @@ program
 
   );
 
-cleanEntityStore;
-
 program
   .command('clean-entity-store')
   .description('clean entity store')

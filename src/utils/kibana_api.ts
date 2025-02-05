@@ -116,7 +116,8 @@ export const getRule = async (ruleId: string, space?: string) => {
       },
       '2023-10-31'
     );
-  } catch (e) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (e) { 
     return null;
   }
 }
@@ -211,6 +212,7 @@ export const getSpace = async (space: string): Promise<boolean> => {
     await kibanaFetch(SPACE_URL(space), {
       method: 'GET',
     });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
     return false;
   }
