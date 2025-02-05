@@ -1,11 +1,10 @@
 
-import { getEsClient } from './utils/index';
+import { getEsClient, getFileLineCount } from './utils';
 import { installPackage, createRule, getRule, createComponentTemplate, appendPathToKibanaNode } from '../utils/kibana_api';
 import pMap from 'p-map';
 import cliProgress from 'cli-progress';
 import readline from 'readline';
 import fs from 'fs';
-import { exec } from 'child_process';
 
 const BATCH_SIZE = 1000;
 const CONCURRENCY = 10;
@@ -117,24 +116,6 @@ const clearData = async () => {
     console.log('Error: ', err);
     process.exit(1);
   }
-}
-
-const getfFileLineCount = async (filePath: string): Promise<number>  => {
-  return new Promise((resolve, reject) => {
-    exec(`wc -l ${filePath}`, (error, stdout, stderr) => {
-      if (error || stderr) {
-        reject(error || stderr);
-      }
-
-      const count = parseInt(stdout.trim().split(' ')[0]);
-
-      if (isNaN(count)) {
-        console.log(`Failed to parse line count, line count: "${stdout}", split result: "${stdout.split(' ')}"`);
-        reject();
-      }
-      resolve(count);
-    });
-  });
 }
 
 const VARIANT_TYPES = {
@@ -265,7 +246,7 @@ const jsonlFileToBatchGenerator = (filePath: string, batchSize: number, lineToOp
 }
 
 const getFilePath = (fileName: string, mini: boolean) => {
-  return __dirname + `/../../entity_resolution_data/${mini ? 'mini_' : ''}${fileName}`;
+  return __dirname + `/../../data/entity_resolution_data/${mini ? 'mini_' : ''}${fileName}`;
 }
 
 
@@ -375,7 +356,7 @@ const importEntraIdUserData = async ({ mini = false, keepEmails = false  } : { m
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const importFile = async (filePath: string, lineToOperation: (line: any, index: number) => [any, any]) => {
-  const lineCountInFile = await getfFileLineCount(filePath);
+  const lineCountInFile = await getFileLineCount(filePath);
   const batchGenerator = jsonlFileToBatchGenerator(filePath, BATCH_SIZE, lineToOperation);
   await batchIndexDocsWithProgress(batchGenerator, lineCountInFile);
 }

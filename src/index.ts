@@ -14,10 +14,18 @@ import {
   cleanEntityStore,
   generateEntityStore,
 } from './commands/entity-store';
+import {
+  createPerfDataFile,
+  uploadPerfDataFile,
+  uploadPerfDataFileInterval,
+  listPerfDataFiles,
+} from './commands/entity-store-perf';
 import inquirer from 'inquirer';
 import { ENTITY_STORE_OPTIONS, generateNewSeed } from './constants';
 import { initializeSpace } from './utils/initialize_space';
 import { generateAssetCriticality } from './commands/asset_criticality';
+
+const parseIntBase10 = (input: string) => parseInt(input, 10);
 
 program
   .command('generate-alerts')
@@ -41,13 +49,12 @@ program
 
 program
   .command('generate-events')
-  .argument('<n>', 'integer argument', parseInt)
+  .argument('<n>', 'integer argument', parseIntBase10)
   .description('Generate events')
   .action(generateEvents);
 
 program
   .command('generate-graph')
-  // .argument('<n>', 'integer argument', parseInt)
   .description('Generate fake graph')
   .action(generateGraph);
 
@@ -65,6 +72,81 @@ program
   .command('test-risk-score')
   .description('Test risk score API')
   .action(kibanaApi.fetchRiskScore);
+
+program
+  .command('create-perf-data')
+  .argument('<name>', 'name of the file')
+  .argument('<entity-count>', 'number of entities', parseIntBase10)
+  .argument('<logs-per-entity>', 'number of logs per entity', parseIntBase10)
+  .argument('[start-index]', 'for sequential data, which index to start at', parseIntBase10, 0)
+  .description('Create performance data')
+  .action((name, entityCount, logsPerEntity, startIndex) => {
+    createPerfDataFile({ name, entityCount, logsPerEntity, startIndex });
+  });
+
+program
+  .command('upload-perf-data')
+  .argument('[file]', 'File to upload')
+  .option('--index <index>', 'Destination index')
+  .option('--delete', 'Delete all entities before uploading')
+  .description('Upload performance data file')
+  .action(async (file, options) => {
+    let selectedFile = file;
+
+    if (!selectedFile) {
+      const files = await listPerfDataFiles();
+
+      if (files.length === 0) {
+        console.log('No files to upload');
+        process.exit(1);
+      }
+
+      const response = await inquirer.prompt<{ selectedFile: string }>([
+        {
+          type: 'list',
+          name: 'selectedFile',
+          message: 'Select a file to upload',
+          choices: files,
+        },
+      ]);
+      selectedFile = response.selectedFile;
+    }
+
+    await uploadPerfDataFile(selectedFile, options.index, options.delete);
+  });
+
+program
+  .command('upload-perf-data-interval')
+  .argument('[file]', 'File to upload')
+  .option('--interval <interval>', 'interval in s', parseIntBase10, 30)
+  .option('--count <count>', 'number of times to upload', parseIntBase10, 10)
+  .option('--deleteData', 'Delete all entities before uploading')
+  .option('--deleteEngines', 'Delete all entities before uploading')
+  .description('Upload performance data file')
+  .action(async (file, options) => {
+    let selectedFile = file;
+
+    if (!selectedFile) {
+      const files = await listPerfDataFiles();
+
+      if (files.length === 0) {
+        console.log('No files to upload');
+        process.exit(1);
+      }
+
+      const response = await inquirer.prompt<{ selectedFile: string }>([
+        {
+          type: 'list',
+          name: 'selectedFile',
+          message: 'Select a file to upload',
+          choices: files,
+        },
+      ]);
+      selectedFile = response.selectedFile;
+    }
+
+    await uploadPerfDataFileInterval(selectedFile, options.interval * 1000, options.count, options.deleteData, options.deleteEngines);
+  });
 
 program
   .command('entity-resolution-demo')
@@ -150,7 +232,7 @@ program
             name: 'services',
             message: 'How many services',
             filter(input) {
-              return parseInt(input, 10);
+              return parseIntBase10(input);
             },
             default() {
               return 10;

@@ -1,3 +1,5 @@
 node_modules
 config.json
 *.js
+logs/*.log
+*.DS_Store

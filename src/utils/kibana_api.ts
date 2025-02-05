@@ -216,3 +216,76 @@ export const getSpace = async (space: string): Promise<boolean> => {
   }
   return true;
 }
+
+const _initEngine = (engineType: string, space?: string) => {
+  const url = space ? `/s/${space}/api/entity_store/engines/${engineType}/init` : `/api/entity_store/engines/${engineType}/init`;
+
+  return kibanaFetch(
+    url,
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    },
+    '2023-10-31'
+  );
+}
+
+const _deleteEngine = (engineType: string, space?: string) => {
+  const url = space ? `/s/${space}/api/entity_store/engines/${engineType}` : `/api/entity_store/engines/${engineType}`;
+
+  return kibanaFetch(
+    url,
+    {
+      method: 'DELETE',
+    },
+    '2023-10-31'
+  );
+}
+
+export const deleteEngines = async (entityTypes: string[] = ['host', 'user'], space?: string) => {
+  const responses = await Promise.all(entityTypes.map((entityType) => _deleteEngine(entityType, space)));
+  console.log('Delete responses:', responses);
+}
+
+const _listEngines = (space?: string) => {
+  const url = space ? `/s/${space}/api/entity_store/engines` : '/api/entity_store/engines';
+
+  const res = kibanaFetch(
+    url,
+    {
+      method: 'GET',
+    },
+    '2023-10-31'
+  );
+
+  return res as Promise<{ engines: Array<{ status: string }> }>;
+}
+
+const allEnginesAreStarted = async (space?: string) => {
+  const { engines } = await _listEngines(space);
+  if (engines.length === 0) {
+    return false;
+  }
+  return engines.every((engine) => engine.status === 'started');
+}
+
+export const initEntityEngineForEntityTypes = async (entityTypes: string[] = ['host', 'user'], space?: string) => {
+  if (await allEnginesAreStarted(space)) {
+    console.log('All engines are already started');
+    return;
+  }
+  await Promise.all(entityTypes.map((entityType) => _initEngine(entityType, space)));
+  const attempts = 20;
+  const delay = 2000;
+
+  for (let i = 0; i < attempts; i++) {
+    console.log('Checking if all engines are started attempt:', i + 1);
+    if (await allEnginesAreStarted(space)) {
+      console.log('All engines are started');
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+
+  throw new Error('Failed to start engines');
+}
