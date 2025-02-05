@@ -9,6 +9,10 @@
     "start": "tsx src/index",
     "lint": "eslint ./src"
   },
+  "engines": {
+    "node": "20.18.2",
+    "yarn": "^1.22.19"
+  },
   "author": "",
   "license": "ISC",
   "dependencies": {
