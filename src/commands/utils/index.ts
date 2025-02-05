@@ -2,7 +2,7 @@ import { Client } from '@elastic/elasticsearch';
 import { getConfig } from '../../get_config';
 import { MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
 import { exec } from 'child_process';
-import { once } from 'lodash';
+import { once } from 'lodash-es';
 
 const config = getConfig();
 

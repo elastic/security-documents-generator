@@ -3,12 +3,13 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.ts",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck": "tsc --noEmit",
     "start": "tsx src/index",
-    "lint": "eslint"
+    "lint": "eslint",
+    "checks": "yarn typecheck && yarn lint"
   },
   "engines": {
     "node": "22.13.1",
@@ -19,7 +20,6 @@
   "dependencies": {
     "@elastic/elasticsearch": "^8.6.0",
     "@faker-js/faker": "^9.0.0",
-    "@types/lodash-es": "^4.17.12",
     "chalk": "^5.2.0",
     "cli-progress": "^3.12.0",
     "commander": "^13.0.0",
@@ -43,6 +43,7 @@
     "@types/uuid": "10.0.0",
     "@typescript-eslint/eslint-plugin": "8.23.0",
     "@typescript-eslint/parser": "8.23.0",
+    "@types/lodash-es": "^4.17.12",
     "esbuild": "0.24.2",
     "eslint": "9.19.0",
     "eslint-config-airbnb": "19.0.4",
