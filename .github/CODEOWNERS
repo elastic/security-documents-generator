@@ -1,2 +1,3 @@
-@elastic/security-entity-analytics 
+./** @elastic/security-entity-analytics
+./** @hop-dev
 
