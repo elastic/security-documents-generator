@@ -13,7 +13,7 @@ const client = getEsClient();
 const EVENT_INDEX_NAME = 'auditbeat-8.12.0-2024.01.18-000001';
 const AGENT_INDEX_NAME = '.fleet-agents-7';
 
-const x:string = 1;
+const x:number = 1;
 
 if (config.eventDateOffsetHours !== undefined) {
   console.log(`Using event date offset: ${config.eventDateOffsetHours} hours`);
