@@ -24,6 +24,6 @@ jobs:
 
     - name: Build
       run: |
-        npm install
-        npm run typecheck
-        npm run lint
+        yarn
+        yarn typecheck
+        yarn lint

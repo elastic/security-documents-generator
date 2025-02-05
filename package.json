@@ -3,11 +3,12 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.ts",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck": "tsc --noEmit",
     "start": "tsx src/index",
-    "lint": "eslint ./src"
+    "lint": "eslint"
   },
   "author": "",
   "license": "ISC",
@@ -20,6 +21,7 @@
     "commander": "^13.0.0",
     "conf": "^13.0.0",
     "fp-ts": "^2.16.5",
+    "globals": "^15.14.0",
     "inquirer": "^9.2.13",
     "io-ts": "^2.2.21",
     "lodash-es": "^4.17.21",
@@ -35,10 +37,10 @@
     "@types/cli-progress": "3.11.6",
     "@types/inquirer": "9.0.7",
     "@types/uuid": "10.0.0",
-    "@typescript-eslint/eslint-plugin": "7.18.0",
-    "@typescript-eslint/parser": "7.18.0",
+    "@typescript-eslint/eslint-plugin": "8.23.0",
+    "@typescript-eslint/parser": "8.23.0",
     "esbuild": "0.24.2",
-    "eslint": "8.57.1",
+    "eslint": "9.19.0",
     "eslint-config-airbnb": "19.0.4",
     "eslint-config-airbnb-typescript": "18.0.0",
     "typescript": "5.7.3"
