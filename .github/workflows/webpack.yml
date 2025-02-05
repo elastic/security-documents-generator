@@ -25,5 +25,4 @@ jobs:
     - name: Build
       run: |
         yarn
-        yarn typecheck
-        yarn lint
+        yarn checks
