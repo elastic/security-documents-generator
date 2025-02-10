@@ -136,7 +136,7 @@ export const generateAlerts = async (
 
   console.log('Generating entity names...');
   const userNames = Array.from({ length: userCount }, () =>
-    faker.internet.userName(),
+    faker.internet.username(),
   );
   const hostNames = Array.from({ length: hostCount }, () =>
     faker.internet.domainName(),
