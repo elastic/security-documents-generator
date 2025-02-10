@@ -11,12 +11,12 @@ export * from './create_agent_document';
 export const getEsClient = () => {
   let client = null;
   let auth;
-  if('apiKey' in config.elastic) {
-    auth = {apiKey : config.elastic.apiKey};
-  } else if (config.elastic.username && config.elastic.password){
+  if ('apiKey' in config.elastic) {
+    auth = { apiKey: config.elastic.apiKey };
+  } else if (config.elastic.username && config.elastic.password) {
     auth = {
-      username : config.elastic.username,
-      password : config.elastic.password,
+      username: config.elastic.username,
+      password: config.elastic.password,
     };
   }
 
@@ -30,7 +30,7 @@ export const getEsClient = () => {
   return client;
 };
 
-export const getFileLineCount = async (filePath: string): Promise<number>  => {
+export const getFileLineCount = async (filePath: string): Promise<number> => {
   return new Promise((resolve, reject) => {
     exec(`wc -l ${filePath}`, (error, stdout, stderr) => {
       if (error || stderr) {
@@ -40,18 +40,23 @@ export const getFileLineCount = async (filePath: string): Promise<number>  => {
       const count = parseInt(stdout.trim().split(' ')[0]);
 
       if (isNaN(count)) {
-        console.log(`Failed to parse line count, line count: "${stdout}", split result: "${stdout.split(' ')}"`);
+        console.log(
+          `Failed to parse line count, line count: "${stdout}", split result: "${stdout.split(' ')}"`,
+        );
         reject();
       }
       resolve(count);
     });
   });
-}
+};
 
-export const indexCheck = async (index: string, mappings?: MappingTypeMapping) => {
+export const indexCheck = async (
+  index: string,
+  mappings?: MappingTypeMapping,
+) => {
   const client = getEsClient();
   if (!client) {
-    throw new Error;
+    throw new Error();
   }
   const isExist = await client.indices.exists({ index: index });
   if (isExist) return;

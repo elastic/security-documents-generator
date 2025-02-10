@@ -1,11 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import moment from 'moment';
 
-export const createAgentDocument = ({
-  hostname
-}: {
-  hostname: string;
-}) => {
+export const createAgentDocument = ({ hostname }: { hostname: string }) => {
   const agentId = uuidv4();
 
   const nowTimestamp = moment().utc().toISOString();
@@ -81,7 +77,7 @@ export const createAgentDocument = ({
           },
         ],
         type: 'fleet-server',
-        message: 'Healthy: communicating with pid \'153\'',
+        message: "Healthy: communicating with pid '153'",
         status: 'HEALTHY',
       },
       {
@@ -101,7 +97,7 @@ export const createAgentDocument = ({
           },
         ],
         type: 'apm',
-        message: 'Healthy: communicating with pid \'179\'',
+        message: "Healthy: communicating with pid '179'",
         status: 'HEALTHY',
       },
     ],

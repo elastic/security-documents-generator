@@ -10,10 +10,7 @@ import {
 import { setupEntityResolutionDemo } from './commands/entity_resolution';
 import { generateLegacyRiskScore } from './commands/legacy_risk_score';
 import { kibanaApi } from './utils/';
-import {
-  cleanEntityStore,
-  generateEntityStore,
-} from './commands/entity-store';
+import { cleanEntityStore, generateEntityStore } from './commands/entity-store';
 import {
   createPerfDataFile,
   uploadPerfDataFile,
@@ -40,10 +37,10 @@ program
     const userCount = parseInt(options.u || 1);
     const space = options.s || 'default';
 
-    if(space !== 'default') {
+    if (space !== 'default') {
       await initializeSpace(space);
     }
-    
+
     generateAlerts(alertsCount, userCount, hostCount, space);
   });
 
@@ -78,7 +75,12 @@ program
   .argument('<name>', 'name of the file')
   .argument('<entity-count>', 'number of entities', parseIntBase10)
   .argument('<logs-per-entity>', 'number of logs per entity', parseIntBase10)
-  .argument('[start-index]', 'for sequential data, which index to start at', parseIntBase10, 0)
+  .argument(
+    '[start-index]',
+    'for sequential data, which index to start at',
+    parseIntBase10,
+    0,
+  )
   .description('Create performance data')
   .action((name, entityCount, logsPerEntity, startIndex) => {
     createPerfDataFile({ name, entityCount, logsPerEntity, startIndex });
@@ -145,7 +147,13 @@ program
       selectedFile = response.selectedFile;
     }
 
-    await uploadPerfDataFileInterval(selectedFile, options.interval * 1000, options.count, options.deleteData, options.deleteEngines);
+    await uploadPerfDataFileInterval(
+      selectedFile,
+      options.interval * 1000,
+      options.count,
+      options.deleteData,
+      options.deleteEngines,
+    );
   });
 
 program
@@ -154,7 +162,7 @@ program
   .option('--delete', 'Delete old data', false)
   .option('--keep-emails', 'No Email variants', false)
   .description('Load entity resolution demo data')
-  .action(({ mini, deleteData, keepEmails }) =>{ 
+  .action(({ mini, deleteData, keepEmails }) => {
     setupEntityResolutionDemo({ mini, deleteData, keepEmails });
   });
 
@@ -169,84 +177,85 @@ type EntityStoreAnswers = {
 program
   .command('entity-store')
   .description('Generate entity store')
-  .action(
-    () => {
-      inquirer
-        .prompt<EntityStoreAnswers>([
-          {
-            type: 'checkbox',
-            message: 'Select options',
-            name: 'options',
-            choices: [
-              {
-                name: 'Seed (stable random data)',
-                value: ENTITY_STORE_OPTIONS.seed,
-                checked: true,
-              },
-              {
-                name: 'Assign asset criticality',
-                value: ENTITY_STORE_OPTIONS.criticality,
-                checked: true,
-              },
-              {
-                name: 'Enable Risk Engine',
-                value: ENTITY_STORE_OPTIONS.riskEngine,
-                checked: true,
-              },
-              {
-                name: 'Create detection rule',
-                value: ENTITY_STORE_OPTIONS.rule,
-                checked: true,
-              },
-              {
-                name: 'Generate fake elastic agents for hosts',
-                value: ENTITY_STORE_OPTIONS.agent,
-                checked: true,
-              },
-            ],
+  .action(() => {
+    inquirer
+      .prompt<EntityStoreAnswers>([
+        {
+          type: 'checkbox',
+          message: 'Select options',
+          name: 'options',
+          choices: [
+            {
+              name: 'Seed (stable random data)',
+              value: ENTITY_STORE_OPTIONS.seed,
+              checked: true,
+            },
+            {
+              name: 'Assign asset criticality',
+              value: ENTITY_STORE_OPTIONS.criticality,
+              checked: true,
+            },
+            {
+              name: 'Enable Risk Engine',
+              value: ENTITY_STORE_OPTIONS.riskEngine,
+              checked: true,
+            },
+            {
+              name: 'Create detection rule',
+              value: ENTITY_STORE_OPTIONS.rule,
+              checked: true,
+            },
+            {
+              name: 'Generate fake elastic agents for hosts',
+              value: ENTITY_STORE_OPTIONS.agent,
+              checked: true,
+            },
+          ],
+        },
+        {
+          type: 'input',
+          name: 'users',
+          message: 'How many users',
+          default() {
+            return 10;
           },
-          {
-            type: 'input',
-            name: 'users',
-            message: 'How many users',
-            default() {
-              return 10;
-            },
-            filter(input) {
-              return parseInt(input, 10);
-            },
+          filter(input) {
+            return parseInt(input, 10);
           },
-          {
-            type: 'input',
-            name: 'hosts',
-            message: 'How many hosts',
-            filter(input) {
-              return parseInt(input, 10);
-            },
-            default() {
-              return 10;
-            },
+        },
+        {
+          type: 'input',
+          name: 'hosts',
+          message: 'How many hosts',
+          filter(input) {
+            return parseInt(input, 10);
           },
-          {
-            type: 'input',
-            name: 'services',
-            message: 'How many services',
-            filter(input) {
-              return parseIntBase10(input);
-            },
-            default() {
-              return 10;
-            },
+          default() {
+            return 10;
           },
-        ])
-        .then(answers => {
-          const seed = generateNewSeed();
-          if (answers.options.includes(ENTITY_STORE_OPTIONS.seed)) {
-            return inquirer.prompt<{ seed: number }>([
+        },
+        {
+          type: 'input',
+          name: 'services',
+          message: 'How many services',
+          filter(input) {
+            return parseIntBase10(input);
+          },
+          default() {
+            return 10;
+          },
+        },
+      ])
+      .then((answers) => {
+        const seed = generateNewSeed();
+        if (answers.options.includes(ENTITY_STORE_OPTIONS.seed)) {
+          return inquirer
+            .prompt<{ seed: number }>([
               {
                 type: 'input',
                 name: 'seed',
-                message: 'Enter seed to generate stable random data or <enter> to use a new seed',
+                message:
+                  'Enter seed to generate stable random data or <enter> to use a new seed',
                 filter(input) {
                   return parseInt(input, 10);
                 },
@@ -254,27 +263,24 @@ program
                   return seed;
                 },
               },
-            ]).then(seedAnswer => {
+            ])
+            .then((seedAnswer) => {
               return { ...answers, ...seedAnswer };
-            })
-          }
-          return { ...answers, seed }
-        })
-        .then((answers) => {
-
-          const {
-            users, hosts, services, seed } = answers;
-          generateEntityStore({
-            users,
-            hosts,
-            services,
-            seed,
-            options: answers.options,
-          });
+            });
+        }
+        return { ...answers, seed };
+      })
+      .then((answers) => {
+        const { users, hosts, services, seed } = answers;
+        generateEntityStore({
+          users,
+          hosts,
+          services,
+          seed,
+          options: answers.options,
         });
-    }
-
-  );
+      });
+  });
 
 program
   .command('clean-entity-store')
@@ -287,13 +293,11 @@ program
   .option('-u <u>', 'number of users')
   .description('Generate asset criticality for entities')
   .action(async (options) => {
-
     const users = parseInt(options.u || 10);
     const hosts = parseInt(options.h || 10);
 
     generateAssetCriticality({ users, hosts });
   });
-
 
 program
   .command('generate-legacy-risk-score')

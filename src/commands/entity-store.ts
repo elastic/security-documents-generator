@@ -3,9 +3,17 @@ import { getEsClient, indexCheck, createAgentDocument } from './utils';
 import { chunk } from 'lodash-es';
 import moment from 'moment';
 import auditbeatMappings from '../mappings/auditbeat.json' assert { type: 'json' };
-import { assignAssetCriticality, enableRiskScore, createRule } from '../utils/kibana_api';
+import {
+  assignAssetCriticality,
+  enableRiskScore,
+  createRule,
+} from '../utils/kibana_api';
 import { ENTITY_STORE_OPTIONS, generateNewSeed } from '../constants';
-import { BulkOperationContainer, BulkUpdateAction, MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
+import {
+  BulkOperationContainer,
+  BulkUpdateAction,
+  MappingTypeMapping,
+} from '@elastic/elasticsearch/lib/api/types';
 import { getConfig } from '../get_config';
 
 const config = getConfig();
@@ -22,7 +30,12 @@ const offset = () =>
 
 type Agent = ReturnType<typeof createAgentDocument>;
 
-type AssetCriticality = 'low_impact' | 'medium_impact' | 'high_impact' | 'extreme_impact' | 'unknown';
+type AssetCriticality =
+  | 'low_impact'
+  | 'medium_impact'
+  | 'high_impact'
+  | 'extreme_impact'
+  | 'unknown';
 
 const ASSET_CRITICALITY: AssetCriticality[] = [
   'low_impact',
@@ -81,20 +94,19 @@ interface EventHost {
 interface ServiceEvent extends BaseEvent {
   service: {
     node: {
-      roles: string,
-      name: string
-    },
-    environment: string,
-    address: string,
-    name: string,
-    id: string,
-    state: string,
-    ephemeral_id: string,
-    type: string,
-    version: string,
+      roles: string;
+      name: string;
+    };
+    environment: string;
+    address: string;
+    name: string;
+    id: string;
+    state: string;
+    ephemeral_id: string;
+    type: string;
+    version: string;
   };
 }
-
 
 interface UserEvent extends BaseEvent {
   user: EventUser;
@@ -116,7 +128,7 @@ export const createRandomUser = (): User => {
   };
 };
 
-export const createRandomHost= (): Host  => {
+export const createRandomHost = (): Host => {
   return {
     name: `Host-${faker.internet.domainName()}`,
     assetCriticality: faker.helpers.arrayElement(ASSET_CRITICALITY),
@@ -124,7 +136,7 @@ export const createRandomHost= (): Host  => {
   };
 };
 
-export const createRandomService= (): Service  => {
+export const createRandomService = (): Service => {
   return {
     name: `Service-${faker.hacker.noun()}`,
     assetCriticality: faker.helpers.arrayElement(ASSET_CRITICALITY),
@@ -132,9 +144,10 @@ export const createRandomService= (): Service  => {
   };
 };
 
-
 export const createRandomEventForHost = (name: string): HostEvent => ({
-  '@timestamp': moment().subtract(offset(), 'h').format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+  '@timestamp': moment()
+    .subtract(offset(), 'h')
+    .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
   message: `Host ${faker.hacker.phrase()}`,
   service: {
     type: 'system',
@@ -151,7 +164,9 @@ export const createRandomEventForHost = (name: string): HostEvent => ({
 });
 
 export const createRandomEventForUser = (name: string): UserEvent => ({
-  '@timestamp': moment().subtract(offset(), 'h').format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+  '@timestamp': moment()
+    .subtract(offset(), 'h')
+    .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
   message: `User ${faker.hacker.phrase()}`,
   service: {
     type: 'system',
@@ -164,14 +179,20 @@ export const createRandomEventForUser = (name: string): UserEvent => ({
 });
 
 export const createRandomEventForService = (name: string): ServiceEvent => ({
-  '@timestamp': moment().subtract(offset(), 'h').format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+  '@timestamp': moment()
+    .subtract(offset(), 'h')
+    .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
   message: `Service ${faker.hacker.phrase()}`,
   service: {
     node: {
       roles: faker.helpers.arrayElement(['master', 'data', 'ingest']),
       name: faker.internet.domainWord(),
     },
-    environment: faker.helpers.arrayElement(['production', 'staging', 'development']),
+    environment: faker.helpers.arrayElement([
+      'production',
+      'staging',
+      'development',
+    ]),
     address: faker.internet.ip(),
     name,
     id: faker.string.nanoid(),
@@ -182,14 +203,20 @@ export const createRandomEventForService = (name: string): ServiceEvent => ({
   },
 });
 
-const ingestEvents = async (events: Event[]) => ingest(EVENT_INDEX_NAME, events, auditbeatMappings as MappingTypeMapping);
+const ingestEvents = async (events: Event[]) =>
+  ingest(EVENT_INDEX_NAME, events, auditbeatMappings as MappingTypeMapping);
 
-	type TDocument = object;
-	type TPartialDocument = Partial<TDocument>;
+type TDocument = object;
+type TPartialDocument = Partial<TDocument>;
 
-const ingestAgents = async (agents: Agent[]) => ingest(AGENT_INDEX_NAME, agents);
+const ingestAgents = async (agents: Agent[]) =>
+  ingest(AGENT_INDEX_NAME, agents);
 
-const ingest = async (index: string, documents: Array<object>, mapping?: MappingTypeMapping) => {
+const ingest = async (
+  index: string,
+  documents: Array<object>,
+  mapping?: MappingTypeMapping,
+) => {
   await indexCheck(index, mapping);
 
   const chunks = chunk(documents, 10000);
@@ -197,12 +224,22 @@ const ingest = async (index: string, documents: Array<object>, mapping?: Mapping
   for (const chunk of chunks) {
     try {
       // Make bulk request
-      const ingestRequest = chunk.reduce((acc: (BulkOperationContainer | BulkUpdateAction<TDocument, TPartialDocument> | TDocument)[], event) => {
-        acc.push({ index: { _index: index } });
-        acc.push(event);
-        return acc;
-      }, []);
-      if (!client) throw new Error;
+      const ingestRequest = chunk.reduce(
+        (
+          acc: (
+            | BulkOperationContainer
+            | BulkUpdateAction<TDocument, TPartialDocument>
+            | TDocument
+          )[],
+          event,
+        ) => {
+          acc.push({ index: { _index: index } });
+          acc.push(event);
+          return acc;
+        },
+        [],
+      );
+      if (!client) throw new Error();
       await client.bulk({ operations: ingestRequest, refresh: true });
     } catch (err) {
       console.log('Error: ', err);
@@ -211,7 +248,10 @@ const ingest = async (index: string, documents: Array<object>, mapping?: Mapping
 };
 
 // E = Entity, EV = Event
-export const generateEvents = <E extends BaseEntity, EV = BaseEvent>(entities: E[], createEvent: (entityName: string) => EV): EV[] => {
+export const generateEvents = <E extends BaseEntity, EV = BaseEvent>(
+  entities: E[],
+  createEvent: (entityName: string) => EV,
+): EV[] => {
   const eventsPerEntity = 10;
   const acc: EV[] = [];
   return entities.reduce((acc, entity) => {
@@ -223,26 +263,43 @@ export const generateEvents = <E extends BaseEntity, EV = BaseEvent>(entities: E
   }, acc);
 };
 
-export const assignAssetCriticalityToEntities = async (entities: BaseEntity[], field: string) => {
+export const assignAssetCriticalityToEntities = async (
+  entities: BaseEntity[],
+  field: string,
+) => {
   const chunks = chunk(entities, 10000);
   for (const chunk of chunks) {
-    const records = chunk.filter(({assetCriticality}) => assetCriticality !== 'unknown').map(({name, assetCriticality}) => ({
-      id_field: field,
-      id_value: name,
-      criticality_level: assetCriticality,
-    }));
+    const records = chunk
+      .filter(({ assetCriticality }) => assetCriticality !== 'unknown')
+      .map(({ name, assetCriticality }) => ({
+        id_field: field,
+        id_value: name,
+        criticality_level: assetCriticality,
+      }));
 
     if (records.length > 0) {
       await assignAssetCriticality(records);
     }
   }
-}
+};
 
 /**
  * Generate entities first
  * Then Generate events, assign asset criticality, create rule and enable risk engine
  */
-export const generateEntityStore = async ({ users = 10, hosts = 10, services = 10, seed = generateNewSeed(), options }: { users: number; hosts: number; services: number; seed: number; options: string[]}) => {
+export const generateEntityStore = async ({
+  users = 10,
+  hosts = 10,
+  services = 10,
+  seed = generateNewSeed(),
+  options,
+}: {
+  users: number;
+  hosts: number;
+  services: number;
+  seed: number;
+  options: string[];
+}) => {
   if (options.includes(ENTITY_STORE_OPTIONS.seed)) {
     faker.seed(seed);
   }
@@ -257,23 +314,26 @@ export const generateEntityStore = async ({ users = 10, hosts = 10, services = 1
 
     const eventsForUsers: UserEvent[] = generateEvents(
       generatedUsers,
-      createRandomEventForUser
+      createRandomEventForUser,
     );
     const eventsForHosts: HostEvent[] = generateEvents(
       generatedHosts,
-      createRandomEventForHost
+      createRandomEventForHost,
     );
 
-    const generatedServices: Service[] = faker.helpers.multiple(createRandomService, {
-      count: services,
-    });
+    const generatedServices: Service[] = faker.helpers.multiple(
+      createRandomService,
+      {
+        count: services,
+      },
+    );
 
     const eventsForServices: ServiceEvent[] = generateEvents(
       generatedServices,
-      createRandomEventForService
+      createRandomEventForService,
     );
 
-    const relational = matchUsersAndHosts(eventsForUsers, eventsForHosts)
+    const relational = matchUsersAndHosts(eventsForUsers, eventsForHosts);
 
     await ingestEvents(relational.users);
     console.log('Users events ingested');
@@ -300,7 +360,9 @@ export const generateEntityStore = async ({ users = 10, hosts = 10, services = 1
     }
 
     if (options.includes(ENTITY_STORE_OPTIONS.agent)) {
-      const agents = generatedHosts.map((host) => createAgentDocument({ hostname: host.name }));
+      const agents = generatedHosts.map((host) =>
+        createAgentDocument({ hostname: host.name }),
+      );
       await ingestAgents(agents);
       console.log('Agents ingested');
     }
@@ -315,7 +377,7 @@ export const cleanEntityStore = async () => {
   console.log('Deleting all entity-store data...');
   try {
     console.log('Deleted all events');
-    if (!client) throw new Error;
+    if (!client) throw new Error();
     await client.deleteByQuery({
       index: EVENT_INDEX_NAME,
       refresh: true,
@@ -342,7 +404,10 @@ export const cleanEntityStore = async () => {
   }
 };
 
-const matchUsersAndHosts = (users: UserEvent[], hosts: HostEvent[]): {
+const matchUsersAndHosts = (
+  users: UserEvent[],
+  hosts: HostEvent[],
+): {
   users: UserEvent[];
   hosts: HostEvent[];
 } => {
@@ -357,12 +422,12 @@ const matchUsersAndHosts = (users: UserEvent[], hosts: HostEvent[]): {
       })
       .concat(users.slice(splitIndex)) as UserEvent[],
 
-    hosts: hosts.
-      slice(0, splitIndex)
+    hosts: hosts
+      .slice(0, splitIndex)
       .map((host) => {
         const index = faker.number.int({ max: users.length - 1 });
         return { ...host, user: users[index].user } as HostEvent;
       })
-      .concat(hosts.slice(splitIndex))
+      .concat(hosts.slice(splitIndex)),
   };
-}
+};
