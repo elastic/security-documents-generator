@@ -122,7 +122,7 @@ type Event = UserEvent | HostEvent | ServiceEvent;
 
 export const createRandomUser = (): User => {
   return {
-    name: `User-${faker.internet.userName()}`,
+    name: `User-${faker.internet.username()}`,
     assetCriticality: faker.helpers.arrayElement(ASSET_CRITICALITY),
     type: EntityTypes.User,
   };
