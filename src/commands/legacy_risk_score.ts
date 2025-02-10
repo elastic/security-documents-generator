@@ -7,9 +7,8 @@ const esClient = getEsClient();
  * Install legacy risk score and generate data
  */
 export const generateLegacyRiskScore = async () => {
-
   console.log('Installing legacy risk score');
-  
+
   await installLegacyRiskScore();
 
   console.log('Generating data');
@@ -17,7 +16,6 @@ export const generateLegacyRiskScore = async () => {
   await bulkIndexData();
 
   console.log('Data generated');
-
 };
 
 const data = [
@@ -46,8 +44,8 @@ const data = [
               rule_name: 'test',
               rule_risk: 21,
             },
-          ]
-        }
+          ],
+        },
       },
       ingest_timestamp: '2022-09-18T17:54:22.363192Z',
       risk: 'Unknown',
@@ -66,8 +64,8 @@ const data = [
               rule_name: 'test',
               rule_risk: 21,
             },
-          ]
-        }
+          ],
+        },
       },
       risk_stats: {
         rule_risks: [
@@ -111,8 +109,8 @@ const data = [
               rule_name: 'test',
               rule_risk: 21,
             },
-          ]
-        }
+          ],
+        },
       },
     },
   },
@@ -142,18 +140,18 @@ const data = [
               rule_name: 'test',
               rule_risk: 21,
             },
-          ]
-        }
+          ],
+        },
       },
     },
   },
 ];
 
 const bulkIndexData = async () => {
-  const body = data.flatMap(doc => {
+  const body = data.flatMap((doc) => {
     doc.source['@timestamp'] = new Date().toISOString();
     return [{ index: { _index: doc.index } }, doc.source];
   });
 
   await esClient.bulk({ refresh: true, body });
-}
+};

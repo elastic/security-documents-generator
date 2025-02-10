@@ -2,33 +2,45 @@ import urlJoin from 'url-join';
 import fetch, { Headers } from 'node-fetch';
 import { getConfig } from '../get_config';
 import { faker } from '@faker-js/faker';
-import { 
-  RISK_SCORE_SCORES_URL, 
-  RISK_SCORE_ENGINE_INIT_URL, 
+import {
+  RISK_SCORE_SCORES_URL,
+  RISK_SCORE_ENGINE_INIT_URL,
   DETECTION_ENGINE_RULES_URL,
   COMPONENT_TEMPLATES_URL,
   FLEET_EPM_PACKAGES_URL,
   SPACES_URL,
   SPACE_URL,
   RISK_SCORE_URL,
-  RISK_SCORE_DASHBOARD_URL, 
+  RISK_SCORE_DASHBOARD_URL,
 } from '../constants';
 
 const config = getConfig();
-export const appendPathToKibanaNode = (path: string) => urlJoin(config.kibana.node, path);
+export const appendPathToKibanaNode = (path: string) =>
+  urlJoin(config.kibana.node, path);
 
-type ResponseError = Error & { statusCode: number, responseData: unknown };
+type ResponseError = Error & { statusCode: number; responseData: unknown };
 
-const throwResponseError = (message: string, statusCode: number, response: unknown) => {
+const throwResponseError = (
+  message: string,
+  statusCode: number,
+  response: unknown,
+) => {
   const error = new Error(message) as ResponseError;
   error.statusCode = statusCode;
   error.responseData = response;
   throw error;
-}
+};
 
-export const kibanaFetch = async <T>(path: string, params: object, apiVersion = '1', ignoreStatuses: number | number[] = []): Promise<T> => {
+export const kibanaFetch = async <T>(
+  path: string,
+  params: object,
+  apiVersion = '1',
+  ignoreStatuses: number | number[] = [],
+): Promise<T> => {
   const url = appendPathToKibanaNode(path);
-  const ignoreStatusesArray = Array.isArray(ignoreStatuses) ? ignoreStatuses : [ignoreStatuses];
+  const ignoreStatusesArray = Array.isArray(ignoreStatuses)
+    ? ignoreStatuses
+    : [ignoreStatuses];
   const headers = new Headers();
   headers.append('Content-Type', 'application/json');
   headers.append('kbn-xsrf', 'true');
@@ -39,8 +51,8 @@ export const kibanaFetch = async <T>(path: string, params: object, apiVersion = 
       'Authorization',
       'Basic ' +
         Buffer.from(
-          config.kibana.username + ':' + config.kibana.password
-        ).toString('base64')
+          config.kibana.username + ':' + config.kibana.password,
+        ).toString('base64'),
     );
   }
 
@@ -50,13 +62,17 @@ export const kibanaFetch = async <T>(path: string, params: object, apiVersion = 
     headers: headers,
     ...params,
   });
-  const data= await result.json() as T;
+  const data = (await result.json()) as T;
   if (!data || typeof data !== 'object') {
-    throw new Error;
+    throw new Error();
   }
 
   if (result.status >= 400 && !ignoreStatusesArray.includes(result.status)) {
-    throwResponseError(`Failed to fetch data from ${url}, status: ${result.status}`, result.status, data);
+    throwResponseError(
+      `Failed to fetch data from ${url}, status: ${result.status}`,
+      result.status,
+      data,
+    );
   }
   return data;
 };
@@ -75,16 +91,30 @@ export const enableRiskScore = async () => {
   });
 };
 
-export const assignAssetCriticality = async (assetCriticalityRecords: Array<{ id_field: string; id_value: string; criticality_level: string }>, version: string = '2023-10-31') => {
-  return kibanaFetch('/api/asset_criticality/bulk', {
-    method: 'POST',
-    body: JSON.stringify({records: assetCriticalityRecords}),
-  }, version);
+export const assignAssetCriticality = async (
+  assetCriticalityRecords: Array<{
+    id_field: string;
+    id_value: string;
+    criticality_level: string;
+  }>,
+  version: string = '2023-10-31',
+) => {
+  return kibanaFetch(
+    '/api/asset_criticality/bulk',
+    {
+      method: 'POST',
+      body: JSON.stringify({ records: assetCriticalityRecords }),
+    },
+    version,
+  );
 };
 
-export const createRule = ({space, id } : {space?: string, id?: string} = {}): Promise<{ id : string }> => {
+export const createRule = ({
+  space,
+  id,
+}: { space?: string; id?: string } = {}): Promise<{ id: string }> => {
   const url = DETECTION_ENGINE_RULES_URL(space);
-  return kibanaFetch<{ id : string }>(
+  return kibanaFetch<{ id: string }>(
     url,
     {
       method: 'POST',
@@ -95,14 +125,14 @@ export const createRule = ({space, id } : {space?: string, id?: string} = {}): P
         risk_score: 70,
         rule_id: id || faker.string.uuid(),
         severity: 'high',
-        index: ['logs-*','metrics-*', 'auditbeat-*'],
+        index: ['logs-*', 'metrics-*', 'auditbeat-*'],
         type: 'query',
         query: '*:*',
         from: 'now-40d',
         interval: '1m',
       }),
     },
-    '2023-10-31'
+    '2023-10-31',
   );
 };
 
@@ -114,13 +144,13 @@ export const getRule = async (ruleId: string, space?: string) => {
       {
         method: 'GET',
       },
-      '2023-10-31'
+      '2023-10-31',
     );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  } catch (e) { 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (e) {
     return null;
   }
-}
+};
 
 export const deleteRule = async (ruleId: string, space?: string) => {
   const url = DETECTION_ENGINE_RULES_URL(space);
@@ -132,11 +162,19 @@ export const deleteRule = async (ruleId: string, space?: string) => {
         rule_id: ruleId,
       }),
     },
-    '2023-10-31'
+    '2023-10-31',
   );
-}
+};
 
-export const createComponentTemplate = async ({ name, mappings, space }: { name: string; mappings: object; space?: string }) => {
+export const createComponentTemplate = async ({
+  name,
+  mappings,
+  space,
+}: {
+  name: string;
+  mappings: object;
+  space?: string;
+}) => {
   const url = COMPONENT_TEMPLATES_URL(space);
   const ignoreStatus = 409;
   return kibanaFetch(
@@ -155,10 +193,18 @@ export const createComponentTemplate = async ({ name, mappings, space }: { name:
       }),
     },
     '2023-10-31',
-    ignoreStatus
+    ignoreStatus,
   );
-}
-export const installPackage = async ({ packageName, version = 'latest', space  }: {packageName: string; version?: string; space?: string;}) => {
+};
+export const installPackage = async ({
+  packageName,
+  version = 'latest',
+  space,
+}: {
+  packageName: string;
+  version?: string;
+  space?: string;
+}) => {
   const url = FLEET_EPM_PACKAGES_URL(packageName, version, space);
 
   return kibanaFetch(
@@ -166,9 +212,9 @@ export const installPackage = async ({ packageName, version = 'latest', space  }
     {
       method: 'POST',
     },
-    '2023-10-31'
+    '2023-10-31',
   );
-}
+};
 
 export const installLegacyRiskScore = async () => {
   const userResponse = await kibanaFetch(RISK_SCORE_URL, {
@@ -181,19 +227,29 @@ export const installLegacyRiskScore = async () => {
     body: JSON.stringify({ riskScoreEntity: 'host' }),
   });
 
-  const userDashboardsResponse = await kibanaFetch(RISK_SCORE_DASHBOARD_URL('user'), {
-    method: 'POST',
-    body: JSON.stringify({}),
-  });
+  const userDashboardsResponse = await kibanaFetch(
+    RISK_SCORE_DASHBOARD_URL('user'),
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    },
+  );
 
-  const hostDashboardsResponse = await kibanaFetch(RISK_SCORE_DASHBOARD_URL('host'), {
-    method: 'POST',
-    body: JSON.stringify({}),
-  });
+  const hostDashboardsResponse = await kibanaFetch(
+    RISK_SCORE_DASHBOARD_URL('host'),
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    },
+  );
 
-  return { userResponse, hostResponse, userDashboardsResponse, hostDashboardsResponse };
-}
-
+  return {
+    userResponse,
+    hostResponse,
+    userDashboardsResponse,
+    hostDashboardsResponse,
+  };
+};
 
 export const createSpace = async (space: string) => {
   return kibanaFetch(SPACES_URL, {
@@ -205,22 +261,24 @@ export const createSpace = async (space: string) => {
       disabledFeatures: [],
     }),
   });
-}
+};
 
 export const getSpace = async (space: string): Promise<boolean> => {
   try {
     await kibanaFetch(SPACE_URL(space), {
       method: 'GET',
     });
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
     return false;
   }
   return true;
-}
+};
 
 const _initEngine = (engineType: string, space?: string) => {
-  const url = space ? `/s/${space}/api/entity_store/engines/${engineType}/init` : `/api/entity_store/engines/${engineType}/init`;
+  const url = space
+    ? `/s/${space}/api/entity_store/engines/${engineType}/init`
+    : `/api/entity_store/engines/${engineType}/init`;
 
   return kibanaFetch(
     url,
@@ -228,40 +286,49 @@ const _initEngine = (engineType: string, space?: string) => {
       method: 'POST',
       body: JSON.stringify({}),
     },
-    '2023-10-31'
+    '2023-10-31',
   );
-}
+};
 
 const _deleteEngine = (engineType: string, space?: string) => {
-  const url = space ? `/s/${space}/api/entity_store/engines/${engineType}` : `/api/entity_store/engines/${engineType}`;
+  const url = space
+    ? `/s/${space}/api/entity_store/engines/${engineType}`
+    : `/api/entity_store/engines/${engineType}`;
 
   return kibanaFetch(
     url,
     {
       method: 'DELETE',
     },
-    '2023-10-31'
+    '2023-10-31',
   );
-}
+};
 
-export const deleteEngines = async (entityTypes: string[] = ['host', 'user'], space?: string) => {
-  const responses = await Promise.all(entityTypes.map((entityType) => _deleteEngine(entityType, space)));
+export const deleteEngines = async (
+  entityTypes: string[] = ['host', 'user'],
+  space?: string,
+) => {
+  const responses = await Promise.all(
+    entityTypes.map((entityType) => _deleteEngine(entityType, space)),
+  );
   console.log('Delete responses:', responses);
-}
+};
 
 const _listEngines = (space?: string) => {
-  const url = space ? `/s/${space}/api/entity_store/engines` : '/api/entity_store/engines';
+  const url = space
+    ? `/s/${space}/api/entity_store/engines`
+    : '/api/entity_store/engines';
 
   const res = kibanaFetch(
     url,
     {
       method: 'GET',
     },
-    '2023-10-31'
+    '2023-10-31',
   );
 
   return res as Promise<{ engines: Array<{ status: string }> }>;
-}
+};
 
 const allEnginesAreStarted = async (space?: string) => {
   const { engines } = await _listEngines(space);
@@ -269,14 +336,19 @@ const allEnginesAreStarted = async (space?: string) => {
     return false;
   }
   return engines.every((engine) => engine.status === 'started');
-}
+};
 
-export const initEntityEngineForEntityTypes = async (entityTypes: string[] = ['host', 'user'], space?: string) => {
+export const initEntityEngineForEntityTypes = async (
+  entityTypes: string[] = ['host', 'user'],
+  space?: string,
+) => {
   if (await allEnginesAreStarted(space)) {
     console.log('All engines are already started');
     return;
   }
-  await Promise.all(entityTypes.map((entityType) => _initEngine(entityType, space)));
+  await Promise.all(
+    entityTypes.map((entityType) => _initEngine(entityType, space)),
+  );
   const attempts = 20;
   const delay = 2000;
 
@@ -290,4 +362,4 @@ export const initEntityEngineForEntityTypes = async (entityTypes: string[] = ['h
   }
 
   throw new Error('Failed to start engines');
-}
+};
