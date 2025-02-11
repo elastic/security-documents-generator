@@ -17,7 +17,7 @@ import {
   uploadPerfDataFileInterval,
   listPerfDataFiles,
 } from './commands/entity-store-perf';
-import inquirer from 'inquirer';
+import { checkbox, select, input } from '@inquirer/prompts';
 import { ENTITY_STORE_OPTIONS, generateNewSeed } from './constants';
 import { initializeSpace } from './utils/initialize_space';
 import { generateAssetCriticality } from './commands/asset_criticality';
@@ -103,15 +103,12 @@ program
         process.exit(1);
       }
 
-      const response = await inquirer.prompt<{ selectedFile: string }>([
-        {
-          type: 'list',
-          name: 'selectedFile',
-          message: 'Select a file to upload',
-          choices: files,
-        },
-      ]);
-      selectedFile = response.selectedFile;
+      const userSelectedFile = await select({
+        message: 'Select a file to upload',
+        choices: files.map((file) => ({ name: file, value: file })),
+      });
+
+      selectedFile = userSelectedFile;
     }
 
     await uploadPerfDataFile(selectedFile, options.index, options.delete);
@@ -136,15 +133,12 @@ program
         process.exit(1);
       }
 
-      const response = await inquirer.prompt<{ selectedFile: string }>([
-        {
-          type: 'list',
-          name: 'selectedFile',
-          message: 'Select a file to upload',
-          choices: files,
-        },
-      ]);
-      selectedFile = response.selectedFile;
+      const userSelectedFile = await select({
+        message: 'Select a file to upload',
+        choices: files.map((file) => ({ name: file, value: file })),
+      });
+
+      selectedFile = userSelectedFile;
     }
 
     await uploadPerfDataFileInterval(
@@ -166,120 +160,77 @@ program
     setupEntityResolutionDemo({ mini, deleteData, keepEmails });
   });
 
-type EntityStoreAnswers = {
-  options: string[];
-  users: number;
-  hosts: number;
-  services: number;
-  seed: number;
-};
-
 program
   .command('entity-store')
   .description('Generate entity store')
-  .action(() => {
-    inquirer
-      .prompt<EntityStoreAnswers>([
+  .action(async () => {
+    const entityStoreAnswers = await checkbox<
+      keyof typeof ENTITY_STORE_OPTIONS
+    >({
+      message: 'Select options',
+      choices: [
         {
-          type: 'checkbox',
-          message: 'Select options',
-          name: 'options',
-          choices: [
-            {
-              name: 'Seed (stable random data)',
-              value: ENTITY_STORE_OPTIONS.seed,
-              checked: true,
-            },
-            {
-              name: 'Assign asset criticality',
-              value: ENTITY_STORE_OPTIONS.criticality,
-              checked: true,
-            },
-            {
-              name: 'Enable Risk Engine',
-              value: ENTITY_STORE_OPTIONS.riskEngine,
-              checked: true,
-            },
-            {
-              name: 'Create detection rule',
-              value: ENTITY_STORE_OPTIONS.rule,
-              checked: true,
-            },
-            {
-              name: 'Generate fake elastic agents for hosts',
-              value: ENTITY_STORE_OPTIONS.agent,
-              checked: false,
-            },
-          ],
+          name: 'Seed (stable random data)',
+          value: ENTITY_STORE_OPTIONS.seed,
+          checked: true,
         },
         {
-          type: 'input',
-          name: 'users',
-          message: 'How many users',
-          default() {
-            return 10;
-          },
-          filter(input) {
-            return parseInt(input, 10);
-          },
+          name: 'Assign asset criticality',
+          value: ENTITY_STORE_OPTIONS.criticality,
+          checked: true,
         },
         {
-          type: 'input',
-          name: 'hosts',
-          message: 'How many hosts',
-          filter(input) {
-            return parseInt(input, 10);
-          },
-          default() {
-            return 10;
-          },
+          name: 'Enable Risk Engine',
+          value: ENTITY_STORE_OPTIONS.riskEngine,
+          checked: true,
         },
         {
-          type: 'input',
-          name: 'services',
-          message: 'How many services',
-          filter(input) {
-            return parseIntBase10(input);
-          },
-          default() {
-            return 10;
-          },
+          name: 'Create detection rule',
+          value: ENTITY_STORE_OPTIONS.rule,
+          checked: true,
         },
-      ])
-      .then((answers) => {
-        const seed = generateNewSeed();
-        if (answers.options.includes(ENTITY_STORE_OPTIONS.seed)) {
-          return inquirer
-            .prompt<{ seed: number }>([
-              {
-                type: 'input',
-                name: 'seed',
-                message:
-                  'Enter seed to generate stable random data or <enter> to use a new seed',
-                filter(input) {
-                  return parseInt(input, 10);
-                },
-                default() {
-                  return seed;
-                },
-              },
-            ])
-            .then((seedAnswer) => {
-              return { ...answers, ...seedAnswer };
-            });
-        }
-        return { ...answers, seed };
-      })
-      .then((answers) => {
-        const { users, hosts, services, seed } = answers;
-        generateEntityStore({
-          users,
-          hosts,
-          services,
-          seed,
-          options: answers.options,
-        });
+        {
+          name: 'Generate fake elastic agents for hosts',
+          value: ENTITY_STORE_OPTIONS.agent,
+          checked: false,
+        },
+      ],
+    });
+
+    const userCount = await input({
+      message: 'How many users',
+      default: '10',
+    });
+
+    const hostCount = await input({
+      message: 'How many hosts',
+      default: '10',
+    });
+
+    const serviceCount = await input({
+      message: 'How many services',
+      default: '10',
+    });
+
+    const seed = generateNewSeed() + '';
+
+    let seedAnswer = seed;
+
+    if (entityStoreAnswers.includes(ENTITY_STORE_OPTIONS.seed)) {
+      seedAnswer = await input({
+        message:
+          'Enter seed to generate stable random data or <enter> to use a new seed',
+        default: seed,
       });
+    }
+
+    generateEntityStore({
+      users: parseIntBase10(userCount),
+      hosts: parseIntBase10(hostCount),
+      services: parseIntBase10(serviceCount),
+      seed: parseIntBase10(seedAnswer),
+      options: entityStoreAnswers,
+    });
   });
 
 program
