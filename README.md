@@ -4,14 +4,13 @@
 
 ### copy `config.dev.json` to `config.json`
 
-1. Install dependecies
-`yarn`
+1. Install dependencies: `yarn`
 
 2. Change `config.json` and provide credentials for elasticsearch.
 
-You can proide apiKey for Cloud/Serverless, or just username/password
+You can provide apiKey for Cloud/Serverless, or just username/password.
 
-Examles of config:
+Examples of config:
 
 ```
 {
@@ -61,7 +60,7 @@ Examles of config:
 
 `yarn start delete-alerts` - Delete all alerts
 
-### Api tests
+### API tests
 
 `yarn start test-risk-score` - Test risk score API time response
 
@@ -71,9 +70,9 @@ Examles of config:
 To modify alert document, you can change `createAlert.ts` file.
 
 
-### How to test Risk Score Api
+### How to test Risk Score API
 
-Example list of command for testing Risk Score API woth 10.000 alerts.
+Example list of command for testing Risk Score API worth 10.000 alerts.
 ```
 yarn start delete-alerts
 yarn start generate-alerts -n 10000 -h 100 -u 100
@@ -131,7 +130,7 @@ To do this use the `upload-perf-data-interval` command. This will upload a file 
 yarn start upload-perf-data-interval small --deleteEntities
 ```
 
-The count and interval can be customised:
+The count and interval can be customized:
 
 ```
 # upload the small data file 100 times with 60 seconds between sends
@@ -140,7 +139,7 @@ yarn start upload-perf-data-interval small --deleteEntities --interval 60 --coun
 
 The entity IDs are modified before sending so that each upload creates new entities, this means there will be count * entityCount entities by the end of the test.
 
-While the files are uploaded, we poll elasticsearch for the lcuster health and the transform health, these files can be foudn in `./logs`. Where one file contains the cluster health every 5 seconds, and the other contains the transform health every 5 seconds:
+While the files are uploaded, we poll elasticsearch for the cluster health and the transform health, these files can be found in `./logs`. Where one file contains the cluster health every 5 seconds, and the other contains the transform health every 5 seconds:
 
 ```
 > ll logs
