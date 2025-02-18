@@ -11,17 +11,13 @@ jobs:
     name: Lint and Type Check
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [22.14.0]
-
     steps:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
-    - name: Use Node.js ${{ matrix.node-version }}
+    - name: Use Node.js 22.14.0
       uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: 22.14.0
 
     - name: Build
       run: |
