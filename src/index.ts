@@ -272,12 +272,11 @@ program
       const fromHours = parseInt(options.from);
       const gaps = parseInt(options.gaps);
 
-      
       console.log(`Generating ${ruleCount} rules and ${eventCount} events...`);
       console.log(`Using interval: ${options.interval}`);
       console.log(`Generating events from last ${fromHours} hours`);
       console.log(`Generating ${gaps} gaps per rule`);
-      
+
       if (options.clean) {
         await deleteAllRules();
       }
@@ -287,7 +286,7 @@ program
         from: fromHours,
         gapsPerRule: gaps,
       });
-      
+
       console.log('Successfully generated rules and events');
     } catch (error) {
       console.error('Error generating rules and events:', error);

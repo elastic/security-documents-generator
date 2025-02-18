@@ -109,7 +109,7 @@ export const assignAssetCriticality = async (
   );
 };
 
-export const  createRule = ({
+export const createRule = ({
   space,
   id,
   name,
@@ -135,9 +135,9 @@ export const  createRule = ({
   query?: string;
   from?: string;
   interval?: string;
-} = {}): Promise<{ id: string, name: string }> => {
+} = {}): Promise<{ id: string; name: string }> => {
   const url = DETECTION_ENGINE_RULES_URL(space);
-  return kibanaFetch<{ id: string, name: string }>(
+  return kibanaFetch<{ id: string; name: string }>(
     url,
     {
       method: 'POST',
@@ -389,15 +389,15 @@ export const initEntityEngineForEntityTypes = async (
 
 export const getAllRules = async (space?: string) => {
   const url = DETECTION_ENGINE_RULES_URL(space);
-  const perPage = 100;  // Maximum items per page
+  const perPage = 100; // Maximum items per page
   let page = 1;
-  let allRules: Array<{ rule_id: string, name: string, id: string }> = [];
-  
+  let allRules: Array<{ rule_id: string; name: string; id: string }> = [];
+
   try {
     while (true) {
-      const response = await kibanaFetch<{ 
-        data: Array<{ rule_id: string, name: string, id: string }>,
-        total: number 
+      const response = await kibanaFetch<{
+        data: Array<{ rule_id: string; name: string; id: string }>;
+        total: number;
       }>(
         url + `/_find?page=${page}&per_page=${perPage}`,
         {
@@ -411,7 +411,7 @@ export const getAllRules = async (space?: string) => {
       }
 
       allRules = allRules.concat(response.data);
-      
+
       // If we've fetched all rules, break
       if (allRules.length >= (response.total || 0)) {
         break;
@@ -434,8 +434,8 @@ export const bulkDeleteRules = async (ruleIds: string[], space?: string) => {
     {
       method: 'POST',
       body: JSON.stringify({
-        action: "delete",
-        ids: ruleIds
+        action: 'delete',
+        ids: ruleIds,
       }),
     },
     '2023-10-31',
