@@ -164,3 +164,8 @@ Entities are split 50/50 host/user.
 The log messages created contain incremental data, e.g the first log message for a host would contain IP 192.168.1.0 and 192.168.1.1, the second log would contain 192.168.1.2 and 192.168.1.3. This way when 5 log messages are sent, an entity should have 10 IP addresses ranging from 0 - 10. 
 
 
+### Generate rules and gaps
+
+Will generate 100 rules with 10000 gaps per rule.
+
+`yarn start rules --rules 100 -g 10000 -c -i"48h"`

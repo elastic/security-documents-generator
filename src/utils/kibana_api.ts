@@ -109,27 +109,50 @@ export const assignAssetCriticality = async (
   );
 };
 
-export const createRule = ({
+export const  createRule = ({
   space,
   id,
-}: { space?: string; id?: string } = {}): Promise<{ id: string }> => {
+  name,
+  description,
+  enabled,
+  risk_score,
+  severity,
+  index,
+  type,
+  query,
+  from,
+  interval,
+}: {
+  space?: string;
+  id?: string;
+  name?: string;
+  description?: string;
+  enabled?: boolean;
+  risk_score?: number;
+  severity?: string;
+  index?: string[];
+  type?: string;
+  query?: string;
+  from?: string;
+  interval?: string;
+} = {}): Promise<{ id: string, name: string }> => {
   const url = DETECTION_ENGINE_RULES_URL(space);
-  return kibanaFetch<{ id: string }>(
+  return kibanaFetch<{ id: string, name: string }>(
     url,
     {
       method: 'POST',
       body: JSON.stringify({
-        name: 'Match All',
-        description: 'Tests a simple query',
-        enabled: true,
-        risk_score: 70,
+        name: name || 'Match All',
+        description: description || 'Tests a simple query',
+        enabled: enabled ?? true,
+        risk_score: risk_score || 70,
         rule_id: id || faker.string.uuid(),
-        severity: 'high',
-        index: ['logs-*', 'metrics-*', 'auditbeat-*'],
-        type: 'query',
-        query: '*:*',
-        from: 'now-40d',
-        interval: '1m',
+        severity: severity || 'high',
+        index: index || ['logs-*', 'metrics-*', 'auditbeat-*'],
+        type: type || 'query',
+        query: query || '*:*',
+        from: from || 'now-40d',
+        interval: interval || '1m',
       }),
     },
     '2023-10-31',
@@ -362,4 +385,59 @@ export const initEntityEngineForEntityTypes = async (
   }
 
   throw new Error('Failed to start engines');
+};
+
+export const getAllRules = async (space?: string) => {
+  const url = DETECTION_ENGINE_RULES_URL(space);
+  const perPage = 100;  // Maximum items per page
+  let page = 1;
+  let allRules: Array<{ rule_id: string, name: string, id: string }> = [];
+  
+  try {
+    while (true) {
+      const response = await kibanaFetch<{ 
+        data: Array<{ rule_id: string, name: string, id: string }>,
+        total: number 
+      }>(
+        url + `/_find?page=${page}&per_page=${perPage}`,
+        {
+          method: 'GET',
+        },
+        '2023-10-31',
+      );
+
+      if (!response.data || response.data.length === 0) {
+        break;
+      }
+
+      allRules = allRules.concat(response.data);
+      
+      // If we've fetched all rules, break
+      if (allRules.length >= (response.total || 0)) {
+        break;
+      }
+
+      page++;
+    }
+
+    return { data: allRules };
+  } catch (e) {
+    console.error('Error fetching rules:', e);
+    return { data: [] };
+  }
+};
+
+export const bulkDeleteRules = async (ruleIds: string[], space?: string) => {
+  const url = DETECTION_ENGINE_RULES_URL(space) + '/_bulk_action';
+  return kibanaFetch(
+    url,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        action: "delete",
+        ids: ruleIds
+      }),
+    },
+    '2023-10-31',
+  );
 };
