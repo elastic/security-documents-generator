@@ -25,7 +25,7 @@
     "commander": "^13.0.0",
     "conf": "^13.0.0",
     "fp-ts": "^2.16.5",
-    "globals": "^15.14.0",
+    "globals": "^16.0.0",
     "@inquirer/prompts": "^7.3.1",
     "io-ts": "^2.2.21",
     "lodash-es": "^4.17.21",
