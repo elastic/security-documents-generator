@@ -156,15 +156,17 @@ program
   .option('--mini', 'Only load the mini dataset', false)
   .option('--delete', 'Delete old data', false)
   .option('--keep-emails', 'No Email variants', false)
+  .option('--space', 'space to use', 'default')
   .description('Load entity resolution demo data')
-  .action(({ mini, deleteData, keepEmails }) => {
-    setupEntityResolutionDemo({ mini, deleteData, keepEmails });
+  .action(({ mini, deleteData, keepEmails, space }) => {
+    setupEntityResolutionDemo({ mini, deleteData, keepEmails, space });
   });
 
 program
   .command('entity-store')
   .description('Generate entity store')
-  .action(async () => {
+  .option('--space <space>', 'Space to create entity store in')
+  .action(async (options) => {
     const entityStoreAnswers = await checkbox<
       keyof typeof ENTITY_STORE_OPTIONS
     >({
@@ -226,6 +228,7 @@ program
     }
 
     generateEntityStore({
+      space: options.space,
       users: parseIntBase10(userCount),
       hosts: parseIntBase10(hostCount),
       services: parseIntBase10(serviceCount),
@@ -243,12 +246,14 @@ program
   .command('generate-asset-criticality')
   .option('-h <h>', 'number of hosts')
   .option('-u <u>', 'number of users')
+  .option('-s <s>', 'space')
   .description('Generate asset criticality for entities')
   .action(async (options) => {
     const users = parseInt(options.u || 10);
     const hosts = parseInt(options.h || 10);
+    const space = options.s || 'default';
 
-    generateAssetCriticality({ users, hosts });
+    generateAssetCriticality({ users, hosts, space });
   });
 
 program

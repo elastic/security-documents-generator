@@ -196,7 +196,6 @@ export const generateEvents = async (n: number) => {
 };
 
 export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
-  //await alertIndexCheck(); TODO
   console.log('Generating alerts graph...');
 
   type AlertOverride = { host: { name: string }; user: { name: string } };
