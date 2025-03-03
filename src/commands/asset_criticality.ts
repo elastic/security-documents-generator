@@ -13,10 +13,12 @@ export const generateAssetCriticality = async ({
   users,
   hosts,
   seed = generateNewSeed(),
+  space,
 }: {
   users: number;
   hosts: number;
   seed?: number;
+  space: string;
 }) => {
   faker.seed(seed);
 
@@ -29,9 +31,17 @@ export const generateAssetCriticality = async ({
       count: hosts,
     });
 
-    await assignAssetCriticalityToEntities(generatedUsers, 'user.name');
+    await assignAssetCriticalityToEntities({
+      entities: generatedUsers,
+      field: 'user.name',
+      space,
+    });
     console.log(`Assigned asset criticality to ${generatedUsers.length} users`);
-    await assignAssetCriticalityToEntities(generatedHosts, 'host.name');
+    await assignAssetCriticalityToEntities({
+      entities: generatedHosts,
+      field: 'host.name',
+      space,
+    });
     console.log(`Assigned asset criticality to ${generatedHosts.length} hosts`);
 
     console.log('Finished generating asset criticality');

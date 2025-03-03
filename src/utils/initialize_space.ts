@@ -86,7 +86,7 @@ const waitForAlertIndexMapping = async (
 
 const ensureSpaceExists = async (space: string) => {
   console.log(`Checking if space ${space} exists`);
-  if (await kibanaApi.getSpace(space)) {
+  if (await kibanaApi.doesSpaceExist(space)) {
     console.log(`Space ${space} exists`);
     return;
   }

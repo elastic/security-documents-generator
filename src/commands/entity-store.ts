@@ -15,6 +15,7 @@ import {
   MappingTypeMapping,
 } from '@elastic/elasticsearch/lib/api/types';
 import { getConfig } from '../get_config';
+import { initializeSpace } from '../utils';
 
 const config = getConfig();
 const client = getEsClient();
@@ -263,10 +264,12 @@ export const generateEvents = <E extends BaseEntity, EV = BaseEvent>(
   }, acc);
 };
 
-export const assignAssetCriticalityToEntities = async (
-  entities: BaseEntity[],
-  field: string,
-) => {
+export const assignAssetCriticalityToEntities = async (opts: {
+  entities: BaseEntity[];
+  field: string;
+  space?: string;
+}) => {
+  const { entities, field, space } = opts;
   const chunks = chunk(entities, 10000);
   for (const chunk of chunks) {
     const records = chunk
@@ -278,7 +281,7 @@ export const assignAssetCriticalityToEntities = async (
       }));
 
     if (records.length > 0) {
-      await assignAssetCriticality(records);
+      await assignAssetCriticality(records, space);
     }
   }
 };
@@ -292,12 +295,14 @@ export const generateEntityStore = async ({
   hosts = 10,
   services = 10,
   seed = generateNewSeed(),
+  space,
   options,
 }: {
   users: number;
   hosts: number;
   services: number;
   seed: number;
+  space?: string;
   options: string[];
 }) => {
   if (options.includes(ENTITY_STORE_OPTIONS.seed)) {
@@ -342,20 +347,32 @@ export const generateEntityStore = async ({
     await ingestEvents(eventsForServices);
     console.log('Services events ingested');
 
+    if (space && space !== 'default') {
+      await initializeSpace(space);
+    }
+
     if (options.includes(ENTITY_STORE_OPTIONS.criticality)) {
-      await assignAssetCriticalityToEntities(generatedUsers, 'user.name');
+      await assignAssetCriticalityToEntities({
+        entities: generatedUsers,
+        field: 'user.name',
+        space,
+      });
       console.log('Assigned asset criticality to users');
-      await assignAssetCriticalityToEntities(generatedHosts, 'host.name');
+      await assignAssetCriticalityToEntities({
+        entities: generatedHosts,
+        field: 'host.name',
+        space,
+      });
       console.log('Assigned asset criticality to hosts');
     }
 
     if (options.includes(ENTITY_STORE_OPTIONS.riskEngine)) {
-      await enableRiskScore();
+      await enableRiskScore(space);
       console.log('Risk score enabled');
     }
 
     if (options.includes(ENTITY_STORE_OPTIONS.rule)) {
-      await createRule();
+      await createRule({ space });
       console.log('Rule created');
     }
 

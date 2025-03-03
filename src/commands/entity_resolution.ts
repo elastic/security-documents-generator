@@ -4,7 +4,7 @@ import {
   createRule,
   getRule,
   createComponentTemplate,
-  appendPathToKibanaNode,
+  buildKibanaUrl,
 } from '../utils/kibana_api';
 import pMap from 'p-map';
 import cliProgress from 'cli-progress';
@@ -213,7 +213,7 @@ const PACKAGES_TO_INSTALL = [
   'entityanalytics_entra_id',
 ];
 
-const installPackages = async () => {
+const installPackages = async (space: string) => {
   console.log('Installing packages...');
   const progress = new cliProgress.SingleBar(
     {
@@ -225,7 +225,7 @@ const installPackages = async () => {
   await pMap(
     PACKAGES_TO_INSTALL,
     async (packageName) => {
-      await installPackage({ packageName });
+      await installPackage({ packageName, space });
       progress.increment();
     },
     { concurrency: 1 },
@@ -415,8 +415,8 @@ const importFile = async (
   await batchIndexDocsWithProgress(batchGenerator, lineCountInFile);
 };
 
-const createMatchAllRule = async () => {
-  const rule = await getRule(RULE_ID);
+const createMatchAllRule = async (space: string) => {
+  const rule = await getRule(RULE_ID, space);
 
   if (rule) {
     console.log('Match all rule already exists.');
@@ -425,6 +425,7 @@ const createMatchAllRule = async () => {
 
   await createRule({
     id: RULE_ID,
+    space,
   });
   console.log('Match all rule created.');
 };
@@ -462,10 +463,12 @@ export const setupEntityResolutionDemo = async ({
   mini = false,
   deleteData = false,
   keepEmails = false,
+  space,
 }: {
   mini: boolean;
   deleteData: boolean;
   keepEmails: boolean;
+  space: string;
 }) => {
   if (deleteData) {
     console.log('Deleting existing demo data first...');
@@ -474,9 +477,9 @@ export const setupEntityResolutionDemo = async ({
 
   console.log(`Setting up${mini ? ' mini' : ''} entity resolution demo...`);
   // create a rule which matches everything, handy for exploring all the different entity views
-  await createMatchAllRule();
+  await createMatchAllRule(space);
   // install the packages to get the mappings in place
-  await installPackages();
+  await installPackages(space);
   // create @custom component templates to get user.name and user.email field mappings
   // which the inttegrations don't provide
   // we will eventually have to release a new version of the integrations to include these mappings
@@ -493,7 +496,7 @@ Entity resolution demo setup complete.
 
 Now go and install the model!
 
-    CLICK HERE ---->> ${appendPathToKibanaNode('/app/security/entity_analytics_management')} <<---- CLICK HERE
+    CLICK HERE ---->> ${buildKibanaUrl({ path: '/app/security/entity_analytics_management', space })} <<---- CLICK HERE
 
 Once installed, ${mini ? 'Mark Hopkin should have matches' : 'See here:\n\n https://github.com/elastic/security-ml/blob/gus/entity_resoluton_data_generation/projects/entity_resolution_poc_2024/test_data_generation/seed_data_with_name_variations_and_user_agent_gen_and_groups.json \n\nfor all the seed data names'}
   `);
