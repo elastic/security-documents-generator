@@ -13,7 +13,7 @@ export const generateAssetCriticality = async ({
   users,
   hosts,
   seed = generateNewSeed(),
-  space,
+  space = 'default',
 }: {
   users: number;
   hosts: number;
