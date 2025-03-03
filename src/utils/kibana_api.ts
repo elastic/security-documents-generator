@@ -206,9 +206,6 @@ export const deleteRule = async (ruleId: string, space?: string) => {
     url,
     {
       method: 'DELETE',
-      body: JSON.stringify({
-        rule_id: ruleId,
-      }),
     },
     { apiVersion: API_VERSIONS.public.v1, space },
   );
