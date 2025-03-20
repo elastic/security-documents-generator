@@ -1,6 +1,6 @@
 import { Client } from '@elastic/elasticsearch';
 import { getConfig } from '../../get_config';
-import { MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
+import { IndicesCreateRequest } from '@elastic/elasticsearch/lib/api/types';
 import { exec } from 'child_process';
 import { once } from 'lodash-es';
 
@@ -52,7 +52,7 @@ export const getFileLineCount = async (filePath: string): Promise<number> => {
 
 export const indexCheck = async (
   index: string,
-  mappings?: MappingTypeMapping,
+  body?: Omit<IndicesCreateRequest, 'index'>,
 ) => {
   const client = getEsClient();
   if (!client) {
@@ -66,12 +66,7 @@ export const indexCheck = async (
   try {
     await client.indices.create({
       index: index,
-      body: {
-        mappings: mappings,
-        settings: {
-          'index.mapping.total_fields.limit': 10000,
-        },
-      },
+      ...body,
     });
     console.log('Index created', index);
   } catch (error) {

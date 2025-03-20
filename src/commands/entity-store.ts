@@ -218,7 +218,7 @@ const ingest = async (
   documents: Array<object>,
   mapping?: MappingTypeMapping,
 ) => {
-  await indexCheck(index, mapping);
+  await indexCheck(index, { mappings: mapping });
 
   const chunks = chunk(documents, 10000);
 

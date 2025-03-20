@@ -22,6 +22,7 @@ import { ENTITY_STORE_OPTIONS, generateNewSeed } from './constants';
 import { initializeSpace } from './utils/initialize_space';
 import { generateAssetCriticality } from './commands/asset_criticality';
 import { generateRulesAndAlerts, deleteAllRules } from './commands/rules';
+import { generatePrivilegedUserMonitoringData } from './commands/privmon';
 
 const parseIntBase10 = (input: string) => parseInt(input, 10);
 
@@ -310,6 +311,24 @@ program
       console.error('Error deleting rules:', error);
       process.exit(1);
     }
+  });
+
+program
+  .command('privmon')
+  .description('Generate privileged monitoring data')
+  .option('-u, --users <number>', 'Number of users', '10')
+  .option('-e, --events <number>', 'Number of events per user', '10')
+  .action(async (options) => {
+    const users = parseInt(options.users);
+    const eventsPerUser = parseInt(options.events);
+
+    console.log(`Generating privileged monitoring data for ${users} users`);
+    console.log(`Each user will have ${eventsPerUser} events`);
+
+    await generatePrivilegedUserMonitoringData({
+      users,
+      eventsPerUser,
+    });
   });
 
 program.parse();
