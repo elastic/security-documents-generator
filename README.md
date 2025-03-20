@@ -168,3 +168,13 @@ The log messages created contain incremental data, e.g the first log message for
 Will generate 100 rules with 10000 gaps per rule.
 
 `yarn start rules --rules 100 -g 10000 -c -i"48h"`
+
+### Privileged user monitoring 🚧
+
+Generate privileged users and command line executions, 10% of command line events will be "sudo su"
+
+e.g generate 10 users with 100 events each
+
+```
+yarn start privmon -u 10 -e 100 
+```
