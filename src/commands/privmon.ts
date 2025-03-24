@@ -20,7 +20,7 @@ interface User {
   user: {
     name: string;
   };
-  is_privileged: boolean;
+  labels: { is_privileged: boolean };
 }
 
 const createPrivilegedUserIndex = async () => {
@@ -114,7 +114,7 @@ const createRandomUser = (): User => {
   return {
     '@timestamp': moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
     user: { name: faker.internet.username() },
-    is_privileged: true,
+    labels: { is_privileged: true },
   };
 };
 
