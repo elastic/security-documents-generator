@@ -23,6 +23,11 @@ interface User {
   labels: { is_privileged: boolean };
 }
 
+interface TimeWindow {
+  start: moment.Moment;
+  end: moment.Moment;
+}
+
 const createPrivilegedUserIndex = async () => {
   try {
     await indexCheck(USER_INDEX_NAME, {
@@ -166,19 +171,35 @@ const ingest = async (index: string, documents: Array<object>) => {
 export const createRandomEventForUser = (
   name: string,
   sudo: boolean = true,
-): Event => ({
-  '@timestamp': moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
-  message: sudo ? 'sudo su' : 'ls -a',
-  user: {
-    name,
-  },
-});
+  timeWindow: TimeWindow,
+): Event => {
+  const timestamp = moment(
+    faker.date.between({
+      from: timeWindow.start.toDate(),
+      to: timeWindow.end.toDate(),
+    }),
+  ).format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
 
-const generateEvents = (users: User[], eventsPerUser: number): Event[] => {
+  // console.log('timestamp: ', timestamp);
+
+  return {
+    '@timestamp': timestamp,
+    message: sudo ? 'sudo su' : 'ls -a',
+    user: {
+      name,
+    },
+  };
+};
+
+const generateEvents = (
+  users: User[],
+  eventsPerUser: number,
+  timeWindow: TimeWindow,
+): Event[] => {
   return users.reduce((acc, user) => {
     const events = new Array(eventsPerUser).fill(null).map((i) => {
       const isSudo = i < eventsPerUser * SU_COMMANDS_RATIO;
-      return createRandomEventForUser(user.user.name, isSudo);
+      return createRandomEventForUser(user.user.name, isSudo, timeWindow);
     });
 
     acc.push(...events);
@@ -186,19 +207,13 @@ const generateEvents = (users: User[], eventsPerUser: number): Event[] => {
   }, [] as Event[]);
 };
 
-const buildTermsQueryForUsers = (users: User[]) => {
-  const query = {
-    terms: {
-      'user.name': users.map((user) => user.user.name),
-    },
-  };
-
-  return `
-  GET /${EVENT_INDEX_NAME}/_search
-  {
-    "query": ${JSON.stringify(query)}
-  }
-  `;
+const generateRandomEvents = (
+  userCount: number,
+  eventsPerUser: number,
+  timeWindow: TimeWindow,
+) => {
+  const users = new Array(userCount).fill(null).map(createRandomUser);
+  return generateEvents(users, eventsPerUser, timeWindow);
 };
 
 export const generatePrivilegedUserMonitoringData = async ({
@@ -208,6 +223,11 @@ export const generatePrivilegedUserMonitoringData = async ({
   users: number;
   eventsPerUser: number;
 }) => {
+  const timeWindow = {
+    start: moment().subtract(1, 'hour'),
+    end: moment(),
+  } as const;
+
   console.log('Deleting indices');
   await deleteIndices();
   console.log('Indices deleted');
@@ -226,9 +246,17 @@ export const generatePrivilegedUserMonitoringData = async ({
   console.log('Events per user: ', eventsPerUser);
   console.log('Total events: ', generatedUsers.length * eventsPerUser);
   console.log('Ingesting events');
-  const eventsForUsers = generateEvents(generatedUsers, eventsPerUser);
-
+  const eventsForUsers = generateEvents(
+    generatedUsers,
+    eventsPerUser,
+    timeWindow,
+  );
   await ingestEvents(eventsForUsers);
-  console.log('Users events ingested, terms query: ');
-  console.log(buildTermsQueryForUsers(generatedUsers));
+  console.log('Adding some non privileged user events');
+  const nonPrivilegedEvents = generateRandomEvents(
+    Math.floor(users / 10),
+    eventsPerUser,
+    timeWindow,
+  );
+  await ingestEvents(nonPrivilegedEvents);
 };
