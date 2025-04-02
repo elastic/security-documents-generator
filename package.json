@@ -40,8 +40,8 @@
   "devDependencies": {
     "@types/cli-progress": "3.11.6",
     "@types/uuid": "10.0.0",
-    "@typescript-eslint/eslint-plugin": "8.28.0",
-    "@typescript-eslint/parser": "8.28.0",
+    "@typescript-eslint/eslint-plugin": "8.29.0",
+    "@typescript-eslint/parser": "8.29.0",
     "@types/lodash-es": "4.17.12",
     "esbuild": "0.25.1",
     "eslint": "9.23.0",
