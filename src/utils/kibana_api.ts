@@ -20,9 +20,8 @@ import {
   API_VERSIONS,
 } from '../constants';
 
-const config = getConfig();
-
 export const buildKibanaUrl = (opts: { path: string; space?: string }) => {
+  const config = getConfig();
   const { path, space } = opts;
   const pathWithSpace = space ? urlJoin(`/s/${space}`, path) : path;
   return urlJoin(config.kibana.node, pathWithSpace);
@@ -50,6 +49,7 @@ export const kibanaFetch = async <T>(
     space?: string;
   } = {},
 ): Promise<T> => {
+  const config = getConfig();
   const { ignoreStatuses, apiVersion = '1', space } = opts;
   const url = buildKibanaUrl({ path, space });
   const ignoreStatusesArray = Array.isArray(ignoreStatuses)

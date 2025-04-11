@@ -13,9 +13,6 @@ import cliProgress from 'cli-progress';
 import { faker } from '@faker-js/faker';
 import { getAlertIndex } from '../utils';
 
-const config = getConfig();
-const client = getEsClient();
-
 const generateDocs = async ({
   createDocs,
   amount,
@@ -25,9 +22,6 @@ const generateDocs = async ({
   amount: number;
   index: string;
 }) => {
-  if (!client) {
-    throw new Error('failed to create ES client');
-  }
   const limit = 30000;
   let generated = 0;
 
@@ -49,9 +43,8 @@ const generateDocs = async ({
 };
 
 const bulkUpsert = async (docs: unknown[]) => {
-  if (!client) {
-    throw new Error('failed to create ES client');
-  }
+  const client = getEsClient();
+
   try {
     return client.bulk({ body: docs, refresh: true });
   } catch (err) {
@@ -179,6 +172,8 @@ export const generateAlerts = async (
 
 // this creates asset criticality not events?
 export const generateEvents = async (n: number) => {
+  const config = getConfig();
+
   if (!config.eventIndex) {
     throw new Error('eventIndex not defined in config');
   }
@@ -261,7 +256,8 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
   });
 
   try {
-    if (!client) throw new Error();
+    const client = getEsClient();
+
     const result = await client.bulk({ body: alerts, refresh: true });
     console.log(`${result.items.length} alerts created`);
   } catch (err) {
@@ -273,7 +269,8 @@ export const deleteAllAlerts = async () => {
   console.log('Deleting all alerts...');
   try {
     console.log('Deleted all alerts');
-    if (!client) throw new Error();
+    const client = getEsClient();
+
     await client.deleteByQuery({
       index: '.alerts-security.alerts-*',
       refresh: true,
@@ -290,13 +287,16 @@ export const deleteAllAlerts = async () => {
 };
 
 export const deleteAllEvents = async () => {
+  const config = getConfig();
+
   console.log('Deleting all events...');
   if (!config.eventIndex) {
     throw new Error('eventIndex not defined in config');
   }
   try {
     console.log('Deleted all events');
-    if (!client) throw new Error();
+    const client = getEsClient();
+
     await client.deleteByQuery({
       index: config.eventIndex,
       refresh: true,
