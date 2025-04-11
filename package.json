@@ -12,8 +12,8 @@
     "checks": "yarn typecheck && yarn lint"
   },
   "engines": {
-    "node": "22.14.0",
-    "yarn": "^1.22.19"
+    "node": "v23.11.0",
+    "yarn": "^1.22.22"
   },
   "author": "",
   "license": "ISC",
