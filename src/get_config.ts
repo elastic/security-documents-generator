@@ -24,7 +24,7 @@ const Config = t.type({
   eventDateOffsetHours: t.union([t.number, t.undefined]),
 });
 
-type ConfigType = t.TypeOf<typeof Config>;
+export type ConfigType = t.TypeOf<typeof Config>;
 
 let config: ConfigType;
 
