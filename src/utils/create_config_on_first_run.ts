@@ -30,7 +30,6 @@ export const createConfigFileOnFirstRun = async () => {
     default: 'http://localhost:5601',
   });
 
-  // now write the config file
   const config = {
     elastic: {
       node: elasticNode,
@@ -43,6 +42,14 @@ export const createConfigFileOnFirstRun = async () => {
       password: password,
     },
   };
+
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-  console.log(`Config file created at ${configPath}`);
+
+  console.log(`
+    
+    Config file created at ${configPath} 🎉
+
+    Now let's run the command you wanted to run...
+
+    `);
 };
