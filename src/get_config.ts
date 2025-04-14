@@ -1,5 +1,8 @@
 import * as fs from 'fs';
 import * as t from 'io-ts';
+// get config relative to the file
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
 
 const NodeWithCredentials = t.type({
   node: t.string,
@@ -21,17 +24,18 @@ const Config = t.type({
   eventDateOffsetHours: t.union([t.number, t.undefined]),
 });
 
-type ConfigType = t.TypeOf<typeof Config>;
+export type ConfigType = t.TypeOf<typeof Config>;
 
 let config: ConfigType;
+
+const directoryName = dirname(fileURLToPath(import.meta.url));
+export const configPath = resolve(directoryName, '../config.json');
 
 export const getConfig = (): ConfigType => {
   if (config) {
     return config;
   }
 
-  // get config relative to the file
-  const configPath = __dirname + '/../config.json';
   const configJson = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
   if (!configJson.eventIndex) {

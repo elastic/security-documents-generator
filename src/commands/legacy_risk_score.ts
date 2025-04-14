@@ -1,8 +1,6 @@
 import { installLegacyRiskScore } from '../utils/kibana_api';
 import { getEsClient } from './utils';
 
-const esClient = getEsClient();
-
 /**
  * Install legacy risk score and generate data
  */
@@ -110,5 +108,6 @@ const bulkIndexData = async () => {
     return [{ index: { _index: doc.index } }, doc.source];
   });
 
+  const esClient = getEsClient();
   await esClient.bulk({ refresh: true, body });
 };

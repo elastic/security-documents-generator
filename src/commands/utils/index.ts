@@ -4,11 +4,11 @@ import { MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
 import { exec } from 'child_process';
 import { once } from 'lodash-es';
 
-const config = getConfig();
-
 export * from './create_agent_document';
 
 export const getEsClient = () => {
+  const config = getConfig();
+
   let client = null;
   let auth;
   if ('apiKey' in config.elastic) {

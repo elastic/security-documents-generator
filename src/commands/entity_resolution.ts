@@ -10,7 +10,10 @@ import pMap from 'p-map';
 import cliProgress from 'cli-progress';
 import readline from 'readline';
 import fs from 'fs';
+import { dirname } from 'path';
+import { fileURLToPath } from 'url';
 
+const directoryName = dirname(fileURLToPath(import.meta.url));
 const BATCH_SIZE = 1000;
 const CONCURRENCY = 10;
 const RULE_ID = 'er-demo-match-all';
@@ -35,8 +38,6 @@ const ECS_USER_MAPPINGS = {
   },
 };
 
-const client = getEsClient();
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const addMetaToLine = (line: any) => {
   line._meta = {
@@ -46,6 +47,7 @@ const addMetaToLine = (line: any) => {
 };
 
 const clearData = async () => {
+  const client = getEsClient();
   try {
     const res = await client.deleteByQuery({
       index: '*',
@@ -195,9 +197,8 @@ const getTimeStamp = () => {
 };
 
 const bulkUpsert = async (docs: unknown[]) => {
-  if (!client) {
-    throw new Error('failed to create ES client');
-  }
+  const client = getEsClient();
+
   try {
     return client.bulk({ body: docs, refresh: true });
   } catch (err) {
@@ -269,7 +270,7 @@ const jsonlFileToBatchGenerator = (
 
 const getFilePath = (fileName: string, mini: boolean) => {
   return (
-    __dirname +
+    directoryName +
     `/../../data/entity_resolution_data/${mini ? 'mini_' : ''}${fileName}`
   );
 };

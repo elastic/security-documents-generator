@@ -2,11 +2,11 @@
 
 ## Getting started
 
-### copy `config.dev.json` to `config.json`
-
 1. Install dependencies: `yarn`
 
-2. Change `config.json` and provide credentials for elasticsearch.
+2. Choose a command to run or simply run `yarn start`, you will be guided to generate a config file.
+
+3. *Optional* you can change `config.json` and provide different credentials for elasticsearch at any time.
 
 You can provide apiKey for Cloud/Serverless, or just username/password.
 
@@ -42,8 +42,6 @@ Examples of config:
     "eventIndex": ""
 }
 ```
-
-
 
 ## Commands
 
