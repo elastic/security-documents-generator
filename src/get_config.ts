@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as t from 'io-ts';
 // get config relative to the file
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { dirname, resolve } from 'path';
 
 const NodeWithCredentials = t.type({
   node: t.string,
@@ -29,7 +29,7 @@ type ConfigType = t.TypeOf<typeof Config>;
 let config: ConfigType;
 
 const directoryName = dirname(fileURLToPath(import.meta.url));
-export const configPath = directoryName + '/../config.json';
+export const configPath = resolve(directoryName, '../config.json');
 
 export const getConfig = (): ConfigType => {
   if (config) {
