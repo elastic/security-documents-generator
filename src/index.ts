@@ -218,6 +218,11 @@ program
       default: '10',
     });
 
+    const genericEntitiesCount = await input({
+      message: 'How many generic entities',
+      default: '10',
+    });
+
     const seed = generateNewSeed() + '';
 
     let seedAnswer = seed;
@@ -235,6 +240,7 @@ program
       users: parseIntBase10(userCount),
       hosts: parseIntBase10(hostCount),
       services: parseIntBase10(serviceCount),
+      genericEntities: parseIntBase10(genericEntitiesCount),
       seed: parseIntBase10(seedAnswer),
       options: entityStoreAnswers,
     });
