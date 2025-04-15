@@ -8,6 +8,8 @@ import {
   deleteEngines,
 } from '../utils/kibana_api';
 import { get } from 'lodash-es';
+import { dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { getConfig } from '../get_config';
 const esClient = getEsClient();
 const config = getConfig();
@@ -193,8 +195,9 @@ const generateUserFields = ({
 };
 
 const FIELD_LENGTH = 2;
-const DATA_DIRECTORY = __dirname + '/../../data/entity_store_perf_data';
-const LOGS_DIRECTORY = __dirname + '/../../logs';
+const directoryName = dirname(fileURLToPath(import.meta.url));
+const DATA_DIRECTORY = directoryName + '/../../data/entity_store_perf_data';
+const LOGS_DIRECTORY = directoryName + '/../../logs';
 
 const getFilePath = (name: string) => {
   return `${DATA_DIRECTORY}/${name}${name.endsWith('.jsonl') ? '' : '.jsonl'}`;
@@ -203,6 +206,7 @@ const getFilePath = (name: string) => {
 export const listPerfDataFiles = () => fs.readdirSync(DATA_DIRECTORY);
 
 const deleteAllEntities = async () => {
+  const esClient = getEsClient();
   const res = await esClient.deleteByQuery({
     index: '.entities.v1.latest*',
     body: {
@@ -216,6 +220,7 @@ const deleteAllEntities = async () => {
 };
 
 const deleteLogsIndex = async (index: string) => {
+  const esClient = getEsClient();
   const res = await esClient.indices.delete(
     {
       index,
@@ -227,6 +232,7 @@ const deleteLogsIndex = async (index: string) => {
 };
 
 const countEntities = async (name: string) => {
+  const esClient = getEsClient();
   const res = await esClient.count({
     index: '.entities.v1.latest*',
     body: {
@@ -303,13 +309,14 @@ const logClusterHealthEvery = (
     stream.write(`${new Date().toISOString()} - ${message}\n`);
   };
 
-  const logClusterHealthEvery = async () => {
+  const logClusterHealth = async () => {
+    const esClient = getEsClient();
     const res = await esClient.cluster.health();
     log(JSON.stringify(res));
   };
 
   const int = setInterval(async () => {
-    await logClusterHealthEvery();
+    await logClusterHealth();
 
     if (stopCalled || stop) {
       clearInterval(int);
@@ -344,6 +351,7 @@ const logTransformStatsEvery = (
   };
 
   const logTransformStatsEvery = async () => {
+    const esClient = getEsClient();
     for (const transform of TRANSFORM_NAMES) {
       const res = await esClient.transform.getTransformStats({
         transform_id: transform,
@@ -453,6 +461,7 @@ const uploadFile = async ({
   modifyDoc?: (doc: Record<string, any>) => Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   onComplete?: () => void;
 }) => {
+  const esClient = getEsClient();
   const stream = fs.createReadStream(filePath);
   const progress = new cliProgress.SingleBar(
     {

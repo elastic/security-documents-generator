@@ -22,6 +22,9 @@ import { ENTITY_STORE_OPTIONS, generateNewSeed } from './constants';
 import { initializeSpace } from './utils/initialize_space';
 import { generateAssetCriticality } from './commands/asset_criticality';
 import { generateRulesAndAlerts, deleteAllRules } from './commands/rules';
+import { createConfigFileOnFirstRun } from './utils/create_config_on_first_run';
+
+await createConfigFileOnFirstRun();
 
 const parseIntBase10 = (input: string) => parseInt(input, 10);
 

@@ -1,6 +1,6 @@
 import { faker } from '@faker-js/faker';
 import { getEsClient, indexCheck, createAgentDocument } from './utils';
-import { chunk } from 'lodash-es';
+import { chunk, once } from 'lodash-es';
 import moment from 'moment';
 import auditbeatMappings from '../mappings/auditbeat.json' assert { type: 'json' };
 import {
@@ -17,17 +17,32 @@ import {
 import { getConfig } from '../get_config';
 import { initializeSpace } from '../utils';
 
-const config = getConfig();
-const client = getEsClient();
 const EVENT_INDEX_NAME = 'auditbeat-8.12.0-2024.01.18-000001';
 const AGENT_INDEX_NAME = '.fleet-agents-7';
 
-if (config.eventDateOffsetHours !== undefined) {
-  console.log(`Using event date offset: ${config.eventDateOffsetHours} hours`);
-}
+const getClient = () => {
+  const client = getEsClient();
 
-const offset = () =>
-  config.eventDateOffsetHours ?? faker.number.int({ max: 1000 });
+  if (!client) {
+    throw new Error('failed to create ES client');
+  }
+  return client;
+};
+
+const getOffset = () => {
+  const config = getConfig();
+
+  if (config.eventDateOffsetHours !== undefined) {
+    once(() =>
+      console.log(
+        `Using event date offset: ${config.eventDateOffsetHours} hours`,
+      ),
+    );
+
+    return config.eventDateOffsetHours;
+  }
+  return faker.number.int({ max: 1000 });
+};
 
 type Agent = ReturnType<typeof createAgentDocument>;
 
@@ -183,7 +198,7 @@ export const createRandomGenericEntity = (): GenericEntity => {
 
 export const createRandomEventForHost = (host: Host): HostEvent => ({
   '@timestamp': moment()
-    .subtract(offset(), 'h')
+    .subtract(getOffset(), 'h')
     .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
   message: `Host ${faker.hacker.phrase()}`,
   service: {
@@ -202,7 +217,7 @@ export const createRandomEventForHost = (host: Host): HostEvent => ({
 
 export const createRandomEventForUser = (user: User): UserEvent => ({
   '@timestamp': moment()
-    .subtract(offset(), 'h')
+    .subtract(getOffset(), 'h')
     .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
   message: `User ${faker.hacker.phrase()}`,
   service: {
@@ -219,7 +234,7 @@ export const createRandomEventForService = (
   service: Service,
 ): ServiceEvent => ({
   '@timestamp': moment()
-    .subtract(offset(), 'h')
+    .subtract(getOffset(), 'h')
     .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
   message: `Service ${faker.hacker.phrase()}`,
   service: {
@@ -294,7 +309,8 @@ const ingest = async (
         },
         [],
       );
-      if (!client) throw new Error();
+
+      const client = getClient();
       await client.bulk({ operations: ingestRequest, refresh: true });
     } catch (err) {
       console.log('Error: ', err);
@@ -464,7 +480,7 @@ export const cleanEntityStore = async () => {
   console.log('Deleting all entity-store data...');
   try {
     console.log('Deleted all events');
-    if (!client) throw new Error();
+    const client = getClient();
     await client.deleteByQuery({
       index: EVENT_INDEX_NAME,
       refresh: true,

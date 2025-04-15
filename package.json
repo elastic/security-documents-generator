@@ -12,8 +12,8 @@
     "checks": "yarn typecheck && yarn lint"
   },
   "engines": {
-    "node": "22.14.0",
-    "yarn": "^1.22.19"
+    "node": "v23.11.0",
+    "yarn": "^1.22.22"
   },
   "author": "",
   "license": "ISC",
@@ -40,20 +40,20 @@
   "devDependencies": {
     "@types/cli-progress": "3.11.6",
     "@types/uuid": "10.0.0",
-    "@typescript-eslint/eslint-plugin": "8.29.0",
-    "@typescript-eslint/parser": "8.29.0",
+    "@typescript-eslint/eslint-plugin": "8.29.1",
+    "@typescript-eslint/parser": "8.29.1",
     "@types/lodash-es": "4.17.12",
     "esbuild": "0.25.2",
-    "eslint": "9.23.0",
+    "eslint": "9.24.0",
     "eslint-config-airbnb": "19.0.4",
     "eslint-config-airbnb-typescript": "18.0.0",
-    "eslint-config-prettier": "10.1.1",
-    "eslint-plugin-prettier": "5.2.5",
+    "eslint-config-prettier": "10.1.2",
+    "eslint-plugin-prettier": "5.2.6",
     "prettier": "3.5.3",
-    "typescript": "5.8.2",
+    "typescript": "5.8.3",
     "eslint-plugin-import": "2.31.0",
     "eslint-plugin-jsx-a11y": "6.10.2",
-    "eslint-plugin-react": "7.37.4",
+    "eslint-plugin-react": "7.37.5",
     "eslint-plugin-react-hooks": "5.2.0"
   }
 }
