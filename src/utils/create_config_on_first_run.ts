@@ -69,6 +69,7 @@ export const createConfigFileOnFirstRun = async () => {
       node: kibanaNode,
       ...auth,
     },
+    serverless: false,
     eventIndex: '',
     eventDateOffsetHours: undefined,
   };

@@ -11,7 +11,6 @@ import { get } from 'lodash-es';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { getConfig } from '../get_config';
-const esClient = getEsClient();
 const config = getConfig();
 
 interface EntityFields {

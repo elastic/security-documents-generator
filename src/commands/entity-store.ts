@@ -261,7 +261,7 @@ export const createRandomEventFoGenericEntity = (
   entity: GenericEntity,
 ): GenericEntityEvent => ({
   '@timestamp': moment()
-    .subtract(offset(), 'h')
+    .subtract(getOffset(), 'h')
     .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
   message: `Service ${faker.hacker.phrase()}`,
   service: {
