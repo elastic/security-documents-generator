@@ -17,6 +17,7 @@ const Node = t.union([NodeWithCredentials, NodeWithAPIKey]);
 const Config = t.type({
   elastic: Node,
   kibana: Node,
+  serverless: t.boolean,
   eventIndex: t.union([t.string, t.undefined]),
   eventDateOffsetHours: t.union([t.number, t.undefined]),
 });

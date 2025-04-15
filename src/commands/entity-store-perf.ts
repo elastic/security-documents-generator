@@ -8,9 +8,20 @@ import {
   deleteEngines,
 } from '../utils/kibana_api';
 import { get } from 'lodash-es';
+import { getConfig } from '../get_config';
 const esClient = getEsClient();
+const config = getConfig();
+
+interface EntityFields {
+  id: string;
+  name: string;
+  type: string;
+  sub_type: string;
+  address: string;
+}
 
 interface HostFields {
+  entity: EntityFields;
   host: {
     hostname?: string;
     domain?: string;
@@ -24,6 +35,7 @@ interface HostFields {
 }
 
 interface UserFields {
+  entity: EntityFields;
   user: {
     full_name?: string[];
     domain?: string;
@@ -119,6 +131,13 @@ const generateHostFields = ({
 }: GeneratorOptions): HostFields => {
   const id = `${idPrefix}-host-${entityIndex}`;
   return {
+    entity: {
+      id: id,
+      name: id,
+      type: 'host',
+      sub_type: 'aws_ec2_instance',
+      address: `example.${idPrefix}.com`,
+    },
     host: {
       id: id,
       name: id,
@@ -155,6 +174,13 @@ const generateUserFields = ({
 }: GeneratorOptions): UserFields => {
   const id = `${idPrefix}-user-${entityIndex}`;
   return {
+    entity: {
+      id: id,
+      name: id,
+      type: 'user',
+      sub_type: 'aws_iam_user',
+      address: `example.${idPrefix}.com`,
+    },
     user: {
       id: id,
       name: id,
@@ -258,6 +284,11 @@ const logClusterHealthEvery = (
   name: string,
   interval: number,
 ): (() => void) => {
+  if (config.serverless) {
+    console.log('Skipping cluster health on serverless cluster');
+    return () => {};
+  }
+
   let stopCalled = false;
 
   const stopCallback = () => {

@@ -50,6 +50,7 @@ enum EntityTypes {
   User = 'user',
   Host = 'host',
   Service = 'service',
+  Generic = 'generic',
 }
 
 interface BaseEntity {
@@ -66,6 +67,12 @@ interface Host extends BaseEntity {
 
 interface Service extends BaseEntity {
   type: EntityTypes.Service;
+}
+
+interface GenericEntity extends BaseEntity {
+  id: string;
+  type: string;
+  sub_type: string;
 }
 
 interface BaseEvent {
@@ -109,6 +116,16 @@ interface ServiceEvent extends BaseEvent {
   };
 }
 
+interface GenericEntityEvent extends BaseEvent {
+  entity: {
+    id: string;
+    name: string;
+    type: string;
+    sub_type: string;
+    address: string;
+  };
+}
+
 interface UserEvent extends BaseEvent {
   user: EventUser;
   host?: EventHost;
@@ -119,7 +136,7 @@ interface HostEvent extends BaseEvent {
   user?: EventUser;
 }
 
-type Event = UserEvent | HostEvent | ServiceEvent;
+type Event = UserEvent | HostEvent | ServiceEvent | GenericEntityEvent;
 
 export const createRandomUser = (): User => {
   return {
@@ -145,7 +162,26 @@ export const createRandomService = (): Service => {
   };
 };
 
-export const createRandomEventForHost = (name: string): HostEvent => ({
+const genericTypes = [
+  { type: 'user', subType: 'aws_iam_user' },
+  { type: 'host', subType: 'aws_ec2_instance' },
+  { type: 'database', subType: 'aws_redshift_instance' },
+  { type: 'network', subType: 'aws_ec2_vpc' },
+];
+export const createRandomGenericEntity = (): GenericEntity => {
+  const taxonomy =
+    genericTypes[Math.floor(Math.random() * genericTypes.length)];
+
+  return {
+    name: `GenericEntity-${faker.internet.domainName()}`,
+    assetCriticality: faker.helpers.arrayElement(ASSET_CRITICALITY),
+    id: faker.string.nanoid(),
+    type: taxonomy.type,
+    sub_type: taxonomy.subType,
+  };
+};
+
+export const createRandomEventForHost = (host: Host): HostEvent => ({
   '@timestamp': moment()
     .subtract(offset(), 'h')
     .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
@@ -154,7 +190,7 @@ export const createRandomEventForHost = (name: string): HostEvent => ({
     type: 'system',
   },
   host: {
-    name,
+    name: host.name,
     id: faker.number.int({ max: 10000 }),
     ip: faker.internet.ip(),
     mac: faker.internet.mac(),
@@ -164,7 +200,7 @@ export const createRandomEventForHost = (name: string): HostEvent => ({
   },
 });
 
-export const createRandomEventForUser = (name: string): UserEvent => ({
+export const createRandomEventForUser = (user: User): UserEvent => ({
   '@timestamp': moment()
     .subtract(offset(), 'h')
     .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
@@ -173,13 +209,15 @@ export const createRandomEventForUser = (name: string): UserEvent => ({
     type: 'system',
   },
   user: {
-    name,
+    name: user.name,
     id: faker.number.int({ max: 10000 }),
     entity_id: faker.string.nanoid(),
   },
 });
 
-export const createRandomEventForService = (name: string): ServiceEvent => ({
+export const createRandomEventForService = (
+  service: Service,
+): ServiceEvent => ({
   '@timestamp': moment()
     .subtract(offset(), 'h')
     .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
@@ -195,12 +233,28 @@ export const createRandomEventForService = (name: string): ServiceEvent => ({
       'development',
     ]),
     address: faker.internet.ip(),
-    name,
+    name: service.name,
     id: faker.string.nanoid(),
     state: faker.helpers.arrayElement(['running', 'stopped', 'starting']),
     ephemeral_id: faker.string.nanoid(),
     type: 'system',
     version: faker.system.semver(),
+  },
+});
+
+export const createRandomEventFoGenericEntity = (
+  entity: GenericEntity,
+): GenericEntityEvent => ({
+  '@timestamp': moment()
+    .subtract(offset(), 'h')
+    .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+  message: `Service ${faker.hacker.phrase()}`,
+  service: {
+    type: 'system',
+  },
+  entity: {
+    ...entity,
+    address: faker.string.alpha({ length: { min: 10, max: 20 } }),
   },
 });
 
@@ -251,12 +305,12 @@ const ingest = async (
 // E = Entity, EV = Event
 export const generateEvents = <E extends BaseEntity, EV = BaseEvent>(
   entities: E[],
-  createEvent: (entityName: string) => EV,
+  createEvent: (entity: E) => EV,
 ): EV[] => {
   const eventsPerEntity = 10;
   const acc: EV[] = [];
   return entities.reduce((acc, entity) => {
-    const events = faker.helpers.multiple(() => createEvent(entity.name), {
+    const events = faker.helpers.multiple(() => createEvent(entity), {
       count: eventsPerEntity,
     });
     acc.push(...events);
@@ -294,6 +348,7 @@ export const generateEntityStore = async ({
   users = 10,
   hosts = 10,
   services = 10,
+  genericEntities = 10,
   seed = generateNewSeed(),
   space,
   options,
@@ -301,6 +356,7 @@ export const generateEntityStore = async ({
   users: number;
   hosts: number;
   services: number;
+  genericEntities: number;
   seed: number;
   space?: string;
   options: string[];
@@ -316,6 +372,13 @@ export const generateEntityStore = async ({
     const generatedHosts = faker.helpers.multiple(createRandomHost, {
       count: hosts,
     });
+
+    const generatedGenericEntities = faker.helpers.multiple(
+      createRandomGenericEntity,
+      {
+        count: genericEntities,
+      },
+    );
 
     const eventsForUsers: UserEvent[] = generateEvents(
       generatedUsers,
@@ -338,6 +401,11 @@ export const generateEntityStore = async ({
       createRandomEventForService,
     );
 
+    const eventsForGenericEntities: GenericEntityEvent[] = generateEvents(
+      generatedGenericEntities,
+      createRandomEventFoGenericEntity,
+    );
+
     const relational = matchUsersAndHosts(eventsForUsers, eventsForHosts);
 
     await ingestEvents(relational.users);
@@ -346,6 +414,8 @@ export const generateEntityStore = async ({
     console.log('Hosts events ingested');
     await ingestEvents(eventsForServices);
     console.log('Services events ingested');
+    await ingestEvents(eventsForGenericEntities);
+    console.log('Generic Entities events ingested');
 
     if (space && space !== 'default') {
       await initializeSpace(space);
