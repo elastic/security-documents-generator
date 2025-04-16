@@ -23,6 +23,7 @@ import { initializeSpace } from './utils/initialize_space';
 import { generateAssetCriticality } from './commands/asset_criticality';
 import { generateRulesAndAlerts, deleteAllRules } from './commands/rules';
 import { createConfigFileOnFirstRun } from './utils/create_config_on_first_run';
+import { generateThreatHuntingQueryData } from './commands/threat_hunting_queries/threat_hunting_queries';
 
 await createConfigFileOnFirstRun();
 
@@ -319,6 +320,15 @@ program
       console.error('Error deleting rules:', error);
       process.exit(1);
     }
+  });
+
+program
+  .command('threat-hunting-queries')
+  .description('Generate threat hunting queries')
+  .action(async () => {
+    generateThreatHuntingQueryData({
+      minTimestampHours: 24,
+    });
   });
 
 program.parse();
