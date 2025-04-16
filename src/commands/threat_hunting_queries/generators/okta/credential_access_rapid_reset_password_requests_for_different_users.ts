@@ -47,8 +47,8 @@ function generateSuspiciousResetEvents({
     // Generate a unique dt_hash for each actor (representing an actor's device/session)
     const dtHash = faker.string.alphanumeric(32).toLowerCase();
 
-    // FIXED: For each suspicious actor, generate resets for EXACTLY 11-15 unique users (exceeding the threshold of 10)
-    const uniqueUserCount = 11 + Math.floor(Math.random() * 5);
+    // For each suspicious actor, generate resets for 11-20 unique users (exceeding the threshold of 10)
+    const uniqueUserCount = 11 + Math.floor(Math.random() * 10);
     const targetUsers: Array<{ name: string; email: string; id: string }> = [];
 
     for (let j = 0; j < uniqueUserCount; j++) {
@@ -59,27 +59,25 @@ function generateSuspiciousResetEvents({
       });
     }
 
-    // FIXED: Generate EXACTLY 16-20 reset events for this actor (exceeding the threshold of 15)
-    // Distribute these events to ensure each user is reset at least once
-    const resetCount = 16 + Math.floor(Math.random() * 5);
+    // Generate 16-30 reset events for this actor (exceeding the threshold of 15)
+    const resetCount = 16 + Math.floor(Math.random() * 15);
 
-    // First, ensure each target user gets at least one reset
-    for (let j = 0; j < uniqueUserCount; j++) {
-      const targetUser = targetUsers[j];
-
+    // Ensure every unique user gets at least one reset
+    // First, reset each unique user at least once
+    for (let k = 0; k < uniqueUserCount; k++) {
       events.push(
         createResetEvent({
+          timeWindow,
           actorId,
           actorName,
           actorEmail,
-          targetUser,
           dtHash,
-          timeWindow,
+          targetUser: targetUsers[k],
         }),
       );
     }
 
-    // Then distribute the remaining reset events randomly among users
+    // Then distribute the remaining resets
     for (let k = uniqueUserCount; k < resetCount; k++) {
       // Randomly select a target user from our list
       const targetUser =
@@ -87,12 +85,12 @@ function generateSuspiciousResetEvents({
 
       events.push(
         createResetEvent({
+          timeWindow,
           actorId,
           actorName,
           actorEmail,
-          targetUser,
           dtHash,
-          timeWindow,
+          targetUser,
         }),
       );
     }
@@ -102,19 +100,19 @@ function generateSuspiciousResetEvents({
 }
 
 function createResetEvent({
+  timeWindow,
   actorId,
   actorName,
   actorEmail,
-  targetUser,
   dtHash,
-  timeWindow,
+  targetUser,
 }: {
+  timeWindow: TimeWindow;
   actorId: string;
   actorName: string;
   actorEmail: string;
-  targetUser: { name: string; email: string; id: string };
   dtHash: string;
-  timeWindow: TimeWindow;
+  targetUser: { name: string; email: string; id: string };
 }): GeneratorDoc {
   return {
     index: 'logs-okta.system-default',
@@ -204,8 +202,9 @@ function generateNormalResetEvents({
     // Generate a unique dt_hash for each actor
     const dtHash = faker.string.alphanumeric(32).toLowerCase();
 
-    // For normal actors, generate resets for exactly 1-9 unique users (below the threshold of 10)
-    const uniqueUserCount = 1 + Math.floor(Math.random() * 9);
+    // Generate some users that need password resets
+    // For normal actors, generate resets for 1-10 unique users (below the threshold of 10)
+    const uniqueUserCount = 1 + Math.floor(Math.random() * 9); // Changed to max 9 to ensure below 10
     const targetUsers: Array<{ name: string; email: string; id: string }> = [];
 
     for (let j = 0; j < uniqueUserCount; j++) {
@@ -216,83 +215,24 @@ function generateNormalResetEvents({
       });
     }
 
-    // Generate exactly 1-14 reset events for this actor (below the threshold of 15)
-    const resetCount = 1 + Math.floor(Math.random() * 14);
+    // Generate 1-15 reset events for this actor (at or below the threshold of 15)
+    const resetCount = 1 + Math.floor(Math.random() * 14); // Changed to max 14 to ensure at most 15
 
     for (let k = 0; k < resetCount; k++) {
       // Randomly select a target user from our list
       const targetUser =
         targetUsers[Math.floor(Math.random() * targetUsers.length)];
 
-      events.push({
-        index: 'logs-okta.system-default',
-        source: {
-          '@timestamp': createTimestampInWindow(timeWindow),
-          event: {
-            dataset: 'okta.system',
-            action: 'user.account.reset_password',
-            outcome: 'SUCCESS',
-            category: ['iam'],
-            type: ['user'],
-            reason: 'Password reset initiated by admin',
-          },
-          source: {
-            user: {
-              id: actorId,
-              full_name: actorName,
-              email: actorEmail,
-            },
-          },
-          user: {
-            target: {
-              id: targetUser.id,
-              full_name: targetUser.name,
-              email: targetUser.email,
-            },
-          },
-          okta: {
-            actor: {
-              alternate_id: actorEmail,
-              display_name: actorName,
-              id: actorId,
-              type: 'User',
-            },
-            target: [
-              {
-                alternate_id: targetUser.email,
-                display_name: targetUser.name,
-                id: targetUser.id,
-                type: 'User',
-              },
-            ],
-            client: {
-              ip: faker.internet.ip(),
-              user_agent: {
-                browser: faker.internet.userAgent(),
-              },
-              zone: 'ADMIN',
-            },
-            debug_context: {
-              debug_data: {
-                request_id: faker.string.uuid(),
-                request_uri:
-                  '/api/v1/users/' +
-                  targetUser.id +
-                  '/lifecycle/reset_password',
-                dt_hash: dtHash,
-              },
-            },
-            outcome: {
-              result: 'SUCCESS',
-              reason: 'Password reset successful',
-            },
-            transaction: {
-              id: faker.string.uuid(),
-              type: 'WEB',
-            },
-          },
-        },
-      });
+      events.push(
+        createResetEvent({
+          timeWindow,
+          actorId,
+          actorName,
+          actorEmail,
+          dtHash,
+          targetUser,
+        }),
+      );
     }
 
     // Generate other types of events for additional noise
