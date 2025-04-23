@@ -1,0 +1,85 @@
+{
+    "mappings": {
+      "properties": {
+        "@timestamp": {
+          "type": "date"
+        },
+        "category": {
+          "type": "keyword"
+        },
+        "author": {
+          "type": "keyword"
+        },
+        "description": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "integration": {
+          "type": "keyword"
+        },
+        "uuid": {
+          "type": "keyword"
+        },
+        "name": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "language": {
+          "type": "keyword"
+        },
+        "license": {
+          "type": "keyword"
+        },
+        "notes": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "mitre": {
+          "type": "keyword"
+        },
+        "references": {
+          "type": "keyword"
+        },
+        "queries": {
+          "properties": {
+            "query": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 8192
+                }
+              }
+            },
+            "indices": {
+              "type": "keyword"
+            },
+            "cleaned_query": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 8192
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }

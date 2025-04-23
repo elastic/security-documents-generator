@@ -20,13 +20,13 @@
   "dependencies": {
     "@elastic/elasticsearch": "^8.6.0",
     "@faker-js/faker": "^9.0.0",
+    "@inquirer/prompts": "^7.3.1",
     "chalk": "^5.2.0",
     "cli-progress": "^3.12.0",
     "commander": "^13.0.0",
     "conf": "^13.0.0",
     "fp-ts": "^2.16.5",
     "globals": "^16.0.0",
-    "@inquirer/prompts": "^7.3.1",
     "io-ts": "^2.2.21",
     "lodash-es": "^4.17.21",
     "moment": "^2.29.4",
@@ -39,21 +39,21 @@
   },
   "devDependencies": {
     "@types/cli-progress": "3.11.6",
+    "@types/lodash-es": "4.17.12",
     "@types/uuid": "10.0.0",
     "@typescript-eslint/eslint-plugin": "8.29.1",
     "@typescript-eslint/parser": "8.29.1",
-    "@types/lodash-es": "4.17.12",
     "esbuild": "0.25.2",
     "eslint": "9.24.0",
     "eslint-config-airbnb": "19.0.4",
     "eslint-config-airbnb-typescript": "18.0.0",
     "eslint-config-prettier": "10.1.2",
-    "eslint-plugin-prettier": "5.2.6",
-    "prettier": "3.5.3",
-    "typescript": "5.8.3",
     "eslint-plugin-import": "2.31.0",
     "eslint-plugin-jsx-a11y": "6.10.2",
+    "eslint-plugin-prettier": "5.2.6",
     "eslint-plugin-react": "7.37.5",
-    "eslint-plugin-react-hooks": "5.2.0"
+    "eslint-plugin-react-hooks": "5.2.0",
+    "prettier": "3.5.3",
+    "typescript": "5.8.3"
   }
 }
