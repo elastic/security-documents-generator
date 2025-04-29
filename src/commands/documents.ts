@@ -274,10 +274,8 @@ export const deleteAllAlerts = async () => {
     await client.deleteByQuery({
       index: '.alerts-security.alerts-*',
       refresh: true,
-      body: {
-        query: {
-          match_all: {},
-        },
+      query: {
+        match_all: {},
       },
     });
   } catch (error) {
@@ -300,10 +298,8 @@ export const deleteAllEvents = async () => {
     await client.deleteByQuery({
       index: config.eventIndex,
       refresh: true,
-      body: {
-        query: {
-          match_all: {},
-        },
+      query: {
+        match_all: {},
       },
     });
   } catch (error) {

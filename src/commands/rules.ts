@@ -279,14 +279,12 @@ const deleteGapEvents = async () => {
     const response = await client.deleteByQuery({
       index: '.ds-.kibana-event-log-*',
       refresh: true,
-      body: {
-        query: {
-          bool: {
-            must: [
-              { term: { 'event.action': 'gap' } },
-              { term: { 'event.provider': 'alerting' } },
-            ],
-          },
+      query: {
+        bool: {
+          must: [
+            { term: { 'event.action': 'gap' } },
+            { term: { 'event.provider': 'alerting' } },
+          ],
         },
       },
     });

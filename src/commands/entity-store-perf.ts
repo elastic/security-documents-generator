@@ -208,10 +208,8 @@ const deleteAllEntities = async () => {
   const esClient = getEsClient();
   const res = await esClient.deleteByQuery({
     index: '.entities.v1.latest*',
-    body: {
-      query: {
-        match_all: {},
-      },
+    query: {
+      match_all: {},
     },
   });
 
@@ -234,23 +232,21 @@ const countEntities = async (name: string) => {
   const esClient = getEsClient();
   const res = await esClient.count({
     index: '.entities.v1.latest*',
-    body: {
-      query: {
-        bool: {
-          should: [
-            {
-              term: {
-                'host.domain': `example.${name}.com`,
-              },
+    query: {
+      bool: {
+        should: [
+          {
+            term: {
+              'host.domain': `example.${name}.com`,
             },
-            {
-              term: {
-                'user.domain': `example.${name}.com`,
-              },
+          },
+          {
+            term: {
+              'user.domain': `example.${name}.com`,
             },
-          ],
-          minimum_should_match: 1,
-        },
+          },
+        ],
+        minimum_should_match: 1,
       },
     },
   });
