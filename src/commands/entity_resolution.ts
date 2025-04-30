@@ -51,11 +51,9 @@ const clearData = async () => {
   try {
     const res = await client.deleteByQuery({
       index: '*',
-      body: {
-        query: {
-          match: {
-            '_meta.is_demo_data': true,
-          },
+      query: {
+        match: {
+          '_meta.is_demo_data': true,
         },
       },
       ignore_unavailable: true,
@@ -71,10 +69,8 @@ const clearData = async () => {
   try {
     const res1 = await client.deleteByQuery({
       index: '.entities.v1.latest.secsol-ea-entity-store',
-      body: {
-        query: {
-          match_all: {},
-        },
+      query: {
+        match_all: {},
       },
       ignore_unavailable: true,
       refresh: true,
@@ -89,10 +85,8 @@ const clearData = async () => {
   try {
     const res2 = await client.deleteByQuery({
       index: '.entities.v1.history.secsol-ea-entity-store*',
-      body: {
-        query: {
-          match_all: {},
-        },
+      query: {
+        match_all: {},
       },
       ignore_unavailable: true,
       refresh: true,
@@ -109,11 +103,9 @@ const clearData = async () => {
     const res3 = await client.deleteByQuery({
       index: '.alerts-security.alerts-*',
       refresh: true,
-      body: {
-        query: {
-          match: {
-            'kibana.alert.rule.parameters.rule_id': RULE_ID,
-          },
+      query: {
+        match: {
+          'kibana.alert.rule.parameters.rule_id': RULE_ID,
         },
       },
     });

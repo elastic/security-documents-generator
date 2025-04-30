@@ -484,10 +484,8 @@ export const cleanEntityStore = async () => {
     await client.deleteByQuery({
       index: EVENT_INDEX_NAME,
       refresh: true,
-      body: {
-        query: {
-          match_all: {},
-        },
+      query: {
+        match_all: {},
       },
     });
 
@@ -495,10 +493,8 @@ export const cleanEntityStore = async () => {
     await client.deleteByQuery({
       index: '.asset-criticality.asset-criticality-default',
       refresh: true,
-      body: {
-        query: {
-          match_all: {},
-        },
+      query: {
+        match_all: {},
       },
     });
   } catch (error) {

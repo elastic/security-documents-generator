@@ -66,11 +66,9 @@ export const indexCheck = async (
   try {
     await client.indices.create({
       index: index,
-      body: {
-        mappings: mappings,
-        settings: {
-          'index.mapping.total_fields.limit': 10000,
-        },
+      mappings: mappings,
+      settings: {
+        'index.mapping.total_fields.limit': 10000,
       },
     });
     console.log('Index created', index);
