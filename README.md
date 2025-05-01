@@ -1,4 +1,7 @@
-# Generating fake alerts
+# Security Documents Generator
+> **Note:** For compatibility with Elasticsearch 8.18 and below, checkout the tag `8.18-compatibility`.
+
+Generate fake data for testing and development. Configure your Elasticsearch environment via basic auth or API key, and use the various commands to generate, manipulate, and clean data.
 
 ## Getting started
 
