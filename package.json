@@ -12,7 +12,7 @@
     "checks": "yarn typecheck && yarn lint"
   },
   "engines": {
-    "node": "v23.11.0",
+    "node": "23.11.1",
     "yarn": "^1.22.22"
   },
   "author": "",
