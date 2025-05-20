@@ -8,9 +8,8 @@ interface Event {
     '@timestamp': string;
 }
 
-const createPrivilegedLinuxEvent = (timeWindow: TimeWindow, userName: string): Event => {
-    // Not inlining the variable in order to maintain Event type
-    const event = {
+const createPrivilegedLinuxEvent = (timeWindow: TimeWindow, userName: string) => (
+    {
         '@timestamp': TimeWindows.toRandomTimestamp({
             start: timeWindow.start,
             end: timeWindow.end,
@@ -35,13 +34,16 @@ const createPrivilegedLinuxEvent = (timeWindow: TimeWindow, userName: string): E
                 '!tty_tickets'
             ])
         }
-    };
-    return event;
-};
+    } as Event
+);
 
 class User {
     constructor(readonly userName: string, readonly numberOfAnomalousDays: number, readonly maxNumberOfAnomalousEvents: number) {
     }
+}
+
+interface UserNameByNumber {
+    [userName: string]: number
 }
 
 export class UserGenerator {
@@ -51,7 +53,7 @@ export class UserGenerator {
      */
     public static getUsers(numberOfUsers: number) {
 
-        const userNames = faker.helpers.multiple(faker.person.fullName, {count: numberOfUsers})
+        const userNames = faker.helpers.multiple(() => faker.person.fullName(), {count: numberOfUsers})
 
         const usersByNumberOfAnomalousEvents = UserGenerator.getUsersByNumberOfAnomalousEvents(UserGenerator.getWeightedUserNames(userNames))
         return userNames.map(eachUserName => (new User(
@@ -67,7 +69,10 @@ export class UserGenerator {
      * @returns an object whose keys are userNames, and whose values are the number of anomalous events that user
      * should contain.
      */
-    private static getUsersByNumberOfAnomalousEvents(weightedUserNames: { weight: number, value: string }[]) {
+    private static getUsersByNumberOfAnomalousEvents(weightedUserNames: {
+        weight: number,
+        value: string
+    }[]): UserNameByNumber {
         return faker.helpers.multiple(() => {
             return faker.helpers.weightedArrayElement(weightedUserNames)
         }, {
@@ -76,7 +81,7 @@ export class UserGenerator {
             if (acc[next]) acc[next]++;
             else acc[next] = 1;
             return acc;
-        }, {})
+        }, {} as UserNameByNumber)
 
     }
 

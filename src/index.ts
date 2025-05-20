@@ -292,7 +292,7 @@ program
     .action(async (options) => {
         const numberOfUsers = parseInt(options.users);
         const eventMultiplier = parseInt(options.event_multiplier);
-        await generatePrivilegedAccessDetectionData({ numberOfUsers, eventMultiplier, type: options.type })
+        await generatePrivilegedAccessDetectionData({ numberOfUsers, eventMultiplier })
     });
 
 program.parse();
