@@ -10,7 +10,7 @@ export const createProgressBar = (indexName: string) => {
     );
 }
 
-export const promptForFileSelection = (fileList: string[]) => {
+export const promptForFileSelection = async (fileList: string[]) => {
 
     if (fileList.length === 0) {
         console.log('No files to upload');

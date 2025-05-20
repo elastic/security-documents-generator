@@ -96,7 +96,7 @@ program
   .option('--delete', 'Delete all entities before uploading')
   .description('Upload performance data file')
   .action(async (file, options) => {
-    await uploadPerfDataFile(file ?? promptForFileSelection(listPerfDataFiles()), options.index, options.delete);
+    await uploadPerfDataFile(file ?? await promptForFileSelection(listPerfDataFiles()), options.index, options.delete);
   });
 
 program
@@ -110,7 +110,7 @@ program
   .action(async (file, options) => {
 
     await uploadPerfDataFileInterval(
-      file ?? promptForFileSelection(listPerfDataFiles()),
+      file ?? await promptForFileSelection(listPerfDataFiles()),
       options.interval * 1000,
       options.count,
       options.deleteData,
