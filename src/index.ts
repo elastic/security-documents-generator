@@ -108,7 +108,6 @@ program
   .option('--deleteEngines', 'Delete all entities before uploading')
   .description('Upload performance data file')
   .action(async (file, options) => {
-
     await uploadPerfDataFileInterval(
       file ?? await promptForFileSelection(listPerfDataFiles()),
       options.interval * 1000,
