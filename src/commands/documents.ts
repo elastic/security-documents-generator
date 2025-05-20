@@ -177,7 +177,9 @@ export const generateEvents = async (n: number) => {
   if (!config.eventIndex) {
     throw new Error('eventIndex not defined in config');
   }
-  await indexCheck(config.eventIndex, { mappings: eventMappings as MappingTypeMapping});
+  await indexCheck(config.eventIndex, {
+    mappings: eventMappings as MappingTypeMapping,
+  });
 
   console.log('Generating events...');
 

@@ -1,11 +1,9 @@
 import { Client } from '@elastic/elasticsearch';
-import {ConfigType, getConfig} from '../../get_config';
-import {
-  IndicesCreateRequest,
-} from '@elastic/elasticsearch/lib/api/types';
+import { ConfigType, getConfig } from '../../get_config';
+import { IndicesCreateRequest } from '@elastic/elasticsearch/lib/api/types';
 import { exec } from 'child_process';
-import {chunk, once} from 'lodash-es';
-import {createProgressBar} from "./cli_utils";
+import { chunk, once } from 'lodash-es';
+import { createProgressBar } from './cli_utils';
 
 export * from './create_agent_document';
 
@@ -22,7 +20,7 @@ const getClientAuth = (config: ConfigType) => {
     };
   }
   return auth;
-}
+};
 
 export const getEsClient = () => {
   if (esClient) return esClient;
@@ -96,9 +94,12 @@ export const ingest = async (index: string, documents: Array<object>) => {
 
   for (const chunk of chunks) {
     try {
-      const operations = chunk.flatMap(doc => [{ index: { _index: index } }, doc])
+      const operations = chunk.flatMap((doc) => [
+        { index: { _index: index } },
+        doc,
+      ]);
 
-      await esClient.bulk({operations, refresh: true});
+      await esClient.bulk({ operations, refresh: true });
       progressBar.increment(chunk.length);
     } catch (err) {
       console.log('Error: ', err);

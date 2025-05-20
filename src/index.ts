@@ -1,27 +1,33 @@
 #! /usr/bin/env node
-import {program} from 'commander';
-import {deleteAllAlerts, deleteAllEvents, generateAlerts, generateEvents, generateGraph,} from './commands/documents';
-import {setupEntityResolutionDemo} from './commands/entity_resolution';
-import {generateLegacyRiskScore} from './commands/legacy_risk_score';
-import {kibanaApi} from './utils/';
-import {cleanEntityStore, generateEntityStore} from './commands/entity-store';
+import { program } from 'commander';
 import {
-    createPerfDataFile,
-    listPerfDataFiles,
-    uploadPerfDataFile,
-    uploadPerfDataFileInterval,
+  deleteAllAlerts,
+  deleteAllEvents,
+  generateAlerts,
+  generateEvents,
+  generateGraph,
+} from './commands/documents';
+import { setupEntityResolutionDemo } from './commands/entity_resolution';
+import { generateLegacyRiskScore } from './commands/legacy_risk_score';
+import { kibanaApi } from './utils/';
+import { cleanEntityStore, generateEntityStore } from './commands/entity-store';
+import {
+  createPerfDataFile,
+  listPerfDataFiles,
+  uploadPerfDataFile,
+  uploadPerfDataFileInterval,
 } from './commands/entity-store-perf';
-import {checkbox, input} from '@inquirer/prompts';
-import {ENTITY_STORE_OPTIONS, generateNewSeed} from './constants';
-import {initializeSpace} from './utils';
-import {generateAssetCriticality} from './commands/asset_criticality';
-import {deleteAllRules, generateRulesAndAlerts} from './commands/rules';
-import {createConfigFileOnFirstRun} from './utils/create_config_on_first_run';
+import { checkbox, input } from '@inquirer/prompts';
+import { ENTITY_STORE_OPTIONS, generateNewSeed } from './constants';
+import { initializeSpace } from './utils';
+import { generateAssetCriticality } from './commands/asset_criticality';
+import { deleteAllRules, generateRulesAndAlerts } from './commands/rules';
+import { createConfigFileOnFirstRun } from './utils/create_config_on_first_run';
 import {
-    generatePrivilegedAccessDetectionData,
-    SUPPORTED_PAD_JOBS,
-} from "./commands/privileged_access_detection_ml/privileged_access_detection_ml";
-import {promptForFileSelection} from "./commands/utils/cli_utils";
+  generatePrivilegedAccessDetectionData,
+  SUPPORTED_PAD_JOBS,
+} from './commands/privileged_access_detection_ml/privileged_access_detection_ml';
+import { promptForFileSelection } from './commands/utils/cli_utils';
 
 await createConfigFileOnFirstRun();
 
@@ -96,7 +102,11 @@ program
   .option('--delete', 'Delete all entities before uploading')
   .description('Upload performance data file')
   .action(async (file, options) => {
-    await uploadPerfDataFile(file ?? await promptForFileSelection(listPerfDataFiles()), options.index, options.delete);
+    await uploadPerfDataFile(
+      file ?? (await promptForFileSelection(listPerfDataFiles())),
+      options.index,
+      options.delete,
+    );
   });
 
 program
@@ -109,7 +119,7 @@ program
   .description('Upload performance data file')
   .action(async (file, options) => {
     await uploadPerfDataFileInterval(
-      file ?? await promptForFileSelection(listPerfDataFiles()),
+      file ?? (await promptForFileSelection(listPerfDataFiles())),
       options.interval * 1000,
       options.count,
       options.deleteData,
@@ -285,14 +295,27 @@ program
   });
 
 program
-    .command('privileged_access_detection')
-    .description(`Generate anomalous source data for the privileged access detection ML jobs. Currently supports the following jobs: ${SUPPORTED_PAD_JOBS}`)
-    .option('-u, --users <users>', 'Number of users to generate behavioral events for', '10')
-    .option('--event_multiplier <event_multiplier>', 'Multiplier to increase number of both baseline and anomalous events', '1')
-    .action(async (options) => {
-        const numberOfUsers = parseInt(options.users);
-        const eventMultiplier = parseInt(options.event_multiplier);
-        await generatePrivilegedAccessDetectionData({ numberOfUsers, eventMultiplier })
+  .command('privileged_access_detection')
+  .description(
+    `Generate anomalous source data for the privileged access detection ML jobs. Currently supports the following jobs: ${SUPPORTED_PAD_JOBS}`,
+  )
+  .option(
+    '-u, --users <users>',
+    'Number of users to generate behavioral events for',
+    '10',
+  )
+  .option(
+    '--event_multiplier <event_multiplier>',
+    'Multiplier to increase number of both baseline and anomalous events',
+    '1',
+  )
+  .action(async (options) => {
+    const numberOfUsers = parseInt(options.users);
+    const eventMultiplier = parseInt(options.event_multiplier);
+    await generatePrivilegedAccessDetectionData({
+      numberOfUsers,
+      eventMultiplier,
     });
+  });
 
 program.parse();

@@ -1,14 +1,17 @@
-import {faker} from '@faker-js/faker';
+import { faker } from '@faker-js/faker';
 import fs from 'fs';
 import cliProgress from 'cli-progress';
-import {getEsClient, getFileLineCount} from './utils/indices';
+import { getEsClient, getFileLineCount } from './utils/indices';
 import readline from 'readline';
-import {deleteEngines, initEntityEngineForEntityTypes,} from '../utils/kibana_api';
-import {get} from 'lodash-es';
-import {dirname} from 'path';
-import {fileURLToPath} from 'url';
-import {getConfig} from '../get_config';
-import * as path from "path";
+import {
+  deleteEngines,
+  initEntityEngineForEntityTypes,
+} from '../utils/kibana_api';
+import { get } from 'lodash-es';
+import { dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { getConfig } from '../get_config';
+import * as path from 'path';
 
 const config = getConfig();
 
@@ -215,10 +218,10 @@ const deleteAllEntities = async () => {
 
 const deleteLogsIndex = async (index: string) => {
   return await getEsClient().indices.delete(
-      {
-        index,
-      },
-      {ignore: [404]},
+    {
+      index,
+    },
+    { ignore: [404] },
   );
 };
 
@@ -485,10 +488,7 @@ const uploadFile = async ({
         doc = modifyDoc(doc);
       }
 
-     return [
-        { create: { _index: index } },
-        { ...doc }
-      ];
+      return [{ create: { _index: index } }, { ...doc }];
     },
     flushBytes: 1024 * 1024 * 1,
     flushInterval: 3000,
@@ -533,9 +533,7 @@ export const uploadPerfDataFile = async (
   }
   const filePath = getFilePath(name);
 
-  console.log(
-    `Uploading performance data file ${name} to index ${index}`,
-  );
+  console.log(`Uploading performance data file ${name} to index ${index}`);
 
   if (!fs.existsSync(filePath)) {
     console.log(`Data file ${name} does not exist`);

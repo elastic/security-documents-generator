@@ -3,7 +3,7 @@ import * as t from 'io-ts';
 // get config relative to the file
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
-import { PathReporter } from 'io-ts/lib/PathReporter'
+import { PathReporter } from 'io-ts/lib/PathReporter';
 
 const NodeWithCredentials = t.type({
   node: t.string,
@@ -30,7 +30,7 @@ export type ConfigType = t.TypeOf<typeof Config>;
 
 let config: ConfigType;
 
-const CONFIG_FILE_NAME = 'config.json'
+const CONFIG_FILE_NAME = 'config.json';
 
 const directoryName = dirname(fileURLToPath(import.meta.url));
 export const configPath = resolve(directoryName, `../${CONFIG_FILE_NAME}`);
@@ -49,7 +49,9 @@ export const getConfig = (): ConfigType => {
   const validationResult = Config.decode(configJson);
 
   if (validationResult._tag === 'Left') {
-    console.error(`There was a config validation error. Fix issues below in the ${CONFIG_FILE_NAME} file, and try again.`);
+    console.error(
+      `There was a config validation error. Fix issues below in the ${CONFIG_FILE_NAME} file, and try again.`,
+    );
     console.log(PathReporter.report(validationResult));
     process.exit(1);
   }
