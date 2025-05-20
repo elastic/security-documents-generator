@@ -1,15 +1,17 @@
 import { Client } from '@elastic/elasticsearch';
-import { getConfig } from '../../get_config';
-import { MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
+import {ConfigType, getConfig} from '../../get_config';
+import {
+  IndicesCreateRequest,
+} from '@elastic/elasticsearch/lib/api/types';
 import { exec } from 'child_process';
-import { once } from 'lodash-es';
+import {chunk, once} from 'lodash-es';
+import {createProgressBar} from "./cli_utils";
 
 export * from './create_agent_document';
 
-export const getEsClient = () => {
-  const config = getConfig();
+let esClient: Client;
 
-  let client = null;
+const getClientAuth = (config: ConfigType) => {
   let auth;
   if ('apiKey' in config.elastic) {
     auth = { apiKey: config.elastic.apiKey };
@@ -19,15 +21,21 @@ export const getEsClient = () => {
       password: config.elastic.password,
     };
   }
+  return auth;
+}
+
+export const getEsClient = () => {
+  if (esClient) return esClient;
+  const config = getConfig();
 
   once(() => console.log('Elasticsearch node:', config.elastic.node));
 
-  client = new Client({
+  esClient = new Client({
     node: config.elastic.node,
-    auth,
+    auth: getClientAuth(config),
   });
 
-  return client;
+  return esClient;
 };
 
 export const getFileLineCount = async (filePath: string): Promise<number> => {
@@ -52,7 +60,7 @@ export const getFileLineCount = async (filePath: string): Promise<number> => {
 
 export const indexCheck = async (
   index: string,
-  mappings?: MappingTypeMapping,
+  body?: Omit<IndicesCreateRequest, 'index'>,
 ) => {
   const client = getEsClient();
   if (!client) {
@@ -66,14 +74,35 @@ export const indexCheck = async (
   try {
     await client.indices.create({
       index: index,
-      mappings: mappings,
       settings: {
         'index.mapping.total_fields.limit': 10000,
       },
+      ...body,
     });
     console.log('Index created', index);
   } catch (error) {
     console.log('Index creation failed', JSON.stringify(error));
     throw error;
   }
+};
+
+export const ingest = async (index: string, documents: Array<object>) => {
+  const esClient = getEsClient();
+
+  const progressBar = createProgressBar(index);
+
+  const chunks = chunk(documents, 10000);
+  progressBar.start(documents.length, 0);
+
+  for (const chunk of chunks) {
+    try {
+      const operations = chunk.flatMap(doc => [{ index: { _index: index } }, doc])
+
+      await esClient.bulk({operations, refresh: true});
+      progressBar.increment(chunk.length);
+    } catch (err) {
+      console.log('Error: ', err);
+    }
+  }
+  progressBar.stop();
 };

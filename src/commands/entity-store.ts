@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import { getEsClient, indexCheck, createAgentDocument } from './utils';
+import { getEsClient, indexCheck, createAgentDocument } from './utils/indices';
 import { chunk, once } from 'lodash-es';
 import moment from 'moment';
 import auditbeatMappings from '../mappings/auditbeat.json' assert { type: 'json' };
@@ -287,7 +287,7 @@ const ingest = async (
   documents: Array<object>,
   mapping?: MappingTypeMapping,
 ) => {
-  await indexCheck(index, mapping);
+  await indexCheck(index, { mappings: mapping });
 
   const chunks = chunk(documents, 10000);
 

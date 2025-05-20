@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import { getEsClient } from './utils';
+import { getEsClient } from './utils/indices';
 import moment from 'moment';
 import { chunk } from 'lodash-es';
 import { createRule, getAllRules, bulkDeleteRules } from '../utils/kibana_api';

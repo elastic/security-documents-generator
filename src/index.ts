@@ -1,28 +1,27 @@
 #! /usr/bin/env node
-import { program } from 'commander';
+import {program} from 'commander';
+import {deleteAllAlerts, deleteAllEvents, generateAlerts, generateEvents, generateGraph,} from './commands/documents';
+import {setupEntityResolutionDemo} from './commands/entity_resolution';
+import {generateLegacyRiskScore} from './commands/legacy_risk_score';
+import {kibanaApi} from './utils/';
+import {cleanEntityStore, generateEntityStore} from './commands/entity-store';
 import {
-  generateAlerts,
-  deleteAllAlerts,
-  deleteAllEvents,
-  generateGraph,
-  generateEvents,
-} from './commands/documents';
-import { setupEntityResolutionDemo } from './commands/entity_resolution';
-import { generateLegacyRiskScore } from './commands/legacy_risk_score';
-import { kibanaApi } from './utils/';
-import { cleanEntityStore, generateEntityStore } from './commands/entity-store';
-import {
-  createPerfDataFile,
-  uploadPerfDataFile,
-  uploadPerfDataFileInterval,
-  listPerfDataFiles,
+    createPerfDataFile,
+    listPerfDataFiles,
+    uploadPerfDataFile,
+    uploadPerfDataFileInterval,
 } from './commands/entity-store-perf';
-import { checkbox, select, input } from '@inquirer/prompts';
-import { ENTITY_STORE_OPTIONS, generateNewSeed } from './constants';
-import { initializeSpace } from './utils/initialize_space';
-import { generateAssetCriticality } from './commands/asset_criticality';
-import { generateRulesAndAlerts, deleteAllRules } from './commands/rules';
-import { createConfigFileOnFirstRun } from './utils/create_config_on_first_run';
+import {checkbox, input} from '@inquirer/prompts';
+import {ENTITY_STORE_OPTIONS, generateNewSeed} from './constants';
+import {initializeSpace} from './utils';
+import {generateAssetCriticality} from './commands/asset_criticality';
+import {deleteAllRules, generateRulesAndAlerts} from './commands/rules';
+import {createConfigFileOnFirstRun} from './utils/create_config_on_first_run';
+import {
+    generatePrivilegedAccessDetectionData,
+    SUPPORTED_PAD_JOBS,
+} from "./commands/privileged_access_detection_ml/privileged_access_detection_ml";
+import {promptForFileSelection} from "./commands/utils/cli_utils";
 
 await createConfigFileOnFirstRun();
 
@@ -36,9 +35,9 @@ program
   .option('-s <h>', 'space (will be created if it does not exist)')
   .description('Generate fake alerts')
   .action(async (options) => {
-    const alertsCount = parseInt(options.n || 1);
-    const hostCount = parseInt(options.h || 1);
-    const userCount = parseInt(options.u || 1);
+    const alertsCount = parseInt(options.n || '1');
+    const hostCount = parseInt(options.h || '1');
+    const userCount = parseInt(options.u || '1');
     const space = options.s || 'default';
 
     if (space !== 'default') {
@@ -97,25 +96,7 @@ program
   .option('--delete', 'Delete all entities before uploading')
   .description('Upload performance data file')
   .action(async (file, options) => {
-    let selectedFile = file;
-
-    if (!selectedFile) {
-      const files = await listPerfDataFiles();
-
-      if (files.length === 0) {
-        console.log('No files to upload');
-        process.exit(1);
-      }
-
-      const userSelectedFile = await select({
-        message: 'Select a file to upload',
-        choices: files.map((file) => ({ name: file, value: file })),
-      });
-
-      selectedFile = userSelectedFile;
-    }
-
-    await uploadPerfDataFile(selectedFile, options.index, options.delete);
+    await uploadPerfDataFile(file ?? promptForFileSelection(listPerfDataFiles()), options.index, options.delete);
   });
 
 program
@@ -127,26 +108,9 @@ program
   .option('--deleteEngines', 'Delete all entities before uploading')
   .description('Upload performance data file')
   .action(async (file, options) => {
-    let selectedFile = file;
-
-    if (!selectedFile) {
-      const files = await listPerfDataFiles();
-
-      if (files.length === 0) {
-        console.log('No files to upload');
-        process.exit(1);
-      }
-
-      const userSelectedFile = await select({
-        message: 'Select a file to upload',
-        choices: files.map((file) => ({ name: file, value: file })),
-      });
-
-      selectedFile = userSelectedFile;
-    }
 
     await uploadPerfDataFileInterval(
-      selectedFile,
+      file ?? promptForFileSelection(listPerfDataFiles()),
       options.interval * 1000,
       options.count,
       options.deleteData,
@@ -258,8 +222,8 @@ program
   .option('-s <s>', 'space')
   .description('Generate asset criticality for entities')
   .action(async (options) => {
-    const users = parseInt(options.u || 10);
-    const hosts = parseInt(options.h || 10);
+    const users = parseInt(options.u || '10');
+    const hosts = parseInt(options.h || '10');
     const space = options.s || 'default';
 
     generateAssetCriticality({ users, hosts, space });
@@ -320,5 +284,16 @@ program
       process.exit(1);
     }
   });
+
+program
+    .command('privileged_access_detection')
+    .description(`Generate anomalous source data for the privileged access detection ML jobs. Currently supports the following jobs: ${SUPPORTED_PAD_JOBS}`)
+    .option('-u, --users <users>', 'Number of users to generate behavioral events for', '10')
+    .option('--event_multiplier <event_multiplier>', 'Multiplier to increase number of both baseline and anomalous events', '1')
+    .action(async (options) => {
+        const numberOfUsers = parseInt(options.users);
+        const eventMultiplier = parseInt(options.event_multiplier);
+        await generatePrivilegedAccessDetectionData({ numberOfUsers, eventMultiplier, type: options.type })
+    });
 
 program.parse();

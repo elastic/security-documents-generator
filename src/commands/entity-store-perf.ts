@@ -1,16 +1,14 @@
-import { faker } from '@faker-js/faker';
+import {faker} from '@faker-js/faker';
 import fs from 'fs';
 import cliProgress from 'cli-progress';
-import { getEsClient, getFileLineCount } from './utils/index';
+import {getEsClient, getFileLineCount} from './utils/indices';
 import readline from 'readline';
-import {
-  initEntityEngineForEntityTypes,
-  deleteEngines,
-} from '../utils/kibana_api';
-import { get } from 'lodash-es';
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { getConfig } from '../get_config';
+import {deleteEngines, initEntityEngineForEntityTypes,} from '../utils/kibana_api';
+import {get} from 'lodash-es';
+import {dirname} from 'path';
+import {fileURLToPath} from 'url';
+import {getConfig} from '../get_config';
+
 const config = getConfig();
 
 interface EntityFields {
@@ -206,26 +204,21 @@ export const listPerfDataFiles = () => fs.readdirSync(DATA_DIRECTORY);
 
 const deleteAllEntities = async () => {
   const esClient = getEsClient();
-  const res = await esClient.deleteByQuery({
+  return await esClient.deleteByQuery({
     index: '.entities.v1.latest*',
     query: {
       match_all: {},
     },
   });
-
-  return res;
 };
 
 const deleteLogsIndex = async (index: string) => {
-  const esClient = getEsClient();
-  const res = await esClient.indices.delete(
-    {
-      index,
-    },
-    { ignore: [404] },
+  return await getEsClient().indices.delete(
+      {
+        index,
+      },
+      {ignore: [404]},
   );
-
-  return res;
 };
 
 const countEntities = async (name: string) => {
