@@ -297,7 +297,7 @@ program
 program
   .command('privileged_access_detection')
   .description(
-    `Generate anomalous source data for the privileged access detection ML jobs. Currently supports the following jobs: ${SUPPORTED_PAD_JOBS}`,
+    `Generate anomalous source data for the privileged access detection ML jobs. Currently supports the following jobs: [${SUPPORTED_PAD_JOBS.join(',')}]`,
   )
   .option(
     '-u, --users <users>',
