@@ -1,5 +1,5 @@
 import cliProgress from "cli-progress";
-import {select} from "@inquirer/prompts/dist/esm";
+import {select} from "@inquirer/prompts";
 
 export const createProgressBar = (indexName: string) => {
     return new cliProgress.SingleBar(
