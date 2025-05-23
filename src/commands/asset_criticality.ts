@@ -4,7 +4,7 @@ import {
   assignAssetCriticalityToEntities,
   createRandomHost,
   createRandomUser,
-} from './entity-store';
+} from './entity_store';
 
 /**
  * Generate asset criticality

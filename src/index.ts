@@ -10,13 +10,13 @@ import {
 import { setupEntityResolutionDemo } from './commands/entity_resolution';
 import { generateLegacyRiskScore } from './commands/legacy_risk_score';
 import { kibanaApi } from './utils/';
-import { cleanEntityStore, generateEntityStore } from './commands/entity-store';
+import { cleanEntityStore, generateEntityStore } from './commands/entity_store';
 import {
   createPerfDataFile,
   uploadPerfDataFile,
   uploadPerfDataFileInterval,
   listPerfDataFiles,
-} from './commands/entity-store-perf';
+} from './commands/entity_store_perf';
 import { checkbox, select, input } from '@inquirer/prompts';
 import { ENTITY_STORE_OPTIONS, generateNewSeed } from './constants';
 import { initializeSpace } from './utils/initialize_space';
