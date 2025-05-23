@@ -100,7 +100,7 @@ yarn start test-risk-score
 
 4. (Optional) Change mappings in `eventMappings.json` file.
 
-5. (Optional) Change event structure in `createEvents.ts` file
+5. (Optional) Change event structure in `create_events.ts` file
 
 6. Run `yarn start generate-events n`. Where `n` is the amount of documents that will be generated.
 
