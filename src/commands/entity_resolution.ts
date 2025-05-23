@@ -1,4 +1,4 @@
-import { getEsClient, getFileLineCount } from './utils';
+import { getEsClient, getFileLineCount } from './utils/indices';
 import {
   installPackage,
   createRule,
