@@ -1,16 +1,18 @@
 import { faker } from '@faker-js/faker';
 import fs from 'fs';
 import cliProgress from 'cli-progress';
-import { getEsClient, getFileLineCount } from './utils/index';
+import { getEsClient, getFileLineCount } from './utils/indices';
 import readline from 'readline';
 import {
-  initEntityEngineForEntityTypes,
   deleteEngines,
+  initEntityEngineForEntityTypes,
 } from '../utils/kibana_api';
 import { get } from 'lodash-es';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { getConfig } from '../get_config';
+import * as path from 'path';
+
 const config = getConfig();
 
 interface EntityFields {
@@ -206,29 +208,24 @@ export const listPerfDataFiles = () => fs.readdirSync(DATA_DIRECTORY);
 
 const deleteAllEntities = async () => {
   const esClient = getEsClient();
-  const res = await esClient.deleteByQuery({
+  return await esClient.deleteByQuery({
     index: '.entities.v1.latest*',
     query: {
       match_all: {},
     },
   });
-
-  return res;
 };
 
 const deleteLogsIndex = async (index: string) => {
-  const esClient = getEsClient();
-  const res = await esClient.indices.delete(
+  return await getEsClient().indices.delete(
     {
       index,
     },
     { ignore: [404] },
   );
-
-  return res;
 };
 
-const countEntities = async (name: string) => {
+const countEntities = async (baseDomainName: string) => {
   const esClient = getEsClient();
   const res = await esClient.count({
     index: '.entities.v1.latest*',
@@ -237,12 +234,12 @@ const countEntities = async (name: string) => {
         should: [
           {
             term: {
-              'host.domain': `example.${name}.com`,
+              'host.domain': `example.${baseDomainName}.com`,
             },
           },
           {
             term: {
-              'user.domain': `example.${name}.com`,
+              'user.domain': `example.${baseDomainName}.com`,
             },
           },
         ],
@@ -266,7 +263,7 @@ const countEntitiesUntil = async (name: string, count: number) => {
   progress.start(count, 0);
 
   while (total < count && !stop) {
-    total = await countEntities(name);
+    total = await countEntities(path.parse(name).name);
     progress.update(total);
 
     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -381,7 +378,7 @@ export const createPerfDataFile = ({
 }) => {
   const filePath = getFilePath(name);
   console.log(
-    `Creating performance data file ${name}.jsonl at with ${entityCount} entities and ${logsPerEntity} logs per entity. Starting at index ${startIndex}`,
+    `Creating performance data file ${name} at with ${entityCount} entities and ${logsPerEntity} logs per entity. Starting at index ${startIndex}`,
   );
 
   if (fs.existsSync(filePath)) {
@@ -491,12 +488,7 @@ const uploadFile = async ({
         doc = modifyDoc(doc);
       }
 
-      return {
-        create: {
-          _index: index,
-        },
-        document: doc,
-      };
+      return [{ create: { _index: index } }, { ...doc }];
     },
     flushBytes: 1024 * 1024 * 1,
     flushInterval: 3000,
@@ -541,12 +533,10 @@ export const uploadPerfDataFile = async (
   }
   const filePath = getFilePath(name);
 
-  console.log(
-    `Uploading performance data file ${name}.jsonl to index ${index}`,
-  );
+  console.log(`Uploading performance data file ${name} to index ${index}`);
 
   if (!fs.existsSync(filePath)) {
-    console.log(`Data file ${name}.jsonl does not exist`);
+    console.log(`Data file ${name} does not exist`);
     process.exit(1);
   }
 
@@ -557,14 +547,14 @@ export const uploadPerfDataFile = async (
   const { lineCount, logsPerEntity, entityCount } =
     await getFileStats(filePath);
   console.log(
-    `Data file ${name}.jsonl has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`,
+    `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`,
   );
   const startTime = Date.now();
 
   await uploadFile({ filePath, index, lineCount });
   const ingestTook = Date.now() - startTime;
   console.log(
-    `Data file ${name}.jsonl uploaded to index ${index} in ${ingestTook}ms`,
+    `Data file ${name} uploaded to index ${index} in ${ingestTook}ms`,
   );
 
   await countEntitiesUntil(name, entityCount);
@@ -596,7 +586,7 @@ export const uploadPerfDataFileInterval = async (
   const filePath = getFilePath(name);
 
   console.log(
-    `Uploading performance data file ${name}.jsonl every ${intervalMs}ms ${uploadCount} times to index ${index}`,
+    `Uploading performance data file ${name} every ${intervalMs}ms ${uploadCount} times to index ${index}`,
   );
 
   if (doDeleteEngines) {
@@ -615,7 +605,7 @@ export const uploadPerfDataFileInterval = async (
   }
 
   if (!fs.existsSync(filePath)) {
-    console.log(`Data file ${name}.jsonl does not exist`);
+    console.log(`Data file ${name} does not exist`);
     process.exit(1);
   }
 
@@ -629,7 +619,7 @@ export const uploadPerfDataFileInterval = async (
     await getFileStats(filePath);
 
   console.log(
-    `Data file ${name}.jsonl has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`,
+    `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`,
   );
 
   const startTime = Date.now();
@@ -689,7 +679,7 @@ export const uploadPerfDataFileInterval = async (
 
   const ingestTook = Date.now() - startTime;
   console.log(
-    `Data file ${name}.jsonl uploaded to index ${index} in ${ingestTook}ms`,
+    `Data file ${name} uploaded to index ${index} in ${ingestTook}ms`,
   );
 
   await countEntitiesUntil(name, entityCount * uploadCount);

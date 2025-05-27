@@ -1,5 +1,5 @@
 import { installLegacyRiskScore } from '../utils/kibana_api';
-import { getEsClient } from './utils';
+import { getEsClient } from './utils/indices';
 
 /**
  * Install legacy risk score and generate data

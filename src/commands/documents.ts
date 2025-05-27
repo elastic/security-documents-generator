@@ -1,7 +1,7 @@
 import createAlerts, { BaseCreateAlertsReturnType } from '../create_alerts';
 import createEvents from '../create_events';
 import eventMappings from '../mappings/eventMappings.json' assert { type: 'json' };
-import { getEsClient, indexCheck } from './utils/index';
+import { getEsClient, indexCheck } from './utils/indices';
 import { getConfig } from '../get_config';
 import {
   MappingTypeMapping,
@@ -177,7 +177,9 @@ export const generateEvents = async (n: number) => {
   if (!config.eventIndex) {
     throw new Error('eventIndex not defined in config');
   }
-  await indexCheck(config.eventIndex, eventMappings as MappingTypeMapping);
+  await indexCheck(config.eventIndex, {
+    mappings: eventMappings as MappingTypeMapping,
+  });
 
   console.log('Generating events...');
 

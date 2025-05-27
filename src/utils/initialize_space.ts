@@ -1,6 +1,6 @@
 import { kibanaApi } from '.';
 import { getAlertIndex } from '.';
-import { getEsClient } from '../commands/utils';
+import { getEsClient } from '../commands/utils/indices';
 const DUMMY_RULE_ID = 'dummy-rule';
 
 export const initializeSpace = async (space: string) => {
