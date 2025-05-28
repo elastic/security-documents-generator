@@ -14,10 +14,10 @@ jobs:
     steps:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
-    - name: Use Node.js v23.11.0
+    - name: Use Node.js v23.11.1
       uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
       with:
-        node-version: v23.11.0
+        node-version: v23.11.1
 
     - name: Build
       run: |
