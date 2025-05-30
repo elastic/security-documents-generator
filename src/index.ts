@@ -225,6 +225,9 @@ program
   .description('Generate risk score ingest bug data')
   .option('-s <s>', 'space')
   .action(async (options) => {
+
+    console.log(`‼️ NOTE THIS SCRIPT MUST BE RUN AS SUPERUSER! ASK MARK FOR THE create_superuser.sh script ‼️ `);
+
     const space = options.s || 'default';
     initializeSpace(space);
 
@@ -300,6 +303,42 @@ program
       });
       console.log(`Added default pipeline for index: ${index}`);
     }
+
+    console.log('downgrading risk engine mapping version');
+
+    await client.updateByQuery({
+      index: '.kibana_security_solution_9.1*',
+      query: {
+        bool: {
+          must: [
+            { term: { type: { value: 'risk-engine-configuration' } } },
+            { term: { namespaces: { value: space } } },
+          ],
+        },
+      },
+      script: {
+        source: 'ctx._source["risk-engine-configuration"]._meta.mappingsVersion = 4',
+        lang: 'painless',
+      },
+      conflicts: 'proceed',
+      refresh: true,
+    });
+
+    console.log('Risk score ingest bug setup completed');
+
+    console.log('downgrading asset criticality mapping version');
+    // set _meta.version to 3 for .asset-criticality.asset-criticality-default index
+
+    await client.indices.putMapping({
+      index: assetCriticalityIndexName,
+      _meta: {
+        version: 3,
+      },
+    });
+
+    console.log(
+      `Asset criticality mapping version downgraded for index: ${assetCriticalityIndexName}`,
+    );
   });
 
 program
