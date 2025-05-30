@@ -223,9 +223,13 @@ program
 program
   .command('risk-score-ingest-bug')
   .description('Generate risk score ingest bug data')
-  .action(async () => {
+  .option('-s <s>', 'space')
+  .action(async (options) => {
+    const space = options.s || 'default';
+    initializeSpace(space);
+
     await generateEntityStore({
-      space: 'default',
+      space,
       users: 10,
       hosts: 10,
       services: 10,
@@ -239,28 +243,35 @@ program
       ],
     });
 
-   async function getBackingIndexFromDataStream(datastreamName: string) {
-  const response = await client.indices.getDataStream({
-    name: datastreamName
-  });
+    const pipelineId =
+      'entity_analytics_create_eventIngest_from_timestamp-pipeline-' + space;
+    const riskScoreLatestIndexName = 'risk-score.risk-score-latest-' + space;
+    const assetCriticalityIndexName =
+      '.asset-criticality.asset-criticality-' + space;
 
-  const dataStream = response.data_streams[0];
-  const indices = dataStream.indices;
-  const latestBackingIndex = indices[indices.length - 1]?.index_name;
+    async function getBackingIndexFromDataStream(datastreamName: string) {
+      const response = await client.indices.getDataStream({
+        name: datastreamName,
+      });
 
-  console.log(`Latest backing index from _data_stream:`, latestBackingIndex);
-  return latestBackingIndex;
-}
+      const dataStream = response.data_streams[0];
+      const indices = dataStream.indices;
+      const latestBackingIndex = indices[indices.length - 1]?.index_name;
 
+      console.log(
+        `Latest backing index from _data_stream:`,
+        latestBackingIndex,
+      );
+      return latestBackingIndex;
+    }
 
     const client = await getEsClient();
 
-    const indices = [
-      '.asset-criticality.asset-criticality-default',
-      'risk-score.risk-score-latest-default'
-    ];
+    const indices = [assetCriticalityIndexName, riskScoreLatestIndexName];
 
-    const riskScoreBackingIndex = await getBackingIndexFromDataStream('risk-score.risk-score-default');
+    const riskScoreBackingIndex = await getBackingIndexFromDataStream(
+      'risk-score.risk-score-' + space,
+    );
 
     console.log(`Risk score backing index: ${riskScoreBackingIndex}`);
 
@@ -270,25 +281,24 @@ program
       await client.indices.putSettings({
         index,
         settings: {
-          'index.default_pipeline': null
-        }
+          'index.default_pipeline': null,
+        },
       });
       console.log(`Removed default pipeline from index: ${index}`);
     }
 
-    // now delete the ingest pipeline with id entity_analytics_create_eventIngest_from_timestamp-pipeline-default
     await client.ingest.deletePipeline({
-      id: 'entity_analytics_create_eventIngest_from_timestamp-pipeline-default',
+      id: pipelineId,
     });
 
-    for (const index of indices) {
+    for (const index of [riskScoreLatestIndexName, riskScoreBackingIndex]) {
       await client.indices.putSettings({
         index,
         settings: {
-          'index.default_pipeline': 'entity_analytics_create_eventIngest_from_timestamp-pipeline-default'
-        }
+          'index.default_pipeline': pipelineId,
+        },
       });
-      console.log(`Set default pipeline for index: ${index}`);
+      console.log(`Added default pipeline for index: ${index}`);
     }
   });
 
