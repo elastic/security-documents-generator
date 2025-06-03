@@ -28,6 +28,7 @@ import {
   SUPPORTED_PAD_JOBS,
 } from './commands/privileged_access_detection_ml/privileged_access_detection_ml';
 import { promptForFileSelection } from './commands/utils/cli_utils';
+import {generatePrivilegedUserMonitoringData} from "./commands/privileged_user_monitoring/privileged_user_monitoring";
 
 await createConfigFileOnFirstRun();
 
@@ -317,5 +318,14 @@ program
       eventMultiplier,
     });
   });
+
+program
+    .command('privileged_user_monitoring')
+    .description(
+        `Generate source data for privileged user monitoring visualizations.`,
+    )
+    .action(async (options) => {
+        await generatePrivilegedUserMonitoringData({});
+    });
 
 program.parse();
