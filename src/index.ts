@@ -39,30 +39,50 @@ program
   .option('-h <h>', 'number of hosts')
   .option('-u <h>', 'number of users')
   .option('-s <h>', 'space (will be created if it does not exist)')
-  .description('Generate fake alerts')
+  .option('--ai', 'use AI to generate some of the alerts', false)
+  .description(
+    'Generate fake alerts (use --ai flag to generate realistic alerts with AI)',
+  )
   .action(async (options) => {
     const alertsCount = parseInt(options.n || '1');
     const hostCount = parseInt(options.h || '1');
     const userCount = parseInt(options.u || '1');
     const space = options.s || 'default';
+    const useAI = options.ai || false;
 
     if (space !== 'default') {
       await initializeSpace(space);
     }
 
-    generateAlerts(alertsCount, userCount, hostCount, space);
+    generateAlerts(alertsCount, userCount, hostCount, space, useAI);
   });
 
 program
   .command('generate-events')
   .argument('<n>', 'integer argument', parseIntBase10)
-  .description('Generate events')
-  .action(generateEvents);
+  .option('--ai', 'use AI to generate some of the events', false)
+  .description(
+    'Generate events (use --ai flag to generate realistic events with AI)',
+  )
+  .action((n, options) => {
+    generateEvents(n, options.ai);
+  });
 
 program
   .command('generate-graph')
-  .description('Generate fake graph')
-  .action(generateGraph);
+  .description(
+    'Generate fake graph (use --ai flag to generate realistic alerts in the graph with AI)',
+  )
+  .option('--ai', 'use AI to generate some of the alerts in the graph', false)
+  .option('-u, --users <number>', 'Number of users to generate', '100')
+  .option('-h, --hosts <number>', 'Max hosts per user', '3')
+  .action((options) => {
+    generateGraph({
+      users: parseInt(options.users),
+      maxHosts: parseInt(options.hosts),
+      useAI: options.ai || false,
+    });
+  });
 
 program
   .command('delete-alerts')

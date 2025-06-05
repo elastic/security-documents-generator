@@ -12,25 +12,29 @@ import { chunk } from 'lodash-es';
 import cliProgress from 'cli-progress';
 import { faker } from '@faker-js/faker';
 import { getAlertIndex } from '../utils';
+import { generateAIAlert, generateAIAlertBatch } from '../utils/ai_service';
 
 const generateDocs = async ({
   createDocs,
   amount,
   index,
+  useAI = false,
 }: {
   createDocs: DocumentCreator;
   amount: number;
   index: string;
+  useAI?: boolean;
 }) => {
   const limit = 30000;
   let generated = 0;
 
   while (generated < amount) {
-    const docs = createDocuments(
+    const docs = await createDocuments(
       Math.min(limit, amount),
       generated,
       createDocs,
       index,
+      useAI,
     );
     try {
       const result = await bulkUpsert(docs);
@@ -67,29 +71,127 @@ const alertToBatchOps = (
   ];
 };
 
-const createDocuments = (
+// Updated to support AI generation
+const createDocuments = async (
   n: number,
   generated: number,
   createDoc: DocumentCreator,
   index: string,
-): unknown[] => {
-  return Array(n)
+  useAI = false,
+): Promise<unknown[]> => {
+  const config = getConfig();
+
+  // If AI is not enabled, use the standard generation
+  if (!useAI || !config.useAI) {
+    return Array(n)
+      .fill(null)
+      .reduce((acc, _, i) => {
+        let alert = createDoc({
+          id_field: 'host.name',
+          id_value: `Host ${generated + i}`,
+        });
+        acc.push({ index: { _index: index } });
+        acc.push({ ...alert });
+        alert = createDoc({
+          id_field: 'user.name',
+          id_value: `User ${generated + i}`,
+        });
+        acc.push({ index: { _index: index } });
+        acc.push({ ...alert });
+        return acc;
+      }, []);
+  }
+
+  // AI-based generation
+  console.log('Using AI to generate documents...');
+  const docs: unknown[] = [];
+
+  // Generate examples for context using the standard method
+  const examples = Array(2)
     .fill(null)
-    .reduce((acc, _, i) => {
-      let alert = createDoc({
+    .map((_, i) =>
+      createDoc({
         id_field: 'host.name',
         id_value: `Host ${generated + i}`,
-      });
-      acc.push({ index: { _index: index } });
-      acc.push({ ...alert });
-      alert = createDoc({
-        id_field: 'user.name',
-        id_value: `User ${generated + i}`,
-      });
-      acc.push({ index: { _index: index } });
-      acc.push({ ...alert });
-      return acc;
-    }, []);
+      }),
+    ) as BaseCreateAlertsReturnType[];
+
+  // Generate batches with AI
+  const progress = new cliProgress.SingleBar(
+    {},
+    cliProgress.Presets.shades_classic,
+  );
+  progress.start(n, 0);
+
+  // Process in smaller batches for AI generation
+  const batchSize = 5;
+  const batches = Math.ceil(n / batchSize);
+
+  for (let batch = 0; batch < batches; batch++) {
+    const currentBatchSize = Math.min(batchSize, n - batch * batchSize);
+
+    // Generate AI documents for this batch
+    for (let i = 0; i < currentBatchSize; i++) {
+      const index = batch * batchSize + i;
+
+      try {
+        // Generate host-based document
+        if (index < n) {
+          const hostId = `Host ${generated + index}`;
+          const hostAlert =
+            index % 5 === 0
+              ? await generateAIAlert({
+                  hostName: hostId,
+                  userName: faker.internet.username(),
+                  examples: examples,
+                })
+              : createDoc({ id_field: 'host.name', id_value: hostId });
+
+          docs.push({ index: { _index: index } });
+          docs.push({ ...hostAlert });
+          progress.increment(0.5);
+        }
+
+        // Generate user-based document
+        if (index < n) {
+          const userId = `User ${generated + index}`;
+          const userAlert =
+            index % 5 === 0
+              ? await generateAIAlert({
+                  hostName: faker.internet.domainName(),
+                  userName: userId,
+                  examples: examples,
+                })
+              : createDoc({ id_field: 'user.name', id_value: userId });
+
+          docs.push({ index: { _index: index } });
+          docs.push({ ...userAlert });
+          progress.increment(0.5);
+        }
+      } catch (error) {
+        console.error(`Error generating AI document at index ${index}:`, error);
+        // Fallback to standard generation
+        const alert = createDoc({
+          id_field: 'host.name',
+          id_value: `Host ${generated + index}`,
+        });
+        docs.push({ index: { _index: index } });
+        docs.push({ ...alert });
+        progress.increment(0.5);
+
+        const userAlert = createDoc({
+          id_field: 'user.name',
+          id_value: `User ${generated + index}`,
+        });
+        docs.push({ index: { _index: index } });
+        docs.push({ ...userAlert });
+        progress.increment(0.5);
+      }
+    }
+  }
+
+  progress.stop();
+  return docs;
 };
 
 export const generateAlerts = async (
@@ -97,6 +199,7 @@ export const generateAlerts = async (
   hostCount: number,
   userCount: number,
   space: string,
+  useAI = false,
 ) => {
   if (userCount > alertCount) {
     console.log('User count should be less than alert count');
@@ -109,8 +212,22 @@ export const generateAlerts = async (
   }
 
   console.log(
-    `Generating ${alertCount} alerts containing ${hostCount} hosts and ${userCount} users in space ${space}`,
+    `Generating ${alertCount} alerts containing ${hostCount} hosts and ${userCount} users in space ${space}${useAI ? ' using AI' : ''}`,
   );
+
+  const config = getConfig();
+  if (useAI && !config.useAI) {
+    console.log(
+      'AI generation requested but not enabled in config. Set "useAI": true in config.json',
+    );
+    if (!config.openaiApiKey) {
+      console.log(
+        'OpenAI API key is missing. Add "openaiApiKey": "your-key" to config.json',
+      );
+    }
+    process.exit(1);
+  }
+
   const concurrency = 10; // how many batches to send in parallel
   const batchSize = 2500; // number of alerts in a batch
   const no_overrides = {};
@@ -141,6 +258,98 @@ export const generateAlerts = async (
     hostName: hostNames[i % hostCount],
   }));
 
+  // If AI is enabled, use a different approach for generation
+  if (useAI && config.useAI) {
+    console.log('Using AI for alert generation...');
+    const progress = new cliProgress.SingleBar(
+      {},
+      cliProgress.Presets.shades_classic,
+    );
+
+    // Generate example alerts for context
+    const exampleAlerts = alertEntityNames
+      .slice(0, 2)
+      .map(({ userName, hostName }) =>
+        createAlerts(no_overrides, { userName, hostName, space }),
+      );
+
+    progress.start(alertCount, 0);
+
+    // Process alerts in batches for more efficient AI generation
+    const aiBatchSize = 5; // Generate 5 alerts at once to reduce API calls
+    const operations: unknown[] = [];
+
+    // Split entities into manageable chunks for batch processing
+    const entityChunks = chunk(alertEntityNames, aiBatchSize);
+
+    for (let chunkIndex = 0; chunkIndex < entityChunks.length; chunkIndex++) {
+      const currentChunk = entityChunks[chunkIndex];
+
+      try {
+        // Use batch generation for better efficiency
+        const generatedAlerts = await generateAIAlertBatch({
+          entities: currentChunk,
+          space,
+          examples: exampleAlerts,
+          batchSize: aiBatchSize,
+        });
+
+        // Add the generated alerts to the bulk operations
+        for (const alert of generatedAlerts) {
+          operations.push({
+            index: {
+              _index: getAlertIndex(space),
+              _id: alert['kibana.alert.uuid'],
+            },
+          });
+          operations.push(alert);
+        }
+
+        progress.increment(currentChunk.length);
+      } catch (error) {
+        console.error('Error in batch generation:', error);
+
+        // Fallback to standard generation for this batch
+        for (const entity of currentChunk) {
+          const alert = createAlerts(no_overrides, {
+            userName: entity.userName,
+            hostName: entity.hostName,
+            space,
+          });
+
+          operations.push({
+            index: {
+              _index: getAlertIndex(space),
+              _id: alert['kibana.alert.uuid'],
+            },
+          });
+          operations.push(alert);
+        }
+
+        progress.increment(currentChunk.length);
+      }
+
+      // Send operations to Elasticsearch when we have a reasonable batch size
+      if (
+        operations.length >= batchSize * 2 ||
+        chunkIndex === entityChunks.length - 1
+      ) {
+        try {
+          await bulkUpsert(operations);
+          operations.length = 0; // Clear the array after successful upload
+        } catch (error) {
+          console.error('Error sending batch to Elasticsearch:', error);
+          process.exit(1);
+        }
+      }
+    }
+
+    progress.stop();
+    console.log('AI alert generation completed');
+    return;
+  }
+
+  // Standard generation (non-AI) continues with the existing code
   console.log('Entity names assigned. Batching...');
   const operationBatches = chunk(alertEntityNames, batchSize).map((batch) =>
     batch.flatMap(batchOpForIndex),
@@ -170,30 +379,61 @@ export const generateAlerts = async (
   progress.stop();
 };
 
-// this creates asset criticality not events?
-export const generateEvents = async (n: number) => {
+// Updated to support AI
+export const generateEvents = async (n: number, useAI = false) => {
   const config = getConfig();
 
   if (!config.eventIndex) {
     throw new Error('eventIndex not defined in config');
   }
+
+  if (useAI && !config.useAI) {
+    console.log(
+      'AI generation requested but not enabled in config. Set "useAI": true in config.json',
+    );
+    if (!config.openaiApiKey) {
+      console.log(
+        'OpenAI API key is missing. Add "openaiApiKey": "your-key" to config.json',
+      );
+    }
+    process.exit(1);
+  }
+
   await indexCheck(config.eventIndex, {
     mappings: eventMappings as MappingTypeMapping,
   });
 
-  console.log('Generating events...');
+  console.log(`Generating events${useAI ? ' using AI' : ''}...`);
 
   await generateDocs({
     createDocs: createEvents,
     amount: n,
     index: config.eventIndex,
+    useAI,
   });
 
   console.log('Finished generating events');
 };
 
-export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
-  console.log('Generating alerts graph...');
+export const generateGraph = async ({
+  users = 100,
+  maxHosts = 3,
+  useAI = false,
+}) => {
+  console.log(`Generating alerts graph${useAI ? ' using AI' : ''}...`);
+
+  const config = getConfig();
+  if (useAI && !config.useAI) {
+    console.log(
+      'AI generation requested but not enabled in config. Set "useAI": true in config.json',
+    );
+    if (!config.openaiApiKey) {
+      console.log(
+        'OpenAI API key is missing. Add "openaiApiKey": "your-key" to config.json',
+      );
+    }
+    process.exit(1);
+  }
 
   type AlertOverride = { host: { name: string }; user: { name: string } };
 
@@ -208,20 +448,66 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
     | Partial<AlertOverride>;
 
   const alerts: FakeAlertBulkOperations[] = [];
+
+  // Generate example alerts for AI context
+  const exampleAlerts: BaseCreateAlertsReturnType[] = [];
+  if (useAI && config.useAI) {
+    for (let i = 0; i < 2; i++) {
+      const alert = createAlerts({
+        host: {
+          name: `Host-${i}`,
+        },
+        user: {
+          name: `User-${i}`,
+        },
+      });
+      exampleAlerts.push(alert);
+    }
+  }
+
   for (let i = 0; i < users; i++) {
     const userCluster = [];
     for (let j = 0; j < maxHosts; j++) {
-      const alert = createAlerts({
-        host: {
-          name: 'Host mark',
-        },
-        user: {
-          name: 'User pablo',
-        },
-      });
+      let alert;
+
+      if (useAI && config.useAI && i % 3 === 0) {
+        try {
+          // Use AI for some alerts
+          alert = await generateAIAlert({
+            hostName: `Host-${i}-${j}`,
+            userName: `User-${i}`,
+            examples: exampleAlerts,
+          });
+        } catch (error) {
+          console.error(
+            'Error generating AI alert, falling back to standard generation:',
+            error,
+          );
+          alert = createAlerts({
+            host: {
+              name: `Host-${i}-${j}`,
+            },
+            user: {
+              name: `User-${i}`,
+            },
+          });
+        }
+      } else {
+        alert = createAlerts({
+          host: {
+            name: `Host-${i}-${j}`,
+          },
+          user: {
+            name: `User-${i}`,
+          },
+        });
+      }
+
       userCluster.push(alert);
     }
-    clusters.push(userCluster);
+    clusters.push(
+      userCluster as (ReturnType<typeof createAlerts> & AlertOverride)[],
+    );
   }
 
   let lastAlertFromCluster:

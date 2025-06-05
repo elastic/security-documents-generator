@@ -1,4 +1,4 @@
-import { input, select } from '@inquirer/prompts';
+import { input, select, confirm } from '@inquirer/prompts';
 import fs from 'fs';
 import { configPath, ConfigType } from '../get_config';
 
@@ -57,6 +57,66 @@ export const createConfigFileOnFirstRun = async () => {
     default: 'http://localhost:5601',
   });
 
+  // Add AI configuration
+  const useAI = await confirm({
+    message: 'Do you want to enable AI-powered document generation?',
+    default: false,
+  });
+
+  let openaiApiKey = '';
+  let useAzureOpenAI = false;
+  let azureOpenAIApiKey = '';
+  let azureOpenAIEndpoint = '';
+  let azureOpenAIDeployment = '';
+  let azureOpenAIApiVersion = '';
+
+  if (useAI) {
+    useAzureOpenAI = await confirm({
+      message: 'Do you want to use Azure OpenAI instead of OpenAI?',
+      default: false,
+    });
+
+    if (useAzureOpenAI) {
+      azureOpenAIApiKey = await input({
+        message: 'Enter your Azure OpenAI API key',
+        default: '',
+      });
+
+      if (!azureOpenAIApiKey) {
+        console.log(
+          'Warning: Azure OpenAI enabled but no API key provided. You can add it later to config.json.',
+        );
+      }
+
+      azureOpenAIEndpoint = await input({
+        message:
+          'Enter your Azure OpenAI endpoint (e.g., https://your-resource-name.openai.azure.com)',
+        default: '',
+      });
+
+      azureOpenAIDeployment = await input({
+        message: 'Enter your Azure OpenAI deployment name',
+        default: '',
+      });
+
+      azureOpenAIApiVersion = await input({
+        message: 'Enter your Azure OpenAI API version',
+        default: '2023-05-15',
+      });
+    } else {
+      openaiApiKey = await input({
+        message: 'Enter your OpenAI API key',
+        default: '',
+      });
+
+      if (!openaiApiKey) {
+        console.log(
+          'Warning: AI generation enabled but no API key provided. You can add it later to config.json.',
+        );
+      }
+    }
+  }
+
   const auth =
     authMethod === AuthMethod.ApiKey ? { apiKey } : { username, password };
 
@@ -72,12 +132,19 @@ export const createConfigFileOnFirstRun = async () => {
     serverless: false,
     eventIndex: '',
     eventDateOffsetHours: undefined,
+    useAI,
+    openaiApiKey: openaiApiKey || undefined,
+    useAzureOpenAI,
+    azureOpenAIApiKey: azureOpenAIApiKey || undefined,
+    azureOpenAIEndpoint: azureOpenAIEndpoint || undefined,
+    azureOpenAIDeployment: azureOpenAIDeployment || undefined,
+    azureOpenAIApiVersion: azureOpenAIApiVersion || undefined,
   };
 
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 
   console.log(`
-    
+
     Config file created at ${configPath} 🎉
 
     Now let's run the command you wanted to run...

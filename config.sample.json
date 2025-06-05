@@ -1,0 +1,22 @@
+{
+  "elastic": {
+    "node": "http://localhost:9200",
+    "username": "elastic",
+    "password": "changeme"
+  },
+  "kibana": {
+    "node": "http://localhost:5601",
+    "username": "elastic",
+    "password": "changeme"
+  },
+  "serverless": false,
+  "eventIndex": "logs-testlogs-default",
+  "eventDateOffsetHours": 24,
+  "useAI": true,
+  "openaiApiKey": "<your-openai-api-key-here>",
+  "useAzureOpenAI": true,
+  "azureOpenAIApiKey": "<your-azure-openai-api-key-here>",
+  "azureOpenAIEndpoint": "<your-azure-openai-endpoint-here>",
+  "azureOpenAIDeployment": "<your-azure-openai-deployment-here>",
+  "azureOpenAIApiVersion": "<your-azure-openai-api-version-here>"
+}

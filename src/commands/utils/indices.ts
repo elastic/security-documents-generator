@@ -64,23 +64,51 @@ export const indexCheck = async (
   if (!client) {
     throw new Error();
   }
-  const isExist = await client.indices.exists({ index: index });
-  if (isExist) return;
 
-  console.log('Index does not exist, creating...');
+  // Check if this is a logs index that needs to be a data stream
+  const isLogsIndex = index.startsWith('logs-');
 
-  try {
-    await client.indices.create({
-      index: index,
-      settings: {
-        'index.mapping.total_fields.limit': 10000,
-      },
-      ...body,
-    });
-    console.log('Index created', index);
-  } catch (error) {
-    console.log('Index creation failed', JSON.stringify(error));
-    throw error;
+  if (isLogsIndex) {
+    // For logs indices, check if data stream exists
+    try {
+      // Check if data stream exists by attempting to get its stats
+      const exists = await client.indices
+        .getDataStream({ name: index })
+        .then(() => true)
+        .catch(() => false);
+
+      if (exists) return;
+
+      console.log('Data stream does not exist, creating...');
+
+      // Create data stream
+      await client.indices.createDataStream({ name: index });
+      console.log('Data stream created', index);
+      return;
+    } catch (error) {
+      console.log('Data stream creation failed', JSON.stringify(error));
+      throw error;
+    }
+  } else {
+    // Regular index check
+    const isExist = await client.indices.exists({ index: index });
+    if (isExist) return;
+
+    console.log('Index does not exist, creating...');
+
+    try {
+      await client.indices.create({
+        index: index,
+        settings: {
+          'index.mapping.total_fields.limit': 10000,
+        },
+        ...body,
+      });
+      console.log('Index created', index);
+    } catch (error) {
+      console.log('Index creation failed', JSON.stringify(error));
+      throw error;
+    }
   }
 };
 
@@ -92,12 +120,24 @@ export const ingest = async (index: string, documents: Array<object>) => {
   const chunks = chunk(documents, 10000);
   progressBar.start(documents.length, 0);
 
+  const isDataStream = index.startsWith('logs-');
+
   for (const chunk of chunks) {
     try {
-      const operations = chunk.flatMap((doc) => [
-        { index: { _index: index } },
-        doc,
-      ]);
+      // For data streams, we need to use create operation instead of index
+      const operations = chunk.flatMap((doc) => {
+        if (isDataStream) {
+          return [
+            { create: { _index: index } }, // create for data streams
+            doc,
+          ];
+        } else {
+          return [
+            { index: { _index: index } }, // index for regular indices
+            doc,
+          ];
+        }
+      });
 
       await esClient.bulk({ operations, refresh: true });
       progressBar.increment(chunk.length);

@@ -24,6 +24,14 @@ const Config = t.type({
   serverless: t.union([t.boolean, t.undefined]),
   eventIndex: t.union([t.string, t.undefined]),
   eventDateOffsetHours: t.union([t.number, t.undefined]),
+  openaiApiKey: t.union([t.string, t.undefined]),
+  useAI: t.union([t.boolean, t.undefined]),
+  // Azure OpenAI fields
+  useAzureOpenAI: t.union([t.boolean, t.undefined]),
+  azureOpenAIApiKey: t.union([t.string, t.undefined]),
+  azureOpenAIEndpoint: t.union([t.string, t.undefined]),
+  azureOpenAIDeployment: t.union([t.string, t.undefined]),
+  azureOpenAIApiVersion: t.union([t.string, t.undefined]),
 });
 
 export type ConfigType = t.TypeOf<typeof Config>;
@@ -44,6 +52,16 @@ export const getConfig = (): ConfigType => {
 
   if (!configJson.eventIndex) {
     configJson.eventIndex = 'logs-testlogs-default';
+  }
+
+  // Default AI settings
+  if (configJson.useAI === undefined) {
+    configJson.useAI = false;
+  }
+
+  // Default Azure OpenAI settings
+  if (configJson.useAzureOpenAI === undefined) {
+    configJson.useAzureOpenAI = false;
   }
 
   const validationResult = Config.decode(configJson);

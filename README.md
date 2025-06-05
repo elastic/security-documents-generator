@@ -57,14 +57,62 @@ Examples of config:
 ### Alerts
 `yarn start help` - To see the commands list
 
-`yarn start generate-alerts -n <number of alerts> -h <number of hosts within the alerts> -u <number of users within the alerts> -s <optional space>`
+`yarn start generate-alerts -n <number of alerts> -h <number of hosts within the alerts> -u <number of users within the alerts> -s <optional space> --ai` - Use the `--ai` flag to generate more realistic alerts using AI
 
 `yarn start delete-alerts` - Delete all alerts
+
+### Events
+
+`yarn start generate-events <number of events> --ai` - Generate events, optionally using AI for more realistic data
+
+`yarn start delete-events` - Delete all events
 
 ### API tests
 
 `yarn start test-risk-score` - Test risk score API time response
 
+## AI-Generated Data
+
+The tool now supports AI-powered data generation for more realistic and varied security documents. To use this feature:
+
+1. Add OpenAI API key to your `config.json`:
+```json
+{
+    "elastic": { ... },
+    "kibana": { ... },
+    "useAI": true,
+    "openaiApiKey": "your-openai-api-key-here"
+}
+```
+
+2. Or use Azure OpenAI:
+```json
+{
+    "elastic": { ... },
+    "kibana": { ... },
+    "useAI": true,
+    "useAzureOpenAI": true,
+    "azureOpenAIApiKey": "your-azure-openai-api-key",
+    "azureOpenAIEndpoint": "https://your-resource-name.openai.azure.com",
+    "azureOpenAIDeployment": "your-deployment-name",
+    "azureOpenAIApiVersion": "2023-05-15"
+}
+```
+
+3. Use the `--ai` flag with generation commands:
+```
+yarn start generate-alerts -n 100 -h 10 -u 10 --ai
+yarn start generate-events 100 --ai
+yarn start generate-graph --ai
+```
+
+The AI generation works by:
+- Using the mapping schemas to understand the expected data structure
+- Analyzing example documents to learn patterns
+- Generating more realistic security data with proper relationships between fields
+- Mixing AI-generated data with standard generation for better performance
+
+To preserve performance, the tool uses AI for generating a subset of documents (approximately 1 in 3 or 1 in 5) and falls back to standard generation for the rest.
 
 ### Alert document
 
@@ -82,8 +130,8 @@ yarn start test-risk-score
 
 ## How to generate data for serverless project
 
-1. Get your Elasticsearch url. 
-   
+1. Get your Elasticsearch url.
+
    Go to Cloud -> Projects -> Your serverless project.
 
    Then click Endpoints -> View and copy paste your ES URL to `config.json` into `elastic.node` field.
@@ -94,8 +142,8 @@ yarn start test-risk-score
 
    Create a new API key and past it to `config.json` into `elastic.apiKey` field.
 
-3. (Optional) Change if you want index name in `config.json` in `eventIndex` field. 
-  
+3. (Optional) Change if you want index name in `config.json` in `eventIndex` field.
+
    By default - `logs-testlogs-default`
 
 4. (Optional) Change mappings in `eventMappings.json` file.
@@ -119,7 +167,7 @@ To upload a perf file once, use the `upload-perf-data` command, e.g:
 yarn start upload-perf-data-interval small --delete
 ```
 
-If you omit the file name you will be presented with a picker. 
+If you omit the file name you will be presented with a picker.
 
 #### Send at an interval
 A better test is to send data at an interval to put the system under continued load.
@@ -151,7 +199,7 @@ total 464
 
 ### Generating a data file
 
-To generate a data file for performance testing, use the `create-perf-data` command. 
+To generate a data file for performance testing, use the `create-perf-data` command.
 
 E.g this is how 'large' was created:
 
@@ -161,7 +209,7 @@ yarn start create-perf-data large 100000 5
 ```
 
 Entities are split 50/50 host/user.
-The log messages created contain incremental data, e.g the first log message for a host would contain IP 192.168.1.0 and 192.168.1.1, the second log would contain 192.168.1.2 and 192.168.1.3. This way when 5 log messages are sent, an entity should have 10 IP addresses ranging from 0 - 10. 
+The log messages created contain incremental data, e.g the first log message for a host would contain IP 192.168.1.0 and 192.168.1.1, the second log would contain 192.168.1.2 and 192.168.1.3. This way when 5 log messages are sent, an entity should have 10 IP addresses ranging from 0 - 10.
 
 
 ### Generate rules and gaps
