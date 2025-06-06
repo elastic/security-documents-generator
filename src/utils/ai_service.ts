@@ -583,14 +583,20 @@ ${examples.length > 0 ? 'Reference examples: ' + examplesContext : ''}`,
         // Debug: Log the raw response (remove in production)
         if (process.env.DEBUG_AI_RESPONSES) {
           console.log('DEBUG - Raw AI response length:', rawContent.length);
-          console.log('DEBUG - First 1000 chars:', rawContent.substring(0, 1000));
+          console.log(
+            'DEBUG - First 1000 chars:',
+            rawContent.substring(0, 1000),
+          );
         }
 
         // Clean and validate the JSON content
         const cleanedContent = sanitizeJSONResponse(rawContent);
         if (process.env.DEBUG_AI_RESPONSES) {
           console.log('DEBUG - Cleaned content length:', cleanedContent.length);
-          console.log('DEBUG - Cleaned content preview:', cleanedContent.substring(0, 500));
+          console.log(
+            'DEBUG - Cleaned content preview:',
+            cleanedContent.substring(0, 500),
+          );
         }
 
         const content = JSON.parse(cleanedContent);
@@ -599,14 +605,20 @@ ${examples.length > 0 ? 'Reference examples: ' + examplesContext : ''}`,
         if (Array.isArray(content)) {
           generatedAlerts = content;
         } else if (content && typeof content === 'object') {
-          // Check if the object has an 'alerts' property or similar
+          // Check if the object has an 'alerts', 'alert', or 'data' property
           if (content.alerts && Array.isArray(content.alerts)) {
             generatedAlerts = content.alerts;
+          } else if (content.alert && Array.isArray(content.alert)) {
+            generatedAlerts = content.alert;
           } else if (content.data && Array.isArray(content.data)) {
             generatedAlerts = content.data;
           } else {
-            // Single object response, wrap in array
-            generatedAlerts = [content];
+            // Single object response - replicate it for each entity if we need multiple
+            if (batch.length > 1) {
+              generatedAlerts = batch.map(() => ({ ...content }));
+            } else {
+              generatedAlerts = [content];
+            }
           }
         } else {
           generatedAlerts = [];
@@ -614,7 +626,9 @@ ${examples.length > 0 ? 'Reference examples: ' + examplesContext : ''}`,
 
         // Validate that we have the expected number of alerts
         if (generatedAlerts.length !== batch.length) {
-          console.warn(`Expected ${batch.length} alerts, got ${generatedAlerts.length}. Padding with defaults.`);
+          console.warn(
+            `Expected ${batch.length} alerts, got ${generatedAlerts.length}. Padding with defaults.`,
+          );
 
           // Pad with empty objects if we have fewer alerts than expected
           while (generatedAlerts.length < batch.length) {
@@ -627,9 +641,17 @@ ${examples.length > 0 ? 'Reference examples: ' + examplesContext : ''}`,
         console.error('Raw response length:', contentLength);
 
         if (response.choices[0].message.content) {
-          console.error('First 500 chars:', response.choices[0].message.content.substring(0, 500));
+          console.error(
+            'First 500 chars:',
+            response.choices[0].message.content.substring(0, 500),
+          );
           if (contentLength > 500) {
-            console.error('Last 500 chars:', response.choices[0].message.content.substring(contentLength - 500));
+            console.error(
+              'Last 500 chars:',
+              response.choices[0].message.content.substring(
+                contentLength - 500,
+              ),
+            );
           }
         }
 
@@ -729,13 +751,16 @@ const sanitizeJSONResponse = (rawContent: string): string => {
     const lastBracket = cleaned.lastIndexOf(']');
 
     // Determine if we have an object or array
-    if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
-      // Object format
+    if (
+      firstBrace !== -1 &&
+      (firstBracket === -1 || firstBrace < firstBracket)
+    ) {
+      // Object format - extract the complete object
       if (lastBrace !== -1) {
         cleaned = cleaned.substring(firstBrace, lastBrace + 1);
       }
     } else if (firstBracket !== -1) {
-      // Array format
+      // Array format - extract the complete array
       if (lastBracket !== -1) {
         cleaned = cleaned.substring(firstBracket, lastBracket + 1);
       }
@@ -756,11 +781,26 @@ const sanitizeJSONResponse = (rawContent: string): string => {
     // Validate basic JSON structure
     try {
       JSON.parse(cleaned);
+      if (process.env.DEBUG_AI_RESPONSES) {
+        console.log(
+          'DEBUG - Successfully parsed cleaned JSON, length:',
+          cleaned.length,
+        );
+      }
       return cleaned;
-    } catch {
+    } catch (parseError) {
+      if (process.env.DEBUG_AI_RESPONSES) {
+        console.log('DEBUG - JSON parse failed:', parseError);
+        console.log('DEBUG - Attempting object extraction...');
+      }
       // If still invalid, try to extract valid JSON objects
       const objects = extractValidJSONObjects(cleaned);
-      return objects.length > 0 ? JSON.stringify(objects) : '[]';
+      const result = objects.length > 0 ? JSON.stringify(objects) : '[]';
+      if (process.env.DEBUG_AI_RESPONSES) {
+        console.log('DEBUG - Extracted objects count:', objects.length);
+        console.log('DEBUG - Final result length:', result.length);
+      }
+      return result;
     }
   } catch (error) {
     console.warn('JSON sanitization failed, returning empty array:', error);
