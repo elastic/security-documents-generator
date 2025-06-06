@@ -28,10 +28,34 @@ import {
   SUPPORTED_PAD_JOBS,
 } from './commands/privileged_access_detection_ml/privileged_access_detection_ml';
 import { promptForFileSelection } from './commands/utils/cli_utils';
+import { getConfig } from './get_config';
 
 await createConfigFileOnFirstRun();
 
 const parseIntBase10 = (input: string) => parseInt(input, 10);
+
+// Phase 3: Apply configuration overrides for command-line flags
+const applyPhase3ConfigOverrides = (options: any) => {
+  const config = getConfig();
+
+  // Override MITRE configuration based on flags
+  if (options.subTechniques && config.mitre) {
+    config.mitre.includeSubTechniques = true;
+    console.log('Sub-techniques enabled for this generation');
+  }
+
+  if (options.attackChains && config.mitre) {
+    config.mitre.enableAttackChains = true;
+    config.mitre.chainProbability = 0.4; // Higher probability for CLI flag
+    console.log('Attack chains enabled for this generation');
+  }
+
+  if (options.largeScale && config.generation?.performance) {
+    config.generation.performance.enableLargeScale = true;
+    config.generation.performance.largeScaleThreshold = 500; // Lower threshold for CLI
+    console.log('Large-scale optimizations enabled for this generation');
+  }
+};
 
 program
   .command('generate-alerts')
@@ -40,8 +64,40 @@ program
   .option('-u <h>', 'number of users')
   .option('-s <h>', 'space (will be created if it does not exist)')
   .option('--ai', 'use AI to generate some of the alerts', false)
+  .option(
+    '--mitre',
+    'use MITRE ATT&CK framework for realistic attack scenarios (requires --ai)',
+    false,
+  )
+  .option(
+    '--sub-techniques',
+    'include MITRE sub-techniques in generated alerts (requires --mitre)',
+    false,
+  )
+  .option(
+    '--attack-chains',
+    'generate realistic attack chains with multiple techniques (requires --mitre)',
+    false,
+  )
+  .option(
+    '--large-scale',
+    'enable performance optimizations for large datasets (>1000)',
+    false,
+  )
+  .option(
+    '--start-date <date>',
+    'start date for data generation (e.g., "7d", "1w", "2024-01-01")',
+  )
+  .option(
+    '--end-date <date>',
+    'end date for data generation (e.g., "now", "1d", "2024-01-10")',
+  )
+  .option(
+    '--time-pattern <pattern>',
+    'time distribution pattern: uniform, business_hours, random, attack_simulation, weekend_heavy',
+  )
   .description(
-    'Generate fake alerts (use --ai flag to generate realistic alerts with AI)',
+    'Generate fake alerts (use --ai for realistic alerts, --mitre for MITRE ATT&CK scenarios)',
   )
   .action(async (options) => {
     const alertsCount = parseInt(options.n || '1');
@@ -49,23 +105,94 @@ program
     const userCount = parseInt(options.u || '1');
     const space = options.s || 'default';
     const useAI = options.ai || false;
+    const useMitre = options.mitre || false;
+
+    // Validate Phase 3 flag dependencies
+    if (useMitre && !useAI) {
+      console.error('Error: --mitre flag requires --ai to be enabled');
+      process.exit(1);
+    }
+    if (options.subTechniques && !useMitre) {
+      console.error('Error: --sub-techniques flag requires --mitre to be enabled');
+      process.exit(1);
+    }
+    if (options.attackChains && !useMitre) {
+      console.error('Error: --attack-chains flag requires --mitre to be enabled');
+      process.exit(1);
+    }
+
+    // Apply Phase 3 configuration overrides if flags are used
+    if (options.subTechniques || options.attackChains || options.largeScale) {
+      applyPhase3ConfigOverrides(options);
+    }
 
     if (space !== 'default') {
       await initializeSpace(space);
     }
 
-    generateAlerts(alertsCount, userCount, hostCount, space, useAI);
+    generateAlerts(alertsCount, userCount, hostCount, space, useAI, useMitre);
   });
 
 program
   .command('generate-events')
   .argument('<n>', 'integer argument', parseIntBase10)
   .option('--ai', 'use AI to generate some of the events', false)
+  .option(
+    '--mitre',
+    'use MITRE ATT&CK framework for realistic attack scenarios (requires --ai)',
+    false,
+  )
+  .option(
+    '--sub-techniques',
+    'include MITRE sub-techniques in generated alerts (requires --mitre)',
+    false,
+  )
+  .option(
+    '--attack-chains',
+    'generate realistic attack chains with multiple techniques (requires --mitre)',
+    false,
+  )
+  .option(
+    '--large-scale',
+    'enable performance optimizations for large datasets (>1000)',
+    false,
+  )
+  .option(
+    '--start-date <date>',
+    'start date for data generation (e.g., "7d", "1w", "2024-01-01")',
+  )
+  .option(
+    '--end-date <date>',
+    'end date for data generation (e.g., "now", "1d", "2024-01-10")',
+  )
+  .option(
+    '--time-pattern <pattern>',
+    'time distribution pattern: uniform, business_hours, random, attack_simulation, weekend_heavy',
+  )
   .description(
-    'Generate events (use --ai flag to generate realistic events with AI)',
+    'Generate events (use --ai for realistic events, --mitre for MITRE ATT&CK scenarios)',
   )
   .action((n, options) => {
-    generateEvents(n, options.ai);
+    // Validate flag dependencies
+    if (options.mitre && !options.ai) {
+      console.error('Error: --mitre flag requires --ai to be enabled');
+      process.exit(1);
+    }
+    if (options.subTechniques && !options.mitre) {
+      console.error('Error: --sub-techniques flag requires --mitre to be enabled');
+      process.exit(1);
+    }
+    if (options.attackChains && !options.mitre) {
+      console.error('Error: --attack-chains flag requires --mitre to be enabled');
+      process.exit(1);
+    }
+
+    // Apply Phase 3 configuration overrides if flags are used
+    if (options.subTechniques || options.attackChains || options.largeScale) {
+      applyPhase3ConfigOverrides(options);
+    }
+
+    generateEvents(n, options.ai, options.mitre);
   });
 
 program
@@ -93,6 +220,26 @@ program
   .command('delete-events')
   .description('Delete all events')
   .action(deleteAllEvents);
+
+program
+  .command('test-mitre')
+  .description('Test MITRE ATT&CK integration by generating sample alerts')
+  .option('-n <n>', 'number of test alerts to generate', '5')
+  .option('-s <space>', 'space to use', 'default')
+  .action(async (options) => {
+    const alertCount = parseInt(options.n || '5');
+    const space = options.space || 'default';
+
+    console.log(
+      `Testing MITRE integration with ${alertCount} alerts in space '${space}'...`,
+    );
+
+    if (space !== 'default') {
+      await initializeSpace(space);
+    }
+
+    generateAlerts(alertCount, 3, 2, space, true, true);
+  });
 
 program
   .command('test-risk-score')

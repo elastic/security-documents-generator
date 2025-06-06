@@ -1,4 +1,5 @@
 import { faker } from '@faker-js/faker';
+import { generateTimestamp } from './utils/timestamp_utils';
 
 function baseCreateAlerts({
   userName = 'user-1',
@@ -51,7 +52,7 @@ function baseCreateAlerts({
     'kibana.alert.rule.uuid': faker.string.uuid(),
     'kibana.space_ids': [space],
     'kibana.alert.rule.tags': [],
-    '@timestamp': Date.now(),
+    '@timestamp': generateTimestamp(),
     'event.kind': 'signal',
     'kibana.alert.original_time': '2023-04-11T20:17:14.851Z',
     'kibana.alert.ancestors': [

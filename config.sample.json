@@ -14,9 +14,68 @@
   "eventDateOffsetHours": 24,
   "useAI": true,
   "openaiApiKey": "<your-openai-api-key-here>",
-  "useAzureOpenAI": true,
+  "useAzureOpenAI": false,
   "azureOpenAIApiKey": "<your-azure-openai-api-key-here>",
   "azureOpenAIEndpoint": "<your-azure-openai-endpoint-here>",
   "azureOpenAIDeployment": "<your-azure-openai-deployment-here>",
-  "azureOpenAIApiVersion": "<your-azure-openai-api-version-here>"
+  "azureOpenAIApiVersion": "<your-azure-openai-api-version-here>",
+  "mitre": {
+    "enabled": true,
+    "tactics": ["TA0001", "TA0002", "TA0003", "TA0004", "TA0005"],
+    "maxTechniquesPerAlert": 2,
+    "includeSubTechniques": false,
+    "probabilityOfMitreAlert": 0.3,
+    "enableAttackChains": false,
+    "maxChainLength": 3,
+    "chainProbability": 0.15
+  },
+  "generation": {
+    "alerts": {
+      "defaultCount": 100,
+      "batchSize": 10,
+      "maxFields": 50,
+      "minFields": 15,
+      "largeBatchSize": 25,
+      "maxLargeBatchSize": 50,
+      "parallelBatches": 3
+    },
+    "events": {
+      "defaultCount": 500,
+      "batchSize": 20,
+      "maxFields": 40,
+      "minFields": 10,
+      "largeBatchSize": 40,
+      "maxLargeBatchSize": 80,
+      "parallelBatches": 4
+    },
+    "entities": {
+      "defaultHosts": 20,
+      "defaultUsers": 15,
+      "maxHostsPerBatch": 100,
+      "maxUsersPerBatch": 100
+    },
+    "performance": {
+      "enableLargeScale": false,
+      "largeScaleThreshold": 1000,
+      "maxConcurrentRequests": 5,
+      "requestDelayMs": 100,
+      "cacheEnabled": true,
+      "maxCacheSize": 200,
+      "progressReporting": true
+    }
+  },
+  "timestamps": {
+    "startDate": "7d",
+    "endDate": "now",
+    "pattern": "uniform",
+    "enableMultiDay": true,
+    "daySpread": 7,
+    "examples": {
+      "7_days_ago": "7d",
+      "1_week_ago": "1w",
+      "1_month_ago": "1M",
+      "specific_date": "2024-01-01T00:00:00Z",
+      "patterns": ["uniform", "business_hours", "random", "attack_simulation", "weekend_heavy"]
+    }
+  }
 }

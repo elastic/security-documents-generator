@@ -1,0 +1,219 @@
+{
+  "tactics": {
+    "TA0001": {
+      "name": "Initial Access",
+      "description": "Adversaries attempt to gain an initial foothold within your network",
+      "techniques": ["T1078", "T1190", "T1566", "T1133", "T1195"]
+    },
+    "TA0002": {
+      "name": "Execution",
+      "description": "Adversaries attempt to run malicious code",
+      "techniques": ["T1059", "T1053", "T1569", "T1204", "T1047"]
+    },
+    "TA0003": {
+      "name": "Persistence",
+      "description": "Adversaries attempt to maintain their foothold",
+      "techniques": ["T1053", "T1543", "T1547", "T1078", "T1136"]
+    },
+    "TA0004": {
+      "name": "Privilege Escalation",
+      "description": "Adversaries attempt to gain higher-level permissions",
+      "techniques": ["T1078", "T1548", "T1134", "T1055", "T1543"]
+    },
+    "TA0005": {
+      "name": "Defense Evasion",
+      "description": "Adversaries attempt to avoid being detected",
+      "techniques": ["T1055", "T1027", "T1070", "T1036", "T1218"]
+    }
+  },
+  "techniques": {
+    "T1078": {
+      "name": "Valid Accounts",
+      "description": "Adversaries may obtain and abuse credentials of existing accounts",
+      "tactics": ["TA0001", "TA0003", "TA0004"],
+      "subTechniques": ["T1078.001", "T1078.002", "T1078.003"],
+      "chainNext": ["T1059", "T1055", "T1136"]
+    },
+    "T1190": {
+      "name": "Exploit Public-Facing Application",
+      "description": "Adversaries may attempt to exploit a weakness in an Internet-facing host",
+      "tactics": ["TA0001"],
+      "subTechniques": [],
+      "chainNext": ["T1059", "T1204", "T1078"]
+    },
+    "T1566": {
+      "name": "Phishing",
+      "description": "Adversaries may send spearphishing emails to obtain initial access",
+      "tactics": ["TA0001"],
+      "subTechniques": ["T1566.001", "T1566.002", "T1566.003"],
+      "chainNext": ["T1204", "T1059", "T1078"]
+    },
+    "T1133": {
+      "name": "External Remote Services",
+      "description": "Adversaries may leverage external-facing remote services",
+      "tactics": ["TA0001"],
+      "subTechniques": [],
+      "chainNext": ["T1078", "T1055", "T1053"]
+    },
+    "T1195": {
+      "name": "Supply Chain Compromise",
+      "description": "Adversaries may manipulate products prior to receipt by the end consumer",
+      "tactics": ["TA0001"],
+      "subTechniques": ["T1195.001", "T1195.002"],
+      "chainNext": ["T1055", "T1027", "T1543"]
+    },
+    "T1059": {
+      "name": "Command and Scripting Interpreter",
+      "description": "Adversaries may abuse command and script interpreters",
+      "tactics": ["TA0002"],
+      "subTechniques": ["T1059.001", "T1059.003", "T1059.007"],
+      "chainNext": ["T1055", "T1053", "T1027"]
+    },
+    "T1053": {
+      "name": "Scheduled Task/Job",
+      "description": "Adversaries may abuse task scheduling functionality",
+      "tactics": ["TA0002", "TA0003"],
+      "subTechniques": ["T1053.002", "T1053.003", "T1053.005"],
+      "chainNext": ["T1543", "T1055", "T1070"]
+    },
+    "T1569": {
+      "name": "System Services",
+      "description": "Adversaries may abuse system services or daemons",
+      "tactics": ["TA0002"],
+      "subTechniques": ["T1569.001", "T1569.002"],
+      "chainNext": ["T1543", "T1055", "T1547"]
+    },
+    "T1204": {
+      "name": "User Execution",
+      "description": "Adversaries may rely upon specific actions by a user",
+      "tactics": ["TA0002"],
+      "subTechniques": ["T1204.001", "T1204.002"],
+      "chainNext": ["T1059", "T1055", "T1027"]
+    },
+    "T1047": {
+      "name": "Windows Management Instrumentation",
+      "description": "Adversaries may abuse Windows Management Instrumentation (WMI)",
+      "tactics": ["TA0002"],
+      "subTechniques": [],
+      "chainNext": ["T1055", "T1543", "T1070"]
+    },
+    "T1543": {
+      "name": "Create or Modify System Process",
+      "description": "Adversaries may create or modify system-level processes",
+      "tactics": ["TA0003", "TA0004"],
+      "subTechniques": ["T1543.001", "T1543.002", "T1543.003"],
+      "chainNext": ["T1055", "T1070", "T1036"]
+    },
+    "T1547": {
+      "name": "Boot or Logon Autostart Execution",
+      "description": "Adversaries may configure system settings to automatically execute a program",
+      "tactics": ["TA0003"],
+      "subTechniques": ["T1547.001", "T1547.004", "T1547.009"],
+      "chainNext": ["T1055", "T1027", "T1070"]
+    },
+    "T1136": {
+      "name": "Create Account",
+      "description": "Adversaries may create an account to maintain access",
+      "tactics": ["TA0003"],
+      "subTechniques": ["T1136.001", "T1136.002"],
+      "chainNext": ["T1078", "T1055", "T1070"]
+    },
+    "T1548": {
+      "name": "Abuse Elevation Control Mechanism",
+      "description": "Adversaries may circumvent mechanisms designed to control elevated privileges",
+      "tactics": ["TA0004"],
+      "subTechniques": ["T1548.002", "T1548.003"],
+      "chainNext": ["T1055", "T1134", "T1027"]
+    },
+    "T1134": {
+      "name": "Access Token Manipulation",
+      "description": "Adversaries may modify access tokens to operate under different user contexts",
+      "tactics": ["TA0004"],
+      "subTechniques": ["T1134.001", "T1134.002", "T1134.003"],
+      "chainNext": ["T1055", "T1027", "T1070"]
+    },
+    "T1055": {
+      "name": "Process Injection",
+      "description": "Adversaries may inject code into processes",
+      "tactics": ["TA0004", "TA0005"],
+      "subTechniques": ["T1055.001", "T1055.002", "T1055.012"],
+      "chainNext": ["T1027", "T1070", "T1036"]
+    },
+    "T1027": {
+      "name": "Obfuscated Files or Information",
+      "description": "Adversaries may attempt to make an executable or file difficult to discover",
+      "tactics": ["TA0005"],
+      "subTechniques": ["T1027.001", "T1027.002", "T1027.004"],
+      "chainNext": ["T1070", "T1036", "T1218"]
+    },
+    "T1070": {
+      "name": "Indicator Removal on Host",
+      "description": "Adversaries may delete or modify artifacts generated within systems",
+      "tactics": ["TA0005"],
+      "subTechniques": ["T1070.001", "T1070.003", "T1070.004"],
+      "chainNext": ["T1036", "T1218"]
+    },
+    "T1036": {
+      "name": "Masquerading",
+      "description": "Adversaries may attempt to manipulate features of their artifacts",
+      "tactics": ["TA0005"],
+      "subTechniques": ["T1036.003", "T1036.004", "T1036.005"],
+      "chainNext": ["T1218", "T1070"]
+    },
+    "T1218": {
+      "name": "Signed Binary Proxy Execution",
+      "description": "Adversaries may bypass process whitelisting by proxying execution",
+      "tactics": ["TA0005"],
+      "subTechniques": ["T1218.001", "T1218.005", "T1218.010"],
+      "chainNext": ["T1070", "T1036"]
+    }
+  },
+  "subTechniques": {
+    "T1078.001": {"name": "Default Accounts", "parent": "T1078"},
+    "T1078.002": {"name": "Domain Accounts", "parent": "T1078"},
+    "T1078.003": {"name": "Local Accounts", "parent": "T1078"},
+    "T1566.001": {"name": "Spearphishing Attachment", "parent": "T1566"},
+    "T1566.002": {"name": "Spearphishing Link", "parent": "T1566"},
+    "T1566.003": {"name": "Spearphishing via Service", "parent": "T1566"},
+    "T1195.001": {"name": "Compromise Software Dependencies and Development Tools", "parent": "T1195"},
+    "T1195.002": {"name": "Compromise Software Supply Chain", "parent": "T1195"},
+    "T1059.001": {"name": "PowerShell", "parent": "T1059"},
+    "T1059.003": {"name": "Windows Command Shell", "parent": "T1059"},
+    "T1059.007": {"name": "JavaScript", "parent": "T1059"},
+    "T1053.002": {"name": "At (Windows)", "parent": "T1053"},
+    "T1053.003": {"name": "Cron", "parent": "T1053"},
+    "T1053.005": {"name": "Scheduled Task", "parent": "T1053"},
+    "T1569.001": {"name": "Launchctl", "parent": "T1569"},
+    "T1569.002": {"name": "Service Execution", "parent": "T1569"},
+    "T1204.001": {"name": "Malicious Link", "parent": "T1204"},
+    "T1204.002": {"name": "Malicious File", "parent": "T1204"},
+    "T1543.001": {"name": "Launch Agent", "parent": "T1543"},
+    "T1543.002": {"name": "Systemd Service", "parent": "T1543"},
+    "T1543.003": {"name": "Windows Service", "parent": "T1543"},
+    "T1547.001": {"name": "Registry Run Keys / Startup Folder", "parent": "T1547"},
+    "T1547.004": {"name": "Winlogon Helper DLL", "parent": "T1547"},
+    "T1547.009": {"name": "Shortcut Modification", "parent": "T1547"},
+    "T1136.001": {"name": "Local Account", "parent": "T1136"},
+    "T1136.002": {"name": "Domain Account", "parent": "T1136"},
+    "T1548.002": {"name": "Bypass User Access Control", "parent": "T1548"},
+    "T1548.003": {"name": "Sudo and Sudo Caching", "parent": "T1548"},
+    "T1134.001": {"name": "Token Impersonation/Theft", "parent": "T1134"},
+    "T1134.002": {"name": "Create Process with Token", "parent": "T1134"},
+    "T1134.003": {"name": "Make and Impersonate Token", "parent": "T1134"},
+    "T1055.001": {"name": "Dynamic-link Library Injection", "parent": "T1055"},
+    "T1055.002": {"name": "Portable Executable Injection", "parent": "T1055"},
+    "T1055.012": {"name": "Process Hollowing", "parent": "T1055"},
+    "T1027.001": {"name": "Binary Padding", "parent": "T1027"},
+    "T1027.002": {"name": "Software Packing", "parent": "T1027"},
+    "T1027.004": {"name": "Compile After Delivery", "parent": "T1027"},
+    "T1070.001": {"name": "Clear Windows Event Logs", "parent": "T1070"},
+    "T1070.003": {"name": "Clear Command History", "parent": "T1070"},
+    "T1070.004": {"name": "File Deletion", "parent": "T1070"},
+    "T1036.003": {"name": "Rename System Utilities", "parent": "T1036"},
+    "T1036.004": {"name": "Masquerade Task or Service", "parent": "T1036"},
+    "T1036.005": {"name": "Match Legitimate Name or Location", "parent": "T1036"},
+    "T1218.001": {"name": "Compiled HTML File", "parent": "T1218"},
+    "T1218.005": {"name": "Mshta", "parent": "T1218"},
+    "T1218.010": {"name": "Regsvr32", "parent": "T1218"}
+  }
+}

@@ -114,19 +114,293 @@ The AI generation works by:
 
 To preserve performance, the tool uses AI for generating a subset of documents (approximately 1 in 3 or 1 in 5) and falls back to standard generation for the rest.
 
-### Alert document
+## 🚀 **MITRE ATT&CK Integration (Phase 3: Scale & Performance)**
 
-To modify alert document, you can change `createAlert.ts` file.
+This tool now supports advanced MITRE ATT&CK framework integration with **Phase 3 enhancements** including sub-techniques, attack chains, and large-scale generation optimizations.
 
+### **Phase 3 Features**
 
-### How to test Risk Score API
+#### **✅ Implemented Features:**
+- **Sub-techniques Support**: Generate alerts with MITRE sub-techniques (e.g., T1566.001, T1078.002)
+- **Attack Chains**: Multi-stage attack scenarios with technique progression
+- **Large-Scale Generation**: Performance optimizations for datasets >1000 alerts
+- **Adaptive Batch Sizing**: Dynamic batch sizes based on dataset size
+- **Parallel Processing**: Concurrent batch processing for improved performance
+- **Enhanced Caching**: Improved caching with configurable size limits
+- **Dynamic Risk Scoring**: Severity adjustment based on technique combinations
 
-Example list of command for testing Risk Score API worth 10.000 alerts.
+#### **🎯 MITRE Configuration**
+
+Add this to your `config.json`:
+
+```json
+{
+  "mitre": {
+    "enabled": true,
+    "tactics": ["TA0001", "TA0002", "TA0003", "TA0004", "TA0005"],
+    "maxTechniquesPerAlert": 2,
+    "includeSubTechniques": false,
+    "probabilityOfMitreAlert": 0.3,
+    "enableAttackChains": false,
+    "maxChainLength": 3,
+    "chainProbability": 0.15
+  },
+  "generation": {
+    "alerts": {
+      "defaultCount": 100,
+      "batchSize": 10,
+      "largeBatchSize": 25,
+      "maxLargeBatchSize": 50,
+      "parallelBatches": 3
+    },
+    "performance": {
+      "enableLargeScale": false,
+      "largeScaleThreshold": 1000,
+      "maxConcurrentRequests": 5,
+      "requestDelayMs": 100,
+      "cacheEnabled": true,
+      "maxCacheSize": 200,
+      "progressReporting": true
+    }
+  }
+}
 ```
-yarn start delete-alerts
-yarn start generate-alerts -n 10000 -h 100 -u 100
-yarn start test-risk-score
+
+### **📋 Command Reference**
+
+| Command | Description | Phase 3 Flags |
+|---------|-------------|----------------|
+| `generate-alerts` | Generate security alerts | `--sub-techniques`, `--attack-chains`, `--large-scale`, `--start-date`, `--end-date`, `--time-pattern` |
+| `generate-events` | Generate security events | `--sub-techniques`, `--attack-chains`, `--large-scale`, `--start-date`, `--end-date`, `--time-pattern` |
+
+#### **Phase 3 Command-Line Flags:**
+
+- `--sub-techniques`: Include MITRE sub-techniques (requires `--mitre`)
+- `--attack-chains`: Generate realistic attack chains (requires `--mitre`)
+- `--large-scale`: Enable performance optimizations for large datasets
+- `--start-date <date>`: Start date for data generation (e.g., "7d", "1w", "2024-01-01")
+- `--end-date <date>`: End date for data generation (e.g., "now", "1d", "2024-01-10")
+- `--time-pattern <pattern>`: Time distribution pattern for realistic scenarios
+
+### **🔧 Usage Examples**
+
+#### **Basic MITRE Generation:**
+```bash
+yarn start generate-alerts -n 10 -h 5 -u 3 --ai --mitre
 ```
+
+#### **Phase 3: Sub-techniques:**
+```bash
+yarn start generate-alerts -n 10 -h 5 -u 3 --ai --mitre --sub-techniques
+```
+
+#### **Phase 3: Attack Chains:**
+```bash
+yarn start generate-alerts -n 20 -h 10 -u 5 --ai --mitre --attack-chains
+```
+
+#### **Phase 3: Large-Scale Generation:**
+```bash
+yarn start generate-alerts -n 2000 -h 100 -u 50 --ai --mitre --large-scale
+```
+
+#### **Phase 3: Combined Features:**
+```bash
+yarn start generate-alerts -n 1000 -h 50 -u 25 --ai --mitre --sub-techniques --attack-chains --large-scale
+```
+
+#### **Phase 3: Multi-Day Timestamp Generation:**
+```bash
+# Generate alerts over the last 7 days with business hours pattern
+yarn start generate-alerts -n 100 -h 10 -u 5 --start-date "7d" --end-date "now" --time-pattern "business_hours"
+
+# Generate weekend-heavy activity over 2 weeks
+yarn start generate-alerts -n 200 -h 20 -u 10 --start-date "2w" --time-pattern "weekend_heavy"
+
+# Simulate attack patterns over 1 month
+yarn start generate-alerts -n 500 -h 50 -u 25 --ai --mitre --attack-chains --start-date "1M" --time-pattern "attack_simulation"
+
+# Generate data for specific date range
+yarn start generate-alerts -n 50 -h 5 -u 3 --start-date "2024-01-01" --end-date "2024-01-07" --time-pattern "uniform"
+```
+
+### **🎯 MITRE ATT&CK Coverage**
+
+#### **Supported Tactics:**
+- **TA0001**: Initial Access
+- **TA0002**: Execution
+- **TA0003**: Persistence
+- **TA0004**: Privilege Escalation
+- **TA0005**: Defense Evasion
+
+#### **Phase 3 Sub-techniques Examples:**
+- **T1566.001**: Spearphishing Attachment
+- **T1566.002**: Spearphishing Link
+- **T1078.001**: Default Accounts
+- **T1078.002**: Domain Accounts
+- **T1055.001**: Dynamic-link Library Injection
+- **T1055.012**: Process Hollowing
+
+#### **Attack Chain Examples:**
+1. **Phishing → Execution → Persistence**
+   - T1566 (Phishing) → T1204 (User Execution) → T1053 (Scheduled Task)
+
+2. **Initial Access → Privilege Escalation → Defense Evasion**
+   - T1078 (Valid Accounts) → T1055 (Process Injection) → T1027 (Obfuscation)
+
+### **📅 Timestamp Configuration**
+
+#### **Date Range Formats:**
+- **Relative dates**: `"7d"` (7 days ago), `"1w"` (1 week), `"1M"` (1 month), `"1y"` (1 year)
+- **Absolute dates**: `"2024-01-01T00:00:00Z"`, `"2024-12-31"`
+- **Special values**: `"now"` (current time)
+
+#### **Time Distribution Patterns:**
+
+| Pattern | Description | Use Case |
+|---------|-------------|----------|
+| `uniform` | Even distribution across time range | General testing, baseline data |
+| `business_hours` | 70% during 9 AM - 6 PM, Mon-Fri | Corporate environment simulation |
+| `random` | High variance, completely random | Stress testing, edge cases |
+| `attack_simulation` | Burst patterns, late-night activity | Security incident simulation |
+| `weekend_heavy` | 60% weekend activity | Unusual activity detection |
+
+#### **Timestamp Configuration:**
+```json
+{
+  "timestamps": {
+    "startDate": "7d",
+    "endDate": "now",
+    "pattern": "business_hours",
+    "enableMultiDay": true,
+    "daySpread": 7
+  }
+}
+```
+
+#### **Attack Chain Timestamps:**
+When using `--attack-chains`, timestamps follow realistic attack progression:
+- **Tight sequence**: 1-15 minutes between techniques
+- **Burst pattern**: Seconds to few minutes (rapid execution)
+- **Spread pattern**: Hours between techniques (persistent threats)
+
+### **⚡ Performance Features**
+
+#### **Large-Scale Optimizations:**
+- **Adaptive Batching**: Automatically adjusts batch sizes for datasets >1000
+- **Parallel Processing**: Concurrent batch processing (configurable)
+- **Request Rate Limiting**: Respects API rate limits with configurable delays
+- **Enhanced Caching**: Improved cache management with size limits
+- **Progress Reporting**: Real-time progress tracking for large operations
+
+#### **Performance Configuration:**
+```json
+{
+  "generation": {
+    "performance": {
+      "enableLargeScale": true,
+      "largeScaleThreshold": 1000,
+      "maxConcurrentRequests": 5,
+      "requestDelayMs": 100,
+      "maxCacheSize": 200
+    }
+  },
+  "timestamps": {
+    "startDate": "30d",
+    "endDate": "now",
+    "pattern": "business_hours",
+    "enableMultiDay": true,
+    "daySpread": 30
+  }
+}
+```
+
+#### **Time Range Statistics:**
+The system automatically calculates time range statistics:
+```javascript
+// Example output for 7-day range
+{
+  totalDays: 7,
+  totalHours: 168,
+  weekdays: 5,
+  weekends: 2,
+  businessHours: 45  // 9 AM - 6 PM on weekdays
+}
+```
+
+### **🔍 Generated Alert Fields**
+
+Phase 3 alerts include enhanced MITRE fields:
+
+```json
+{
+  "threat.technique.id": ["T1566.001", "T1204.002"],
+  "threat.technique.name": ["Spearphishing Attachment", "Malicious File"],
+  "threat.tactic.id": ["TA0001", "TA0002"],
+  "threat.tactic.name": ["Initial Access", "Execution"],
+  "threat.attack_chain.id": "chain-1234567890-abc123",
+  "threat.attack_chain.severity": "high",
+  "threat.attack_chain.length": 3,
+  "kibana.alert.severity": "high",
+  "kibana.alert.risk_score": 75
+}
+```
+
+### **📈 Expanding MITRE Coverage**
+
+To add more tactics/techniques, edit `src/mappings/mitre_attack.json`:
+
+```json
+{
+  "tactics": {
+    "TA0006": {
+      "name": "Credential Access",
+      "description": "Adversaries attempt to steal credentials",
+      "techniques": ["T1110", "T1555", "T1003"]
+    }
+  },
+  "techniques": {
+    "T1110": {
+      "name": "Brute Force",
+      "description": "Adversaries may use brute force techniques",
+      "tactics": ["TA0006"],
+      "subTechniques": ["T1110.001", "T1110.002"],
+      "chainNext": ["T1078", "T1055"]
+    }
+  },
+  "subTechniques": {
+    "T1110.001": {"name": "Password Guessing", "parent": "T1110"},
+    "T1110.002": {"name": "Password Cracking", "parent": "T1110"}
+  }
+}
+```
+
+### **🚀 Phase 3 Architecture**
+
+The Phase 3 implementation includes:
+
+1. **Enhanced AI Service** (`src/utils/ai_service.ts`):
+   - Sub-technique selection and validation
+   - Attack chain generation with technique relationships
+   - Performance-optimized caching and batch processing
+
+2. **Advanced Configuration** (`config.sample.json`):
+   - Granular performance tuning options
+   - Attack chain probability settings
+   - Large-scale generation thresholds
+
+3. **Intelligent Command Interface** (`src/index.ts`):
+   - Flag validation and dependency checking
+   - Runtime configuration overrides
+   - Enhanced error handling and user feedback
+
+### **🎯 Next Steps**
+
+Phase 3 provides a solid foundation for:
+- **Custom Attack Scenarios**: Define your own attack patterns
+- **Integration Testing**: Generate realistic datasets for security tool testing
+- **Performance Benchmarking**: Test Kibana performance with large MITRE datasets
+- **Security Research**: Analyze attack patterns and detection effectiveness
 
 ## How to generate data for serverless project
 

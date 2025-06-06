@@ -12,7 +12,11 @@ import { chunk } from 'lodash-es';
 import cliProgress from 'cli-progress';
 import { faker } from '@faker-js/faker';
 import { getAlertIndex } from '../utils';
-import { generateAIAlert, generateAIAlertBatch } from '../utils/ai_service';
+import {
+  generateAIAlert,
+  generateAIAlertBatch,
+  generateMITREAlert,
+} from '../utils/ai_service';
 
 const generateDocs = async ({
   createDocs,
@@ -200,6 +204,7 @@ export const generateAlerts = async (
   userCount: number,
   space: string,
   useAI = false,
+  useMitre = false,
 ) => {
   if (userCount > alertCount) {
     console.log('User count should be less than alert count');
@@ -212,7 +217,9 @@ export const generateAlerts = async (
   }
 
   console.log(
-    `Generating ${alertCount} alerts containing ${hostCount} hosts and ${userCount} users in space ${space}${useAI ? ' using AI' : ''}`,
+    `Generating ${alertCount} alerts containing ${hostCount} hosts and ${userCount} users in space ${space}${
+      useAI ? ' using AI' : ''
+    }${useMitre ? ' with MITRE ATT&CK' : ''}`,
   );
 
   const config = getConfig();
@@ -225,6 +232,20 @@ export const generateAlerts = async (
         'OpenAI API key is missing. Add "openaiApiKey": "your-key" to config.json',
       );
     }
+    process.exit(1);
+  }
+
+  if (useMitre && !useAI) {
+    console.log(
+      'MITRE integration requires AI generation. Use both --ai and --mitre flags.',
+    );
+    process.exit(1);
+  }
+
+  if (useMitre && !config.mitre?.enabled) {
+    console.log(
+      'MITRE integration requested but not enabled in config. Set "mitre.enabled": true in config.json',
+    );
     process.exit(1);
   }
 
@@ -260,7 +281,7 @@ export const generateAlerts = async (
 
   // If AI is enabled, use a different approach for generation
   if (useAI && config.useAI) {
-    console.log('Using AI for alert generation...');
+    console.log(`Using AI for alert generation${useMitre ? ' with MITRE ATT&CK' : ''}...`);
     const progress = new cliProgress.SingleBar(
       {},
       cliProgress.Presets.shades_classic,
@@ -275,65 +296,119 @@ export const generateAlerts = async (
 
     progress.start(alertCount, 0);
 
-    // Process alerts in batches for more efficient AI generation
-    const aiBatchSize = 5; // Generate 5 alerts at once to reduce API calls
+    // Phase 3: Adaptive batch sizing based on dataset size and performance config
+    const performanceConfig = config.generation?.performance;
+    const isLargeScale = performanceConfig?.enableLargeScale &&
+      alertCount >= (performanceConfig?.largeScaleThreshold || 1000);
+
+    let aiBatchSize = 5; // Default
+    if (isLargeScale) {
+      aiBatchSize = config.generation?.alerts?.largeBatchSize || 25;
+      console.log(`Large-scale generation enabled. Using batch size: ${aiBatchSize}`);
+    } else {
+      aiBatchSize = config.generation?.alerts?.batchSize || 5;
+    }
+
     const operations: unknown[] = [];
 
     // Split entities into manageable chunks for batch processing
     const entityChunks = chunk(alertEntityNames, aiBatchSize);
 
-    for (let chunkIndex = 0; chunkIndex < entityChunks.length; chunkIndex++) {
-      const currentChunk = entityChunks[chunkIndex];
+    // Phase 3: Parallel batch processing for large datasets
+    const maxConcurrentBatches = isLargeScale ?
+      (config.generation?.alerts?.parallelBatches || 3) : 1;
 
-      try {
-        // Use batch generation for better efficiency
-        const generatedAlerts = await generateAIAlertBatch({
-          entities: currentChunk,
-          space,
-          examples: exampleAlerts,
-          batchSize: aiBatchSize,
-        });
+    if (maxConcurrentBatches > 1) {
+      console.log(`Using parallel processing with ${maxConcurrentBatches} concurrent batches`);
+    }
 
-        // Add the generated alerts to the bulk operations
-        for (const alert of generatedAlerts) {
-          operations.push({
-            index: {
-              _index: getAlertIndex(space),
-              _id: alert['kibana.alert.uuid'],
-            },
-          });
-          operations.push(alert);
+    // Process chunks in parallel batches
+    const chunkBatches = chunk(entityChunks, maxConcurrentBatches);
+
+    for (const chunkBatch of chunkBatches) {
+      const batchPromises = chunkBatch.map(async (currentChunk) => {
+        const chunkOperations: unknown[] = [];
+
+        try {
+          // Use batch generation for better efficiency, with MITRE if enabled
+          let generatedAlerts: BaseCreateAlertsReturnType[];
+
+          if (useMitre) {
+            // Phase 3: Enhanced MITRE generation with sub-techniques and attack chains
+            console.log(`Generating MITRE alerts for chunk of ${currentChunk.length} entities...`);
+
+            // Add request delay for large-scale operations to respect rate limits
+            if (isLargeScale && performanceConfig?.requestDelayMs) {
+              await new Promise(resolve => setTimeout(resolve, performanceConfig.requestDelayMs));
+            }
+
+            generatedAlerts = await Promise.all(
+              currentChunk.map((entity) =>
+                generateMITREAlert({
+                  userName: entity.userName,
+                  hostName: entity.hostName,
+                  space,
+                  examples: exampleAlerts,
+                }),
+              ),
+            );
+          } else {
+            // Use standard AI batch generation
+            generatedAlerts = await generateAIAlertBatch({
+              entities: currentChunk,
+              space,
+              examples: exampleAlerts,
+              batchSize: aiBatchSize,
+            });
+          }
+
+          // Add the generated alerts to the chunk operations
+          for (const alert of generatedAlerts) {
+            chunkOperations.push({
+              index: {
+                _index: getAlertIndex(space),
+                _id: alert['kibana.alert.uuid'],
+              },
+            });
+            chunkOperations.push(alert);
+          }
+
+          return { success: true, operations: chunkOperations, count: currentChunk.length };
+        } catch (error) {
+          console.error('Error in batch generation:', error);
+
+          // Fallback to standard generation for this chunk
+          for (const entity of currentChunk) {
+            const alert = createAlerts(no_overrides, {
+              userName: entity.userName,
+              hostName: entity.hostName,
+              space,
+            });
+
+            chunkOperations.push({
+              index: {
+                _index: getAlertIndex(space),
+                _id: alert['kibana.alert.uuid'],
+              },
+            });
+            chunkOperations.push(alert);
+          }
+
+          return { success: false, operations: chunkOperations, count: currentChunk.length };
         }
+      });
 
-        progress.increment(currentChunk.length);
-      } catch (error) {
-        console.error('Error in batch generation:', error);
+      // Wait for all chunks in this batch to complete
+      const batchResults = await Promise.all(batchPromises);
 
-        // Fallback to standard generation for this batch
-        for (const entity of currentChunk) {
-          const alert = createAlerts(no_overrides, {
-            userName: entity.userName,
-            hostName: entity.hostName,
-            space,
-          });
-
-          operations.push({
-            index: {
-              _index: getAlertIndex(space),
-              _id: alert['kibana.alert.uuid'],
-            },
-          });
-          operations.push(alert);
-        }
-
-        progress.increment(currentChunk.length);
+      // Collect operations and update progress
+      for (const result of batchResults) {
+        operations.push(...result.operations);
+        progress.increment(result.count);
       }
 
       // Send operations to Elasticsearch when we have a reasonable batch size
-      if (
-        operations.length >= batchSize * 2 ||
-        chunkIndex === entityChunks.length - 1
-      ) {
+      if (operations.length >= batchSize * 2) {
         try {
           await bulkUpsert(operations);
           operations.length = 0; // Clear the array after successful upload
@@ -344,8 +419,23 @@ export const generateAlerts = async (
       }
     }
 
+    // Send any remaining operations
+    if (operations.length > 0) {
+      try {
+        await bulkUpsert(operations);
+      } catch (error) {
+        console.error('Error sending final batch to Elasticsearch:', error);
+        process.exit(1);
+      }
+    }
+
     progress.stop();
-    console.log('AI alert generation completed');
+    console.log(`AI alert generation completed. Generated ${alertCount} alerts${useMitre ? ' with MITRE ATT&CK data' : ''}`);
+
+    if (isLargeScale) {
+      console.log('Large-scale generation performance optimizations were applied.');
+    }
+
     return;
   }
 
@@ -379,8 +469,12 @@ export const generateAlerts = async (
   progress.stop();
 };
 
-// Updated to support AI
-export const generateEvents = async (n: number, useAI = false) => {
+// Updated to support AI and MITRE
+export const generateEvents = async (
+  n: number,
+  useAI = false,
+  useMitre = false,
+) => {
   const config = getConfig();
 
   if (!config.eventIndex) {

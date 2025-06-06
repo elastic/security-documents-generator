@@ -18,21 +18,97 @@ const NodeWithAPIKey = t.type({
 
 const Node = t.union([NodeWithCredentials, NodeWithAPIKey]);
 
-const Config = t.type({
-  elastic: Node,
-  kibana: Node,
-  serverless: t.union([t.boolean, t.undefined]),
-  eventIndex: t.union([t.string, t.undefined]),
-  eventDateOffsetHours: t.union([t.number, t.undefined]),
-  openaiApiKey: t.union([t.string, t.undefined]),
-  useAI: t.union([t.boolean, t.undefined]),
-  // Azure OpenAI fields
-  useAzureOpenAI: t.union([t.boolean, t.undefined]),
-  azureOpenAIApiKey: t.union([t.string, t.undefined]),
-  azureOpenAIEndpoint: t.union([t.string, t.undefined]),
-  azureOpenAIDeployment: t.union([t.string, t.undefined]),
-  azureOpenAIApiVersion: t.union([t.string, t.undefined]),
+const MitreConfig = t.partial({
+  enabled: t.boolean,
+  tactics: t.array(t.string),
+  maxTechniquesPerAlert: t.number,
+  includeSubTechniques: t.boolean,
+  probabilityOfMitreAlert: t.number,
+  enableAttackChains: t.boolean,
+  maxChainLength: t.number,
+  chainProbability: t.number,
 });
+
+const GenerationConfig = t.partial({
+  alerts: t.partial({
+    defaultCount: t.number,
+    batchSize: t.number,
+    maxFields: t.number,
+    minFields: t.number,
+    largeBatchSize: t.number,
+    maxLargeBatchSize: t.number,
+    parallelBatches: t.number,
+  }),
+  events: t.partial({
+    defaultCount: t.number,
+    batchSize: t.number,
+    maxFields: t.number,
+    minFields: t.number,
+    largeBatchSize: t.number,
+    maxLargeBatchSize: t.number,
+    parallelBatches: t.number,
+  }),
+  entities: t.partial({
+    defaultHosts: t.number,
+    defaultUsers: t.number,
+    maxHostsPerBatch: t.number,
+    maxUsersPerBatch: t.number,
+  }),
+  performance: t.partial({
+    enableLargeScale: t.boolean,
+    largeScaleThreshold: t.number,
+    maxConcurrentRequests: t.number,
+    requestDelayMs: t.number,
+    cacheEnabled: t.boolean,
+    maxCacheSize: t.number,
+    progressReporting: t.boolean,
+  }),
+});
+
+const Config = t.intersection([
+  t.type({
+    elastic: Node,
+    kibana: Node,
+  }),
+  t.partial({
+    serverless: t.boolean,
+    eventIndex: t.string,
+    eventDateOffsetHours: t.number,
+    openaiApiKey: t.string,
+    useAI: t.boolean,
+    // Azure OpenAI fields
+    useAzureOpenAI: t.boolean,
+    azureOpenAIApiKey: t.string,
+    azureOpenAIEndpoint: t.string,
+    azureOpenAIDeployment: t.string,
+    azureOpenAIApiVersion: t.string,
+    // MITRE and generation configs
+    mitre: MitreConfig,
+    generation: GenerationConfig,
+  }),
+  t.partial({
+    timestamps: t.partial({
+      startDate: t.string,
+      endDate: t.string,
+      pattern: t.union([
+        t.literal('uniform'),
+        t.literal('business_hours'),
+        t.literal('random'),
+        t.literal('attack_simulation'),
+        t.literal('weekend_heavy'),
+      ]),
+      enableMultiDay: t.boolean,
+      daySpread: t.number,
+      examples: t.partial({
+        '7_days_ago': t.string,
+        '1_week_ago': t.string,
+        '1_month_ago': t.string,
+        specific_date: t.string,
+        patterns: t.array(t.string),
+      }),
+    }),
+  }),
+]);
 
 export type ConfigType = t.TypeOf<typeof Config>;
 

@@ -1,9 +1,9 @@
 import { faker } from '@faker-js/faker';
-import moment from 'moment';
+import { generateTimestamp } from './utils/timestamp_utils';
 
 export default function createEvents(override = {}) {
   return {
-    '@timestamp': moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+    '@timestamp': generateTimestamp(),
     criticality: faker.helpers.arrayElement([
       'low_impact',
       'medium_impact',
