@@ -2,6 +2,11 @@
 # yarn lockfile v1
 
 
+"@anthropic-ai/sdk@^0.53.0":
+  version "0.53.0"
+  resolved "https://registry.yarnpkg.com/@anthropic-ai/sdk/-/sdk-0.53.0.tgz#93656f5f93c47136eca7bc1de6b3fa55010bcbc0"
+  integrity sha512-bl2frVo0cgHCXTzQEIHXPH329uQXC4YKBaLBkZmUc59tNiR3GgcGpBZU7mwfyv5tPuU/yT7tGHyoe5AnjN02QA==
+
 "@anthropic-ai/sdk@^0.9.1":
   version "0.9.1"
   resolved "https://registry.yarnpkg.com/@anthropic-ai/sdk/-/sdk-0.9.1.tgz#b2d2b7bf05c90dce502c9a2e869066870f69ba88"

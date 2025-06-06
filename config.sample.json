@@ -19,6 +19,9 @@
   "azureOpenAIEndpoint": "<your-azure-openai-endpoint-here>",
   "azureOpenAIDeployment": "<your-azure-openai-deployment-here>",
   "azureOpenAIApiVersion": "<your-azure-openai-api-version-here>",
+  "useClaudeAI": false,
+  "claudeApiKey": "<your-anthropic-api-key-here>",
+  "claudeModel": "claude-3-5-sonnet-20241022",
   "mitre": {
     "enabled": true,
     "tactics": ["TA0001", "TA0002", "TA0003", "TA0004", "TA0005"],

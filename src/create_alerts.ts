@@ -5,16 +5,19 @@ function baseCreateAlerts({
   userName = 'user-1',
   hostName = 'host-1',
   space = 'default',
+  timestampConfig,
 }: {
   userName?: string;
   hostName?: string;
   space?: string;
+  timestampConfig?: import('./utils/timestamp_utils').TimestampConfig;
 } = {}) {
+  const timestamp = generateTimestamp(timestampConfig);
   return {
     'host.name': hostName,
     'user.name': userName,
-    'kibana.alert.start': '2023-04-11T20:18:15.816Z',
-    'kibana.alert.last_detected': '2023-04-11T20:18:15.816Z',
+    'kibana.alert.start': timestamp,
+    'kibana.alert.last_detected': timestamp,
     'kibana.version': '8.7.0',
     'kibana.alert.rule.parameters': {
       description: '2',
@@ -110,11 +113,13 @@ export default function createAlerts<O extends object>(
     userName,
     hostName,
     space,
+    timestampConfig,
   }: {
     userName?: string;
     hostName?: string;
     space?: string;
+    timestampConfig?: import('./utils/timestamp_utils').TimestampConfig;
   } = {},
 ): O & BaseCreateAlertsReturnType {
-  return { ...baseCreateAlerts({ userName, hostName, space }), ...override };
+  return { ...baseCreateAlerts({ userName, hostName, space, timestampConfig }), ...override };
 }

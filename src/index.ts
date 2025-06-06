@@ -38,6 +38,13 @@ const parseIntBase10 = (input: string) => parseInt(input, 10);
 const applyPhase3ConfigOverrides = (options: any) => {
   const config = getConfig();
 
+  // Override AI provider configuration based on flags
+  if (options.claude) {
+    (config as any).useClaudeAI = true;
+    (config as any).useAzureOpenAI = false;
+    console.log('Claude AI enabled for this generation');
+  }
+
   // Override MITRE configuration based on flags
   if (options.subTechniques && config.mitre) {
     config.mitre.includeSubTechniques = true;
@@ -64,6 +71,7 @@ program
   .option('-u <h>', 'number of users')
   .option('-s <h>', 'space (will be created if it does not exist)')
   .option('--ai', 'use AI to generate some of the alerts', false)
+  .option('--claude', 'use Claude AI instead of OpenAI (requires --ai)', false)
   .option(
     '--mitre',
     'use MITRE ATT&CK framework for realistic attack scenarios (requires --ai)',
@@ -105,9 +113,14 @@ program
     const userCount = parseInt(options.u || '1');
     const space = options.s || 'default';
     const useAI = options.ai || false;
+    const useClaude = options.claude || false;
     const useMitre = options.mitre || false;
 
-    // Validate Phase 3 flag dependencies
+    // Validate flag dependencies
+    if (useClaude && !useAI) {
+      console.error('Error: --claude flag requires --ai to be enabled');
+      process.exit(1);
+    }
     if (useMitre && !useAI) {
       console.error('Error: --mitre flag requires --ai to be enabled');
       process.exit(1);
@@ -122,7 +135,7 @@ program
     }
 
     // Apply Phase 3 configuration overrides if flags are used
-    if (options.subTechniques || options.attackChains || options.largeScale) {
+    if (useClaude || options.subTechniques || options.attackChains || options.largeScale) {
       applyPhase3ConfigOverrides(options);
     }
 
@@ -130,13 +143,21 @@ program
       await initializeSpace(space);
     }
 
-    generateAlerts(alertsCount, userCount, hostCount, space, useAI, useMitre);
+    // Pass timestamp configuration options
+    const timestampConfig = {
+      startDate: options.startDate,
+      endDate: options.endDate,
+      pattern: options.timePattern,
+    };
+
+    generateAlerts(alertsCount, userCount, hostCount, space, useAI, useMitre, timestampConfig);
   });
 
 program
   .command('generate-events')
   .argument('<n>', 'integer argument', parseIntBase10)
   .option('--ai', 'use AI to generate some of the events', false)
+  .option('--claude', 'use Claude AI instead of OpenAI (requires --ai)', false)
   .option(
     '--mitre',
     'use MITRE ATT&CK framework for realistic attack scenarios (requires --ai)',
@@ -174,6 +195,10 @@ program
   )
   .action((n, options) => {
     // Validate flag dependencies
+    if (options.claude && !options.ai) {
+      console.error('Error: --claude flag requires --ai to be enabled');
+      process.exit(1);
+    }
     if (options.mitre && !options.ai) {
       console.error('Error: --mitre flag requires --ai to be enabled');
       process.exit(1);
@@ -188,7 +213,7 @@ program
     }
 
     // Apply Phase 3 configuration overrides if flags are used
-    if (options.subTechniques || options.attackChains || options.largeScale) {
+    if (options.claude || options.subTechniques || options.attackChains || options.largeScale) {
       applyPhase3ConfigOverrides(options);
     }
 

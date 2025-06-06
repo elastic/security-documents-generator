@@ -17,6 +17,7 @@ import {
   generateAIAlertBatch,
   generateMITREAlert,
 } from '../utils/ai_service';
+import { TimestampConfig } from '../utils/timestamp_utils';
 
 const generateDocs = async ({
   createDocs,
@@ -205,6 +206,7 @@ export const generateAlerts = async (
   space: string,
   useAI = false,
   useMitre = false,
+  timestampConfig?: TimestampConfig,
 ) => {
   if (userCount > alertCount) {
     console.log('User count should be less than alert count');
@@ -261,7 +263,7 @@ export const generateAlerts = async (
     hostName: string;
   }) =>
     alertToBatchOps(
-      createAlerts(no_overrides, { userName, hostName, space }),
+      createAlerts(no_overrides, { userName, hostName, space, timestampConfig }),
       getAlertIndex(space),
     );
 
@@ -349,6 +351,7 @@ export const generateAlerts = async (
                   hostName: entity.hostName,
                   space,
                   examples: exampleAlerts,
+                  timestampConfig,
                 }),
               ),
             );
@@ -359,6 +362,7 @@ export const generateAlerts = async (
               space,
               examples: exampleAlerts,
               batchSize: aiBatchSize,
+              timestampConfig,
             });
           }
 
@@ -383,6 +387,7 @@ export const generateAlerts = async (
               userName: entity.userName,
               hostName: entity.hostName,
               space,
+              timestampConfig,
             });
 
             chunkOperations.push({

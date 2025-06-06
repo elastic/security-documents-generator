@@ -1,10 +1,11 @@
 import { OpenAI } from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import { readFileSync } from 'fs';
 import path from 'path';
 import { getConfig } from '../get_config';
 import { BaseCreateAlertsReturnType } from '../create_alerts';
 import { faker } from '@faker-js/faker';
-// Note: timestamp utilities available but not used in this service currently
+import { generateTimestamp, TimestampConfig } from './timestamp_utils';
 
 /**
  * AI Service for Security Documents Generation
@@ -13,6 +14,7 @@ import { faker } from '@faker-js/faker';
  *
  * ✅ IMPLEMENTED:
  * - OpenAI/Azure OpenAI client initialization and configuration
+ * - Anthropic Claude client initialization and configuration
  * - Response caching system to reduce API costs
  * - Alert generation (single and batch) with validation
  * - Event generation with schema-based context
@@ -32,7 +34,7 @@ import { faker } from '@faker-js/faker';
  * - Error recovery and retry mechanisms
  *
  * ARCHITECTURE NOTES:
- * - Uses singleton pattern for OpenAI client
+ * - Uses singleton pattern for OpenAI and Anthropic clients
  * - Implements LRU-style cache with max size limit
  * - Schema processing optimized for token usage
  * - Validation ensures ECS compliance
@@ -55,17 +57,30 @@ interface ParsedSchema {
   [key: string]: unknown;
 }
 
-// Initialize OpenAI client
+// Initialize AI clients
 let openai: OpenAI | null = null;
+let claude: Anthropic | null = null;
 
 // Simple cache for AI responses to reduce duplicate API calls
 const aiResponseCache = new Map<string, CacheValue>();
 const MAX_CACHE_SIZE = 100;
 
-// Function to initialize OpenAI client
-const initializeOpenAI = () => {
+// Function to initialize AI clients
+const initializeAI = () => {
   const config = getConfig();
 
+  // Initialize Claude if enabled
+  if (config.useClaudeAI) {
+    if (!config.claudeApiKey) {
+      throw new Error('Claude API key not defined in config');
+    }
+    claude = new Anthropic({
+      apiKey: config.claudeApiKey,
+    });
+    return; // Use Claude as primary
+  }
+
+  // Initialize OpenAI clients
   // Check if using Azure OpenAI
   if (config.useAzureOpenAI) {
     if (!config.azureOpenAIApiKey) {
@@ -156,16 +171,18 @@ const createDefaultAlertTemplate = (
   hostName: string,
   userName: string,
   space: string,
+  timestampConfig?: TimestampConfig,
 ): Partial<BaseCreateAlertsReturnType> => {
+  const timestamp = generateTimestamp(timestampConfig);
   return {
     'host.name': hostName,
     'user.name': userName,
     'kibana.alert.uuid': faker.string.uuid(),
-    'kibana.alert.start': new Date().toISOString(),
-    'kibana.alert.last_detected': new Date().toISOString(),
+    'kibana.alert.start': timestamp,
+    'kibana.alert.last_detected': timestamp,
     'kibana.version': '8.7.0',
     'kibana.space_ids': [space],
-    '@timestamp': Date.now(),
+    '@timestamp': timestamp,
     'event.kind': 'signal',
     'kibana.alert.status': 'active',
     'kibana.alert.workflow_status': 'open',
@@ -181,6 +198,7 @@ const validateAlert = (
   hostName: string,
   userName: string,
   space: string,
+  timestampConfig?: TimestampConfig,
 ): Record<string, unknown> => {
   // Create a copy to avoid modifying the original
   const validatedAlert = { ...alert };
@@ -195,12 +213,13 @@ const validateAlert = (
     : [space];
 
   // Ensure timestamps are valid ISO strings with proper type checking
+  const timestamp = generateTimestamp(timestampConfig);
   if (
     validatedAlert['kibana.alert.start'] &&
     typeof validatedAlert['kibana.alert.start'] === 'string' &&
     !isValidISODate(validatedAlert['kibana.alert.start'])
   ) {
-    validatedAlert['kibana.alert.start'] = new Date().toISOString();
+    validatedAlert['kibana.alert.start'] = timestamp;
   }
 
   if (
@@ -208,7 +227,7 @@ const validateAlert = (
     typeof validatedAlert['kibana.alert.last_detected'] === 'string' &&
     !isValidISODate(validatedAlert['kibana.alert.last_detected'])
   ) {
-    validatedAlert['kibana.alert.last_detected'] = new Date().toISOString();
+    validatedAlert['kibana.alert.last_detected'] = timestamp;
   }
 
   // Ensure UUID is valid
@@ -295,19 +314,21 @@ export const generateAIAlert = async ({
   space = 'default',
   examples = [],
   alertType = 'general',
+  timestampConfig,
 }: {
   userName?: string;
   hostName?: string;
   space?: string;
   examples?: BaseCreateAlertsReturnType[];
   alertType?: string;
+  timestampConfig?: TimestampConfig;
 }): Promise<BaseCreateAlertsReturnType> => {
-  if (!openai) {
-    initializeOpenAI();
+  if (!openai && !claude) {
+    initializeAI();
   }
 
-  if (!openai) {
-    throw new Error('Failed to initialize OpenAI client');
+  if (!openai && !claude) {
+    throw new Error('Failed to initialize AI client');
   }
 
   // Check cache first
@@ -343,33 +364,55 @@ Schema excerpt: ${alertMappingSchema.substring(0, 800)}`;
 
   try {
     const config = getConfig();
-    const modelName =
-      config.useAzureOpenAI && config.azureOpenAIDeployment
-        ? config.azureOpenAIDeployment
-        : 'gpt-4o';
+    let generatedAlert: Record<string, unknown> = {};
 
-    const response = await openai.chat.completions.create({
-      model: modelName,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: `Generate a realistic security alert for host "${hostName}" and user "${userName}".${examples.length > 0 ? ' Reference examples: ' + examplesContext : ''}`,
-        },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.7,
-    });
+    if (claude) {
+      // Use Claude API
+      const response = await claude.messages.create({
+        model: config.claudeModel || 'claude-3-5-sonnet-20241022',
+        max_tokens: 2000,
+        messages: [
+          {
+            role: 'user',
+            content: `${systemPrompt}\n\nGenerate a realistic security alert for host "${hostName}" and user "${userName}".${examples.length > 0 ? ' Reference examples: ' + examplesContext : ''}\n\nRespond with valid JSON only.`,
+          },
+        ],
+        temperature: 0.7,
+      });
 
-    const generatedAlert = JSON.parse(
-      response.choices[0].message.content || '{}',
-    );
+      const content = response.content[0];
+      if (content.type === 'text') {
+        generatedAlert = JSON.parse(content.text || '{}');
+      }
+    } else if (openai) {
+      // Use OpenAI API
+      const modelName =
+        config.useAzureOpenAI && config.azureOpenAIDeployment
+          ? config.azureOpenAIDeployment
+          : 'gpt-4o';
+
+      const response = await openai.chat.completions.create({
+        model: modelName,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: `Generate a realistic security alert for host "${hostName}" and user "${userName}".${examples.length > 0 ? ' Reference examples: ' + examplesContext : ''}`,
+          },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.7,
+      });
+
+      generatedAlert = JSON.parse(response.choices[0].message.content || '{}');
+    }
 
     // Create a default template with required fields
     const defaultTemplate = createDefaultAlertTemplate(
       hostName,
       userName,
       space,
+      timestampConfig,
     );
 
     // Merge the generated alert with the default template to ensure required fields
@@ -391,6 +434,7 @@ Schema excerpt: ${alertMappingSchema.substring(0, 800)}`;
       hostName,
       userName,
       space,
+      timestampConfig,
     );
 
     // Store in cache
@@ -417,12 +461,12 @@ Schema excerpt: ${alertMappingSchema.substring(0, 800)}`;
 export const generateAIEvent = async (
   override: { id_field?: string; id_value?: string } = {},
 ): Promise<Record<string, unknown>> => {
-  if (!openai) {
-    initializeOpenAI();
+  if (!openai && !claude) {
+    initializeAI();
   }
 
-  if (!openai) {
-    throw new Error('Failed to initialize OpenAI client');
+  if (!openai && !claude) {
+    throw new Error('Failed to initialize AI client');
   }
 
   // Check cache first
@@ -444,27 +488,48 @@ Schema: ${eventMappingSchema}`;
 
   try {
     const config = getConfig();
-    const modelName =
-      config.useAzureOpenAI && config.azureOpenAIDeployment
-        ? config.azureOpenAIDeployment
-        : 'gpt-4o';
+    let generatedEvent: Record<string, unknown> = {};
 
-    const response = await openai.chat.completions.create({
-      model: modelName,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: 'Generate a realistic security event document.',
-        },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.7,
-    });
+    if (claude) {
+      // Use Claude API
+      const response = await claude.messages.create({
+        model: config.claudeModel || 'claude-3-5-sonnet-20241022',
+        max_tokens: 2000,
+        messages: [
+          {
+            role: 'user',
+            content: `${systemPrompt}\n\nGenerate a realistic security event document.\n\nRespond with valid JSON only.`,
+          },
+        ],
+        temperature: 0.7,
+      });
 
-    const generatedEvent = JSON.parse(
-      response.choices[0].message.content || '{}',
-    );
+      const content = response.content[0];
+      if (content.type === 'text') {
+        generatedEvent = JSON.parse(content.text || '{}');
+      }
+    } else if (openai) {
+      // Use OpenAI API
+      const modelName =
+        config.useAzureOpenAI && config.azureOpenAIDeployment
+          ? config.azureOpenAIDeployment
+          : 'gpt-4o';
+
+      const response = await openai.chat.completions.create({
+        model: modelName,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: 'Generate a realistic security event document.',
+          },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.7,
+      });
+
+      generatedEvent = JSON.parse(response.choices[0].message.content || '{}');
+    }
 
     // Ensure timestamp is present
     if (!generatedEvent['@timestamp']) {
@@ -497,18 +562,20 @@ export const generateAIAlertBatch = async ({
   space = 'default',
   examples = [],
   batchSize = 5,
+  timestampConfig,
 }: {
   entities: Array<{ userName: string; hostName: string }>;
   space?: string;
   examples?: BaseCreateAlertsReturnType[];
   batchSize?: number;
+  timestampConfig?: TimestampConfig;
 }): Promise<BaseCreateAlertsReturnType[]> => {
-  if (!openai) {
-    initializeOpenAI();
+  if (!openai && !claude) {
+    initializeAI();
   }
 
-  if (!openai) {
-    throw new Error('Failed to initialize OpenAI client');
+  if (!openai && !claude) {
+    throw new Error('Failed to initialize AI client');
   }
 
   if (entities.length === 0) {
@@ -557,28 +624,53 @@ Schema excerpt: ${alertMappingSchema}`;
           ? config.azureOpenAIDeployment
           : 'gpt-4o';
 
-      const response = await openai.chat.completions.create({
-        model: modelName,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          {
-            role: 'user',
-            content: `Generate exactly ${batch.length} realistic security alerts for these entities: ${JSON.stringify(batch)}.
+      let response: any;
+      if (claude) {
+        // Use Claude API
+        response = await claude.messages.create({
+          model: config.claudeModel || 'claude-3-5-sonnet-20241022',
+          max_tokens: 4000,
+          messages: [
+            {
+              role: 'user',
+              content: `${systemPrompt}\n\nGenerate exactly ${batch.length} realistic security alerts for these entities: ${JSON.stringify(batch)}.\n\nIMPORTANT: Return a JSON array with exactly ${batch.length} alert objects. Each alert should be a complete JSON object with Kibana/ECS fields.\n\nFormat: [{"host.name": "...", "user.name": "...", "kibana.alert.rule.name": "...", ...}, {...}, ...]\n\n${examples.length > 0 ? 'Reference examples: ' + examplesContext : ''}\n\nRespond with valid JSON only.`,
+            },
+          ],
+          temperature: 0.7,
+        });
+      } else if (openai) {
+        // Use OpenAI API
+        response = await openai.chat.completions.create({
+          model: modelName,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            {
+              role: 'user',
+              content: `Generate exactly ${batch.length} realistic security alerts for these entities: ${JSON.stringify(batch)}.
 
 IMPORTANT: Return a JSON array with exactly ${batch.length} alert objects. Each alert should be a complete JSON object with Kibana/ECS fields.
 
 Format: [{"host.name": "...", "user.name": "...", "kibana.alert.rule.name": "...", ...}, {...}, ...]
 
 ${examples.length > 0 ? 'Reference examples: ' + examplesContext : ''}`,
-          },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.7,
-      });
+            },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.7,
+        });
+      }
 
       let generatedAlerts = [];
       try {
-        const rawContent = response.choices[0].message.content || '[]';
+        let rawContent = '[]';
+        if (claude && response.content && response.content[0]) {
+          rawContent =
+            response.content[0].type === 'text'
+              ? response.content[0].text || '[]'
+              : '[]';
+        } else if (openai && response.choices && response.choices[0]) {
+          rawContent = response.choices[0].message.content || '[]';
+        }
 
         // Debug: Log the raw response (remove in production)
         if (process.env.DEBUG_AI_RESPONSES) {
@@ -670,6 +762,7 @@ ${examples.length > 0 ? 'Reference examples: ' + examplesContext : ''}`,
           entity.hostName,
           entity.userName,
           space,
+          timestampConfig,
         );
 
         // Merge and validate
@@ -689,6 +782,7 @@ ${examples.length > 0 ? 'Reference examples: ' + examplesContext : ''}`,
           entity.hostName,
           entity.userName,
           space,
+          timestampConfig,
         );
 
         results.push(validatedAlert as BaseCreateAlertsReturnType);
@@ -716,6 +810,7 @@ ${examples.length > 0 ? 'Reference examples: ' + examplesContext : ''}`,
             hostName: entity.hostName,
             space,
             examples,
+            timestampConfig,
           });
           results.push(alert);
         } catch (e) {
@@ -725,6 +820,7 @@ ${examples.length > 0 ? 'Reference examples: ' + examplesContext : ''}`,
             entity.hostName,
             entity.userName,
             space,
+            timestampConfig,
           );
           results.push(defaultAlert as BaseCreateAlertsReturnType);
         }
@@ -1170,18 +1266,20 @@ export const generateMITREAlert = async ({
   hostName = 'host-1',
   space = 'default',
   examples = [],
+  timestampConfig,
 }: {
   userName?: string;
   hostName?: string;
   space?: string;
   examples?: BaseCreateAlertsReturnType[];
+  timestampConfig?: TimestampConfig;
 }): Promise<BaseCreateAlertsReturnType> => {
-  if (!openai) {
-    initializeOpenAI();
+  if (!openai && !claude) {
+    initializeAI();
   }
 
-  if (!openai) {
-    throw new Error('Failed to initialize OpenAI client');
+  if (!openai && !claude) {
+    throw new Error('Failed to initialize AI client');
   }
 
   // Load MITRE data with improved caching
@@ -1283,33 +1381,55 @@ Include relevant technical fields: process, file, network, registry, user activi
 Schema excerpt: ${alertMappingSchema.substring(0, 600)}`;
 
   try {
-    const modelName =
-      config.useAzureOpenAI && config.azureOpenAIDeployment
-        ? config.azureOpenAIDeployment
-        : 'gpt-4o';
+    let generatedAlert: Record<string, unknown> = {};
 
-    const response = await openai.chat.completions.create({
-      model: modelName,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: `Generate a realistic security alert for host "${hostName}" and user "${userName}" based on the MITRE ATT&CK ${attackChain ? 'attack chain' : 'techniques'} provided.`,
-        },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.8, // Higher for more varied scenarios
-    });
+    if (claude) {
+      // Use Claude API
+      const response = await claude.messages.create({
+        model: config.claudeModel || 'claude-3-5-sonnet-20241022',
+        max_tokens: 2000,
+        messages: [
+          {
+            role: 'user',
+            content: `${systemPrompt}\n\nGenerate a realistic security alert for host "${hostName}" and user "${userName}" based on the MITRE ATT&CK ${attackChain ? 'attack chain' : 'techniques'} provided.\n\nRespond with valid JSON only.`,
+          },
+        ],
+        temperature: 0.8,
+      });
 
-    const generatedAlert = JSON.parse(
-      response.choices[0].message.content || '{}',
-    );
+      const content = response.content[0];
+      if (content.type === 'text') {
+        generatedAlert = JSON.parse(content.text || '{}');
+      }
+    } else if (openai) {
+      // Use OpenAI API
+      const modelName =
+        config.useAzureOpenAI && config.azureOpenAIDeployment
+          ? config.azureOpenAIDeployment
+          : 'gpt-4o';
+
+      const response = await openai.chat.completions.create({
+        model: modelName,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: `Generate a realistic security alert for host "${hostName}" and user "${userName}" based on the MITRE ATT&CK ${attackChain ? 'attack chain' : 'techniques'} provided.`,
+          },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.8, // Higher for more varied scenarios
+      });
+
+      generatedAlert = JSON.parse(response.choices[0].message.content || '{}');
+    }
 
     // Create default template
     const defaultTemplate = createDefaultAlertTemplate(
       hostName,
       userName,
       space,
+      timestampConfig,
     );
 
     // Add Phase 3 MITRE-specific fields
@@ -1417,6 +1537,7 @@ Schema excerpt: ${alertMappingSchema.substring(0, 600)}`;
       hostName,
       userName,
       space,
+      timestampConfig,
     );
 
     // Store in cache with performance considerations
@@ -1444,6 +1565,7 @@ Schema excerpt: ${alertMappingSchema.substring(0, 600)}`;
       space,
       examples,
       alertType: 'mitre-fallback',
+      timestampConfig,
     });
   }
 };

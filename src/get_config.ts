@@ -82,6 +82,10 @@ const Config = t.intersection([
     azureOpenAIEndpoint: t.string,
     azureOpenAIDeployment: t.string,
     azureOpenAIApiVersion: t.string,
+    // Claude/Anthropic fields
+    useClaudeAI: t.boolean,
+    claudeApiKey: t.string,
+    claudeModel: t.string,
     // MITRE and generation configs
     mitre: MitreConfig,
     generation: GenerationConfig,
@@ -138,6 +142,14 @@ export const getConfig = (): ConfigType => {
   // Default Azure OpenAI settings
   if (configJson.useAzureOpenAI === undefined) {
     configJson.useAzureOpenAI = false;
+  }
+
+  // Default Claude settings
+  if (configJson.useClaudeAI === undefined) {
+    configJson.useClaudeAI = false;
+  }
+  if (configJson.claudeModel === undefined) {
+    configJson.claudeModel = 'claude-3-5-sonnet-20241022';
   }
 
   const validationResult = Config.decode(configJson);

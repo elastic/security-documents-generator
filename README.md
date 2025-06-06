@@ -73,9 +73,11 @@ Examples of config:
 
 ## AI-Generated Data
 
-The tool now supports AI-powered data generation for more realistic and varied security documents. To use this feature:
+The tool now supports AI-powered data generation for more realistic and varied security documents using multiple AI providers. To use this feature:
 
-1. Add OpenAI API key to your `config.json`:
+### AI Provider Options
+
+#### 1. OpenAI
 ```json
 {
     "elastic": { ... },
@@ -85,7 +87,7 @@ The tool now supports AI-powered data generation for more realistic and varied s
 }
 ```
 
-2. Or use Azure OpenAI:
+#### 2. Azure OpenAI
 ```json
 {
     "elastic": { ... },
@@ -99,12 +101,36 @@ The tool now supports AI-powered data generation for more realistic and varied s
 }
 ```
 
-3. Use the `--ai` flag with generation commands:
+#### 3. Claude (Anthropic) - NEW
+```json
+{
+    "elastic": { ... },
+    "kibana": { ... },
+    "useAI": true,
+    "useClaudeAI": true,
+    "claudeApiKey": "your-anthropic-api-key-here",
+    "claudeModel": "claude-3-5-sonnet-20241022"
+}
 ```
+
+### Usage with AI Providers
+
+#### Basic AI Generation:
+```bash
 yarn start generate-alerts -n 100 -h 10 -u 10 --ai
 yarn start generate-events 100 --ai
 yarn start generate-graph --ai
 ```
+
+#### Using Claude AI:
+```bash
+yarn start generate-alerts -n 100 -h 10 -u 10 --ai --claude
+yarn start generate-events 100 --ai --claude
+```
+
+#### AI Provider Priority:
+- If `--claude` flag is used or `useClaudeAI: true`, Claude takes precedence
+- Otherwise, uses Azure OpenAI if configured, or standard OpenAI
 
 The AI generation works by:
 - Using the mapping schemas to understand the expected data structure
@@ -168,15 +194,23 @@ Add this to your `config.json`:
 
 ### **📋 Command Reference**
 
-| Command | Description | Phase 3 Flags |
-|---------|-------------|----------------|
-| `generate-alerts` | Generate security alerts | `--sub-techniques`, `--attack-chains`, `--large-scale`, `--start-date`, `--end-date`, `--time-pattern` |
-| `generate-events` | Generate security events | `--sub-techniques`, `--attack-chains`, `--large-scale`, `--start-date`, `--end-date`, `--time-pattern` |
+| Command | Description | AI & Phase 3 Flags |
+|---------|-------------|---------------------|
+| `generate-alerts` | Generate security alerts | `--ai`, `--claude`, `--mitre`, `--sub-techniques`, `--attack-chains`, `--large-scale`, `--start-date`, `--end-date`, `--time-pattern` |
+| `generate-events` | Generate security events | `--ai`, `--claude`, `--mitre`, `--sub-techniques`, `--attack-chains`, `--large-scale`, `--start-date`, `--end-date`, `--time-pattern` |
 
-#### **Phase 3 Command-Line Flags:**
+#### **Command-Line Flags:**
 
+##### **AI Provider Flags:**
+- `--ai`: Enable AI-powered generation (required for all AI features)
+- `--claude`: Use Claude AI instead of OpenAI (requires `--ai`)
+
+##### **MITRE ATT&CK Flags:**
+- `--mitre`: Use MITRE ATT&CK framework (requires `--ai`)
 - `--sub-techniques`: Include MITRE sub-techniques (requires `--mitre`)
 - `--attack-chains`: Generate realistic attack chains (requires `--mitre`)
+
+##### **Performance & Timing Flags:**
 - `--large-scale`: Enable performance optimizations for large datasets
 - `--start-date <date>`: Start date for data generation (e.g., "7d", "1w", "2024-01-01")
 - `--end-date <date>`: End date for data generation (e.g., "now", "1d", "2024-01-10")
@@ -189,6 +223,11 @@ Add this to your `config.json`:
 yarn start generate-alerts -n 10 -h 5 -u 3 --ai --mitre
 ```
 
+#### **MITRE with Claude AI:**
+```bash
+yarn start generate-alerts -n 10 -h 5 -u 3 --ai --claude --mitre
+```
+
 #### **Phase 3: Sub-techniques:**
 ```bash
 yarn start generate-alerts -n 10 -h 5 -u 3 --ai --mitre --sub-techniques
@@ -197,6 +236,11 @@ yarn start generate-alerts -n 10 -h 5 -u 3 --ai --mitre --sub-techniques
 #### **Phase 3: Attack Chains:**
 ```bash
 yarn start generate-alerts -n 20 -h 10 -u 5 --ai --mitre --attack-chains
+```
+
+#### **Phase 3: Claude with Advanced Features:**
+```bash
+yarn start generate-alerts -n 50 -h 20 -u 10 --ai --claude --mitre --sub-techniques --attack-chains
 ```
 
 #### **Phase 3: Large-Scale Generation:**

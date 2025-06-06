@@ -18,6 +18,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.53.0",
     "@elastic/elasticsearch": "^9.0.0",
     "@faker-js/faker": "^9.0.0",
     "@inquirer/prompts": "^7.3.1",
