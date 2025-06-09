@@ -172,23 +172,99 @@ const createDefaultAlertTemplate = (
   userName: string,
   space: string,
   timestampConfig?: TimestampConfig,
-): Partial<BaseCreateAlertsReturnType> => {
+): Record<string, unknown> => {
   const timestamp = generateTimestamp(timestampConfig);
+  const ruleUuid = faker.string.uuid();
   return {
     'host.name': hostName,
     'user.name': userName,
     'kibana.alert.uuid': faker.string.uuid(),
+    'kibana.alert.rule.name': 'Security Alert Detection',
+    'kibana.alert.rule.description': 'Automated security alert detection',
     'kibana.alert.start': timestamp,
     'kibana.alert.last_detected': timestamp,
     'kibana.version': '8.7.0',
     'kibana.space_ids': [space],
     '@timestamp': timestamp,
     'event.kind': 'signal',
+    'event.category': ['security'],
+    'event.action': 'alert_generated',
     'kibana.alert.status': 'active',
     'kibana.alert.workflow_status': 'open',
     'kibana.alert.depth': 1,
-    'kibana.alert.severity': 'low',
-    'kibana.alert.risk_score': 21,
+    'kibana.alert.severity': 'medium',
+    'kibana.alert.risk_score': 47,
+    'rule.name': 'Security Alert Detection',
+    // Essential Kibana Security fields for proper alert display
+    'kibana.alert.rule.category': 'Custom Query Rule',
+    'kibana.alert.rule.consumer': 'siem',
+    'kibana.alert.rule.execution.uuid': faker.string.uuid(),
+    'kibana.alert.rule.producer': 'siem',
+    'kibana.alert.rule.rule_type_id': 'siem.queryRule',
+    'kibana.alert.rule.uuid': ruleUuid,
+    'kibana.alert.rule.tags': [],
+    'kibana.alert.original_time': timestamp,
+    'kibana.alert.ancestors': [
+      {
+        id: faker.string.alphanumeric(20),
+        type: 'event',
+        index: 'security-alerts',
+        depth: 0,
+      },
+    ],
+    'kibana.alert.reason': `event on ${hostName} created security alert`,
+    'kibana.alert.rule.actions': [],
+    'kibana.alert.rule.author': [],
+    'kibana.alert.rule.created_at': timestamp,
+    'kibana.alert.rule.created_by': 'elastic',
+    'kibana.alert.rule.enabled': true,
+    'kibana.alert.rule.exceptions_list': [],
+    'kibana.alert.rule.false_positives': [],
+    'kibana.alert.rule.from': 'now-360s',
+    'kibana.alert.rule.immutable': false,
+    'kibana.alert.rule.interval': '5m',
+    'kibana.alert.rule.indices': ['security*'],
+    'kibana.alert.rule.license': '',
+    'kibana.alert.rule.max_signals': 100,
+    'kibana.alert.rule.references': [],
+    'kibana.alert.rule.risk_score_mapping': [],
+    'kibana.alert.rule.rule_id': faker.string.uuid(),
+    'kibana.alert.rule.severity_mapping': [],
+    'kibana.alert.rule.threat': [],
+    'kibana.alert.rule.to': 'now',
+    'kibana.alert.rule.type': 'query',
+    'kibana.alert.rule.updated_at': timestamp,
+    'kibana.alert.rule.updated_by': 'elastic',
+    'kibana.alert.rule.version': 1,
+    'kibana.alert.rule.risk_score': 47,
+    'kibana.alert.rule.severity': 'medium',
+    'kibana.alert.rule.parameters': {
+      description: 'Automated security alert detection',
+      risk_score: 47,
+      severity: 'medium',
+      license: '',
+      author: [],
+      false_positives: [],
+      from: 'now-360s',
+      rule_id: faker.string.uuid(),
+      max_signals: 100,
+      risk_score_mapping: [],
+      severity_mapping: [],
+      threat: [],
+      to: 'now',
+      references: [],
+      version: 1,
+      exceptions_list: [],
+      immutable: false,
+      related_integrations: [],
+      required_fields: [],
+      setup: '',
+      type: 'query',
+      language: 'kuery',
+      index: ['security*'],
+      query: '*',
+      filters: [],
+    },
   };
 };
 
@@ -345,20 +421,26 @@ export const generateAIAlert = async ({
   const examplesContext = processExamples(examples);
 
   // Create a concise system prompt with essential instructions
-  const systemPrompt = `Security alert generator. Create JSON alert with:
+  const systemPrompt = `Security alert generator. Create JSON alert with REALISTIC CURRENT timestamps:
 - host.name: "${hostName}"
 - user.name: "${userName}"
 - kibana.space_ids: ["${space}"]
 - kibana.alert.uuid: UUID
-- kibana.alert.start & last_detected: ISO timestamps
+- kibana.alert.rule.name: Descriptive security rule name (e.g., "Suspicious PowerShell Activity", "Malware Detection")
+- kibana.alert.rule.description: Brief description of what triggered the alert
+- kibana.alert.start & last_detected: Use recent dates within the last 30 days (May-June 2025)
 - kibana.version: "8.7.0"
-- @timestamp: current milliseconds
+- @timestamp: recent timestamps within last 30 days (NOT future dates)
 - event.kind: "signal"
+- event.category: ["malware", "network", "process", "authentication", "file"] (choose appropriate)
+- event.action: specific action that occurred
 - kibana.alert.status: "active"
 - kibana.alert.workflow_status: "open"
 - kibana.alert.depth: 1
-- kibana.alert.severity: "low"
-- kibana.alert.risk_score: 21
+- kibana.alert.severity: "low", "medium", "high", or "critical"
+- kibana.alert.risk_score: 1-100 (matching severity)
+- rule.name: Same as kibana.alert.rule.name for compatibility
+CRITICAL: Use only dates from the past 30 days. NO future dates. NO 2023 or older dates.
 ${alertType !== 'general' ? `This is a ${alertType} type alert.` : ''}
 Schema excerpt: ${alertMappingSchema.substring(0, 800)}`;
 
@@ -480,10 +562,11 @@ export const generateAIEvent = async (
   const eventMappingSchema = loadMappingSchema('eventMappings.json', 800);
 
   // Create concise system prompt for event generation
-  const systemPrompt = `Security event generator. Create JSON with:
-- @timestamp: ISO format timestamp
+  const systemPrompt = `Security event generator. Create JSON with REALISTIC CURRENT timestamps:
+- @timestamp: Use recent dates within the last 30 days (May-June 2025)
 - criticality: one of ["low_impact", "medium_impact", "high_impact", "extreme_impact"]
 ${override.id_field ? `- ${override.id_field}: "${override.id_value}"` : ''}
+CRITICAL: Use only dates from the past 30 days. NO future dates. NO 2023 or older dates.
 Schema: ${eventMappingSchema}`;
 
   try {
@@ -624,6 +707,7 @@ Schema excerpt: ${alertMappingSchema}`;
           ? config.azureOpenAIDeployment
           : 'gpt-4o';
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let response: any;
       if (claude) {
         // Use Claude API
@@ -1347,21 +1431,29 @@ export const generateMITREAlert = async ({
   // Load alert mapping schema
   const alertMappingSchema = loadMappingSchema('alertMappings.json', 800);
 
-  // Enhanced system prompt with Phase 3 features
-  const systemPrompt = `Security alert generator with advanced MITRE ATT&CK framework integration. Create JSON alert with:
+  // Enhanced system prompt with MITRE features
+  const systemPrompt = `Security alert generator with advanced MITRE ATT&CK framework integration. Create JSON alert with REALISTIC CURRENT timestamps:
 - host.name: "${hostName}"
 - user.name: "${userName}"
 - kibana.space_ids: ["${space}"]
 - kibana.alert.uuid: UUID
-- kibana.alert.start & last_detected: ISO timestamps
+- kibana.alert.rule.name: MITRE-based security rule name (e.g., "MITRE T1566.001 Spearphishing Detection")
+- kibana.alert.rule.description: Description including MITRE technique details
+- kibana.alert.start & last_detected: Use recent dates within the last 30 days (May-June 2025)
 - kibana.version: "8.7.0"
-- @timestamp: current milliseconds
+- @timestamp: recent timestamps within last 30 days (NOT future dates)
 - event.kind: "signal"
+- event.category: ["malware", "network", "process", "authentication", "file"] (choose based on MITRE technique)
+- event.action: specific action related to MITRE technique
 - kibana.alert.status: "active"
 - kibana.alert.workflow_status: "open"
 - kibana.alert.depth: 1
+- kibana.alert.severity: "low", "medium", "high", or "critical"
+- kibana.alert.risk_score: 1-100 (higher for advanced techniques)
+- rule.name: Same as kibana.alert.rule.name for compatibility
+CRITICAL: Use only dates from the past 30 days. NO future dates. NO 2023 or older dates.
 
-MITRE ATT&CK fields (Phase 3 enhanced):
+MITRE ATT&CK fields:
 - threat.technique.id: technique ID(s) ${selectedTechniques.some((t) => t.subTechnique) ? 'and sub-technique IDs' : ''}
 - threat.technique.name: technique name(s) ${selectedTechniques.some((t) => t.subTechnique) ? 'and sub-technique names' : ''}
 - threat.tactic.id: tactic ID(s)

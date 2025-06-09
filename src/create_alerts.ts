@@ -57,7 +57,7 @@ function baseCreateAlerts({
     'kibana.alert.rule.tags': [],
     '@timestamp': generateTimestamp(),
     'event.kind': 'signal',
-    'kibana.alert.original_time': '2023-04-11T20:17:14.851Z',
+    'kibana.alert.original_time': generateTimestamp(timestampConfig),
     'kibana.alert.ancestors': [
       {
         id: '8TD3cYcB1hicTK_CdP--',
@@ -74,7 +74,7 @@ function baseCreateAlerts({
     'kibana.alert.risk_score': 21,
     'kibana.alert.rule.actions': [],
     'kibana.alert.rule.author': [],
-    'kibana.alert.rule.created_at': '2023-04-11T20:15:52.473Z',
+    'kibana.alert.rule.created_at': generateTimestamp(timestampConfig),
     'kibana.alert.rule.created_by': 'elastic',
     'kibana.alert.rule.description': '2',
     'kibana.alert.rule.enabled': true,
@@ -93,7 +93,7 @@ function baseCreateAlerts({
     'kibana.alert.rule.threat': [],
     'kibana.alert.rule.to': 'now',
     'kibana.alert.rule.type': 'query',
-    'kibana.alert.rule.updated_at': '2023-04-11T20:18:11.024Z',
+    'kibana.alert.rule.updated_at': generateTimestamp(timestampConfig),
     'kibana.alert.rule.updated_by': 'elastic',
     'kibana.alert.rule.version': 3,
     'kibana.alert.rule.meta.from': '1m',

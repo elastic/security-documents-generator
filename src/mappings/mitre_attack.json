@@ -24,6 +24,51 @@
       "name": "Defense Evasion",
       "description": "Adversaries attempt to avoid being detected",
       "techniques": ["T1055", "T1027", "T1070", "T1036", "T1218"]
+    },
+    "TA0006": {
+      "name": "Credential Access",
+      "description": "Adversaries attempt to steal account names and passwords",
+      "techniques": ["T1003", "T1110", "T1555", "T1552", "T1558", "T1212", "T1040"]
+    },
+    "TA0007": {
+      "name": "Discovery",
+      "description": "Adversaries attempt to gain knowledge about the system and internal network",
+      "techniques": ["T1057", "T1083", "T1087", "T1135", "T1018", "T1069", "T1482", "T1033"]
+    },
+    "TA0008": {
+      "name": "Lateral Movement",
+      "description": "Adversaries attempt to move through your environment",
+      "techniques": ["T1021", "T1550", "T1534", "T1570", "T1210"]
+    },
+    "TA0009": {
+      "name": "Collection",
+      "description": "Adversaries attempt to gather information of interest to their goal",
+      "techniques": ["T1005", "T1039", "T1025", "T1074", "T1113", "T1056", "T1560"]
+    },
+    "TA0011": {
+      "name": "Command and Control",
+      "description": "Adversaries attempt to communicate with compromised systems to control them",
+      "techniques": ["T1071", "T1090", "T1572", "T1573", "T1105", "T1102", "T1001"]
+    },
+    "TA0010": {
+      "name": "Exfiltration",
+      "description": "Adversaries attempt to steal data",
+      "techniques": ["T1041", "T1011", "T1052", "T1567", "T1029", "T1030"]
+    },
+    "TA0040": {
+      "name": "Impact",
+      "description": "Adversaries attempt to manipulate, interrupt, or destroy your systems and data",
+      "techniques": ["T1486", "T1490", "T1485", "T1489", "T1491", "T1561", "T1499"]
+    },
+    "TA0042": {
+      "name": "Resource Development",
+      "description": "Adversaries attempt to establish resources they can use to support operations",
+      "techniques": ["T1583", "T1584", "T1587", "T1588", "T1585", "T1586", "T1608"]
+    },
+    "TA0043": {
+      "name": "Reconnaissance",
+      "description": "Adversaries attempt to gather information they can use to plan future operations",
+      "techniques": ["T1589", "T1590", "T1591", "T1592", "T1593", "T1594", "T1596", "T1597", "T1598"]
     }
   },
   "techniques": {
@@ -166,6 +211,447 @@
       "tactics": ["TA0005"],
       "subTechniques": ["T1218.001", "T1218.005", "T1218.010"],
       "chainNext": ["T1070", "T1036"]
+    },
+    "T1003": {
+      "name": "OS Credential Dumping",
+      "description": "Adversaries may attempt to dump credentials to obtain account login information",
+      "tactics": ["TA0006"],
+      "subTechniques": ["T1003.001", "T1003.002", "T1003.003"],
+      "chainNext": ["T1078", "T1021", "T1550"]
+    },
+    "T1110": {
+      "name": "Brute Force",
+      "description": "Adversaries may use brute force techniques to gain access to accounts",
+      "tactics": ["TA0006"],
+      "subTechniques": ["T1110.001", "T1110.002", "T1110.003"],
+      "chainNext": ["T1078", "T1021", "T1087"]
+    },
+    "T1555": {
+      "name": "Credentials from Password Stores",
+      "description": "Adversaries may search for common password storage locations",
+      "tactics": ["TA0006"],
+      "subTechniques": ["T1555.001", "T1555.003"],
+      "chainNext": ["T1078", "T1021", "T1550"]
+    },
+    "T1552": {
+      "name": "Unsecured Credentials",
+      "description": "Adversaries may search compromised systems to find unsecured credentials",
+      "tactics": ["TA0006"],
+      "subTechniques": ["T1552.001", "T1552.002", "T1552.004"],
+      "chainNext": ["T1078", "T1021", "T1550"]
+    },
+    "T1558": {
+      "name": "Steal or Forge Kerberos Tickets",
+      "description": "Adversaries may attempt to subvert Kerberos authentication",
+      "tactics": ["TA0006"],
+      "subTechniques": ["T1558.001", "T1558.002", "T1558.003"],
+      "chainNext": ["T1078", "T1021", "T1550"]
+    },
+    "T1212": {
+      "name": "Exploitation for Credential Access",
+      "description": "Adversaries may exploit software vulnerabilities in an attempt to collect credentials",
+      "tactics": ["TA0006"],
+      "subTechniques": [],
+      "chainNext": ["T1078", "T1021", "T1134"]
+    },
+    "T1040": {
+      "name": "Network Sniffing",
+      "description": "Adversaries may sniff network traffic to capture information",
+      "tactics": ["TA0006", "TA0007"],
+      "subTechniques": [],
+      "chainNext": ["T1078", "T1021", "T1087"]
+    },
+    "T1057": {
+      "name": "Process Discovery",
+      "description": "Adversaries may attempt to get information about running processes",
+      "tactics": ["TA0007"],
+      "subTechniques": [],
+      "chainNext": ["T1083", "T1087", "T1021"]
+    },
+    "T1083": {
+      "name": "File and Directory Discovery",
+      "description": "Adversaries may enumerate files and directories",
+      "tactics": ["TA0007"],
+      "subTechniques": [],
+      "chainNext": ["T1005", "T1025", "T1021"]
+    },
+    "T1087": {
+      "name": "Account Discovery",
+      "description": "Adversaries may attempt to get a listing of accounts on a system",
+      "tactics": ["TA0007"],
+      "subTechniques": ["T1087.001", "T1087.002", "T1087.003"],
+      "chainNext": ["T1110", "T1078", "T1021"]
+    },
+    "T1135": {
+      "name": "Network Share Discovery",
+      "description": "Adversaries may look for folders and drives shared on remote systems",
+      "tactics": ["TA0007"],
+      "subTechniques": [],
+      "chainNext": ["T1021", "T1039", "T1005"]
+    },
+    "T1018": {
+      "name": "Remote System Discovery",
+      "description": "Adversaries may attempt to get a listing of other systems",
+      "tactics": ["TA0007"],
+      "subTechniques": [],
+      "chainNext": ["T1021", "T1210", "T1135"]
+    },
+    "T1069": {
+      "name": "Permission Groups Discovery",
+      "description": "Adversaries may attempt to find group and permission settings",
+      "tactics": ["TA0007"],
+      "subTechniques": ["T1069.001", "T1069.002", "T1069.003"],
+      "chainNext": ["T1078", "T1134", "T1021"]
+    },
+    "T1482": {
+      "name": "Domain Trust Discovery",
+      "description": "Adversaries may attempt to gather information on domain trust relationships",
+      "tactics": ["TA0007"],
+      "subTechniques": [],
+      "chainNext": ["T1021", "T1550", "T1078"]
+    },
+    "T1033": {
+      "name": "System Owner/User Discovery",
+      "description": "Adversaries may attempt to identify the primary user account",
+      "tactics": ["TA0007"],
+      "subTechniques": [],
+      "chainNext": ["T1087", "T1078", "T1021"]
+    },
+    "T1021": {
+      "name": "Remote Services",
+      "description": "Adversaries may use Valid Accounts to log into a service",
+      "tactics": ["TA0008"],
+      "subTechniques": ["T1021.001", "T1021.002", "T1021.003", "T1021.004"],
+      "chainNext": ["T1059", "T1057", "T1083"]
+    },
+    "T1550": {
+      "name": "Use Alternate Authentication Material",
+      "description": "Adversaries may use alternate authentication material",
+      "tactics": ["TA0008"],
+      "subTechniques": ["T1550.001", "T1550.002", "T1550.003"],
+      "chainNext": ["T1021", "T1059", "T1057"]
+    },
+    "T1534": {
+      "name": "Internal Spearphishing",
+      "description": "Adversaries may use internal spearphishing to gain access to additional information",
+      "tactics": ["TA0008"],
+      "subTechniques": [],
+      "chainNext": ["T1204", "T1059", "T1021"]
+    },
+    "T1570": {
+      "name": "Lateral Tool Transfer",
+      "description": "Adversaries may transfer tools or other files from one system to another",
+      "tactics": ["TA0008"],
+      "subTechniques": [],
+      "chainNext": ["T1059", "T1055", "T1021"]
+    },
+    "T1210": {
+      "name": "Exploitation of Remote Services",
+      "description": "Adversaries may exploit remote services to gain unauthorized access",
+      "tactics": ["TA0008"],
+      "subTechniques": [],
+      "chainNext": ["T1059", "T1055", "T1021"]
+    },
+    "T1005": {
+      "name": "Data from Local System",
+      "description": "Adversaries may search local system sources to find files of interest",
+      "tactics": ["TA0009"],
+      "subTechniques": [],
+      "chainNext": ["T1560", "T1074", "T1041"]
+    },
+    "T1039": {
+      "name": "Data from Network Shared Drive",
+      "description": "Adversaries may search network shares on computers they have compromised",
+      "tactics": ["TA0009"],
+      "subTechniques": [],
+      "chainNext": ["T1560", "T1074", "T1041"]
+    },
+    "T1025": {
+      "name": "Data from Removable Media",
+      "description": "Adversaries may search connected removable media on computers",
+      "tactics": ["TA0009"],
+      "subTechniques": [],
+      "chainNext": ["T1560", "T1074", "T1041"]
+    },
+    "T1074": {
+      "name": "Data Staged",
+      "description": "Adversaries may stage collected data in a central location",
+      "tactics": ["TA0009"],
+      "subTechniques": ["T1074.001", "T1074.002"],
+      "chainNext": ["T1560", "T1041", "T1567"]
+    },
+    "T1113": {
+      "name": "Screen Capture",
+      "description": "Adversaries may attempt to take screen captures of the desktop",
+      "tactics": ["TA0009"],
+      "subTechniques": [],
+      "chainNext": ["T1074", "T1560", "T1041"]
+    },
+    "T1056": {
+      "name": "Input Capture",
+      "description": "Adversaries may use methods of capturing user input",
+      "tactics": ["TA0009", "TA0006"],
+      "subTechniques": ["T1056.001", "T1056.002", "T1056.003"],
+      "chainNext": ["T1074", "T1078", "T1041"]
+    },
+    "T1560": {
+      "name": "Archive Collected Data",
+      "description": "Adversaries may compress and/or encrypt data prior to exfiltration",
+      "tactics": ["TA0009"],
+      "subTechniques": ["T1560.001", "T1560.002", "T1560.003"],
+      "chainNext": ["T1041", "T1567", "T1029"]
+    },
+    "T1071": {
+      "name": "Application Layer Protocol",
+      "description": "Adversaries may communicate using application layer protocols",
+      "tactics": ["TA0011"],
+      "subTechniques": ["T1071.001", "T1071.002", "T1071.003", "T1071.004"],
+      "chainNext": ["T1105", "T1572", "T1041"]
+    },
+    "T1090": {
+      "name": "Proxy",
+      "description": "Adversaries may use a connection proxy to direct network traffic",
+      "tactics": ["TA0011"],
+      "subTechniques": ["T1090.001", "T1090.002", "T1090.003"],
+      "chainNext": ["T1071", "T1105", "T1041"]
+    },
+    "T1572": {
+      "name": "Protocol Tunneling",
+      "description": "Adversaries may tunnel network communications to and from a victim system",
+      "tactics": ["TA0011"],
+      "subTechniques": [],
+      "chainNext": ["T1071", "T1105", "T1041"]
+    },
+    "T1573": {
+      "name": "Encrypted Channel",
+      "description": "Adversaries may employ a known encryption algorithm to conceal command and control traffic",
+      "tactics": ["TA0011"],
+      "subTechniques": ["T1573.001", "T1573.002"],
+      "chainNext": ["T1071", "T1105", "T1041"]
+    },
+    "T1105": {
+      "name": "Ingress Tool Transfer",
+      "description": "Adversaries may transfer tools or other files from an external system",
+      "tactics": ["TA0011"],
+      "subTechniques": [],
+      "chainNext": ["T1059", "T1055", "T1570"]
+    },
+    "T1102": {
+      "name": "Web Service",
+      "description": "Adversaries may use an existing, legitimate external Web service",
+      "tactics": ["TA0011"],
+      "subTechniques": ["T1102.001", "T1102.002", "T1102.003"],
+      "chainNext": ["T1071", "T1105", "T1041"]
+    },
+    "T1001": {
+      "name": "Data Obfuscation",
+      "description": "Adversaries may obfuscate command and control traffic",
+      "tactics": ["TA0011"],
+      "subTechniques": ["T1001.001", "T1001.002", "T1001.003"],
+      "chainNext": ["T1071", "T1573", "T1041"]
+    },
+    "T1041": {
+      "name": "Exfiltration Over C2 Channel",
+      "description": "Adversaries may steal data by exfiltrating it over an existing command and control channel",
+      "tactics": ["TA0010"],
+      "subTechniques": [],
+      "chainNext": ["T1071", "T1090", "T1573"]
+    },
+    "T1011": {
+      "name": "Exfiltration Over Other Network Medium",
+      "description": "Adversaries may attempt to exfiltrate data over a different network medium",
+      "tactics": ["TA0010"],
+      "subTechniques": ["T1011.001"],
+      "chainNext": ["T1560", "T1029", "T1030"]
+    },
+    "T1052": {
+      "name": "Exfiltration Over Physical Medium",
+      "description": "Adversaries may attempt to exfiltrate data via a physical medium",
+      "tactics": ["TA0010"],
+      "subTechniques": ["T1052.001"],
+      "chainNext": ["T1560", "T1025"]
+    },
+    "T1567": {
+      "name": "Exfiltration Over Web Service",
+      "description": "Adversaries may use an existing, legitimate external Web service to exfiltrate data",
+      "tactics": ["TA0010"],
+      "subTechniques": ["T1567.001", "T1567.002"],
+      "chainNext": ["T1560", "T1102", "T1071"]
+    },
+    "T1029": {
+      "name": "Scheduled Transfer",
+      "description": "Adversaries may schedule data exfiltration to be performed only at certain times",
+      "tactics": ["TA0010"],
+      "subTechniques": [],
+      "chainNext": ["T1041", "T1567", "T1011"]
+    },
+    "T1030": {
+      "name": "Data Transfer Size Limits",
+      "description": "Adversaries may exfiltrate data in fixed size chunks instead of whole files",
+      "tactics": ["TA0010"],
+      "subTechniques": [],
+      "chainNext": ["T1041", "T1567", "T1011"]
+    },
+    "T1486": {
+      "name": "Data Encrypted for Impact",
+      "description": "Adversaries may encrypt data on target systems or on large numbers of systems",
+      "tactics": ["TA0040"],
+      "subTechniques": [],
+      "chainNext": ["T1490", "T1491", "T1499"]
+    },
+    "T1490": {
+      "name": "Inhibit System Recovery",
+      "description": "Adversaries may delete or remove built-in operating system data and turn off services",
+      "tactics": ["TA0040"],
+      "subTechniques": [],
+      "chainNext": ["T1486", "T1485", "T1561"]
+    },
+    "T1485": {
+      "name": "Data Destruction",
+      "description": "Adversaries may destroy data and files on specific systems",
+      "tactics": ["TA0040"],
+      "subTechniques": [],
+      "chainNext": ["T1490", "T1486", "T1561"]
+    },
+    "T1489": {
+      "name": "Service Stop",
+      "description": "Adversaries may stop or disable services on a system",
+      "tactics": ["TA0040"],
+      "subTechniques": [],
+      "chainNext": ["T1490", "T1485", "T1486"]
+    },
+    "T1491": {
+      "name": "Defacement",
+      "description": "Adversaries may modify visual content available internally or externally",
+      "tactics": ["TA0040"],
+      "subTechniques": ["T1491.001", "T1491.002"],
+      "chainNext": ["T1486", "T1485", "T1499"]
+    },
+    "T1561": {
+      "name": "Disk Wipe",
+      "description": "Adversaries may wipe or corrupt raw disk data structures on hard drives",
+      "tactics": ["TA0040"],
+      "subTechniques": ["T1561.001", "T1561.002"],
+      "chainNext": ["T1485", "T1490", "T1486"]
+    },
+    "T1499": {
+      "name": "Endpoint Denial of Service",
+      "description": "Adversaries may perform Endpoint Denial of Service (DoS) attacks",
+      "tactics": ["TA0040"],
+      "subTechniques": ["T1499.001", "T1499.002", "T1499.003"],
+      "chainNext": ["T1489", "T1490", "T1491"]
+    },
+    "T1583": {
+      "name": "Acquire Infrastructure",
+      "description": "Adversaries may buy, lease, or rent infrastructure that can be used during targeting",
+      "tactics": ["TA0042"],
+      "subTechniques": ["T1583.001", "T1583.002", "T1583.003"],
+      "chainNext": ["T1584", "T1608", "T1590"]
+    },
+    "T1584": {
+      "name": "Compromise Infrastructure",
+      "description": "Adversaries may compromise third-party infrastructure that can be used during targeting",
+      "tactics": ["TA0042"],
+      "subTechniques": ["T1584.001", "T1584.002", "T1584.003"],
+      "chainNext": ["T1583", "T1608", "T1590"]
+    },
+    "T1587": {
+      "name": "Develop Capabilities",
+      "description": "Adversaries may build capabilities that can be used during targeting",
+      "tactics": ["TA0042"],
+      "subTechniques": ["T1587.001", "T1587.002", "T1587.003"],
+      "chainNext": ["T1588", "T1608", "T1566"]
+    },
+    "T1588": {
+      "name": "Obtain Capabilities",
+      "description": "Adversaries may buy and/or steal capabilities that can be used during targeting",
+      "tactics": ["TA0042"],
+      "subTechniques": ["T1588.001", "T1588.002", "T1588.003"],
+      "chainNext": ["T1587", "T1608", "T1566"]
+    },
+    "T1585": {
+      "name": "Establish Accounts",
+      "description": "Adversaries may create and cultivate accounts with services that can be used during targeting",
+      "tactics": ["TA0042"],
+      "subTechniques": ["T1585.001", "T1585.002"],
+      "chainNext": ["T1586", "T1102", "T1566"]
+    },
+    "T1586": {
+      "name": "Compromise Accounts",
+      "description": "Adversaries may compromise accounts with services that can be used during targeting",
+      "tactics": ["TA0042"],
+      "subTechniques": ["T1586.001", "T1586.002"],
+      "chainNext": ["T1585", "T1102", "T1566"]
+    },
+    "T1608": {
+      "name": "Stage Capabilities",
+      "description": "Adversaries may upload, install, or otherwise set up capabilities",
+      "tactics": ["TA0042"],
+      "subTechniques": ["T1608.001", "T1608.002", "T1608.003"],
+      "chainNext": ["T1583", "T1584", "T1105"]
+    },
+    "T1589": {
+      "name": "Gather Victim Identity Information",
+      "description": "Adversaries may gather information about the victim's identity",
+      "tactics": ["TA0043"],
+      "subTechniques": ["T1589.001", "T1589.002", "T1589.003"],
+      "chainNext": ["T1590", "T1591", "T1585"]
+    },
+    "T1590": {
+      "name": "Gather Victim Network Information",
+      "description": "Adversaries may gather information about the victim's networks",
+      "tactics": ["TA0043"],
+      "subTechniques": ["T1590.001", "T1590.002", "T1590.003"],
+      "chainNext": ["T1589", "T1591", "T1583"]
+    },
+    "T1591": {
+      "name": "Gather Victim Org Information",
+      "description": "Adversaries may gather information about the victim's organization",
+      "tactics": ["TA0043"],
+      "subTechniques": ["T1591.001", "T1591.002", "T1591.003"],
+      "chainNext": ["T1589", "T1590", "T1585"]
+    },
+    "T1592": {
+      "name": "Gather Victim Host Information",
+      "description": "Adversaries may gather information about the victim's hosts",
+      "tactics": ["TA0043"],
+      "subTechniques": ["T1592.001", "T1592.002", "T1592.003"],
+      "chainNext": ["T1590", "T1591", "T1583"]
+    },
+    "T1593": {
+      "name": "Search Open Websites/Domains",
+      "description": "Adversaries may search freely available websites and/or domains",
+      "tactics": ["TA0043"],
+      "subTechniques": ["T1593.001", "T1593.002"],
+      "chainNext": ["T1594", "T1596", "T1589"]
+    },
+    "T1594": {
+      "name": "Search Victim-Owned Websites",
+      "description": "Adversaries may search websites owned by the victim for information",
+      "tactics": ["TA0043"],
+      "subTechniques": [],
+      "chainNext": ["T1593", "T1596", "T1589"]
+    },
+    "T1596": {
+      "name": "Search Open Technical Databases",
+      "description": "Adversaries may search freely available technical databases",
+      "tactics": ["TA0043"],
+      "subTechniques": ["T1596.001", "T1596.002", "T1596.003"],
+      "chainNext": ["T1593", "T1594", "T1590"]
+    },
+    "T1597": {
+      "name": "Search Closed Sources of Information",
+      "description": "Adversaries may search and gather information about victims from closed sources",
+      "tactics": ["TA0043"],
+      "subTechniques": ["T1597.001", "T1597.002"],
+      "chainNext": ["T1596", "T1598", "T1589"]
+    },
+    "T1598": {
+      "name": "Phishing for Information",
+      "description": "Adversaries may send phishing messages to elicit sensitive information",
+      "tactics": ["TA0043"],
+      "subTechniques": ["T1598.001", "T1598.002", "T1598.003"],
+      "chainNext": ["T1597", "T1589", "T1566"]
     }
   },
   "subTechniques": {
@@ -214,6 +700,108 @@
     "T1036.005": {"name": "Match Legitimate Name or Location", "parent": "T1036"},
     "T1218.001": {"name": "Compiled HTML File", "parent": "T1218"},
     "T1218.005": {"name": "Mshta", "parent": "T1218"},
-    "T1218.010": {"name": "Regsvr32", "parent": "T1218"}
+    "T1218.010": {"name": "Regsvr32", "parent": "T1218"},
+    "T1003.001": {"name": "LSASS Memory", "parent": "T1003"},
+    "T1003.002": {"name": "Security Account Manager", "parent": "T1003"},
+    "T1003.003": {"name": "NTDS", "parent": "T1003"},
+    "T1110.001": {"name": "Password Guessing", "parent": "T1110"},
+    "T1110.002": {"name": "Password Cracking", "parent": "T1110"},
+    "T1110.003": {"name": "Password Spraying", "parent": "T1110"},
+    "T1555.001": {"name": "Keychain", "parent": "T1555"},
+    "T1555.003": {"name": "Credentials from Web Browsers", "parent": "T1555"},
+    "T1552.001": {"name": "Credentials In Files", "parent": "T1552"},
+    "T1552.002": {"name": "Credentials in Registry", "parent": "T1552"},
+    "T1552.004": {"name": "Private Keys", "parent": "T1552"},
+    "T1558.001": {"name": "Golden Ticket", "parent": "T1558"},
+    "T1558.002": {"name": "Silver Ticket", "parent": "T1558"},
+    "T1558.003": {"name": "Kerberoasting", "parent": "T1558"},
+    "T1087.001": {"name": "Local Account", "parent": "T1087"},
+    "T1087.002": {"name": "Domain Account", "parent": "T1087"},
+    "T1087.003": {"name": "Email Account", "parent": "T1087"},
+    "T1069.001": {"name": "Local Groups", "parent": "T1069"},
+    "T1069.002": {"name": "Domain Groups", "parent": "T1069"},
+    "T1069.003": {"name": "Cloud Groups", "parent": "T1069"},
+    "T1021.001": {"name": "Remote Desktop Protocol", "parent": "T1021"},
+    "T1021.002": {"name": "SMB/Windows Admin Shares", "parent": "T1021"},
+    "T1021.003": {"name": "Distributed Component Object Model", "parent": "T1021"},
+    "T1021.004": {"name": "SSH", "parent": "T1021"},
+    "T1550.001": {"name": "Application Access Token", "parent": "T1550"},
+    "T1550.002": {"name": "Pass the Hash", "parent": "T1550"},
+    "T1550.003": {"name": "Pass the Ticket", "parent": "T1550"},
+    "T1074.001": {"name": "Local Data Staging", "parent": "T1074"},
+    "T1074.002": {"name": "Remote Data Staging", "parent": "T1074"},
+    "T1056.001": {"name": "Keylogging", "parent": "T1056"},
+    "T1056.002": {"name": "GUI Input Capture", "parent": "T1056"},
+    "T1056.003": {"name": "Web Portal Capture", "parent": "T1056"},
+    "T1560.001": {"name": "Archive via Utility", "parent": "T1560"},
+    "T1560.002": {"name": "Archive via Library", "parent": "T1560"},
+    "T1560.003": {"name": "Archive via Custom Method", "parent": "T1560"},
+    "T1071.001": {"name": "Web Protocols", "parent": "T1071"},
+    "T1071.002": {"name": "File Transfer Protocols", "parent": "T1071"},
+    "T1071.003": {"name": "Mail Protocols", "parent": "T1071"},
+    "T1071.004": {"name": "DNS", "parent": "T1071"},
+    "T1090.001": {"name": "Internal Proxy", "parent": "T1090"},
+    "T1090.002": {"name": "External Proxy", "parent": "T1090"},
+    "T1090.003": {"name": "Multi-hop Proxy", "parent": "T1090"},
+    "T1573.001": {"name": "Symmetric Cryptography", "parent": "T1573"},
+    "T1573.002": {"name": "Asymmetric Cryptography", "parent": "T1573"},
+    "T1102.001": {"name": "Dead Drop Resolver", "parent": "T1102"},
+    "T1102.002": {"name": "Bidirectional Communication", "parent": "T1102"},
+    "T1102.003": {"name": "One-Way Communication", "parent": "T1102"},
+    "T1001.001": {"name": "Junk Data", "parent": "T1001"},
+    "T1001.002": {"name": "Steganography", "parent": "T1001"},
+    "T1001.003": {"name": "Protocol Impersonation", "parent": "T1001"},
+    "T1011.001": {"name": "Exfiltration Over Bluetooth", "parent": "T1011"},
+    "T1052.001": {"name": "Exfiltration over USB", "parent": "T1052"},
+    "T1567.001": {"name": "Exfiltration to Code Repository", "parent": "T1567"},
+    "T1567.002": {"name": "Exfiltration to Cloud Storage", "parent": "T1567"},
+    "T1491.001": {"name": "Internal Defacement", "parent": "T1491"},
+    "T1491.002": {"name": "External Defacement", "parent": "T1491"},
+    "T1561.001": {"name": "Disk Content Wipe", "parent": "T1561"},
+    "T1561.002": {"name": "Disk Structure Wipe", "parent": "T1561"},
+    "T1499.001": {"name": "OS Exhaustion Flood", "parent": "T1499"},
+    "T1499.002": {"name": "Service Exhaustion Flood", "parent": "T1499"},
+    "T1499.003": {"name": "Application Exhaustion Flood", "parent": "T1499"},
+    "T1583.001": {"name": "Domains", "parent": "T1583"},
+    "T1583.002": {"name": "DNS Server", "parent": "T1583"},
+    "T1583.003": {"name": "Virtual Private Server", "parent": "T1583"},
+    "T1584.001": {"name": "Domains", "parent": "T1584"},
+    "T1584.002": {"name": "DNS Server", "parent": "T1584"},
+    "T1584.003": {"name": "Virtual Private Server", "parent": "T1584"},
+    "T1587.001": {"name": "Malware", "parent": "T1587"},
+    "T1587.002": {"name": "Code Signing Certificates", "parent": "T1587"},
+    "T1587.003": {"name": "Digital Certificates", "parent": "T1587"},
+    "T1588.001": {"name": "Malware", "parent": "T1588"},
+    "T1588.002": {"name": "Tool", "parent": "T1588"},
+    "T1588.003": {"name": "Code Signing Certificates", "parent": "T1588"},
+    "T1585.001": {"name": "Social Media Accounts", "parent": "T1585"},
+    "T1585.002": {"name": "Email Accounts", "parent": "T1585"},
+    "T1586.001": {"name": "Social Media Accounts", "parent": "T1586"},
+    "T1586.002": {"name": "Email Accounts", "parent": "T1586"},
+    "T1608.001": {"name": "Upload Malware", "parent": "T1608"},
+    "T1608.002": {"name": "Upload Tool", "parent": "T1608"},
+    "T1608.003": {"name": "Install Digital Certificate", "parent": "T1608"},
+    "T1589.001": {"name": "Credentials", "parent": "T1589"},
+    "T1589.002": {"name": "Email Addresses", "parent": "T1589"},
+    "T1589.003": {"name": "Employee Names", "parent": "T1589"},
+    "T1590.001": {"name": "Domain Properties", "parent": "T1590"},
+    "T1590.002": {"name": "DNS", "parent": "T1590"},
+    "T1590.003": {"name": "Network Trust Dependencies", "parent": "T1590"},
+    "T1591.001": {"name": "Determine Physical Locations", "parent": "T1591"},
+    "T1591.002": {"name": "Business Relationships", "parent": "T1591"},
+    "T1591.003": {"name": "Identify Business Tempo", "parent": "T1591"},
+    "T1592.001": {"name": "Hardware", "parent": "T1592"},
+    "T1592.002": {"name": "Software", "parent": "T1592"},
+    "T1592.003": {"name": "Firmware", "parent": "T1592"},
+    "T1593.001": {"name": "Social Media", "parent": "T1593"},
+    "T1593.002": {"name": "Search Engines", "parent": "T1593"},
+    "T1596.001": {"name": "DNS/Passive DNS", "parent": "T1596"},
+    "T1596.002": {"name": "WHOIS", "parent": "T1596"},
+    "T1596.003": {"name": "Digital Certificates", "parent": "T1596"},
+    "T1597.001": {"name": "Threat Intel Vendors", "parent": "T1597"},
+    "T1597.002": {"name": "Purchase Technical Data", "parent": "T1597"},
+    "T1598.001": {"name": "Spearphishing Service", "parent": "T1598"},
+    "T1598.002": {"name": "Spearphishing Attachment", "parent": "T1598"},
+    "T1598.003": {"name": "Spearphishing Link", "parent": "T1598"}
   }
 }

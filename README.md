@@ -140,19 +140,57 @@ The AI generation works by:
 
 To preserve performance, the tool uses AI for generating a subset of documents (approximately 1 in 3 or 1 in 5) and falls back to standard generation for the rest.
 
-## 🚀 **MITRE ATT&CK Integration (Phase 3: Scale & Performance)**
+## 🎯 **Advanced Attack Campaign Generation**
 
-This tool now supports advanced MITRE ATT&CK framework integration with **Phase 3 enhancements** including sub-techniques, attack chains, and large-scale generation optimizations.
+This tool includes sophisticated attack campaign generation capabilities for realistic security testing scenarios.
 
-### **Phase 3 Features**
+### **🎭 Attack Campaign Types**
+
+#### **Advanced Persistent Threat (APT) Campaigns:**
+```bash
+# Generate sophisticated APT campaign
+yarn start generate-campaign apt --ai --mitre --events 100
+```
+
+#### **Ransomware Attack Scenarios:**
+```bash
+# Generate ransomware campaign with realistic patterns
+yarn start generate-campaign ransomware --ai --mitre --events 50
+```
+
+#### **Insider Threat Scenarios:**
+```bash
+# Generate insider threat detection scenarios
+yarn start generate-campaign insider --ai --mitre --events 30
+```
+
+### **🔧 Campaign Configuration**
+
+Add campaign configuration to `config.json`:
+
+```json
+{
+  "campaigns": {
+    "enabled": true,
+    "defaultType": "apt",
+    "complexity": "medium"
+  }
+}
+```
+
+---
+
+## 🚀 **MITRE ATT&CK Integration**
+
+This tool supports advanced MITRE ATT&CK framework integration for realistic security testing.
+
+### **Features**
 
 #### **✅ Implemented Features:**
 - **Sub-techniques Support**: Generate alerts with MITRE sub-techniques (e.g., T1566.001, T1078.002)
 - **Attack Chains**: Multi-stage attack scenarios with technique progression
-- **Large-Scale Generation**: Performance optimizations for datasets >1000 alerts
-- **Adaptive Batch Sizing**: Dynamic batch sizes based on dataset size
-- **Parallel Processing**: Concurrent batch processing for improved performance
-- **Enhanced Caching**: Improved caching with configurable size limits
+- **AI Integration**: Enhanced AI-powered generation with MITRE context
+- **Performance Optimization**: Efficient batch processing for large datasets
 - **Dynamic Risk Scoring**: Severity adjustment based on technique combinations
 
 #### **🎯 MITRE Configuration**
@@ -194,7 +232,7 @@ Add this to your `config.json`:
 
 ### **📋 Command Reference**
 
-| Command | Description | AI & Phase 3 Flags |
+| Command | Description | AI Flags |
 |---------|-------------|---------------------|
 | `generate-alerts` | Generate security alerts | `--ai`, `--claude`, `--mitre`, `--sub-techniques`, `--attack-chains`, `--large-scale`, `--start-date`, `--end-date`, `--time-pattern` |
 | `generate-events` | Generate security events | `--ai`, `--claude`, `--mitre`, `--sub-techniques`, `--attack-chains`, `--large-scale`, `--start-date`, `--end-date`, `--time-pattern` |
@@ -228,32 +266,32 @@ yarn start generate-alerts -n 10 -h 5 -u 3 --ai --mitre
 yarn start generate-alerts -n 10 -h 5 -u 3 --ai --claude --mitre
 ```
 
-#### **Phase 3: Sub-techniques:**
+#### **Sub-techniques:**
 ```bash
 yarn start generate-alerts -n 10 -h 5 -u 3 --ai --mitre --sub-techniques
 ```
 
-#### **Phase 3: Attack Chains:**
+#### **Attack Chains:**
 ```bash
 yarn start generate-alerts -n 20 -h 10 -u 5 --ai --mitre --attack-chains
 ```
 
-#### **Phase 3: Claude with Advanced Features:**
+#### **Claude with Advanced Features:**
 ```bash
 yarn start generate-alerts -n 50 -h 20 -u 10 --ai --claude --mitre --sub-techniques --attack-chains
 ```
 
-#### **Phase 3: Large-Scale Generation:**
+#### **Large-Scale Generation:**
 ```bash
 yarn start generate-alerts -n 2000 -h 100 -u 50 --ai --mitre --large-scale
 ```
 
-#### **Phase 3: Combined Features:**
+#### **Combined Features:**
 ```bash
 yarn start generate-alerts -n 1000 -h 50 -u 25 --ai --mitre --sub-techniques --attack-chains --large-scale
 ```
 
-#### **Phase 3: Multi-Day Timestamp Generation:**
+#### **Multi-Day Timestamp Generation:**
 ```bash
 # Generate alerts over the last 7 days with business hours pattern
 yarn start generate-alerts -n 100 -h 10 -u 5 --start-date "7d" --end-date "now" --time-pattern "business_hours"
@@ -277,7 +315,7 @@ yarn start generate-alerts -n 50 -h 5 -u 3 --start-date "2024-01-01" --end-date 
 - **TA0004**: Privilege Escalation
 - **TA0005**: Defense Evasion
 
-#### **Phase 3 Sub-techniques Examples:**
+#### **Sub-techniques Examples:**
 - **T1566.001**: Spearphishing Attachment
 - **T1566.002**: Spearphishing Link
 - **T1078.001**: Default Accounts
@@ -374,7 +412,7 @@ The system automatically calculates time range statistics:
 
 ### **🔍 Generated Alert Fields**
 
-Phase 3 alerts include enhanced MITRE fields:
+Generated alerts include enhanced MITRE fields:
 
 ```json
 {
@@ -418,33 +456,6 @@ To add more tactics/techniques, edit `src/mappings/mitre_attack.json`:
   }
 }
 ```
-
-### **🚀 Phase 3 Architecture**
-
-The Phase 3 implementation includes:
-
-1. **Enhanced AI Service** (`src/utils/ai_service.ts`):
-   - Sub-technique selection and validation
-   - Attack chain generation with technique relationships
-   - Performance-optimized caching and batch processing
-
-2. **Advanced Configuration** (`config.sample.json`):
-   - Granular performance tuning options
-   - Attack chain probability settings
-   - Large-scale generation thresholds
-
-3. **Intelligent Command Interface** (`src/index.ts`):
-   - Flag validation and dependency checking
-   - Runtime configuration overrides
-   - Enhanced error handling and user feedback
-
-### **🎯 Next Steps**
-
-Phase 3 provides a solid foundation for:
-- **Custom Attack Scenarios**: Define your own attack patterns
-- **Integration Testing**: Generate realistic datasets for security tool testing
-- **Performance Benchmarking**: Test Kibana performance with large MITRE datasets
-- **Security Research**: Analyze attack patterns and detection effectiveness
 
 ## How to generate data for serverless project
 
