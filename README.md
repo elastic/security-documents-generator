@@ -144,39 +144,254 @@ To preserve performance, the tool uses AI for generating a subset of documents (
 
 This tool includes sophisticated attack campaign generation capabilities for realistic security testing scenarios.
 
-### **🎭 Attack Campaign Types**
+### **🎭 Attack Campaign Simulation Guide**
 
-#### **Advanced Persistent Threat (APT) Campaigns:**
+The `generate-campaign` command allows you to simulate realistic multi-stage cyber attacks for security testing and training purposes.
+
+#### **Campaign Types Available:**
+
+| Campaign Type | Description | Use Cases |
+|---------------|-------------|-----------|
+| `apt` | Advanced Persistent Threat | Long-term targeted attacks, lateral movement |
+| `ransomware` | Ransomware attacks | Encryption campaigns, backup disruption |
+| `insider` | Insider threats | Malicious employees, privilege abuse |
+| `malware` | Malware infections | Virus outbreaks, trojan activities |
+| `phishing` | Phishing campaigns | Email-based attacks, credential theft |
+
+#### **Basic Campaign Examples:**
+
+##### **🎯 APT (Advanced Persistent Threat) Campaign:**
 ```bash
-# Generate sophisticated APT campaign
-yarn start generate-campaign apt --ai --mitre --events 100
+# Basic APT simulation - 20 events across multiple attack stages
+yarn start generate-campaign apt --ai --mitre --events 20
+
+# Advanced APT with sub-techniques and attack chains
+yarn start generate-campaign apt --ai --mitre --sub-techniques --attack-chains --events 50
+
+# Large-scale APT campaign for enterprise testing
+yarn start generate-campaign apt --ai --mitre --sub-techniques --attack-chains --events 200 --targets 50
 ```
 
-#### **Ransomware Attack Scenarios:**
+**What this generates:**
+- Initial reconnaissance activities
+- Spear-phishing attempts (T1566.001)
+- Command & control communications
+- Lateral movement activities (T1021)
+- Data exfiltration attempts
+
+##### **🔒 Ransomware Campaign:**
 ```bash
-# Generate ransomware campaign with realistic patterns
-yarn start generate-campaign ransomware --ai --mitre --events 50
+# Basic ransomware simulation
+yarn start generate-campaign ransomware --ai --mitre --events 30
+
+# Advanced ransomware with attack progression
+yarn start generate-campaign ransomware --ai --mitre --sub-techniques --attack-chains --events 100
+
+# Multi-variant ransomware campaign
+yarn start generate-campaign ransomware --ai --mitre --attack-chains --events 150 --targets 75
 ```
 
-#### **Insider Threat Scenarios:**
+**What this generates:**
+- Initial access vectors
+- File encryption activities
+- Shadow copy deletion (T1490)
+- Backup disruption attempts
+- Ransom note deployment
+
+##### **👤 Insider Threat Campaign:**
 ```bash
-# Generate insider threat detection scenarios
-yarn start generate-campaign insider --ai --mitre --events 30
+# Basic insider threat simulation
+yarn start generate-campaign insider --ai --mitre --events 25
+
+# Advanced insider with behavioral anomalies
+yarn start generate-campaign insider --ai --mitre --sub-techniques --events 50
+
+# Comprehensive insider threat scenario
+yarn start generate-campaign insider --ai --mitre --sub-techniques --attack-chains --events 100 --targets 30
 ```
 
-### **🔧 Campaign Configuration**
+**What this generates:**
+- After-hours access attempts
+- Excessive file downloads
+- Privilege escalation attempts (T1068)
+- Data collection activities (T1005)
+- Unusual network communications
 
-Add campaign configuration to `config.json`:
+##### **🦠 Malware Campaign:**
+```bash
+# Basic malware outbreak simulation
+yarn start generate-campaign malware --ai --mitre --events 40
+
+# Advanced malware with persistence mechanisms
+yarn start generate-campaign malware --ai --mitre --sub-techniques --attack-chains --events 80
+```
+
+**What this generates:**
+- Malicious file executions
+- Registry persistence (T1547.001)
+- Process injection activities (T1055)
+- Defense evasion techniques
+- Command execution patterns
+
+##### **📧 Phishing Campaign:**
+```bash
+# Basic phishing simulation
+yarn start generate-campaign phishing --ai --mitre --events 35
+
+# Advanced phishing with credential harvesting
+yarn start generate-campaign phishing --ai --mitre --sub-techniques --events 70
+```
+
+**What this generates:**
+- Email delivery events
+- Credential input capture (T1056.002)
+- Browser manipulation
+- Form data collection
+- Redirect activities
+
+#### **Advanced Campaign Options:**
+
+##### **🔧 Complexity Levels:**
+```bash
+# Low complexity (basic attack patterns)
+yarn start generate-campaign apt --complexity low --events 20
+
+# Medium complexity (realistic attack progression)
+yarn start generate-campaign apt --complexity medium --events 50
+
+# High complexity (advanced evasion techniques)
+yarn start generate-campaign apt --complexity high --events 100
+```
+
+##### **🎯 Targeted Campaigns:**
+```bash
+# Target specific number of hosts and users
+yarn start generate-campaign ransomware --targets 25 --users 15 --events 60
+
+# Large enterprise simulation
+yarn start generate-campaign apt --targets 100 --users 50 --events 300
+```
+
+##### **⏱️ Time-based Campaigns:**
+```bash
+# Simulate attacks over last 7 days
+yarn start generate-campaign apt --start-date "7d" --end-date "now" --events 50
+
+# Simulate weekend attack pattern
+yarn start generate-campaign ransomware --time-pattern "weekend_heavy" --events 40
+
+# Business hours phishing campaign
+yarn start generate-campaign phishing --time-pattern "business_hours" --events 30
+```
+
+#### **🔗 Multi-Stage Attack Simulation:**
+
+##### **Campaign with Attack Chains:**
+```bash
+# Enable realistic attack progression
+yarn start generate-campaign apt --ai --mitre --attack-chains --events 80
+```
+
+**Attack chain example:**
+1. **Initial Access** (T1566.001 - Spearphishing)
+2. **Execution** (T1204.002 - User Execution)
+3. **Persistence** (T1547.001 - Registry Run Keys)
+4. **Defense Evasion** (T1055.001 - DLL Injection)
+5. **Discovery** (T1083 - File Discovery)
+6. **Lateral Movement** (T1021.001 - RDP)
+7. **Collection** (T1005 - Data from Local System)
+8. **Exfiltration** (T1041 - C2 Channel)
+
+#### **🎪 Comprehensive Testing Scenarios:**
+
+##### **Security Team Training:**
+```bash
+# SOC analyst training scenario
+yarn start generate-campaign apt --ai --mitre --sub-techniques --attack-chains --complexity high --events 150 --targets 50
+
+# Incident response exercise
+yarn start generate-campaign ransomware --ai --mitre --attack-chains --time-pattern "attack_simulation" --events 100
+```
+
+##### **Detection Rule Testing:**
+```bash
+# Test MITRE coverage
+yarn start generate-campaign apt --ai --mitre --sub-techniques --events 200
+
+# Test behavioral analytics
+yarn start generate-campaign insider --ai --mitre --sub-techniques --time-pattern "random" --events 120
+```
+
+##### **Performance Testing:**
+```bash
+# High-volume load testing
+yarn start generate-campaign apt --ai --mitre --large-scale --events 1000
+
+# Stress test with multiple attack types
+yarn start generate-campaign malware --ai --mitre --sub-techniques --attack-chains --events 500 --targets 200
+```
+
+#### **📊 Campaign Output Examples:**
+
+Each campaign generates structured alerts with:
+
+```json
+{
+  "kibana.alert.rule.name": "MITRE T1566.001 Spearphishing Attachment Detected",
+  "threat.technique.id": ["T1566.001"],
+  "threat.technique.name": ["Spearphishing Attachment"],
+  "threat.tactic.id": ["TA0001"],
+  "threat.tactic.name": ["Initial Access"],
+  "kibana.alert.severity": "high",
+  "host.name": "target-workstation-01",
+  "user.name": "john.doe",
+  "event.category": ["malware"],
+  "campaign.id": "apt-campaign-2025-06-08",
+  "campaign.type": "apt"
+}
+```
+
+#### **🔧 Campaign Configuration:**
+
+Add to your `config.json` for optimal campaign generation:
 
 ```json
 {
   "campaigns": {
     "enabled": true,
     "defaultType": "apt",
-    "complexity": "medium"
+    "complexity": "medium",
+    "enableCorrelation": true,
+    "defaultTargets": 25,
+    "defaultUsers": 15
+  },
+  "mitre": {
+    "enabled": true,
+    "includeSubTechniques": true,
+    "enableAttackChains": true,
+    "probabilityOfMitreAlert": 0.8,
+    "maxTechniquesPerAlert": 3,
+    "chainProbability": 0.3
   }
 }
 ```
+
+#### **🎯 Best Practices:**
+
+1. **Start Small**: Begin with 20-50 events to understand the output
+2. **Use Attack Chains**: Enable `--attack-chains` for realistic progression
+3. **Mix Campaign Types**: Combine different attack types for comprehensive testing
+4. **Time Patterns**: Use appropriate time patterns for realistic scenarios
+5. **Target Scaling**: Match targets/users to your environment size
+6. **Regular Generation**: Generate fresh campaigns periodically for ongoing testing
+
+#### **📈 Monitoring Campaign Effectiveness:**
+
+Check generated campaigns in Kibana Security:
+- **Alerts by Rule Name**: Verify MITRE technique coverage
+- **Timeline View**: Confirm attack progression timing
+- **Host/User Analysis**: Check target distribution
+- **Severity Distribution**: Ensure realistic alert severity mix
 
 ---
 
