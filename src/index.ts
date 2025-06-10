@@ -225,8 +225,9 @@ program
   .description('Generate risk score ingest bug data')
   .option('-s <s>', 'space')
   .action(async (options) => {
-
-    console.log(`‼️ NOTE THIS SCRIPT MUST BE RUN AS SUPERUSER! ASK MARK FOR THE create_superuser.sh script ‼️ `);
+    console.log(
+      `‼️ NOTE THIS SCRIPT MUST BE RUN AS SUPERUSER! ASK MARK FOR THE create_superuser.sh script ‼️ `,
+    );
 
     const space = options.s || 'default';
     initializeSpace(space);
@@ -317,7 +318,8 @@ program
         },
       },
       script: {
-        source: 'ctx._source["risk-engine-configuration"]._meta.mappingsVersion = 4',
+        source:
+          'ctx._source["risk-engine-configuration"]._meta.mappingsVersion = 4',
         lang: 'painless',
       },
       conflicts: 'proceed',
@@ -327,7 +329,6 @@ program
     console.log('Risk score ingest bug setup completed');
 
     console.log('downgrading asset criticality mapping version');
-    // set _meta.version to 3 for .asset-criticality.asset-criticality-default index
 
     await client.indices.putMapping({
       index: assetCriticalityIndexName,
