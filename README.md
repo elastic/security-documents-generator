@@ -31,7 +31,7 @@ A powerful tool for generating realistic security data for testing and developme
 | `generate-alerts` | AI-enhanced security alerts | `yarn start generate-alerts -n 100 --mitre` |
 | `generate-events` | AI-generated security events | `yarn start generate-events 100 --mitre` |
 | `generate-graph` | AI-powered entity graphs | `yarn start generate-graph --users 100` |
-| `generate-rules` | Detection rules with events | `yarn start rules -r 10 -e 100` |
+| `rules` | Detection rules with events | `yarn start rules -r 10 -e 100` |
 | `test-mitre` | Test MITRE AI integration | `yarn start test-mitre -n 10` |
 | `delete-alerts` | Clean up generated alerts | `yarn start delete-alerts -s my-space` |
 | `delete-events` | Clean up generated events | `yarn start delete-events` |

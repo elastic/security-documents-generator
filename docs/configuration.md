@@ -348,7 +348,7 @@ export CLAUDE_API_KEY="sk-ant-your-key"
 
 ### Debug Mode
 ```bash
-DEBUG_AI_RESPONSES=true yarn start generate-alerts -n 10 --ai
+DEBUG_AI_RESPONSES=true yarn start generate-alerts -n 10
 ```
 
 ## 📝 Configuration Validation

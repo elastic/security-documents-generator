@@ -31,7 +31,7 @@ yarn start generate-campaign <type> [options]
 - `insider` - Insider threat simulations
 - `malware` - Malware infection campaigns
 - `phishing` - Phishing attack scenarios
-- `scale-test` - Performance testing mode
+- `scale-test` - Performance testing framework (currently displays test plan only)
 
 ### Options
 
@@ -91,7 +91,7 @@ yarn start generate-campaign apt --claude --mitre --sub-techniques --attack-chai
 # Large-scale ransomware test
 yarn start generate-campaign ransomware --mitre --large-scale --events 2000 --targets 200
 
-# Performance testing
+# Performance testing framework (displays test plan)
 yarn start generate-campaign scale-test --performance-test --events 10000
 ```
 

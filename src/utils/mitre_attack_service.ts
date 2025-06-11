@@ -33,6 +33,19 @@ export const loadMitreData = (): MitreAttackData | null => {
   }
 };
 
+// Get techniques for a specific tactic (used with --focus-tactic)
+export const getTechniquesForTactic = (
+  mitreData: MitreAttackData,
+  tacticId: string,
+): string[] => {
+  const tactic = mitreData.tactics[tacticId];
+  if (!tactic || !tactic.techniques) {
+    console.warn(`Tactic ${tacticId} not found or has no techniques`);
+    return [];
+  }
+  return tactic.techniques;
+};
+
 // Generate an attack chain based on technique relationships
 export const generateAttackChain = (
   mitreData: MitreAttackData,
@@ -147,7 +160,18 @@ export const selectMitreTechniques = (
   maxTechniques = 2,
 ): Array<{ tactic: string; technique: string; subTechnique?: string }> => {
   const config = getConfig();
-  const enabledTactics = config.mitre?.tactics || ['TA0001', 'TA0002'];
+  
+  // Check if focus tactic is specified
+  const focusTactic = (config.mitre as Record<string, unknown>)?.focusTactic as string;
+  
+  let enabledTactics: string[];
+  if (focusTactic) {
+    // Only use the focus tactic if specified
+    enabledTactics = [focusTactic];
+  } else {
+    // Use configured tactics or defaults
+    enabledTactics = config.mitre?.tactics || ['TA0001', 'TA0002'];
+  }
 
   const selectedTechniques: Array<{
     tactic: string;

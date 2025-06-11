@@ -24,6 +24,7 @@ const applyPhase3ConfigOverrides = (options: {
   subTechniques: boolean;
   attackChains: boolean;
   largeScale: boolean;
+  focusTactic?: string;
 }) => {
   const config = getConfig();
 
@@ -50,6 +51,12 @@ const applyPhase3ConfigOverrides = (options: {
     config.generation.performance.enableLargeScale = true;
     config.generation.performance.largeScaleThreshold = 500; // Lower threshold for CLI
     console.log('Large-scale optimizations enabled for this generation');
+  }
+
+  if (options.focusTactic && config.mitre) {
+    // Store focus tactic for MITRE alert generation
+    (config.mitre as Record<string, unknown>).focusTactic = options.focusTactic;
+    console.log(`Focusing on MITRE tactic: ${options.focusTactic}`);
   }
 };
 
@@ -79,6 +86,10 @@ program
     '--large-scale',
     'enable performance optimizations for large datasets (>1000)',
     false,
+  )
+  .option(
+    '--focus-tactic <tactic>',
+    'focus on specific MITRE tactic (e.g., TA0001 for Initial Access)',
   )
   .option(
     '--start-date <date>',
@@ -117,13 +128,31 @@ program
       );
       process.exit(1);
     }
+    if (options.focusTactic && !useMitre) {
+      console.error(
+        'Error: --focus-tactic flag requires --mitre to be enabled',
+      );
+      process.exit(1);
+    }
+    
+    // Validate focus tactic exists in MITRE data
+    if (options.focusTactic) {
+      const validTactics = ['TA0001', 'TA0002', 'TA0003', 'TA0004', 'TA0005', 'TA0006', 'TA0007', 'TA0008', 'TA0009', 'TA0010', 'TA0011', 'TA0040'];
+      if (!validTactics.includes(options.focusTactic)) {
+        console.error(
+          `Error: Invalid tactic ${options.focusTactic}. Valid tactics: ${validTactics.join(', ')}`,
+        );
+        process.exit(1);
+      }
+    }
 
     // Apply Phase 3 configuration overrides if flags are used
     if (
       useClaude ||
       options.subTechniques ||
       options.attackChains ||
-      options.largeScale
+      options.largeScale ||
+      options.focusTactic
     ) {
       applyPhase3ConfigOverrides(options);
     }
@@ -539,7 +568,9 @@ program
         };
 
         // Execute sophisticated generation with dynamic timeout based on event count
-        const timeoutMs = Math.max(60000, eventCount * 2000); // 2 seconds per event, minimum 60 seconds
+        // Use more generous timeout for AI generation
+        const baseTimeout = 90000; // 90 seconds base timeout
+        const timeoutMs = Math.max(baseTimeout, eventCount * 5000); // 5 seconds per event
         console.log(
           `⏱️  Timeout set to ${Math.round(timeoutMs / 1000)} seconds for ${eventCount} events`,
         );
@@ -561,6 +592,34 @@ program
 
         if (!result) {
           throw new Error('Sophisticated generation failed');
+        }
+
+        // Index the generated events to Elasticsearch
+        console.log(`\n📤 Indexing ${result.length} events to Elasticsearch...`);
+        
+        // Import required functions for indexing
+        const { getAlertIndex } = await import('./utils');
+        const { getEsClient } = await import('./commands/utils/indices');
+        
+        // Convert alerts to bulk operations
+        const alertIndex = getAlertIndex(options.space);
+        const bulkOps: unknown[] = [];
+        
+        for (const alert of result) {
+          bulkOps.push(
+            { index: { _index: alertIndex, _id: alert['kibana.alert.uuid'] } },
+            { ...alert },
+          );
+        }
+        
+        // Bulk index to Elasticsearch
+        const client = getEsClient();
+        try {
+          await client.bulk({ body: bulkOps, refresh: true });
+          console.log(`✅ Successfully indexed ${result.length} events to ${alertIndex}`);
+        } catch (err) {
+          console.error('❌ Error indexing events:', err);
+          throw err;
         }
 
         console.log(

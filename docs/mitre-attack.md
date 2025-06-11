@@ -57,34 +57,34 @@ The Security Documents Generator includes deep integration with the MITRE ATT&CK
 ### Basic MITRE Generation
 ```bash
 # Enable MITRE framework
-yarn start generate-alerts -n 50 --ai --mitre
+yarn start generate-alerts -n 50 --mitre
 
 # Include sub-techniques for granular detection
-yarn start generate-alerts -n 100 --ai --mitre --sub-techniques
+yarn start generate-alerts -n 100 --mitre --sub-techniques
 
 # Generate attack chains for realistic progression
-yarn start generate-alerts -n 150 --ai --mitre --attack-chains
+yarn start generate-alerts -n 150 --mitre --attack-chains
 ```
 
 ### Campaign-Level MITRE Integration
 ```bash
 # APT campaign with MITRE techniques
-yarn start generate-campaign apt --ai --mitre --sub-techniques --attack-chains --events 200
+yarn start generate-campaign apt --mitre --sub-techniques --attack-chains --events 200
 
 # Ransomware with specific technique focus
-yarn start generate-campaign ransomware --ai --mitre --attack-chains --events 150
+yarn start generate-campaign ransomware --mitre --attack-chains --events 150
 
 # Insider threat with behavioral techniques
-yarn start generate-campaign insider --ai --mitre --sub-techniques --events 100
+yarn start generate-campaign insider --mitre --sub-techniques --events 100
 ```
 
 ### Testing Specific Tactics
 ```bash
 # Test initial access techniques
-yarn start generate-alerts -n 30 --ai --mitre --focus-tactic TA0001
+yarn start generate-alerts -n 30 --mitre --focus-tactic TA0001
 
 # Defense evasion techniques
-yarn start generate-alerts -n 40 --ai --mitre --focus-tactic TA0005
+yarn start generate-alerts -n 40 --mitre --focus-tactic TA0005
 ```
 
 ## 📊 MITRE Framework Coverage
@@ -304,11 +304,11 @@ The generator uses sophisticated risk scoring based on:
 ### Coverage Analysis
 ```bash
 # Generate comprehensive technique coverage
-yarn start generate-alerts -n 500 --ai --mitre --sub-techniques
+yarn start generate-alerts -n 500 --mitre --sub-techniques
 
 # Test specific tactic coverage
 for tactic in TA0001 TA0002 TA0003 TA0004 TA0005; do
-  yarn start generate-alerts -n 50 --ai --mitre --focus-tactic $tactic
+  yarn start generate-alerts -n 50 --mitre --focus-tactic $tactic
 done
 ```
 
@@ -359,7 +359,7 @@ GET .alerts-security.alerts-*/_search
 ### 1. Red Team Exercise
 ```bash
 # Comprehensive adversary simulation
-yarn start generate-campaign apt --ai --mitre --attack-chains --sub-techniques \
+yarn start generate-campaign apt --mitre --attack-chains --sub-techniques \
   --complexity expert --events 1000 --targets 200
 ```
 
@@ -376,7 +376,7 @@ yarn start generate-campaign apt --complexity high --events 200 --space soc-trai
 # Test each tactic systematically
 tactics=("TA0001" "TA0002" "TA0003" "TA0004" "TA0005")
 for tactic in "${tactics[@]}"; do
-  yarn start generate-alerts -n 100 --ai --mitre --sub-techniques \
+  yarn start generate-alerts -n 100 --mitre --sub-techniques \
     --space "detection-testing-${tactic}"
 done
 ```
@@ -384,7 +384,7 @@ done
 ### 4. Threat Hunt Training
 ```bash
 # Generate subtle attack indicators
-yarn start generate-campaign insider --ai --mitre --sub-techniques \
+yarn start generate-campaign insider --mitre --sub-techniques \
   --complexity high --events 300 --time-pattern business_hours
 ```
 
@@ -462,7 +462,7 @@ cat config.json | grep -A 10 "mitre"
 #### Attack Chain Errors
 ```bash
 # Debug attack chain generation
-DEBUG_AI_RESPONSES=true yarn start generate-alerts -n 5 --ai --mitre --attack-chains
+DEBUG_AI_RESPONSES=true yarn start generate-alerts -n 5 --mitre --attack-chains
 ```
 
 ### Performance Issues
@@ -481,14 +481,14 @@ DEBUG_AI_RESPONSES=true yarn start generate-alerts -n 5 --ai --mitre --attack-ch
 
 ### MITRE Coverage Report
 ```bash
-# Generate comprehensive coverage report
-yarn start generate-alerts -n 1000 --ai --mitre --sub-techniques --report-coverage
+# Generate comprehensive coverage testing
+yarn start generate-alerts -n 1000 --mitre --sub-techniques
 ```
 
 ### Chain Analysis
 ```bash
-# Analyze attack chain effectiveness
-yarn start generate-campaign apt --ai --mitre --attack-chains --events 500 --analyze-chains
+# Generate attack chain scenarios for analysis
+yarn start generate-campaign apt --mitre --attack-chains --events 500
 ```
 
 ### Detection Gaps

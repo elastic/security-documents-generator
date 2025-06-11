@@ -9,13 +9,13 @@ Long-term targeted attacks with sophisticated lateral movement.
 
 ```bash
 # Basic APT simulation
-yarn start generate-campaign apt --ai --mitre --events 50
+yarn start generate-campaign apt --mitre --events 50
 
 # Advanced APT with attack chains
-yarn start generate-campaign apt --ai --mitre --attack-chains --sub-techniques --events 100
+yarn start generate-campaign apt --mitre --attack-chains --sub-techniques --events 100
 
 # Enterprise-scale APT
-yarn start generate-campaign apt --ai --mitre --attack-chains --complexity expert --events 500 --targets 100
+yarn start generate-campaign apt --mitre --attack-chains --complexity expert --events 500 --targets 100
 ```
 
 **Generated Attack Flow:**
@@ -34,13 +34,13 @@ Encryption-based attacks with backup disruption and ransom demands.
 
 ```bash
 # Basic ransomware simulation
-yarn start generate-campaign ransomware --ai --mitre --events 75
+yarn start generate-campaign ransomware --mitre --events 75
 
 # Multi-stage ransomware with network spread
-yarn start generate-campaign ransomware --ai --mitre --attack-chains --events 200 --targets 50
+yarn start generate-campaign ransomware --mitre --attack-chains --events 200 --targets 50
 
 # Enterprise ransomware scenario
-yarn start generate-campaign ransomware --ai --mitre --attack-chains --sub-techniques --complexity high --events 300
+yarn start generate-campaign ransomware --mitre --attack-chains --sub-techniques --complexity high --events 300
 ```
 
 **Example Ransomware Groups:**
@@ -61,13 +61,13 @@ Malicious employee activities and privilege abuse scenarios.
 
 ```bash
 # Privilege abuse simulation
-yarn start generate-campaign insider --ai --mitre --events 60
+yarn start generate-campaign insider --mitre --events 60
 
 # Data exfiltration scenario
-yarn start generate-campaign insider --ai --mitre --sub-techniques --events 120
+yarn start generate-campaign insider --mitre --sub-techniques --events 120
 
 # Comprehensive insider threat
-yarn start generate-campaign insider --ai --mitre --attack-chains --complexity high --events 150
+yarn start generate-campaign insider --mitre --attack-chains --complexity high --events 150
 ```
 
 **Insider Threat Types:**
@@ -87,13 +87,13 @@ Virus outbreaks, trojan activities, and persistent malware infections.
 
 ```bash
 # Malware outbreak simulation
-yarn start generate-campaign malware --ai --mitre --events 100
+yarn start generate-campaign malware --mitre --events 100
 
 # Advanced persistent malware
-yarn start generate-campaign malware --ai --mitre --attack-chains --events 200
+yarn start generate-campaign malware --mitre --attack-chains --events 200
 
 # Multi-variant malware campaign
-yarn start generate-campaign malware --ai --mitre --sub-techniques --complexity expert --events 400
+yarn start generate-campaign malware --mitre --sub-techniques --complexity expert --events 400
 ```
 
 **Malware Families Simulated:**
@@ -107,13 +107,13 @@ Email-based attacks for credential theft and initial access.
 
 ```bash
 # Email phishing simulation
-yarn start generate-campaign phishing --ai --mitre --events 80
+yarn start generate-campaign phishing --mitre --events 80
 
 # Spear phishing with social engineering
-yarn start generate-campaign phishing --ai --mitre --sub-techniques --events 150
+yarn start generate-campaign phishing --mitre --sub-techniques --events 150
 
 # Business email compromise (BEC)
-yarn start generate-campaign phishing --ai --mitre --attack-chains --complexity high --events 250
+yarn start generate-campaign phishing --mitre --attack-chains --complexity high --events 250
 ```
 
 **Phishing Types:**
@@ -305,16 +305,16 @@ Multi-campaign environment for analyst training.
 
 ```bash
 # Generate multiple overlapping campaigns
-yarn start generate-campaign apt --ai --mitre --attack-chains --events 200 --space soc-training
-yarn start generate-campaign insider --ai --mitre --sub-techniques --events 100 --space soc-training
-yarn start generate-campaign malware --ai --mitre --events 150 --space soc-training
+yarn start generate-campaign apt --mitre --attack-chains --events 200 --space soc-training
+yarn start generate-campaign insider --mitre --sub-techniques --events 100 --space soc-training
+yarn start generate-campaign malware --mitre --events 150 --space soc-training
 ```
 
 ### Red Team Exercise
 Sophisticated adversary simulation.
 
 ```bash
-yarn start generate-campaign apt --ai --mitre --attack-chains --sub-techniques --complexity expert --events 500 --targets 100
+yarn start generate-campaign apt --mitre --attack-chains --sub-techniques --complexity expert --events 500 --targets 100
 ```
 
 ### Detection Rule Testing
@@ -322,16 +322,16 @@ Comprehensive MITRE technique coverage.
 
 ```bash
 # Test all implemented techniques
-yarn start generate-campaign apt --ai --mitre --sub-techniques --events 300
-yarn start generate-campaign ransomware --ai --mitre --sub-techniques --events 300
-yarn start generate-campaign insider --ai --mitre --sub-techniques --events 300
+yarn start generate-campaign apt --mitre --sub-techniques --events 300
+yarn start generate-campaign ransomware --mitre --sub-techniques --events 300
+yarn start generate-campaign insider --mitre --sub-techniques --events 300
 ```
 
 ### Performance Testing
 Large-scale generation for system stress testing.
 
 ```bash
-yarn start generate-campaign malware --ai --mitre --large-scale --events 5000 --targets 500
+yarn start generate-campaign malware --mitre --large-scale --events 5000 --targets 500
 ```
 
 ## 🔍 Campaign Analysis
@@ -413,7 +413,7 @@ yarn start generate-campaign ransomware --large-scale --events 2000
 Enable debug logging for campaign troubleshooting:
 
 ```bash
-DEBUG_AI_RESPONSES=true yarn start generate-campaign apt --ai --mitre --events 10
+DEBUG_AI_RESPONSES=true yarn start generate-campaign apt --mitre --events 10
 ```
 
 ## 📈 Extending Campaign Types
