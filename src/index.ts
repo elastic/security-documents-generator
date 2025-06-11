@@ -3,9 +3,12 @@ import { program } from 'commander';
 import {
   deleteAllAlerts,
   deleteAllEvents,
+  deleteAllLogs,
   generateAlerts,
   generateEvents,
   generateGraph,
+  generateLogs,
+  generateCorrelatedCampaign,
 } from './commands/documents';
 import { deleteAllRules, generateRulesAndAlerts } from './commands/rules';
 import { createConfigFileOnFirstRun } from './utils/create_config_on_first_run';
@@ -13,6 +16,7 @@ import AttackSimulationEngine from './services/attack_simulation_engine';
 import { cleanupAIService } from './utils/ai_service';
 import { initializeSpace } from './utils';
 import { getConfig } from './get_config';
+import { faker } from '@faker-js/faker';
 
 await createConfigFileOnFirstRun();
 
@@ -248,6 +252,138 @@ program
   });
 
 program
+  .command('generate-logs')
+  .description('Generate realistic source logs for security analysis')
+  .option('-n <n>', 'number of logs to generate', '1000')
+  .option('-h <h>', 'number of hosts', '10')
+  .option('-u <u>', 'number of users', '5')
+  .option(
+    '--types <types>',
+    'log types to generate (comma-separated): system,auth,network,endpoint',
+    'system,auth,network,endpoint',
+  )
+  .option('--claude', 'use Claude AI instead of OpenAI', false)
+  .option(
+    '--start-date <date>',
+    'start date for data generation (e.g., "7d", "1w", "2024-01-01")',
+  )
+  .option(
+    '--end-date <date>',
+    'end date for data generation (e.g., "now", "1d", "2024-01-10")',
+  )
+  .option(
+    '--time-pattern <pattern>',
+    'time distribution pattern: uniform, business_hours, random, attack_simulation, weekend_heavy',
+  )
+  .action(async (options) => {
+    const logCount = parseInt(options.n || '1000');
+    const hostCount = parseInt(options.h || '10');
+    const userCount = parseInt(options.u || '5');
+    const useAI = options.claude || false;
+    const logTypes = options.types.split(',').map((t: string) => t.trim());
+
+    // Validate log types
+    const validTypes = ['system', 'auth', 'network', 'endpoint'];
+    const invalidTypes = logTypes.filter((type: string) => !validTypes.includes(type));
+    if (invalidTypes.length > 0) {
+      console.error(
+        `Error: Invalid log types: ${invalidTypes.join(', ')}. Valid types: ${validTypes.join(', ')}`,
+      );
+      process.exit(1);
+    }
+
+    // Apply Phase 3 configuration overrides if Claude is used
+    if (options.claude) {
+      applyPhase3ConfigOverrides({ ...options, subTechniques: false, attackChains: false, largeScale: false });
+    }
+
+    // Pass timestamp configuration options
+    const timestampConfig = {
+      startDate: options.startDate,
+      endDate: options.endDate,
+      pattern: options.timePattern,
+    };
+
+    await generateLogs(
+      logCount,
+      hostCount,
+      userCount,
+      useAI,
+      logTypes,
+      timestampConfig,
+    );
+  });
+
+program
+  .command('generate-correlated')
+  .description('Generate realistic security alerts with correlated supporting logs')
+  .option('-n <n>', 'number of alerts to generate', '10')
+  .option('-h <h>', 'number of hosts', '3')
+  .option('-u <u>', 'number of users', '2')
+  .option('-s <s>', 'space (will be created if it does not exist)', 'default')
+  .option('-l, --log-volume <volume>', 'supporting logs per alert', '6')
+  .option('--claude', 'use Claude AI instead of OpenAI', false)
+  .option(
+    '--mitre',
+    'use MITRE ATT&CK framework for realistic attack scenarios',
+    false,
+  )
+  .option(
+    '--start-date <date>',
+    'start date for data generation (e.g., "7d", "1w", "2024-01-01")',
+  )
+  .option(
+    '--end-date <date>',
+    'end date for data generation (e.g., "now", "1d", "2024-01-10")',
+  )
+  .option(
+    '--time-pattern <pattern>',
+    'time distribution pattern: uniform, business_hours, random, attack_simulation, weekend_heavy',
+  )
+  .action(async (options) => {
+    const alertCount = parseInt(options.n || '10');
+    const hostCount = parseInt(options.h || '3');
+    const userCount = parseInt(options.u || '2');
+    const space = options.s || 'default';
+    const logVolume = parseInt(options.logVolume || '6');
+    const useAI = options.claude || false;
+    const useMitre = options.mitre || false;
+
+    // Apply Phase 3 configuration overrides if flags are used
+    if (options.claude || options.mitre) {
+      applyPhase3ConfigOverrides({ 
+        ...options, 
+        subTechniques: false, 
+        attackChains: false, 
+        largeScale: false 
+      });
+    }
+
+    // Initialize space if not default
+    if (space !== 'default') {
+      await initializeSpace(space);
+    }
+
+    // Pass timestamp configuration options
+    const timestampConfig = {
+      startDate: options.startDate,
+      endDate: options.endDate,
+      pattern: options.timePattern,
+    };
+
+    await generateCorrelatedCampaign(
+      alertCount,
+      hostCount,
+      userCount,
+      space,
+      useAI,
+      useMitre,
+      logVolume,
+      timestampConfig,
+    );
+  });
+
+program
   .command('generate-graph')
   .description(
     'Generate AI-powered entity relationship graph with realistic alerts',
@@ -296,6 +432,35 @@ program
       await deleteAllEvents(options.space);
     } catch (error) {
       console.error('Error deleting events:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('delete-logs')
+  .description('Delete all source logs')
+  .option(
+    '--types <types>',
+    'log types to delete (comma-separated): system,auth,network,endpoint',
+    'system,auth,network,endpoint',
+  )
+  .action(async (options) => {
+    try {
+      const logTypes = options.types.split(',').map((t: string) => t.trim());
+      
+      // Validate log types
+      const validTypes = ['system', 'auth', 'network', 'endpoint'];
+      const invalidTypes = logTypes.filter((type: string) => !validTypes.includes(type));
+      if (invalidTypes.length > 0) {
+        console.error(
+          `Error: Invalid log types: ${invalidTypes.join(', ')}. Valid types: ${validTypes.join(', ')}`,
+        );
+        process.exit(1);
+      }
+
+      await deleteAllLogs(logTypes);
+    } catch (error) {
+      console.error('Error deleting logs:', error);
       process.exit(1);
     }
   });
@@ -419,6 +584,21 @@ program
     'enable performance optimizations for large datasets',
     false,
   )
+  .option(
+    '--realistic',
+    '🔗 Generate realistic source logs that trigger alerts (Phase 2 Integration)',
+    false,
+  )
+  .option(
+    '--logs-per-stage <count>',
+    'number of logs to generate per attack stage (realistic mode)',
+    '8',
+  )
+  .option(
+    '--detection-rate <rate>',
+    'detection rate (0.0-1.0) - what percentage of activity gets detected',
+    '0.4',
+  )
   .action(async (campaignType, options) => {
     // AI is always enabled now
     const useAI = true;
@@ -474,6 +654,14 @@ program
       );
     }
     console.log(`  📁 Space: ${options.space}`);
+    
+    // Show realistic mode configuration
+    if (options.realistic) {
+      console.log(`\n🔗 Realistic Mode Enabled:`);
+      console.log(`  📋 Logs per Stage: ${options.logsPerStage}`);
+      console.log(`  🎯 Detection Rate: ${(parseFloat(options.detectionRate) * 100).toFixed(1)}%`);
+      console.log(`  ⚡ Log → Alert Pipeline: Active`);
+    }
 
     if (campaignType === 'scale-test') {
       console.log('\n🧪 Running Performance & Scalability Tests...');
@@ -522,7 +710,115 @@ program
       });
 
       try {
-        // Generate sophisticated attack simulation with correlation
+        // Check if realistic mode is enabled
+        if (options.realistic) {
+          // Use realistic attack engine instead
+          console.log('\n🎭 Initializing Realistic Attack Engine...');
+          
+          const { RealisticAttackEngine } = await import('./services/realistic_attack_engine');
+          const realisticEngine = new RealisticAttackEngine();
+          
+          const realisticConfig = {
+            campaignType: campaignType as 'apt' | 'ransomware' | 'insider' | 'supply_chain',
+            complexity: options.complexity as 'low' | 'medium' | 'high' | 'expert',
+            enableRealisticLogs: true,
+            logsPerStage: parseInt(options.logsPerStage || '8'),
+            detectionRate: parseFloat(options.detectionRate || '0.4'),
+            eventCount,
+            targetCount,
+            space: options.space,
+            useAI,
+            useMitre,
+            timestampConfig: {
+              startDate: '2d',
+              endDate: 'now',
+              pattern: 'attack_simulation' as const
+            }
+          };
+          
+          const realisticResult = await realisticEngine.generateRealisticCampaign(realisticConfig);
+          
+          console.log(`\n🎊 Realistic Campaign Generated Successfully:`);
+          console.log(`  🎯 Attack Stages: ${realisticResult.campaign.stages.length}`);
+          console.log(`  ⚔️  Campaign: ${realisticResult.campaign.campaign.name}`);
+          console.log(`  🎭 Threat Actor: ${realisticResult.campaign.campaign.threat_actor}`);
+          console.log(`  📋 Total Logs: ${realisticResult.stageLogs.reduce((sum, stage) => sum + stage.logs.length, 0)}`);
+          console.log(`  🚨 Detected Alerts: ${realisticResult.detectedAlerts.length}`);
+          console.log(`  ⚪ Missed Activities: ${realisticResult.missedActivities.length}`);
+          console.log(`  📅 Timeline: ${realisticResult.timeline.stages.length} events`);
+          
+          // Display investigation guide
+          console.log(`\n📖 Investigation Guide:`);
+          realisticResult.investigationGuide.slice(0, 3).forEach(step => {
+            console.log(`  ${step.step}. ${step.action}`);
+          });
+          
+          // Index the data to Elasticsearch
+          console.log('\n📤 Indexing realistic campaign data...');
+          
+          // Import necessary functions
+          const { getEsClient } = await import('./commands/utils/indices');
+          const { indexCheck } = await import('./commands/utils/indices');
+          const logMappings = await import('./mappings/log_mappings.json', { assert: { type: 'json' } });
+          
+          const client = getEsClient();
+          const indexOperations: unknown[] = [];
+          
+          // Index all stage logs
+          for (const stage of realisticResult.stageLogs) {
+            for (const log of stage.logs) {
+              const dataset = log['data_stream.dataset'] || 'generic.log';
+              const namespace = log['data_stream.namespace'] || 'default';
+              const indexName = `logs-${dataset}-${namespace}`;
+              
+              // Ensure index exists
+              await indexCheck(indexName, {
+                mappings: logMappings.default as any,
+              });
+              
+              indexOperations.push({
+                create: {
+                  _index: indexName,
+                  _id: faker.string.uuid(),
+                },
+              });
+              indexOperations.push(log);
+            }
+          }
+          
+          // Index detected alerts
+          const alertIndex = `.internal.alerts-security.alerts-${options.space}-000001`;
+          for (const alert of realisticResult.detectedAlerts) {
+            indexOperations.push({
+              create: {
+                _index: alertIndex,
+                _id: alert['kibana.alert.uuid'],
+              },
+            });
+            indexOperations.push(alert);
+          }
+          
+          // Bulk index everything
+          if (indexOperations.length > 0) {
+            const batchSize = 1000;
+            for (let i = 0; i < indexOperations.length; i += batchSize) {
+              const batch = indexOperations.slice(i, i + batchSize);
+              await client.bulk({ body: batch, refresh: true });
+              
+              if (i + batchSize < indexOperations.length) {
+                process.stdout.write('.');
+              }
+            }
+          }
+          
+          console.log('\n\n🎉 Realistic Campaign Complete!');
+          console.log(`📍 View in Kibana space: ${options.space}`);
+          console.log(`🔍 Filter logs with: logs-*`);
+          console.log(`🚨 View alerts in Security app`);
+          console.log(`📈 ${realisticResult.detectedAlerts.length} alerts triggered by ${realisticResult.stageLogs.reduce((sum, stage) => sum + stage.logs.length, 0)} source logs`);
+        }
+
+        // Generate sophisticated attack simulation with correlation (original code)
         const sophisticatedGeneration = async () => {
           console.log('\n🧠 Initializing Sophisticated Attack Simulation...');
 
@@ -588,9 +884,9 @@ program
               timeoutMs,
             ),
           ),
-        ]);
+        ]) as any[];
 
-        if (!result) {
+        if (!result || !Array.isArray(result)) {
           throw new Error('Sophisticated generation failed');
         }
 

@@ -1,0 +1,489 @@
+{
+  "properties": {
+    "@timestamp": {
+      "type": "date"
+    },
+    "agent": {
+      "properties": {
+        "type": {
+          "type": "keyword"
+        },
+        "version": {
+          "type": "keyword"
+        }
+      }
+    },
+    "data_stream": {
+      "properties": {
+        "dataset": {
+          "type": "keyword"
+        },
+        "namespace": {
+          "type": "keyword"
+        },
+        "type": {
+          "type": "keyword"
+        }
+      }
+    },
+    "ecs": {
+      "properties": {
+        "version": {
+          "type": "keyword"
+        }
+      }
+    },
+    "event": {
+      "properties": {
+        "action": {
+          "type": "keyword"
+        },
+        "category": {
+          "type": "keyword"
+        },
+        "code": {
+          "type": "keyword"
+        },
+        "dataset": {
+          "type": "keyword"
+        },
+        "duration": {
+          "type": "long"
+        },
+        "kind": {
+          "type": "keyword"
+        },
+        "module": {
+          "type": "keyword"
+        },
+        "outcome": {
+          "type": "keyword"
+        },
+        "provider": {
+          "type": "keyword"
+        },
+        "risk_score": {
+          "type": "float"
+        },
+        "severity": {
+          "type": "long"
+        },
+        "type": {
+          "type": "keyword"
+        }
+      }
+    },
+    "file": {
+      "properties": {
+        "directory": {
+          "type": "keyword"
+        },
+        "extension": {
+          "type": "keyword"
+        },
+        "hash": {
+          "properties": {
+            "md5": {
+              "type": "keyword"
+            },
+            "sha1": {
+              "type": "keyword"
+            },
+            "sha256": {
+              "type": "keyword"
+            }
+          }
+        },
+        "name": {
+          "type": "keyword"
+        },
+        "path": {
+          "type": "keyword"
+        },
+        "size": {
+          "type": "long"
+        }
+      }
+    },
+    "host": {
+      "properties": {
+        "name": {
+          "type": "keyword"
+        },
+        "os": {
+          "properties": {
+            "family": {
+              "type": "keyword"
+            },
+            "name": {
+              "type": "keyword"
+            }
+          }
+        }
+      }
+    },
+    "http": {
+      "properties": {
+        "request": {
+          "properties": {
+            "body": {
+              "properties": {
+                "bytes": {
+                  "type": "long"
+                }
+              }
+            },
+            "method": {
+              "type": "keyword"
+            },
+            "referrer": {
+              "type": "keyword"
+            }
+          }
+        },
+        "response": {
+          "properties": {
+            "body": {
+              "properties": {
+                "bytes": {
+                  "type": "long"
+                }
+              }
+            },
+            "status_code": {
+              "type": "long"
+            }
+          }
+        },
+        "version": {
+          "type": "keyword"
+        }
+      }
+    },
+    "log": {
+      "properties": {
+        "file": {
+          "properties": {
+            "path": {
+              "type": "keyword"
+            }
+          }
+        },
+        "level": {
+          "type": "keyword"
+        }
+      }
+    },
+    "message": {
+      "type": "text"
+    },
+    "ml": {
+      "properties": {
+        "anomaly_score": {
+          "type": "float"
+        },
+        "is_anomaly": {
+          "type": "boolean"
+        }
+      }
+    },
+    "network": {
+      "properties": {
+        "bytes": {
+          "type": "long"
+        },
+        "community_id": {
+          "type": "keyword"
+        },
+        "direction": {
+          "type": "keyword"
+        },
+        "iana_number": {
+          "type": "keyword"
+        },
+        "packets": {
+          "type": "long"
+        },
+        "protocol": {
+          "type": "keyword"
+        },
+        "transport": {
+          "type": "keyword"
+        }
+      }
+    },
+    "process": {
+      "properties": {
+        "code_signature": {
+          "properties": {
+            "status": {
+              "type": "keyword"
+            }
+          }
+        },
+        "command_line": {
+          "type": "text"
+        },
+        "executable": {
+          "type": "keyword"
+        },
+        "name": {
+          "type": "keyword"
+        },
+        "parent": {
+          "properties": {
+            "name": {
+              "type": "keyword"
+            },
+            "pid": {
+              "type": "long"
+            }
+          }
+        },
+        "pid": {
+          "type": "long"
+        },
+        "ppid": {
+          "type": "long"
+        }
+      }
+    },
+    "registry": {
+      "properties": {
+        "data": {
+          "properties": {
+            "strings": {
+              "type": "keyword"
+            }
+          }
+        },
+        "key": {
+          "type": "keyword"
+        },
+        "value": {
+          "type": "keyword"
+        }
+      }
+    },
+    "related": {
+      "properties": {
+        "hash": {
+          "type": "keyword"
+        },
+        "hosts": {
+          "type": "keyword"
+        },
+        "ip": {
+          "type": "ip"
+        },
+        "user": {
+          "type": "keyword"
+        }
+      }
+    },
+    "rule": {
+      "properties": {
+        "id": {
+          "type": "keyword"
+        },
+        "name": {
+          "type": "keyword"
+        }
+      }
+    },
+    "service": {
+      "properties": {
+        "name": {
+          "type": "keyword"
+        },
+        "state": {
+          "type": "keyword"
+        },
+        "type": {
+          "type": "keyword"
+        }
+      }
+    },
+    "source": {
+      "properties": {
+        "address": {
+          "type": "keyword"
+        },
+        "ip": {
+          "type": "ip"
+        },
+        "port": {
+          "type": "long"
+        }
+      }
+    },
+    "destination": {
+      "properties": {
+        "ip": {
+          "type": "ip"
+        },
+        "port": {
+          "type": "long"
+        }
+      }
+    },
+    "threat": {
+      "properties": {
+        "indicator": {
+          "properties": {
+            "file": {
+              "properties": {
+                "hash": {
+                  "properties": {
+                    "md5": {
+                      "type": "keyword"
+                    }
+                  }
+                }
+              }
+            },
+            "type": {
+              "type": "keyword"
+            }
+          }
+        },
+        "software": {
+          "properties": {
+            "family": {
+              "type": "keyword"
+            },
+            "name": {
+              "type": "keyword"
+            },
+            "type": {
+              "type": "keyword"
+            }
+          }
+        },
+        "tactic": {
+          "properties": {
+            "name": {
+              "type": "keyword"
+            }
+          }
+        },
+        "technique": {
+          "properties": {
+            "id": {
+              "type": "keyword"
+            },
+            "name": {
+              "type": "keyword"
+            }
+          }
+        }
+      }
+    },
+    "url": {
+      "properties": {
+        "domain": {
+          "type": "keyword"
+        },
+        "original": {
+          "type": "keyword"
+        },
+        "path": {
+          "type": "keyword"
+        },
+        "query": {
+          "type": "keyword"
+        }
+      }
+    },
+    "user": {
+      "properties": {
+        "domain": {
+          "type": "keyword"
+        },
+        "id": {
+          "type": "keyword"
+        },
+        "name": {
+          "type": "keyword"
+        },
+        "privileges": {
+          "type": "keyword"
+        },
+        "target": {
+          "properties": {
+            "domain": {
+              "type": "keyword"
+            },
+            "name": {
+              "type": "keyword"
+            }
+          }
+        }
+      }
+    },
+    "user_agent": {
+      "properties": {
+        "device": {
+          "properties": {
+            "name": {
+              "type": "keyword"
+            }
+          }
+        },
+        "name": {
+          "type": "keyword"
+        },
+        "original": {
+          "type": "keyword"
+        },
+        "os": {
+          "properties": {
+            "name": {
+              "type": "keyword"
+            }
+          }
+        }
+      }
+    },
+    "winlog": {
+      "properties": {
+        "channel": {
+          "type": "keyword"
+        },
+        "event_id": {
+          "type": "long"
+        },
+        "logon": {
+          "properties": {
+            "failure": {
+              "properties": {
+                "reason": {
+                  "type": "keyword"
+                }
+              }
+            },
+            "id": {
+              "type": "keyword"
+            },
+            "type": {
+              "type": "keyword"
+            }
+          }
+        },
+        "opcode": {
+          "type": "keyword"
+        },
+        "process": {
+          "properties": {
+            "pid": {
+              "type": "long"
+            }
+          }
+        },
+        "record_id": {
+          "type": "long"
+        }
+      }
+    }
+  }
+}

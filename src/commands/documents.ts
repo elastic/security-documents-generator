@@ -56,9 +56,25 @@ const bulkUpsert = async (docs: unknown[]) => {
   const client = getEsClient();
 
   try {
-    return client.bulk({ body: docs, refresh: true });
+    const result = await client.bulk({ body: docs, refresh: true });
+    
+    if (result.errors) {
+      // Only show errors, not successful operations
+      const errors = result.items.filter((item: any) => 
+        item.create?.error || item.index?.error
+      );
+      if (errors.length > 0) {
+        console.log(`Warning: ${errors.length} documents failed to index:`, 
+          errors.slice(0, 2).map((item: any) => 
+            item.create?.error?.reason || item.index?.error?.reason
+          )
+        );
+      }
+    }
+    
+    return result;
   } catch (err) {
-    console.log('Error: ', err);
+    console.log('Error in bulkUpsert: ', err);
     process.exit(1);
   }
 };
@@ -553,6 +569,321 @@ export const generateEvents = async (
   console.log('Finished generating events');
 
   // Cleanup AI service to allow process to exit cleanly
+  if (useAI) {
+    cleanupAIService();
+  }
+};
+
+export const deleteAllLogs = async (logTypes: string[] = ['system', 'auth', 'network', 'endpoint']) => {
+  console.log(`Deleting all logs from types: ${logTypes.join(', ')}...`);
+
+  const { getLogIndexForType } = await import('../log_generators');
+  const { getEsClient } = await import('./utils/indices');
+  
+  try {
+    const client = getEsClient();
+    
+    // Delete logs from each specified type
+    for (const logType of logTypes) {
+      const indexPattern = getLogIndexForType(logType, '*'); // Use wildcard for all namespaces
+      
+      try {
+        console.log(`Deleting logs from ${indexPattern}...`);
+        await client.deleteByQuery({
+          index: indexPattern,
+          refresh: true,
+          query: {
+            match_all: {},
+          },
+        });
+        console.log(`Deleted logs from ${logType} indices`);
+      } catch (error: any) {
+        if (error.meta?.statusCode === 404) {
+          console.log(`No ${logType} indices found (this is normal if none were created)`);
+        } else {
+          console.error(`Failed to delete ${logType} logs:`, error.message);
+        }
+      }
+    }
+    
+    console.log('Log deletion completed');
+  } catch (error) {
+    console.error('Failed to delete logs:', error);
+    throw error;
+  }
+};
+
+// New function to generate realistic source logs
+export const generateLogs = async (
+  logCount: number,
+  hostCount: number,
+  userCount: number,
+  useAI = false,
+  logTypes: string[] = ['system', 'auth', 'network', 'endpoint'],
+  timestampConfig?: TimestampConfig,
+) => {
+  console.log(
+    `Generating ${logCount} realistic source logs across ${logTypes.join(', ')} with ${hostCount} hosts and ${userCount} users${
+      useAI ? ' using AI' : ''
+    }`,
+  );
+
+  const config = getConfig();
+  if (useAI && !config.useAI) {
+    console.log(
+      'AI generation requested but not enabled in config. Set "useAI": true in config.json',
+    );
+    process.exit(1);
+  }
+
+  // Import log generators
+  const {
+    createRealisticLog,
+    getLogIndexForType,
+    detectLogType,
+    getDatasetForLogType,
+  } = await import('../log_generators');
+  const logMappings = await import('../mappings/log_mappings.json', { assert: { type: 'json' } });
+
+  // Generate entity names
+  console.log('Generating entity names...');
+  const userNames = Array.from({ length: userCount }, () =>
+    faker.internet.username(),
+  );
+  const hostNames = Array.from({ length: hostCount }, () =>
+    faker.internet.domainName(),
+  );
+
+  console.log('Generating logs...');
+  const operations: unknown[] = [];
+  const progress = new cliProgress.SingleBar(
+    {},
+    cliProgress.Presets.shades_classic,
+  );
+
+  progress.start(logCount, 0);
+
+  // Define log type weights based on requested types
+  const logTypeWeights = {
+    system: logTypes.includes('system') ? 30 : 0,
+    auth: logTypes.includes('auth') ? 20 : 0,
+    network: logTypes.includes('network') ? 35 : 0,
+    endpoint: logTypes.includes('endpoint') ? 15 : 0,
+  };
+
+  // Pre-create indices with mappings
+  const usedIndices = new Set<string>();
+  
+  for (let i = 0; i < logCount; i++) {
+    const userName = userNames[i % userCount];
+    const hostName = hostNames[i % hostCount];
+
+    try {
+      // Generate realistic log
+      const log = createRealisticLog({}, {
+        hostName,
+        userName,
+        timestampConfig,
+        logTypeWeights,
+      });
+
+      // Use the actual dataset from the log to determine the index
+      const dataset = log['data_stream.dataset'] || 'generic.log';
+      const namespace = log['data_stream.namespace'] || 'default';
+      const indexName = `logs-${dataset}-${namespace}`;
+
+      // Determine log type for any other operations
+      const logType = detectLogType(log);
+
+      // Ensure index exists with proper mappings (only once per index)
+      if (!usedIndices.has(indexName)) {
+        await indexCheck(indexName, {
+          mappings: logMappings.default as MappingTypeMapping,
+        });
+        usedIndices.add(indexName);
+      }
+
+      // Add to operations (use 'create' for data streams, not 'index')
+      operations.push({
+        create: {
+          _index: indexName,
+          _id: faker.string.uuid(),
+        },
+      });
+      operations.push(log);
+
+      progress.increment(1);
+
+      // Send batch when we have enough operations
+      if (operations.length >= 1000) {
+        try {
+          await bulkUpsert(operations);
+          operations.length = 0; // Clear array
+        } catch (error) {
+          console.error('Error sending log batch to Elasticsearch:', error);
+          process.exit(1);
+        }
+      }
+    } catch (error) {
+      console.error(`Error generating log at index ${i}:`, error);
+      progress.increment(1);
+    }
+  }
+
+  // Send remaining operations
+  if (operations.length > 0) {
+    try {
+      await bulkUpsert(operations);
+    } catch (error) {
+      console.error('Error sending final log batch to Elasticsearch:', error);
+      process.exit(1);
+    }
+  }
+
+  progress.stop();
+  console.log(`Generated ${logCount} realistic source logs across multiple indices`);
+  console.log(`Used indices: ${Array.from(usedIndices).join(', ')}`);
+
+  // Cleanup AI service if used
+  if (useAI) {
+    cleanupAIService();
+  }
+};
+
+// New function to generate correlated alerts with supporting logs
+export const generateCorrelatedCampaign = async (
+  alertCount: number,
+  hostCount: number,
+  userCount: number,
+  space: string = 'default',
+  useAI = false,
+  useMitre = false,
+  logVolumeMultiplier = 6,
+  timestampConfig?: TimestampConfig,
+) => {
+  console.log(
+    `Generating ${alertCount} correlated alerts with supporting logs across ${hostCount} hosts and ${userCount} users${
+      useAI ? ' using AI' : ''
+    }${useMitre ? ' with MITRE ATT&CK' : ''}`
+  );
+
+  const config = getConfig();
+  if (useAI && !config.useAI) {
+    console.log(
+      'AI generation requested but not enabled in config. Set "useAI": true in config.json'
+    );
+    process.exit(1);
+  }
+
+  if (useMitre && !useAI) {
+    console.log(
+      'MITRE integration requires AI generation. Use both --ai and --mitre flags.'
+    );
+    process.exit(1);
+  }
+
+  // Import the correlated alert generator
+  const { CorrelatedAlertGenerator } = await import('../services/correlated_alert_generator');
+  const logMappings = await import('../mappings/log_mappings.json', { assert: { type: 'json' } });
+
+  // Generate entity names
+  console.log('Generating target entities...');
+  const userNames = Array.from({ length: userCount }, () =>
+    faker.internet.username()
+  );
+  const hostNames = Array.from({ length: hostCount }, () =>
+    faker.internet.domainName()
+  );
+
+  console.log('Initializing correlation engine...');
+  const generator = new CorrelatedAlertGenerator();
+
+  const progress = new cliProgress.SingleBar(
+    {},
+    cliProgress.Presets.shades_classic
+  );
+
+  progress.start(alertCount, 0);
+
+  try {
+    // Generate the attack campaign
+    const campaign = await generator.generateAttackCampaign(
+      alertCount,
+      hostNames,
+      userNames,
+      {
+        space,
+        useAI,
+        useMitre,
+        timestampConfig,
+        logVolumeMultiplier
+      }
+    );
+
+    progress.stop();
+
+    console.log('\n📊 Campaign Summary:');
+    console.log(`  🚨 Total Alerts: ${campaign.campaignSummary.totalAlerts}`);
+    console.log(`  📋 Total Supporting Logs: ${campaign.campaignSummary.totalLogs}`);
+    console.log(`  🎯 Attack Types: ${campaign.campaignSummary.attackTypes.join(', ')}`);
+    console.log(`  🏠 Affected Hosts: ${campaign.campaignSummary.affectedHosts.length}`);
+    console.log(`  👥 Affected Users: ${campaign.campaignSummary.affectedUsers.length}`);
+    console.log(`  ⏰ Time Span: ${campaign.campaignSummary.timeSpan.start} → ${campaign.campaignSummary.timeSpan.end}`);
+
+    // Extract data for indexing
+    console.log('\nPreparing data for Elasticsearch indexing...');
+    const { indexOperations } = generator.extractLogsForIndexing(campaign.scenarios);
+
+    // Ensure all indices exist with proper mappings
+    console.log('Creating indices and mappings...');
+    const usedIndices = new Set<string>();
+    
+    for (let i = 0; i < indexOperations.length; i += 2) {
+      const operation = indexOperations[i] as any;
+      const indexName = operation.create._index;
+      
+      if (!usedIndices.has(indexName)) {
+        await indexCheck(indexName, {
+          mappings: logMappings.default as MappingTypeMapping,
+        });
+        usedIndices.add(indexName);
+      }
+    }
+
+    // Bulk index all data
+    console.log(`Indexing ${indexOperations.length / 2} documents to Elasticsearch...`);
+    
+    // Process in batches to avoid overwhelming Elasticsearch
+    const batchSize = 1000;
+    for (let i = 0; i < indexOperations.length; i += batchSize) {
+      const batch = indexOperations.slice(i, i + batchSize);
+      await bulkUpsert(batch);
+      
+      if (i + batchSize < indexOperations.length) {
+        process.stdout.write(`.`);
+      }
+    }
+    
+    console.log('\n\n✅ Correlated campaign generation completed!');
+    console.log(`📍 View alerts in Kibana space: ${space}`);
+    console.log(`🔍 View supporting logs with filter: logs-*`);
+    console.log(`🎭 Each alert now has ${logVolumeMultiplier} supporting log events`);
+
+    // Show example attack narratives
+    if (campaign.scenarios.length > 0) {
+      console.log('\n📖 Example Attack Narratives:');
+      campaign.scenarios.slice(0, 3).forEach((scenario, i) => {
+        console.log(`  ${i + 1}. ${scenario.attackNarrative}`);
+      });
+    }
+
+  } catch (error) {
+    progress.stop();
+    console.error('Error generating correlated campaign:', error);
+    throw error;
+  }
+
+  // Cleanup AI service if used
   if (useAI) {
     cleanupAIService();
   }

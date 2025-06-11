@@ -1,442 +1,307 @@
-# Advanced Attack Campaign Generation
+# Realistic Attack Campaign Generation
 
-Generate sophisticated, realistic multi-stage cyber attack scenarios for security testing and training.
+Generate complete security scenarios with forensic evidence chains that simulate real-world cyber attacks from source logs to triggered alerts.
 
-## 🎭 Campaign Types
+## 🎭 Realistic Campaign Mode ⭐ NEW
 
-### 🎯 APT (Advanced Persistent Threat)
-Long-term targeted attacks with sophisticated lateral movement.
+### **Complete Log→Alert Pipeline**
+Generate source logs that trigger realistic security alerts, creating complete forensic scenarios for training and testing.
 
 ```bash
-# Basic APT simulation
-yarn start generate-campaign apt --mitre --events 50
+# Complete ransomware attack with realistic detection
+yarn start generate-campaign ransomware --realistic --mitre --detection-rate 0.8
 
-# Advanced APT with attack chains
-yarn start generate-campaign apt --mitre --attack-chains --sub-techniques --events 100
+# Stealth APT with low detection rate
+yarn start generate-campaign apt --realistic --mitre --detection-rate 0.3 --logs-per-stage 5
 
-# Enterprise-scale APT
-yarn start generate-campaign apt --mitre --attack-chains --complexity expert --events 500 --targets 100
+# Insider threat with gradual privilege abuse
+yarn start generate-campaign insider --realistic --mitre --logs-per-stage 4 --detection-rate 0.5
 ```
 
-**Generated Attack Flow:**
-1. **Initial Access** (T1566.001 - Spearphishing)
-2. **Execution** (T1204.002 - User Execution)
-3. **Persistence** (T1547.001 - Registry Run Keys)
-4. **Privilege Escalation** (T1055.001 - DLL Injection)
-5. **Defense Evasion** (T1027 - Obfuscated Files)
-6. **Discovery** (T1083 - File Discovery)
-7. **Lateral Movement** (T1021.001 - Remote Desktop)
-8. **Collection** (T1005 - Data from Local System)
-9. **Exfiltration** (T1041 - C2 Channel)
+### **Key Features:**
+- **Source Logs First**: Generate Windows/Linux logs that tell the attack story
+- **Realistic Detection**: Configure what percentage of activities get detected (0.0-1.0)
+- **Evidence Chains**: Complete forensic timeline from initial access to detection
+- **Investigation Guides**: Automated investigation steps for security analysts
+- **Missed Activities**: Realistic gaps in detection (like real SOCs)
+
+### **Example Output:**
+```
+🎊 Realistic Campaign Generated Successfully:
+  🎯 Attack Stages: 8
+  ⚔️  Campaign: Conti Enterprise Ransomware Campaign
+  🎭 Threat Actor: Conti
+  📋 Total Logs: 38
+  🚨 Detected Alerts: 12
+  ⚪ Missed Activities: 2
+  📅 Timeline: 45 events
+
+📖 Investigation Guide:
+  1. Review initial alerts and identify affected systems
+  2. Investigate supporting logs around alert times
+  3. Look for lateral movement and persistence
+
+📍 View in Kibana space: default
+🔍 Filter logs with: logs-*
+🚨 View alerts in Security app
+📈 12 alerts triggered by 38 source logs
+```
+
+## 🎯 Campaign Types
+
+| Type | Attack Stages | Key Characteristics | Recommended Detection Rate |
+|------|---------------|---------------------|---------------------------|
+| **APT** | 2-4 stages | Stealth, lateral movement, long-term | Low (0.2-0.4) |
+| **Ransomware** | 8 stages | Fast progression, high impact | High (0.6-0.9) |
+| **Insider** | 3-6 stages | Privilege abuse, data exfiltration | Medium (0.3-0.6) |
+| **Supply Chain** | 4-7 stages | External compromise, multiple victims | Medium (0.4-0.7) |
 
 ### 🔒 Ransomware Campaigns
-Encryption-based attacks with backup disruption and ransom demands.
+High-impact encryption attacks with clear detection patterns.
 
 ```bash
-# Basic ransomware simulation
-yarn start generate-campaign ransomware --mitre --events 75
+# Basic realistic ransomware (high detection rate)
+yarn start generate-campaign ransomware --realistic --mitre --detection-rate 0.8
 
-# Multi-stage ransomware with network spread
-yarn start generate-campaign ransomware --mitre --attack-chains --events 200 --targets 50
-
-# Enterprise ransomware scenario
-yarn start generate-campaign ransomware --mitre --attack-chains --sub-techniques --complexity high --events 300
+# Stealth ransomware (lower detection)
+yarn start generate-campaign ransomware --realistic --mitre --detection-rate 0.4 --logs-per-stage 6
 ```
 
-**Example Ransomware Groups:**
-- **LockBit**: Supply chain focused attacks
-- **Conti**: Enterprise targeting with data theft
-- **REvil/Sodinokibi**: Double extortion campaigns
-- **BlackCat/ALPHV**: Cross-platform attacks
+**Attack Progression:**
+1. **Initial Access** → Email logs, DNS queries, HTTP traffic
+2. **Persistence** → Registry modifications, scheduled tasks
+3. **Discovery** → File system enumeration, network scanning
+4. **Credential Access** → LSASS dumps, password attacks
+5. **Lateral Movement** → RDP sessions, SMB connections
+6. **Collection** → File access, data compression
+7. **Exfiltration** → Network uploads, C2 communications
+8. **Impact** → File encryption, backup deletion
 
-**Attack Stages:**
-1. **Initial Compromise** (T1566 - Phishing, T1190 - Exploit Public-Facing App)
-2. **Reconnaissance** (T1083 - File Discovery, T1087 - Account Discovery)
-3. **Lateral Movement** (T1021 - Remote Services, T1550 - Use Alternate Auth)
-4. **Defense Evasion** (T1562.001 - Disable Security Tools)
-5. **Impact** (T1486 - Data Encryption, T1490 - Inhibit Recovery)
-
-### 👤 Insider Threat Campaigns
-Malicious employee activities and privilege abuse scenarios.
+### 🎯 APT Campaigns
+Long-term stealth attacks with minimal detection.
 
 ```bash
-# Privilege abuse simulation
-yarn start generate-campaign insider --mitre --events 60
+# Stealth APT with low detection
+yarn start generate-campaign apt --realistic --mitre --detection-rate 0.3 --logs-per-stage 3
 
-# Data exfiltration scenario
-yarn start generate-campaign insider --mitre --sub-techniques --events 120
-
-# Comprehensive insider threat
-yarn start generate-campaign insider --mitre --attack-chains --complexity high --events 150
+# Well-monitored environment
+yarn start generate-campaign apt --realistic --mitre --detection-rate 0.7 --logs-per-stage 4
 ```
 
-**Insider Threat Types:**
-- **Malicious Insiders**: Intentional data theft or sabotage
-- **Compromised Insiders**: External actor using legitimate credentials
-- **Negligent Insiders**: Unintentional security violations
-
-**Behavioral Indicators:**
-1. **After-hours Access** (Unusual login times)
-2. **Excessive Data Access** (Beyond normal job requirements)
-3. **Privilege Escalation** (T1068 - Exploitation for Privilege Escalation)
-4. **Data Collection** (T1005 - Data from Local System)
-5. **Exfiltration** (T1048 - Exfiltration Over Alternative Protocol)
-
-### 🦠 Malware Campaigns
-Virus outbreaks, trojan activities, and persistent malware infections.
-
-```bash
-# Malware outbreak simulation
-yarn start generate-campaign malware --mitre --events 100
-
-# Advanced persistent malware
-yarn start generate-campaign malware --mitre --attack-chains --events 200
-
-# Multi-variant malware campaign
-yarn start generate-campaign malware --mitre --sub-techniques --complexity expert --events 400
-```
-
-**Malware Families Simulated:**
-- **Banking Trojans**: Credential theft and financial fraud
-- **RATs (Remote Access Trojans)**: Persistent backdoor access
-- **Cryptominers**: Resource hijacking for cryptocurrency
-- **Botnets**: Distributed command and control
-
-### 📧 Phishing Campaigns
-Email-based attacks for credential theft and initial access.
-
-```bash
-# Email phishing simulation
-yarn start generate-campaign phishing --mitre --events 80
-
-# Spear phishing with social engineering
-yarn start generate-campaign phishing --mitre --sub-techniques --events 150
-
-# Business email compromise (BEC)
-yarn start generate-campaign phishing --mitre --attack-chains --complexity high --events 250
-```
-
-**Phishing Types:**
-- **Credential Harvesting**: Fake login pages
-- **Malware Delivery**: Malicious attachments/links
-- **Business Email Compromise**: CEO fraud and wire transfers
-- **Social Engineering**: Pretexting and psychological manipulation
-
-## 🎚️ Complexity Levels
-
-### Low Complexity
-- Basic attack patterns
-- Single-stage attacks
-- Limited evasion techniques
-- Straightforward indicators
-
-```bash
-yarn start generate-campaign apt --complexity low --events 30
-```
-
-### Medium Complexity (Default)
-- Multi-stage progression
-- Moderate evasion techniques
-- Realistic timing patterns
-- Mixed attack vectors
-
-```bash
-yarn start generate-campaign ransomware --complexity medium --events 100
-```
-
-### High Complexity
+**Attack Characteristics:**
+- Long dormancy periods
+- Minimal noise generation
 - Advanced evasion techniques
-- Multiple attack vectors
-- Sophisticated correlation
-- Enterprise-level scenarios
+- Targeted lateral movement
+
+### 👤 Insider Threats
+Gradual privilege abuse and data exfiltration.
 
 ```bash
-yarn start generate-campaign insider --complexity high --events 200
+# Malicious insider scenario
+yarn start generate-campaign insider --realistic --mitre --detection-rate 0.4
+
+# Negligent insider
+yarn start generate-campaign insider --realistic --mitre --detection-rate 0.6 --logs-per-stage 2
 ```
 
-### Expert Complexity
-- Nation-state level sophistication
-- Advanced persistent threats
-- Zero-day simulation
-- Maximum correlation depth
+**Behavioral Patterns:**
+- After-hours access
+- Excessive data access
+- Privilege escalation attempts
+- Unusual file operations
+
+## 🛠️ Realistic Mode Configuration
+
+### **Detection Rate Settings**
+Controls what percentage of suspicious activities trigger alerts.
 
 ```bash
-yarn start generate-campaign apt --complexity expert --events 500
+# High-security environment (most activities detected)
+--detection-rate 0.8
+
+# Typical SOC environment (moderate detection)
+--detection-rate 0.5
+
+# Under-resourced SOC (low detection)
+--detection-rate 0.3
+
+# Advanced persistent threat (minimal detection)
+--detection-rate 0.2
 ```
 
-## ⏱️ Temporal Patterns
-
-### Attack Simulation Pattern
-Realistic attack timing with burst activities and dormant periods.
+### **Logs Per Stage**
+Controls how many source logs are generated for each attack stage.
 
 ```bash
-yarn start generate-campaign apt --time-pattern attack_simulation --events 150
+# Minimal logging
+--logs-per-stage 2
+
+# Standard logging
+--logs-per-stage 4
+
+# Verbose logging
+--logs-per-stage 8
+
+# Comprehensive logging
+--logs-per-stage 12
 ```
 
-**Characteristics:**
-- Burst activities during reconnaissance
-- Dormant periods to avoid detection
-- Late-night/weekend activities
-- Realistic attack progression timing
-
-### Business Hours Pattern
-Attacks during normal business operations.
+### **Time Patterns**
+Realistic attack timing patterns.
 
 ```bash
-yarn start generate-campaign insider --time-pattern business_hours --events 100
+# Attack during business hours
+yarn start generate-campaign insider --realistic --time-pattern business_hours
+
+# Weekend attack (low staffing)
+yarn start generate-campaign ransomware --realistic --time-pattern weekend_heavy
+
+# Realistic attack progression
+yarn start generate-campaign apt --realistic --time-pattern attack_simulation
 ```
 
-### Weekend Heavy Pattern
-Attacks during low-supervision periods.
+## 🔍 Investigation & Analysis
 
+### **In Kibana:**
+1. **Source Logs**: Filter by `logs-*` to see all generated logs
+2. **Security Alerts**: Check Security app for triggered alerts
+3. **Timeline Analysis**: View chronological attack progression
+4. **Correlation**: Follow investigation guide recommendations
+
+### **Key Investigation Queries:**
+```
+# View all logs from affected hosts
+host.name:(ws-123 OR srv-456) AND @timestamp:[now-24h TO now]
+
+# Find authentication events around alert times
+event.category:authentication AND event.outcome:success
+
+# Look for lateral movement indicators
+event.category:network AND destination.ip:10.* AND source.ip:external
+
+# Process execution chains
+event.category:process AND event.type:start
+
+# File modification activities
+event.category:file AND (event.type:creation OR event.type:change)
+```
+
+### **Investigation Workflow:**
+1. **Review Alerts**: Start with triggered security alerts
+2. **Timeline Analysis**: Build chronological event sequence
+3. **Pivot Analysis**: Follow related logs by host/user/process
+4. **Evidence Collection**: Document the complete attack chain
+5. **Gap Analysis**: Identify what activities were missed
+
+## 📊 Training Scenarios
+
+### **SOC Analyst Training**
 ```bash
-yarn start generate-campaign ransomware --time-pattern weekend_heavy --events 80
+# Beginner: Clear attack with high detection
+yarn start generate-campaign ransomware --realistic --detection-rate 0.8 --logs-per-stage 3
+
+# Intermediate: Mixed visibility
+yarn start generate-campaign apt --realistic --detection-rate 0.5 --logs-per-stage 4
+
+# Advanced: Stealth attack with minimal detection
+yarn start generate-campaign apt --realistic --detection-rate 0.2 --logs-per-stage 6
 ```
 
-## 🎯 Target Configuration
-
-### Host-Centric Campaigns
-Focus on specific host targets with lateral movement.
-
+### **Detection Rule Testing**
 ```bash
-yarn start generate-campaign apt --targets 25 --events 200
+# Test specific MITRE techniques
+yarn start generate-campaign ransomware --realistic --mitre --sub-techniques
+
+# Validate correlation rules
+yarn start generate-campaign apt --realistic --mitre --attack-chains
+
+# Performance testing
+yarn start generate-campaign insider --realistic --events 50 --targets 20
 ```
 
-### User-Centric Campaigns
-Focus on user behavior and privilege abuse.
-
+### **Incident Response Exercises**
 ```bash
-yarn start generate-campaign insider --targets 15 --events 150
+# Fast-moving threat (immediate response required)
+yarn start generate-campaign ransomware --realistic --detection-rate 0.9
+
+# Long-term investigation (APT hunting)
+yarn start generate-campaign apt --realistic --detection-rate 0.3 --logs-per-stage 8
 ```
-
-### Large-Scale Enterprise
-Simulate attacks across large organizations.
-
-```bash
-yarn start generate-campaign ransomware --targets 200 --events 1000 --large-scale
-```
-
-## 🔗 Attack Chain Configuration
-
-### Enable Attack Chains
-Create realistic multi-technique progressions.
-
-```bash
-yarn start generate-campaign apt --attack-chains --events 100
-```
-
-**Attack Chain Benefits:**
-- Realistic technique progression
-- Temporal correlation between techniques
-- Enhanced detection testing
-- Training scenario authenticity
-
-### Sub-Techniques Integration
-Include detailed MITRE sub-techniques for granular detection.
-
-```bash
-yarn start generate-campaign malware --sub-techniques --attack-chains --events 150
-```
-
-## 📊 Campaign Output Structure
-
-### Campaign Metadata
-Each campaign generates structured metadata:
-
-```json
-{
-  "campaign": {
-    "id": "apt-campaign-2025-06-10",
-    "name": "Operation Aurora",
-    "type": "apt",
-    "threat_actor": "Comment Crew",
-    "complexity": "high",
-    "stages": 8,
-    "duration": {
-      "start": "2025-06-03T00:00:00Z",
-      "end": "2025-06-10T23:59:59Z"
-    }
-  }
-}
-```
-
-### Attack Stages
-Structured progression through attack lifecycle:
-
-```json
-{
-  "stages": [
-    {
-      "name": "Initial Access",
-      "tactic": "TA0001",
-      "techniques": ["T1566.001", "T1566.002"],
-      "start_time": "2025-06-03T09:15:00Z",
-      "end_time": "2025-06-03T11:30:00Z",
-      "objectives": ["Establish foothold", "Deliver payload"]
-    }
-  ]
-}
-```
-
-### Generated Alerts
-Rich MITRE-mapped security alerts:
-
-```json
-{
-  "kibana.alert.rule.name": "MITRE T1566.001 Spearphishing Detection",
-  "threat.technique.id": ["T1566.001"],
-  "threat.technique.name": ["Spearphishing Attachment"],
-  "threat.tactic.id": ["TA0001"],
-  "threat.tactic.name": ["Initial Access"],
-  "threat.attack_chain.id": "chain-apt-2025-001",
-  "threat.attack_chain.severity": "high",
-  "campaign.id": "apt-campaign-2025-06-10",
-  "campaign.type": "apt",
-  "campaign.threat_actor": "Comment Crew",
-  "kibana.alert.severity": "high",
-  "kibana.alert.risk_score": 85
-}
-```
-
-## 🎪 Advanced Scenarios
-
-### SOC Training Exercise
-Multi-campaign environment for analyst training.
-
-```bash
-# Generate multiple overlapping campaigns
-yarn start generate-campaign apt --mitre --attack-chains --events 200 --space soc-training
-yarn start generate-campaign insider --mitre --sub-techniques --events 100 --space soc-training
-yarn start generate-campaign malware --mitre --events 150 --space soc-training
-```
-
-### Red Team Exercise
-Sophisticated adversary simulation.
-
-```bash
-yarn start generate-campaign apt --mitre --attack-chains --sub-techniques --complexity expert --events 500 --targets 100
-```
-
-### Detection Rule Testing
-Comprehensive MITRE technique coverage.
-
-```bash
-# Test all implemented techniques
-yarn start generate-campaign apt --mitre --sub-techniques --events 300
-yarn start generate-campaign ransomware --mitre --sub-techniques --events 300
-yarn start generate-campaign insider --mitre --sub-techniques --events 300
-```
-
-### Performance Testing
-Large-scale generation for system stress testing.
-
-```bash
-yarn start generate-campaign malware --mitre --large-scale --events 5000 --targets 500
-```
-
-## 🔍 Campaign Analysis
-
-### Monitoring Generated Campaigns
-
-1. **Kibana Security App**
-   - Review generated alerts by campaign ID
-   - Analyze attack progression timelines
-   - Validate MITRE technique coverage
-
-2. **SIEM Integration**
-   - Correlation rule testing
-   - Detection efficacy measurement
-   - False positive analysis
-
-3. **Threat Hunting**
-   - Hunt for campaign indicators
-   - Practice investigation workflows
-   - Validate detection gaps
-
-### Key Metrics to Track
-
-- **Campaign Coverage**: Percentage of MITRE techniques covered
-- **Detection Rate**: Alerts properly detected by security tools
-- **False Positive Rate**: Benign activities flagged as malicious
-- **Time to Detection**: Speed of security team response
-- **Investigation Depth**: Completeness of threat analysis
 
 ## 🎯 Best Practices
 
-### Campaign Planning
-1. **Start Small**: Begin with 50-100 events
-2. **Use Realistic Timing**: Enable attack_simulation pattern
-3. **Layer Complexity**: Combine multiple campaign types
-4. **Test Progressively**: Increase complexity over time
+### **Realistic Scenario Design**
+1. **Match Your Environment**: Use detection rates that reflect your SOC's capabilities
+2. **Progressive Training**: Start with high detection rates, reduce over time
+3. **Diverse Scenarios**: Mix different campaign types and complexity levels
+4. **Time Correlation**: Use realistic time patterns for training exercises
 
-### Detection Testing
-1. **Cover All Tactics**: Use comprehensive MITRE mapping
-2. **Include Sub-Techniques**: Test granular detection rules
-3. **Enable Attack Chains**: Validate correlation capabilities
-4. **Mix Campaign Types**: Test diverse attack scenarios
+### **Detection Testing**
+1. **Baseline Testing**: Start with known detection capabilities
+2. **Gap Analysis**: Use low detection rates to find blind spots
+3. **Rule Validation**: Test specific MITRE techniques with targeted campaigns
+4. **Performance Impact**: Monitor system performance during large scenarios
 
-### Training Scenarios
-1. **Realistic Timelines**: Use business_hours or attack_simulation patterns
-2. **Mixed Severity**: Include both high and low-severity events
-3. **Progressive Difficulty**: Start with low complexity campaigns
-4. **Document Scenarios**: Maintain training exercise documentation
-
-### Performance Optimization
-1. **Use Large-Scale Mode**: For >1000 events
-2. **Adjust Batch Sizes**: Based on system capabilities
-3. **Monitor Resource Usage**: Watch memory and CPU utilization
-4. **Enable Caching**: Reduce redundant API calls
+### **Investigation Training**
+1. **Complete Stories**: Use realistic mode for end-to-end scenarios
+2. **Evidence Chains**: Follow generated investigation guides
+3. **Pivot Practice**: Use Kibana queries to explore related logs
+4. **Documentation**: Record investigation findings and methodologies
 
 ## 🚨 Troubleshooting
 
-### Common Issues
-
-**Campaign Generation Timeout**
+### **No Alerts Generated**
 ```bash
-# Reduce event count or complexity
-yarn start generate-campaign apt --events 50 --complexity medium
+# Increase detection rate
+yarn start generate-campaign apt --realistic --detection-rate 0.8
+
+# Increase logs per stage
+yarn start generate-campaign apt --realistic --logs-per-stage 6
 ```
 
-**Memory Issues with Large Campaigns**
+### **Too Many Alerts**
 ```bash
-# Enable large-scale optimizations
-yarn start generate-campaign ransomware --large-scale --events 2000
+# Reduce detection rate for more realistic scenario
+yarn start generate-campaign ransomware --realistic --detection-rate 0.4
 ```
 
-**AI API Rate Limiting**
+### **Performance Issues**
 ```bash
-# Increase request delays in config.json
-"requestDelayMs": 200
+# Reduce logs per stage for large campaigns
+yarn start generate-campaign apt --realistic --events 100 --logs-per-stage 2
+
+# Use smaller batch sizes
+yarn start generate-campaign ransomware --realistic --batch-size 50
 ```
 
-### Debug Mode
-Enable debug logging for campaign troubleshooting:
+## 📈 Advanced Features
 
+### **Custom Detection Scenarios**
 ```bash
-DEBUG_AI_RESPONSES=true yarn start generate-campaign apt --mitre --events 10
+# Simulate specific detection gaps
+yarn start generate-campaign apt --realistic --detection-rate 0.1 --logs-per-stage 10
+
+# Test alert fatigue scenarios
+yarn start generate-campaign ransomware --realistic --detection-rate 0.9 --events 200
 ```
 
-## 📈 Extending Campaign Types
-
-### Adding Custom Campaign Types
-Extend the attack simulation engine with custom scenarios by modifying:
-
-1. **Attack Scenarios**: `src/attack_scenarios/`
-2. **Simulation Engine**: `src/services/attack_simulation_engine.ts`
-3. **Campaign Commands**: `src/index.ts`
-
-### Custom Threat Actors
-Add your own threat actor profiles in the campaign configuration:
-
-```json
-{
-  "customThreatActors": {
-    "CUSTOM_APT": {
-      "name": "Custom APT Group",
-      "sophistication": "expert",
-      "targetSectors": ["finance", "healthcare"],
-      "techniques": ["T1566.001", "T1055.001", "T1027"]
-    }
-  }
-}
+### **Multi-Campaign Environments**
+```bash
+# Overlapping campaigns for complex scenarios
+yarn start generate-campaign apt --realistic --space training-env &
+yarn start generate-campaign insider --realistic --space training-env &
+wait
 ```
+
+### **Integration with Detection Rules**
+The realistic mode generates logs that would trigger common detection rules:
+- Process execution patterns
+- Network connection anomalies
+- File system modifications
+- Authentication failures
+- Privilege escalation attempts
+
+---
+
+**🎭 Transform your security testing with realistic attack scenarios!** Start with `yarn start generate-campaign ransomware --realistic --mitre` and experience complete forensic evidence chains.
