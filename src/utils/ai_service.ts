@@ -473,13 +473,20 @@ Generate an alert that shows CLEAR CORRELATION to this attack campaign stage. In
         const mergedAlert = {
           ...defaultTemplate,
           ...generatedAlert,
-          // Always ensure these specific fields
+          // Always ensure these specific fields (override AI if needed)
           'host.name': hostName,
           'user.name': userName,
           'kibana.space_ids': [space],
           'kibana.alert.uuid':
             generatedAlert['kibana.alert.uuid'] ||
             defaultTemplate['kibana.alert.uuid'],
+          // Ensure template timestamps are preserved (don't let AI override)
+          '@timestamp': defaultTemplate['@timestamp'],
+          'kibana.alert.start': defaultTemplate['kibana.alert.start'],
+          'kibana.alert.last_detected': defaultTemplate['kibana.alert.last_detected'],
+          'kibana.alert.original_time': defaultTemplate['kibana.alert.original_time'],
+          'kibana.alert.rule.created_at': defaultTemplate['kibana.alert.rule.created_at'],
+          'kibana.alert.rule.updated_at': defaultTemplate['kibana.alert.rule.updated_at'],
         };
 
         // Validate and sanitize the alert
@@ -813,6 +820,13 @@ export const generateAIAlertBatch = async (
                 (generatedAlert as Record<string, unknown>)[
                   'kibana.alert.uuid'
                 ] || defaultTemplate['kibana.alert.uuid'],
+              // Preserve template timestamps
+              '@timestamp': defaultTemplate['@timestamp'],
+              'kibana.alert.start': defaultTemplate['kibana.alert.start'],
+              'kibana.alert.last_detected': defaultTemplate['kibana.alert.last_detected'],
+              'kibana.alert.original_time': defaultTemplate['kibana.alert.original_time'],
+              'kibana.alert.rule.created_at': defaultTemplate['kibana.alert.rule.created_at'],
+              'kibana.alert.rule.updated_at': defaultTemplate['kibana.alert.rule.updated_at'],
             };
 
             const validatedAlert = validateAndSanitizeAlert(
@@ -1054,6 +1068,13 @@ export const generateMITREAlert = async (
           'host.name': hostName,
           'user.name': userName,
           'kibana.space_ids': [space],
+          // Preserve template timestamps (don't let AI override)
+          '@timestamp': defaultTemplate['@timestamp'],
+          'kibana.alert.start': defaultTemplate['kibana.alert.start'],
+          'kibana.alert.last_detected': defaultTemplate['kibana.alert.last_detected'],
+          'kibana.alert.original_time': defaultTemplate['kibana.alert.original_time'],
+          'kibana.alert.rule.created_at': defaultTemplate['kibana.alert.rule.created_at'],
+          'kibana.alert.rule.updated_at': defaultTemplate['kibana.alert.rule.updated_at'],
         };
 
         // Validate the alert

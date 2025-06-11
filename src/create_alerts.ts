@@ -13,6 +13,7 @@ function baseCreateAlerts({
   timestampConfig?: import('./utils/timestamp_utils').TimestampConfig;
 } = {}) {
   const timestamp = generateTimestamp(timestampConfig);
+  const currentTime = new Date().toISOString(); // For rule metadata timestamps
   return {
     'host.name': hostName,
     'user.name': userName,
@@ -55,9 +56,9 @@ function baseCreateAlerts({
     'kibana.alert.rule.uuid': faker.string.uuid(),
     'kibana.space_ids': [space],
     'kibana.alert.rule.tags': [],
-    '@timestamp': generateTimestamp(),
+    '@timestamp': timestamp,
     'event.kind': 'signal',
-    'kibana.alert.original_time': generateTimestamp(timestampConfig),
+    'kibana.alert.original_time': timestamp,
     'kibana.alert.ancestors': [
       {
         id: '8TD3cYcB1hicTK_CdP--',
@@ -74,7 +75,7 @@ function baseCreateAlerts({
     'kibana.alert.risk_score': 21,
     'kibana.alert.rule.actions': [],
     'kibana.alert.rule.author': [],
-    'kibana.alert.rule.created_at': generateTimestamp(timestampConfig),
+    'kibana.alert.rule.created_at': currentTime,
     'kibana.alert.rule.created_by': 'elastic',
     'kibana.alert.rule.description': '2',
     'kibana.alert.rule.enabled': true,
@@ -93,7 +94,7 @@ function baseCreateAlerts({
     'kibana.alert.rule.threat': [],
     'kibana.alert.rule.to': 'now',
     'kibana.alert.rule.type': 'query',
-    'kibana.alert.rule.updated_at': generateTimestamp(timestampConfig),
+    'kibana.alert.rule.updated_at': currentTime,
     'kibana.alert.rule.updated_by': 'elastic',
     'kibana.alert.rule.version': 3,
     'kibana.alert.rule.meta.from': '1m',

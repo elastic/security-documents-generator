@@ -32,7 +32,12 @@ const parseRelativeDate = (
   dateStr: string,
   baseDate = moment(),
 ): moment.Moment => {
-  const match = dateStr.match(/^(\d+)([dwMy])$/);
+  // Handle special case for "now"
+  if (dateStr === 'now') {
+    return moment();
+  }
+
+  const match = dateStr.match(/^(\d+)([mhdwMy])$/);
   if (!match) {
     // Try parsing as ISO date
     return moment(dateStr);
@@ -40,6 +45,8 @@ const parseRelativeDate = (
 
   const [, amount, unit] = match;
   const unitMap: Record<string, moment.unitOfTime.DurationConstructor> = {
+    m: 'minutes',
+    h: 'hours',
     d: 'days',
     w: 'weeks',
     M: 'months',

@@ -74,6 +74,10 @@
     "enableMultiDay": true,
     "daySpread": 7,
     "examples": {
+      "10_minutes_ago": "10m",
+      "30_minutes_ago": "30m",
+      "2_hours_ago": "2h",
+      "24_hours_ago": "24h", 
       "7_days_ago": "7d",
       "1_week_ago": "1w",
       "1_month_ago": "1M",

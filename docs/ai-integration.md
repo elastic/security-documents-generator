@@ -366,11 +366,11 @@ DEBUG_AI_RESPONSES=true yarn start generate-alerts -n 5 --mitre
 
 ### 3. Domain-Specific Generation
 ```bash
-# Healthcare-focused alerts (AI always enabled)
-yarn start generate-campaign apt --mitre --context healthcare --events 100
+# Healthcare-focused APT campaign (AI always enabled)
+yarn start generate-campaign apt --mitre --events 100
 
-# Financial services scenario
-yarn start generate-campaign ransomware --mitre --context financial --events 150
+# Financial services ransomware scenario  
+yarn start generate-campaign ransomware --mitre --events 150
 ```
 
 ### 4. Adaptive Learning

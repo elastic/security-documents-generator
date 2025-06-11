@@ -21,16 +21,14 @@ export const generateAlertSystemPrompt = (context: PromptContext): string => {
     schemaExcerpt = '',
   } = context;
 
-  return `Security alert generator. Create JSON alert with REALISTIC CURRENT timestamps:
+  return `Security alert generator. Create JSON alert with realistic security data:
 - host.name: "${hostName}"
 - user.name: "${userName}"
 - kibana.space_ids: ["${space}"]
 - kibana.alert.uuid: UUID
 - kibana.alert.rule.name: Descriptive security rule name (e.g., "Suspicious PowerShell Activity", "Malware Detection")
 - kibana.alert.rule.description: Brief description of what triggered the alert
-- kibana.alert.start & last_detected: Use recent dates within the last 30 days (May-June 2025)
 - kibana.version: "8.7.0"
-- @timestamp: recent timestamps within last 30 days (NOT future dates)
 - event.kind: "signal"
 - event.category: ["malware", "network", "process", "authentication", "file"] (choose appropriate)
 - event.action: specific action that occurred
@@ -40,7 +38,7 @@ export const generateAlertSystemPrompt = (context: PromptContext): string => {
 - kibana.alert.severity: "low", "medium", "high", or "critical"
 - kibana.alert.risk_score: 1-100 (matching severity)
 - rule.name: Same as kibana.alert.rule.name for compatibility
-CRITICAL: Use only dates from the past 30 days. NO future dates. NO 2023 or older dates.
+IMPORTANT: Do NOT include @timestamp, kibana.alert.start, kibana.alert.last_detected, or any timestamp fields. These will be handled separately.
 ${alertType !== 'general' ? `This is a ${alertType} type alert.` : ''}
 ${schemaExcerpt ? `Schema excerpt: ${schemaExcerpt}` : ''}`;
 };
@@ -59,16 +57,14 @@ export const generateMitreAlertSystemPrompt = (
     chainSeverity = 'medium',
   } = context;
 
-  return `Security alert generator with advanced MITRE ATT&CK framework integration. Create JSON alert with REALISTIC CURRENT timestamps:
+  return `Security alert generator with advanced MITRE ATT&CK framework integration. Create JSON alert with realistic security data:
 - host.name: "${hostName}"
 - user.name: "${userName}"
 - kibana.space_ids: ["${space}"]
 - kibana.alert.uuid: UUID
 - kibana.alert.rule.name: MITRE-based security rule name (e.g., "MITRE T1566.001 Spearphishing Detection")
 - kibana.alert.rule.description: Description including MITRE technique details
-- kibana.alert.start & last_detected: Use recent dates within the last 30 days (May-June 2025)
 - kibana.version: "8.7.0"
-- @timestamp: recent timestamps within last 30 days (NOT future dates)
 - event.kind: "signal"
 - event.category: ["malware", "network", "process", "authentication", "file"] (choose based on MITRE technique)
 - event.action: specific action related to MITRE technique
@@ -108,11 +104,10 @@ export const generateEventSystemPrompt = (context: {
 }): string => {
   const { idField, idValue, schemaExcerpt = '' } = context;
 
-  return `Security event generator. Create JSON with REALISTIC CURRENT timestamps:
-- @timestamp: Use recent dates within the last 30 days (May-June 2025)
+  return `Security event generator. Create JSON with realistic security event data:
 - criticality: one of ["low_impact", "medium_impact", "high_impact", "extreme_impact"]
 ${idField ? `- ${idField}: "${idValue}"` : ''}
-CRITICAL: Use only dates from the past 30 days. NO future dates. NO 2023 or older dates.
+IMPORTANT: Do NOT include @timestamp or any timestamp fields. These will be handled separately.
 ${schemaExcerpt ? `Schema: ${schemaExcerpt}` : ''}`;
 };
 
@@ -129,9 +124,7 @@ export const generateBatchAlertSystemPrompt = (context: {
 - user.name: (provided per entity)
 - kibana.space_ids: ["${space}"]
 - kibana.alert.uuid: unique UUID for each
-- kibana.alert.start & last_detected: ISO timestamps
 - kibana.version: "8.7.0"
-- @timestamp: current milliseconds
 - event.kind: "signal"
 - kibana.alert.status: "active"
 - kibana.alert.workflow_status: "open"
