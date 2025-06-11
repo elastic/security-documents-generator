@@ -1,7 +1,3 @@
-import moment from 'moment';
-import { faker } from '@faker-js/faker';
-import { getConfig } from '../get_config';
-
 /**
  * Timestamp Utility for Security Documents Generator
  *
@@ -9,6 +5,9 @@ import { getConfig } from '../get_config';
  * and various time distribution patterns for realistic security data.
  */
 
+import moment from 'moment';
+import { faker } from '@faker-js/faker';
+import { getConfig } from '../get_config';
 export interface TimestampConfig {
   startDate?: string; // ISO date string or relative (e.g., "7d", "1w", "1M")
   endDate?: string; // ISO date string or relative (e.g., "now", "1d")
@@ -310,9 +309,10 @@ export const generateAttackChainTimestamps = (
 
   const timestamps: moment.Moment[] = [];
 
-  // Generate initial timestamp
-  const currentTime = generateTimestamp(config);
-  let currentMoment = moment(currentTime);
+  // Generate initial timestamp within the time range
+  const timeRangeMs = end.diff(start);
+  const randomOffset = Math.random() * timeRangeMs;
+  let currentMoment = start.clone().add(randomOffset, 'milliseconds');
   timestamps.push(currentMoment.clone());
 
   // Generate subsequent timestamps based on pattern

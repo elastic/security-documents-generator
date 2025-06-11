@@ -107,11 +107,16 @@ export class CorrelationAnalyticsEngine {
     const analysis: CrossCampaignAnalysis = {
       analysis_id: faker.string.uuid(),
       campaigns_analyzed: campaigns.map(
-        (c) => ((c.campaign as Record<string, unknown>)?.id as string) || faker.string.uuid(),
+        (c) =>
+          ((c.campaign as Record<string, unknown>)?.id as string) ||
+          faker.string.uuid(),
       ),
       correlation_matrix: this.buildCorrelationMatrix(campaigns.length),
       temporal_overlap_analysis: {
-        overlapping_timeframes: faker.number.int({ min: 0, max: campaigns.length }),
+        overlapping_timeframes: faker.number.int({
+          min: 0,
+          max: campaigns.length,
+        }),
         maximum_concurrent_campaigns: faker.number.int({ min: 1, max: 5 }),
         resource_contention_score: faker.number.float({ min: 0, max: 1 }),
       },
@@ -122,7 +127,10 @@ export class CorrelationAnalyticsEngine {
       },
       aggregated_impact: {
         total_events: campaigns.length * faker.number.int({ min: 10, max: 50 }),
-        combined_financial_impact: faker.number.int({ min: 100000, max: 10000000 }),
+        combined_financial_impact: faker.number.int({
+          min: 100000,
+          max: 10000000,
+        }),
         organizational_risk_score: faker.number.int({ min: 60, max: 95 }),
       },
     };
@@ -132,7 +140,8 @@ export class CorrelationAnalyticsEngine {
       const elapsedTime = Date.now() - startTime;
       this.recordPerformanceMetrics({
         generation_time_ms: elapsedTime,
-        events_per_second: analysis.aggregated_impact.total_events / (elapsedTime / 1000),
+        events_per_second:
+          analysis.aggregated_impact.total_events / (elapsedTime / 1000),
         memory_usage_mb: this.estimateMemoryUsage(),
         correlation_processing_time_ms: elapsedTime,
         ai_generation_time_ms: 0,
@@ -150,12 +159,17 @@ export class CorrelationAnalyticsEngine {
     scenarioCount: number,
     eventsPerScenario: number,
     progressCallback?: (progress: number) => void,
-  ): Promise<{ scenarios: Record<string, unknown>[]; performance: PerformanceMetrics }> {
+  ): Promise<{
+    scenarios: Record<string, unknown>[];
+    performance: PerformanceMetrics;
+  }> {
     const startTime = Date.now();
     const scenarios: Record<string, unknown>[] = [];
 
     if (this.largeScaleConfig.enable_batch_processing) {
-      const batches = Math.ceil(scenarioCount / this.largeScaleConfig.batch_size);
+      const batches = Math.ceil(
+        scenarioCount / this.largeScaleConfig.batch_size,
+      );
 
       for (let batchIndex = 0; batchIndex < batches; batchIndex++) {
         const batchSize = Math.min(
@@ -163,14 +177,20 @@ export class CorrelationAnalyticsEngine {
           scenarioCount - batchIndex * this.largeScaleConfig.batch_size,
         );
 
-        const batchScenarios = await this.processBatch(batchSize, eventsPerScenario);
+        const batchScenarios = await this.processBatch(
+          batchSize,
+          eventsPerScenario,
+        );
         scenarios.push(...batchScenarios);
 
         if (this.largeScaleConfig.enable_memory_optimization) {
           this.optimizeMemory();
         }
 
-        if (progressCallback && this.largeScaleConfig.enable_progress_tracking) {
+        if (
+          progressCallback &&
+          this.largeScaleConfig.enable_progress_tracking
+        ) {
           progressCallback((batchIndex + 1) / batches);
         }
       }
@@ -187,7 +207,8 @@ export class CorrelationAnalyticsEngine {
     const elapsedTime = Date.now() - startTime;
     const performanceMetrics: PerformanceMetrics = {
       generation_time_ms: elapsedTime,
-      events_per_second: (scenarioCount * eventsPerScenario) / (elapsedTime / 1000),
+      events_per_second:
+        (scenarioCount * eventsPerScenario) / (elapsedTime / 1000),
       memory_usage_mb: this.estimateMemoryUsage(),
       correlation_processing_time_ms: 0,
       ai_generation_time_ms: 0,
@@ -200,9 +221,11 @@ export class CorrelationAnalyticsEngine {
   /**
    * Evaluates campaign effectiveness with comprehensive metrics
    */
-  evaluateCampaignEffectiveness(campaign: Record<string, unknown>): CampaignEffectiveness {
+  evaluateCampaignEffectiveness(
+    campaign: Record<string, unknown>,
+  ): CampaignEffectiveness {
     return {
-      campaign_id: campaign.campaign?.id as string || faker.string.uuid(),
+      campaign_id: (campaign.campaign as any)?.id || faker.string.uuid(),
       total_events: faker.number.int({ min: 10, max: 500 }),
       stages_completed: faker.number.int({ min: 3, max: 8 }),
       success_probability: faker.number.float({ min: 0.3, max: 0.9 }),
@@ -312,7 +335,12 @@ export class CorrelationAnalyticsEngine {
     return {
       id: faker.string.uuid(),
       events: eventsPerScenario,
-      complexity: faker.helpers.arrayElement(['low', 'medium', 'high', 'expert']),
+      complexity: faker.helpers.arrayElement([
+        'low',
+        'medium',
+        'high',
+        'expert',
+      ]),
       techniques: Array.from(
         { length: faker.number.int({ min: 3, max: 8 }) },
         () => `T${faker.number.int({ min: 1000, max: 1999 })}`,
@@ -368,17 +396,33 @@ export class CorrelationAnalyticsEngine {
     const count = this.performanceMetrics.length;
     return {
       generation_time_ms:
-        this.performanceMetrics.reduce((sum, m) => sum + m.generation_time_ms, 0) / count,
+        this.performanceMetrics.reduce(
+          (sum, m) => sum + m.generation_time_ms,
+          0,
+        ) / count,
       events_per_second:
-        this.performanceMetrics.reduce((sum, m) => sum + m.events_per_second, 0) / count,
+        this.performanceMetrics.reduce(
+          (sum, m) => sum + m.events_per_second,
+          0,
+        ) / count,
       memory_usage_mb:
-        this.performanceMetrics.reduce((sum, m) => sum + m.memory_usage_mb, 0) / count,
+        this.performanceMetrics.reduce((sum, m) => sum + m.memory_usage_mb, 0) /
+        count,
       correlation_processing_time_ms:
-        this.performanceMetrics.reduce((sum, m) => sum + m.correlation_processing_time_ms, 0) / count,
+        this.performanceMetrics.reduce(
+          (sum, m) => sum + m.correlation_processing_time_ms,
+          0,
+        ) / count,
       ai_generation_time_ms:
-        this.performanceMetrics.reduce((sum, m) => sum + m.ai_generation_time_ms, 0) / count,
+        this.performanceMetrics.reduce(
+          (sum, m) => sum + m.ai_generation_time_ms,
+          0,
+        ) / count,
       batch_processing_efficiency:
-        this.performanceMetrics.reduce((sum, m) => sum + m.batch_processing_efficiency, 0) / count,
+        this.performanceMetrics.reduce(
+          (sum, m) => sum + m.batch_processing_efficiency,
+          0,
+        ) / count,
     };
   }
 }

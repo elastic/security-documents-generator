@@ -111,7 +111,8 @@ export const SUPPLY_CHAIN_ATTACKS: Record<string, SupplyChainAttack> = {
   SOLARWINDS_STYLE: {
     id: 'SOLARWINDS_STYLE',
     name: 'Software Build System Compromise',
-    description: 'Nation-state compromise of software build pipeline affecting thousands',
+    description:
+      'Nation-state compromise of software build pipeline affecting thousands',
     target: SUPPLY_CHAIN_TARGETS.SOFTWARE_LIBRARY,
     attack_vector: 'compromise',
     sophistication: 'expert',
@@ -364,7 +365,8 @@ export const SUPPLY_CHAIN_ATTACKS: Record<string, SupplyChainAttack> = {
   KASEYA_STYLE: {
     id: 'KASEYA_STYLE',
     name: 'MSP Platform Compromise',
-    description: 'Ransomware deployment through managed service provider compromise',
+    description:
+      'Ransomware deployment through managed service provider compromise',
     target: SUPPLY_CHAIN_TARGETS.MSP_PROVIDER,
     attack_vector: 'compromise',
     sophistication: 'high',

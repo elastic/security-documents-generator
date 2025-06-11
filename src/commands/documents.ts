@@ -16,6 +16,7 @@ import {
   generateAIAlert,
   generateAIAlertBatch,
   generateMITREAlert,
+  cleanupAIService,
 } from '../utils/ai_service';
 import { TimestampConfig } from '../utils/timestamp_utils';
 
@@ -263,7 +264,12 @@ export const generateAlerts = async (
     hostName: string;
   }) =>
     alertToBatchOps(
-      createAlerts(no_overrides, { userName, hostName, space, timestampConfig }),
+      createAlerts(no_overrides, {
+        userName,
+        hostName,
+        space,
+        timestampConfig,
+      }),
       getAlertIndex(space),
     );
 
@@ -283,7 +289,9 @@ export const generateAlerts = async (
 
   // If AI is enabled, use a different approach for generation
   if (useAI && config.useAI) {
-    console.log(`Using AI for alert generation${useMitre ? ' with MITRE ATT&CK' : ''}...`);
+    console.log(
+      `Using AI for alert generation${useMitre ? ' with MITRE ATT&CK' : ''}...`,
+    );
     const progress = new cliProgress.SingleBar(
       {},
       cliProgress.Presets.shades_classic,
@@ -300,13 +308,16 @@ export const generateAlerts = async (
 
     // Phase 3: Adaptive batch sizing based on dataset size and performance config
     const performanceConfig = config.generation?.performance;
-    const isLargeScale = performanceConfig?.enableLargeScale &&
+    const isLargeScale =
+      performanceConfig?.enableLargeScale &&
       alertCount >= (performanceConfig?.largeScaleThreshold || 1000);
 
     let aiBatchSize = 5; // Default
     if (isLargeScale) {
       aiBatchSize = config.generation?.alerts?.largeBatchSize || 25;
-      console.log(`Large-scale generation enabled. Using batch size: ${aiBatchSize}`);
+      console.log(
+        `Large-scale generation enabled. Using batch size: ${aiBatchSize}`,
+      );
     } else {
       aiBatchSize = config.generation?.alerts?.batchSize || 5;
     }
@@ -317,11 +328,14 @@ export const generateAlerts = async (
     const entityChunks = chunk(alertEntityNames, aiBatchSize);
 
     // Phase 3: Parallel batch processing for large datasets
-    const maxConcurrentBatches = isLargeScale ?
-      (config.generation?.alerts?.parallelBatches || 3) : 1;
+    const maxConcurrentBatches = isLargeScale
+      ? config.generation?.alerts?.parallelBatches || 3
+      : 1;
 
     if (maxConcurrentBatches > 1) {
-      console.log(`Using parallel processing with ${maxConcurrentBatches} concurrent batches`);
+      console.log(
+        `Using parallel processing with ${maxConcurrentBatches} concurrent batches`,
+      );
     }
 
     // Process chunks in parallel batches
@@ -337,11 +351,15 @@ export const generateAlerts = async (
 
           if (useMitre) {
             // Phase 3: Enhanced MITRE generation with sub-techniques and attack chains
-            console.log(`Generating MITRE alerts for chunk of ${currentChunk.length} entities...`);
+            console.log(
+              `Generating MITRE alerts for chunk of ${currentChunk.length} entities...`,
+            );
 
             // Add request delay for large-scale operations to respect rate limits
             if (isLargeScale && performanceConfig?.requestDelayMs) {
-              await new Promise(resolve => setTimeout(resolve, performanceConfig.requestDelayMs));
+              await new Promise((resolve) =>
+                setTimeout(resolve, performanceConfig.requestDelayMs),
+              );
             }
 
             generatedAlerts = await Promise.all(
@@ -377,7 +395,11 @@ export const generateAlerts = async (
             chunkOperations.push(alert);
           }
 
-          return { success: true, operations: chunkOperations, count: currentChunk.length };
+          return {
+            success: true,
+            operations: chunkOperations,
+            count: currentChunk.length,
+          };
         } catch (error) {
           console.error('Error in batch generation:', error);
 
@@ -399,7 +421,11 @@ export const generateAlerts = async (
             chunkOperations.push(alert);
           }
 
-          return { success: false, operations: chunkOperations, count: currentChunk.length };
+          return {
+            success: false,
+            operations: chunkOperations,
+            count: currentChunk.length,
+          };
         }
       });
 
@@ -435,12 +461,18 @@ export const generateAlerts = async (
     }
 
     progress.stop();
-    console.log(`AI alert generation completed. Generated ${alertCount} alerts${useMitre ? ' with MITRE ATT&CK data' : ''}`);
+    console.log(
+      `AI alert generation completed. Generated ${alertCount} alerts${useMitre ? ' with MITRE ATT&CK data' : ''}`,
+    );
 
     if (isLargeScale) {
-      console.log('Large-scale generation performance optimizations were applied.');
+      console.log(
+        'Large-scale generation performance optimizations were applied.',
+      );
     }
 
+    // Cleanup AI service to allow process to exit cleanly
+    cleanupAIService();
     return;
   }
 
@@ -472,6 +504,11 @@ export const generateAlerts = async (
   );
 
   progress.stop();
+  
+  // Cleanup AI service to allow process to exit cleanly
+  if (useAI) {
+    cleanupAIService();
+  }
 };
 
 // Updated to support AI and MITRE
@@ -512,6 +549,11 @@ export const generateEvents = async (
   });
 
   console.log('Finished generating events');
+  
+  // Cleanup AI service to allow process to exit cleanly
+  if (useAI) {
+    cleanupAIService();
+  }
 };
 
 export const generateGraph = async ({
@@ -649,6 +691,11 @@ export const generateGraph = async ({
     console.log(`${result.items.length} alerts created`);
   } catch (err) {
     console.log('Error: ', err);
+  }
+  
+  // Cleanup AI service to allow process to exit cleanly
+  if (useAI) {
+    cleanupAIService();
   }
 };
 

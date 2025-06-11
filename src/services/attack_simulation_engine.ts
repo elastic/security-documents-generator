@@ -7,15 +7,15 @@
  */
 
 import { faker } from '@faker-js/faker';
-import { generateTimestamp, TimestampConfig } from '../utils/timestamp_utils';
-import { generateAIAlert, generateAIEvent } from '../utils/ai_service';
+import { TimestampConfig } from '../utils/timestamp_utils';
+import { generateAIAlert } from '../utils/ai_service';
 import { BaseCreateAlertsReturnType } from '../create_alerts';
 
 // Import attack scenarios
-import { APTCampaign, getAllAPTCampaigns } from '../attack_scenarios/apt_campaigns';
-import { RansomwareChain, getAllRansomwareChains } from '../attack_scenarios/ransomware_chains';
-import { InsiderThreatScenario, getAllInsiderThreatScenarios } from '../attack_scenarios/insider_threats';
-import { SupplyChainAttack, getAllSupplyChainAttacks } from '../attack_scenarios/supply_chain';
+import { getAllAPTCampaigns } from '../attack_scenarios/apt_campaigns';
+import { getAllRansomwareChains } from '../attack_scenarios/ransomware_chains';
+import { getAllInsiderThreatScenarios } from '../attack_scenarios/insider_threats';
+import { getAllSupplyChainAttacks } from '../attack_scenarios/supply_chain';
 
 export interface NetworkTopology {
   subnets: NetworkSubnet[];
@@ -38,7 +38,12 @@ export interface CriticalAsset {
   hostname: string;
   ip_address: string;
   subnet_id: string;
-  asset_type: 'domain_controller' | 'file_server' | 'database' | 'web_server' | 'workstation';
+  asset_type:
+    | 'domain_controller'
+    | 'file_server'
+    | 'database'
+    | 'web_server'
+    | 'workstation';
   criticality: 'low' | 'medium' | 'high' | 'critical';
   os_family: 'windows' | 'linux' | 'macos';
   services: string[];
@@ -47,7 +52,11 @@ export interface CriticalAsset {
 export interface TrustRelationship {
   source_id: string;
   target_id: string;
-  relationship_type: 'domain_trust' | 'service_account' | 'admin_access' | 'network_share';
+  relationship_type:
+    | 'domain_trust'
+    | 'service_account'
+    | 'admin_access'
+    | 'network_share';
   privilege_level: 'read' | 'write' | 'admin' | 'system';
 }
 
@@ -158,6 +167,12 @@ export interface UserBehaviorProfile {
   };
 }
 
+export interface AttackSimulationConfig {
+  networkComplexity?: 'low' | 'medium' | 'high' | 'expert';
+  enableCorrelation?: boolean;
+  enablePerformanceOptimization?: boolean;
+}
+
 /**
  * Main Attack Simulation Engine Class
  */
@@ -165,8 +180,15 @@ export class AttackSimulationEngine {
   private networkTopology: NetworkTopology;
   private userProfiles: Map<string, UserBehaviorProfile>;
   private correlationEngine: CorrelationEngine;
+  private config: AttackSimulationConfig;
 
-  constructor() {
+  constructor(config: AttackSimulationConfig = {}) {
+    this.config = {
+      networkComplexity: 'high',
+      enableCorrelation: true,
+      enablePerformanceOptimization: false,
+      ...config,
+    };
     this.networkTopology = this.generateNetworkTopology();
     this.userProfiles = new Map();
     this.correlationEngine = new CorrelationEngine();
@@ -178,7 +200,6 @@ export class AttackSimulationEngine {
   async generateAttackSimulation(
     scenarioType: 'apt' | 'ransomware' | 'insider' | 'supply_chain' = 'apt',
     complexity: 'low' | 'medium' | 'high' | 'expert' = 'high',
-    targetCount: number = 1000,
   ): Promise<AttackSimulation> {
     // Select appropriate scenario
     const scenario = this.selectScenario(scenarioType, complexity);
@@ -192,7 +213,11 @@ export class AttackSimulationEngine {
         id: faker.string.uuid(),
         name: scenario.name,
         type: scenarioType,
-        threat_actor: (scenario as any).threatActor || (scenario as any).group || (scenario as any).insider,
+        threat_actor:
+          (scenario as any).threatActor?.name ||
+          (scenario as any).group?.name ||
+          (scenario as any).insider?.name ||
+          'Unknown Threat Actor',
         duration: timeRange,
         objectives: this.extractObjectives(scenario),
       },
@@ -204,13 +229,18 @@ export class AttackSimulationEngine {
     };
 
     // Generate stages with temporal correlation
-    simulation.stages = await this.generateCorrelatedStages(scenario, timeRange);
+    simulation.stages = await this.generateCorrelatedStages(
+      scenario,
+      timeRange,
+    );
 
     // Generate artifacts for each stage
     simulation.artifacts = this.generateStageArtifacts(simulation.stages);
 
     // Build correlation timeline
-    simulation.correlation_timeline = this.buildCorrelationTimeline(simulation.stages);
+    simulation.correlation_timeline = this.buildCorrelationTimeline(
+      simulation.stages,
+    );
 
     return simulation;
   }
@@ -220,35 +250,84 @@ export class AttackSimulationEngine {
    */
   async generateCampaignEvents(
     simulation: AttackSimulation,
-    targetHosts: string[],
+    targetCount: number,
+    eventCount: number,
     space: string = 'default',
+    useMitre: boolean = true,
+    timestampConfig?: TimestampConfig,
   ): Promise<BaseCreateAlertsReturnType[]> {
     const allEvents: BaseCreateAlertsReturnType[] = [];
+
+    // Generate realistic host list
+    const targetHosts = this.generateTargetHosts(targetCount);
+
     const correlationContext: CorrelationContext = {
       campaign_id: simulation.campaign.id,
       stage_name: '',
       parent_events: [],
       temporal_window: simulation.campaign.duration,
       affected_assets: targetHosts,
-      threat_actor: simulation.campaign.threat_actor.name || simulation.campaign.threat_actor.id,
+      threat_actor: simulation.campaign.threat_actor,
     };
 
-    // Generate events for each stage
-    for (const stage of simulation.stages) {
+    // Calculate events per stage based on total event count
+    const eventsPerStage = Math.ceil(eventCount / simulation.stages.length);
+
+    console.log(`🎯 Generating sophisticated attack campaign:`);
+    console.log(`  📊 Total Events: ${eventCount}`);
+    console.log(`  🏢 Target Hosts: ${targetHosts.length}`);
+    console.log(`  📈 Stages: ${simulation.stages.length}`);
+    console.log(`  ⚡ Events per Stage: ${eventsPerStage}`);
+
+    // Generate events for each stage with proper correlation
+    for (const [stageIndex, stage] of simulation.stages.entries()) {
       correlationContext.stage_name = stage.name;
-      correlationContext.parent_events = allEvents.map(e => e['kibana.alert.uuid'] as string);
+      correlationContext.parent_events = allEvents.map(
+        (e) => e['kibana.alert.uuid'] as string,
+      );
+
+      console.log(
+        `\n🔄 Stage ${stageIndex + 1}/${simulation.stages.length}: ${stage.name}`,
+      );
+      console.log(
+        `  ⏰ Duration: ${stage.start_time.toISOString()} → ${stage.end_time.toISOString()}`,
+      );
+      console.log(`  🎯 Techniques: ${stage.techniques.join(', ')}`);
 
       const stageEvents = await this.generateStageEvents(
         stage,
         targetHosts,
+        eventsPerStage,
         space,
         correlationContext,
+        useMitre,
       );
 
-      allEvents.push(...stageEvents);
+      // Add sophisticated correlation metadata
+      const correlatedEvents = this.addCorrelationMetadata(
+        stageEvents,
+        simulation,
+        stage,
+        stageIndex,
+        allEvents.length,
+      );
+
+      allEvents.push(...correlatedEvents);
+      console.log(
+        `  ✅ Generated ${correlatedEvents.length} correlated events`,
+      );
     }
 
-    return allEvents;
+    // Apply cross-stage correlation analysis
+    const finalEvents = this.applyAdvancedCorrelation(allEvents, simulation);
+
+    console.log(`\n🧠 Advanced Correlation Applied:`);
+    console.log(`  🔗 Total Correlated Events: ${finalEvents.length}`);
+    console.log(
+      `  📊 Campaign Success Rate: ${this.calculateCampaignSuccess(finalEvents)}%`,
+    );
+
+    return finalEvents;
   }
 
   private selectScenario(
@@ -261,13 +340,19 @@ export class AttackSimulationEngine {
         return aptCampaigns[Math.floor(Math.random() * aptCampaigns.length)];
       case 'ransomware':
         const ransomwareChains = getAllRansomwareChains();
-        return ransomwareChains[Math.floor(Math.random() * ransomwareChains.length)];
+        return ransomwareChains[
+          Math.floor(Math.random() * ransomwareChains.length)
+        ];
       case 'insider':
         const insiderScenarios = getAllInsiderThreatScenarios();
-        return insiderScenarios[Math.floor(Math.random() * insiderScenarios.length)];
+        return insiderScenarios[
+          Math.floor(Math.random() * insiderScenarios.length)
+        ];
       case 'supply_chain':
         const supplyChainAttacks = getAllSupplyChainAttacks();
-        return supplyChainAttacks[Math.floor(Math.random() * supplyChainAttacks.length)];
+        return supplyChainAttacks[
+          Math.floor(Math.random() * supplyChainAttacks.length)
+        ];
       default:
         throw new Error(`Unknown scenario type: ${type}`);
     }
@@ -280,7 +365,10 @@ export class AttackSimulationEngine {
 
     let durationDays: number;
     if (scenario.duration) {
-      durationDays = faker.number.int({ min: scenario.duration.min || 1, max: scenario.duration.max || 30 });
+      durationDays = faker.number.int({
+        min: scenario.duration.min || 1,
+        max: scenario.duration.max || 30,
+      });
     } else if (scenario.estimated_timeline) {
       durationDays = scenario.estimated_timeline.execution_days || 30;
     } else {
@@ -297,7 +385,9 @@ export class AttackSimulationEngine {
       return scenario.stages.flatMap((stage: any) => stage.objectives || []);
     }
     if (scenario.activities) {
-      return scenario.activities.flatMap((activity: any) => activity.indicators || []);
+      return scenario.activities.flatMap(
+        (activity: any) => activity.indicators || [],
+      );
     }
     return ['Establish persistence', 'Collect intelligence', 'Maintain access'];
   }
@@ -328,7 +418,10 @@ export class AttackSimulationEngine {
       };
 
       stages.push(stage);
-      currentTime = new Date(stageEnd.getTime() + faker.number.int({ min: 1, max: 24 }) * 60 * 60 * 1000); // Gap between stages
+      currentTime = new Date(
+        stageEnd.getTime() +
+          faker.number.int({ min: 1, max: 24 }) * 60 * 60 * 1000,
+      ); // Gap between stages
     }
 
     return stages;
@@ -338,7 +431,9 @@ export class AttackSimulationEngine {
     if (stageData.duration) {
       const minHours = stageData.duration.min || 1;
       const maxHours = stageData.duration.max || 24;
-      return faker.number.int({ min: minHours, max: maxHours }) * 60 * 60 * 1000;
+      return (
+        faker.number.int({ min: minHours, max: maxHours }) * 60 * 60 * 1000
+      );
     }
     return faker.number.int({ min: 2, max: 48 }) * 60 * 60 * 1000; // Default 2-48 hours
   }
@@ -346,21 +441,32 @@ export class AttackSimulationEngine {
   private async generateStageEvents(
     stage: SimulationStage,
     targetHosts: string[],
+    targetEventCount: number,
     space: string,
     context: CorrelationContext,
+    useMitre: boolean = true,
   ): Promise<BaseCreateAlertsReturnType[]> {
     const events: BaseCreateAlertsReturnType[] = [];
-    const eventsPerTechnique = faker.number.int({ min: 3, max: 8 });
 
-    for (const technique of stage.techniques) {
-      for (let i = 0; i < eventsPerTechnique; i++) {
+    // Distribute events across techniques in this stage
+    const techniques =
+      stage.techniques.length > 0 ? stage.techniques : ['T1001']; // Fallback technique
+    const eventsPerTechnique = Math.ceil(targetEventCount / techniques.length);
+
+    for (const technique of techniques) {
+      const techniqueEvents = Math.min(
+        eventsPerTechnique,
+        targetEventCount - events.length,
+      );
+
+      for (let i = 0; i < techniqueEvents; i++) {
         const hostname = faker.helpers.arrayElement(targetHosts);
         const username = this.generateContextualUsername(stage.name);
 
         const timestampConfig: TimestampConfig = {
-          mode: 'range',
-          startTime: stage.start_time,
-          endTime: stage.end_time,
+          startDate: stage.start_time.toISOString(),
+          endDate: stage.end_time.toISOString(),
+          pattern: 'attack_simulation',
         };
 
         try {
@@ -370,23 +476,186 @@ export class AttackSimulationEngine {
             space,
             alertType: `${stage.tactic}_${technique}`,
             timestampConfig,
-            correlationContext: {
-              campaign_id: context.campaign_id,
-              stage_name: context.stage_name,
-              technique,
-              threat_actor: context.threat_actor,
-              parent_event_ids: context.parent_events.slice(-3), // Last 3 events for correlation
+            mitreEnabled: useMitre,
+            attackChain: {
+              campaignId: context.campaign_id,
+              stageId: stage.id,
+              stageName: stage.name,
+              stageIndex: techniques.indexOf(technique) + 1,
+              totalStages: techniques.length,
+              threatActor: context.threat_actor,
+              parentEvents: context.parent_events,
             },
           });
 
           events.push(alert);
+
+          // Brief delay to avoid overwhelming the API
+          if (i < techniqueEvents - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
         } catch (error) {
-          console.warn(`Failed to generate alert for technique ${technique}:`, error);
+          console.warn(
+            `⚠️  Alert generation failed for ${technique} (${i + 1}/${techniqueEvents}):`,
+            error instanceof Error ? error.message : 'Unknown error',
+          );
+          // Continue with other events instead of stopping - resilient generation
         }
+      }
+
+      // Stop if we've reached the target event count
+      if (events.length >= targetEventCount) {
+        break;
       }
     }
 
     return events;
+  }
+
+  private generateTargetHosts(count: number): string[] {
+    const hosts: string[] = [];
+    const prefixes = ['ws', 'srv', 'dc', 'db', 'web', 'app', 'mail'];
+
+    for (let i = 0; i < count; i++) {
+      const prefix = faker.helpers.arrayElement(prefixes);
+      const id = faker.string.numeric(3);
+      hosts.push(`${prefix}-${id}`);
+    }
+
+    return hosts;
+  }
+
+  private addCorrelationMetadata(
+    events: BaseCreateAlertsReturnType[],
+    simulation: AttackSimulation,
+    stage: SimulationStage,
+    stageIndex: number,
+    totalPreviousEvents: number,
+  ): BaseCreateAlertsReturnType[] {
+    return events.map((event, eventIndex) => {
+      // Add campaign correlation fields using type-safe approach
+      const correlatedEvent: Record<string, any> = {
+        ...event,
+        'campaign.id': simulation.campaign.id,
+        'campaign.name': simulation.campaign.name,
+        'campaign.type': simulation.campaign.type,
+        'campaign.threat_actor': simulation.campaign.threat_actor,
+        'campaign.stage.id': stage.id,
+        'campaign.stage.name': stage.name,
+        'campaign.stage.index': stageIndex + 1,
+        'campaign.stage.tactic': stage.tactic,
+        'campaign.event.sequence': totalPreviousEvents + eventIndex + 1,
+        'campaign.correlation.id': `${simulation.campaign.id}-${stage.id}-${eventIndex}`,
+        'campaign.correlation.score': faker.number.float({
+          min: 0.7,
+          max: 0.95,
+        }),
+        'campaign.progression.phase': this.getProgressionPhase(
+          stageIndex,
+          simulation.stages.length,
+        ),
+      };
+
+      // Add attack chain correlation if multiple techniques
+      if (stage.techniques.length > 1) {
+        correlatedEvent['attack_chain.id'] = `chain-${stage.id}`;
+        correlatedEvent['attack_chain.sequence'] = eventIndex + 1;
+        correlatedEvent['attack_chain.total_events'] = events.length;
+      }
+
+      return correlatedEvent as BaseCreateAlertsReturnType;
+    });
+  }
+
+  private applyAdvancedCorrelation(
+    events: BaseCreateAlertsReturnType[],
+    simulation: AttackSimulation,
+  ): BaseCreateAlertsReturnType[] {
+    // Apply sophisticated correlation rules
+    const correlationRules = this.correlationEngine.correlateEvents(
+      events.map((event, index) => this.convertToGeneratedEvent(event, index)),
+    );
+
+    // Enhance events with correlation insights
+    return events.map((event, index) => {
+      const correlationData = correlationRules.find((rule) =>
+        rule.matched_events.some((e) => e.id === `event-${index}`),
+      );
+
+      if (correlationData) {
+        const enhancedEvent: Record<string, any> = {
+          ...event,
+          'correlation.rule_id': correlationData.rule_id,
+          'correlation.rule_name': correlationData.rule_name,
+          'correlation.confidence': correlationData.confidence_score,
+          'correlation.matched_techniques': correlationData.matched_events.map(
+            (e) => e.technique,
+          ),
+        };
+        return enhancedEvent as BaseCreateAlertsReturnType;
+      }
+
+      return event;
+    });
+  }
+
+  private calculateCampaignSuccess(
+    events: BaseCreateAlertsReturnType[],
+  ): number {
+    // Calculate based on event distribution and correlation
+    const stagesCovered = new Set(
+      events.map((e) => (e as any)['campaign.stage.name']).filter(Boolean),
+    ).size;
+
+    const hasCorrelation = events.some(
+      (e) => (e as any)['correlation.rule_id'],
+    );
+    const correlationEvents = events.filter(
+      (e) => (e as any)['correlation.confidence'],
+    );
+    const avgCorrelationScore =
+      correlationEvents.length > 0
+        ? correlationEvents.reduce(
+            (sum, e) => sum + ((e as any)['correlation.confidence'] as number),
+            0,
+          ) / correlationEvents.length
+        : 0;
+
+    return Math.round(
+      (stagesCovered / 5) * 40 + // Stage coverage (40%)
+        (hasCorrelation ? 30 : 0) + // Correlation presence (30%)
+        (avgCorrelationScore || 0) * 30, // Correlation quality (30%)
+    );
+  }
+
+  private getProgressionPhase(stageIndex: number, totalStages: number): string {
+    const progress = (stageIndex + 1) / totalStages;
+    if (progress <= 0.33) return 'initial';
+    if (progress <= 0.66) return 'escalation';
+    return 'objectives';
+  }
+
+  private convertToGeneratedEvent(
+    event: BaseCreateAlertsReturnType,
+    index: number,
+  ): GeneratedEvent {
+    const eventData = event as any;
+    return {
+      id: `event-${index}`,
+      timestamp: new Date(eventData['@timestamp'] as string),
+      event_type: 'alert',
+      source_asset: (eventData['host.name'] as string) || 'unknown',
+      technique: eventData['threat.technique.id']?.[0] || 'T1001',
+      severity:
+        (eventData['kibana.alert.severity'] as
+          | 'low'
+          | 'medium'
+          | 'high'
+          | 'critical') || 'medium',
+      correlation_id:
+        (eventData['campaign.correlation.id'] as string) || faker.string.uuid(),
+      raw_data: event,
+    };
   }
 
   private generateContextualUsername(stageName: string): string {
@@ -479,20 +748,24 @@ export class AttackSimulationEngine {
     ];
   }
 
-  private generateStageArtifacts(stages: SimulationStage[]): SecurityArtifact[] {
-    return stages.flatMap(stage =>
-      stage.techniques.map(technique => ({
+  private generateStageArtifacts(
+    stages: SimulationStage[],
+  ): SecurityArtifact[] {
+    return stages.flatMap((stage) =>
+      stage.techniques.map((technique) => ({
         type: 'process' as const,
         name: `${technique}_artifact`,
         description: `Artifact generated by ${technique} in ${stage.name}`,
         detectability: 'medium' as const,
         iocs: [`${technique.toLowerCase()}_indicator`],
-      }))
+      })),
     );
   }
 
-  private buildCorrelationTimeline(stages: SimulationStage[]): CorrelationEvent[] {
-    return stages.map(stage => ({
+  private buildCorrelationTimeline(
+    stages: SimulationStage[],
+  ): CorrelationEvent[] {
+    return stages.map((stage) => ({
       timestamp: stage.start_time,
       stage: stage.name,
       technique: stage.techniques[0] || 'unknown',
@@ -544,26 +817,33 @@ export class CorrelationEngine {
     });
   }
 
-  private findRuleMatches(events: GeneratedEvent[], rule: CorrelationRule): GeneratedEvent[] {
-    return events.filter(event =>
-      rule.techniques.includes(event.technique) &&
-      this.isWithinTimeWindow(event, rule.timeWindow)
+  private findRuleMatches(
+    events: GeneratedEvent[],
+    rule: CorrelationRule,
+  ): GeneratedEvent[] {
+    return events.filter(
+      (event) =>
+        rule.techniques.includes(event.technique) &&
+        this.isWithinTimeWindow(event, rule.timeWindow),
     );
   }
 
   private isWithinTimeWindow(event: GeneratedEvent, windowMs: number): boolean {
     const now = new Date().getTime();
     const eventTime = event.timestamp.getTime();
-    return (now - eventTime) <= windowMs;
+    return now - eventTime <= windowMs;
   }
 
-  private calculateConfidence(events: GeneratedEvent[], rule: CorrelationRule): number {
+  private calculateConfidence(
+    events: GeneratedEvent[],
+    rule: CorrelationRule,
+  ): number {
     // Simplified confidence calculation
-    return Math.min(events.length / rule.minimumEvents * 0.8, 1.0);
+    return Math.min((events.length / rule.minimumEvents) * 0.8, 1.0);
   }
 
   private buildEventTimeline(events: GeneratedEvent[]): EventTimelineEntry[] {
-    return events.map(event => ({
+    return events.map((event) => ({
       timestamp: event.timestamp,
       event_id: event.id,
       technique: event.technique,
@@ -600,21 +880,5 @@ interface EventTimelineEntry {
   technique: string;
   asset: string;
 }
-
-// Enhanced AI Alert generation function signature
-declare function generateAIAlert(params: {
-  userName?: string;
-  hostName?: string;
-  space?: string;
-  alertType?: string;
-  timestampConfig?: TimestampConfig;
-  correlationContext?: {
-    campaign_id: string;
-    stage_name: string;
-    technique: string;
-    threat_actor: string;
-    parent_event_ids: string[];
-  };
-}): Promise<BaseCreateAlertsReturnType>;
 
 export default AttackSimulationEngine;

@@ -64,7 +64,12 @@ export interface UserBehaviorProfile {
 
 export interface BehaviorBaseline {
   user_id: string;
-  metric_type: 'login_frequency' | 'file_access' | 'network_activity' | 'email_volume' | 'application_usage';
+  metric_type:
+    | 'login_frequency'
+    | 'file_access'
+    | 'network_activity'
+    | 'email_volume'
+    | 'application_usage';
   time_period: 'hourly' | 'daily' | 'weekly' | 'monthly';
   baseline_value: number;
   variance: number;
@@ -75,7 +80,12 @@ export interface BehaviorBaseline {
 export interface BehaviorAnomaly {
   id: string;
   user_id: string;
-  anomaly_type: 'temporal' | 'volumetric' | 'access_pattern' | 'geographic' | 'behavioral';
+  anomaly_type:
+    | 'temporal'
+    | 'volumetric'
+    | 'access_pattern'
+    | 'geographic'
+    | 'behavioral';
   description: string;
   severity: 'low' | 'medium' | 'high' | 'critical';
   risk_score: number; // 0-100
@@ -98,7 +108,13 @@ export interface UserActivity {
   id: string;
   user_id: string;
   timestamp: Date;
-  activity_type: 'login' | 'logout' | 'file_access' | 'email_send' | 'application_access' | 'network_connection';
+  activity_type:
+    | 'login'
+    | 'logout'
+    | 'file_access'
+    | 'email_send'
+    | 'application_access'
+    | 'network_connection';
   source_ip: string;
   user_agent?: string;
   location?: string;
@@ -158,8 +174,23 @@ export class UserBehaviorEngine {
    */
   generateUserProfiles(count: number = 100): UserBehaviorProfile[] {
     const profiles: UserBehaviorProfile[] = [];
-    const departments = ['IT', 'Finance', 'HR', 'Marketing', 'Sales', 'Operations', 'Legal'];
-    const roles = ['Analyst', 'Manager', 'Director', 'Admin', 'Developer', 'Contractor'];
+    const departments = [
+      'IT',
+      'Finance',
+      'HR',
+      'Marketing',
+      'Sales',
+      'Operations',
+      'Legal',
+    ];
+    const roles = [
+      'Analyst',
+      'Manager',
+      'Director',
+      'Admin',
+      'Developer',
+      'Contractor',
+    ];
 
     for (let i = 0; i < count; i++) {
       const department = faker.helpers.arrayElement(departments);
@@ -183,7 +214,11 @@ export class UserBehaviorEngine {
         manager: faker.person.fullName(),
 
         work_schedule: {
-          timezone: faker.helpers.arrayElement(['America/New_York', 'America/Los_Angeles', 'Europe/London']),
+          timezone: faker.helpers.arrayElement([
+            'America/New_York',
+            'America/Los_Angeles',
+            'Europe/London',
+          ]),
           typical_hours: {
             start: faker.number.int({ min: 7, max: 10 }),
             end: faker.number.int({ min: 16, max: 19 }),
@@ -192,7 +227,12 @@ export class UserBehaviorEngine {
         },
 
         location_profile: {
-          primary_office: faker.helpers.arrayElement(['New York', 'San Francisco', 'London', 'Remote']),
+          primary_office: faker.helpers.arrayElement([
+            'New York',
+            'San Francisco',
+            'London',
+            'Remote',
+          ]),
           typical_locations: [faker.location.city(), faker.location.city()],
           remote_work_frequency: faker.number.float({ min: 0, max: 1 }),
         },
@@ -205,8 +245,14 @@ export class UserBehaviorEngine {
         },
 
         communication_profile: {
-          internal_contacts: Array.from({ length: faker.number.int({ min: 5, max: 20 }) }, () => faker.internet.email()),
-          external_contacts: Array.from({ length: faker.number.int({ min: 2, max: 10 }) }, () => faker.internet.email()),
+          internal_contacts: Array.from(
+            { length: faker.number.int({ min: 5, max: 20 }) },
+            () => faker.internet.email(),
+          ),
+          external_contacts: Array.from(
+            { length: faker.number.int({ min: 2, max: 10 }) },
+            () => faker.internet.email(),
+          ),
           email_volume_per_day: faker.number.int({ min: 10, max: 100 }),
           collaboration_tools: ['Slack', 'Teams', 'Zoom'],
         },
@@ -230,9 +276,18 @@ export class UserBehaviorEngine {
   /**
    * Generates realistic baseline behavior for a user
    */
-  generateUserBaseline(user: UserBehaviorProfile, days: number = 90): BehaviorBaseline[] {
+  generateUserBaseline(
+    user: UserBehaviorProfile,
+    days: number = 90,
+  ): BehaviorBaseline[] {
     const baselines: BehaviorBaseline[] = [];
-    const baselineTypes = ['login_frequency', 'file_access', 'network_activity', 'email_volume', 'application_usage'] as const;
+    const baselineTypes = [
+      'login_frequency',
+      'file_access',
+      'network_activity',
+      'email_volume',
+      'application_usage',
+    ] as const;
 
     for (const metricType of baselineTypes) {
       const baseline = this.calculateBaselineForMetric(user, metricType, days);
@@ -255,9 +310,7 @@ export class UserBehaviorEngine {
 
     switch (anomalyType) {
       case 'insider_threat':
-        anomalies.push(
-          ...this.generateInsiderThreatAnomalies(user, intensity),
-        );
+        anomalies.push(...this.generateInsiderThreatAnomalies(user, intensity));
         break;
       case 'compromised_account':
         anomalies.push(
@@ -291,8 +344,8 @@ export class UserBehaviorEngine {
       const hostname = faker.helpers.arrayElement(targetHosts);
 
       const timestampConfig: TimestampConfig = {
-        mode: 'recent',
-        recentDays: 7,
+        startDate: '7d',
+        pattern: 'random',
       };
 
       try {
@@ -302,36 +355,37 @@ export class UserBehaviorEngine {
           space,
           alertType: `uba_${anomaly.anomaly_type}_${anomaly.severity}`,
           timestampConfig,
-          correlationContext: {
-            campaign_id: 'user_behavior_analysis',
-            stage_name: 'anomaly_detection',
-            technique: `UBA_${anomaly.anomaly_type.toUpperCase()}`,
-            threat_actor: 'insider_or_compromised',
-            parent_event_ids: anomaly.related_events,
-          },
         });
 
         // Enhance alert with UBA-specific fields
-        (alert as any)['kibana.alert.rule.category'] = 'User Behavior Analytics';
+        (alert as any)['kibana.alert.rule.category'] =
+          'User Behavior Analytics';
         (alert as any)['user.risk.static_level'] = anomaly.severity;
         (alert as any)['user.risk.calculated_score_norm'] = anomaly.risk_score;
-        (alert as any)['user.risk.calculated_level'] = this.calculateRiskLevel(anomaly.risk_score);
+        (alert as any)['user.risk.calculated_level'] = this.calculateRiskLevel(
+          anomaly.risk_score,
+        );
 
         events.push(alert);
       } catch (error) {
-        console.warn(`Failed to generate UBA alert for anomaly ${anomaly.id}:`, error);
+        console.warn(
+          `Failed to generate UBA alert for anomaly ${anomaly.id}:`,
+          error,
+        );
       }
     }
 
     return events;
   }
 
-  private determineAccessLevel(role: string): 'standard' | 'privileged' | 'admin' {
+  private determineAccessLevel(
+    role: string,
+  ): 'standard' | 'privileged' | 'admin' {
     const adminRoles = ['Director', 'Admin'];
     const privilegedRoles = ['Manager', 'Developer'];
 
-    if (adminRoles.some(r => role.includes(r))) return 'admin';
-    if (privilegedRoles.some(r => role.includes(r))) return 'privileged';
+    if (adminRoles.some((r) => role.includes(r))) return 'admin';
+    if (privilegedRoles.some((r) => role.includes(r))) return 'privileged';
     return 'standard';
   }
 
@@ -366,10 +420,10 @@ export class UserBehaviorEngine {
     const adminLevels = ['restricted', 'top_secret'];
 
     let levels = [...baseLevels];
-    if (['Manager', 'Director', 'Admin'].some(r => role.includes(r))) {
+    if (['Manager', 'Director', 'Admin'].some((r) => role.includes(r))) {
       levels.push(...privilegedLevels);
     }
-    if (['Director', 'Admin'].some(r => role.includes(r))) {
+    if (['Director', 'Admin'].some((r) => role.includes(r))) {
       levels.push(...adminLevels);
     }
 
@@ -381,12 +435,30 @@ export class UserBehaviorEngine {
     metricType: BehaviorBaseline['metric_type'],
     days: number,
   ): BehaviorBaseline {
-    const baselineValues: Record<BehaviorBaseline['metric_type'], { value: number; variance: number }> = {
-      login_frequency: { value: faker.number.int({ min: 1, max: 5 }), variance: 0.3 },
-      file_access: { value: faker.number.int({ min: 20, max: 200 }), variance: 0.4 },
-      network_activity: { value: faker.number.int({ min: 100, max: 1000 }), variance: 0.5 },
-      email_volume: { value: user.communication_profile.email_volume_per_day, variance: 0.2 },
-      application_usage: { value: faker.number.int({ min: 3, max: 15 }), variance: 0.3 },
+    const baselineValues: Record<
+      BehaviorBaseline['metric_type'],
+      { value: number; variance: number }
+    > = {
+      login_frequency: {
+        value: faker.number.int({ min: 1, max: 5 }),
+        variance: 0.3,
+      },
+      file_access: {
+        value: faker.number.int({ min: 20, max: 200 }),
+        variance: 0.4,
+      },
+      network_activity: {
+        value: faker.number.int({ min: 100, max: 1000 }),
+        variance: 0.5,
+      },
+      email_volume: {
+        value: user.communication_profile.email_volume_per_day,
+        variance: 0.2,
+      },
+      application_usage: {
+        value: faker.number.int({ min: 3, max: 15 }),
+        variance: 0.3,
+      },
     };
 
     const { value, variance } = baselineValues[metricType];
@@ -419,11 +491,18 @@ export class UserBehaviorEngine {
       user_id: user.user_id,
       anomaly_type: 'temporal',
       description: 'Unusual after-hours system access detected',
-      severity: intensity === 'subtle' ? 'low' : intensity === 'moderate' ? 'medium' : 'high',
-      risk_score: intensity === 'subtle' ? 30 : intensity === 'moderate' ? 60 : 85,
+      severity:
+        intensity === 'subtle'
+          ? 'low'
+          : intensity === 'moderate'
+            ? 'medium'
+            : 'high',
+      risk_score:
+        intensity === 'subtle' ? 30 : intensity === 'moderate' ? 60 : 85,
       detection_time: new Date(),
       related_events: [],
-      confidence: intensity === 'subtle' ? 0.6 : intensity === 'moderate' ? 0.8 : 0.95,
+      confidence:
+        intensity === 'subtle' ? 0.6 : intensity === 'moderate' ? 0.8 : 0.95,
       baseline_value: user.work_schedule.typical_hours.end,
       observed_value: 23, // 11 PM access
       deviation_factor: 2.5,
@@ -435,7 +514,9 @@ export class UserBehaviorEngine {
     });
 
     // Excessive file access anomaly
-    const fileAccessBaseline = baselines.find(b => b.metric_type === 'file_access');
+    const fileAccessBaseline = baselines.find(
+      (b) => b.metric_type === 'file_access',
+    );
     if (fileAccessBaseline) {
       anomalies.push({
         id: faker.string.uuid(),
@@ -443,13 +524,17 @@ export class UserBehaviorEngine {
         anomaly_type: 'volumetric',
         description: 'Abnormally high file access volume detected',
         severity: intensity === 'obvious' ? 'critical' : 'medium',
-        risk_score: intensity === 'subtle' ? 45 : intensity === 'moderate' ? 70 : 95,
+        risk_score:
+          intensity === 'subtle' ? 45 : intensity === 'moderate' ? 70 : 95,
         detection_time: new Date(),
         related_events: [],
         confidence: 0.85,
         baseline_value: fileAccessBaseline.baseline_value,
-        observed_value: fileAccessBaseline.baseline_value * (intensity === 'subtle' ? 2 : intensity === 'moderate' ? 4 : 8),
-        deviation_factor: intensity === 'subtle' ? 2 : intensity === 'moderate' ? 4 : 8,
+        observed_value:
+          fileAccessBaseline.baseline_value *
+          (intensity === 'subtle' ? 2 : intensity === 'moderate' ? 4 : 8),
+        deviation_factor:
+          intensity === 'subtle' ? 2 : intensity === 'moderate' ? 4 : 8,
         attributes: {
           file_types: ['pdf', 'docx', 'xlsx'],
           sensitive_files: true,
@@ -474,7 +559,8 @@ export class UserBehaviorEngine {
       anomaly_type: 'geographic',
       description: 'Login from unusual geographic location',
       severity: intensity === 'subtle' ? 'medium' : 'high',
-      risk_score: intensity === 'subtle' ? 50 : intensity === 'moderate' ? 75 : 90,
+      risk_score:
+        intensity === 'subtle' ? 50 : intensity === 'moderate' ? 75 : 90,
       detection_time: new Date(),
       related_events: [],
       confidence: 0.9,
@@ -505,7 +591,8 @@ export class UserBehaviorEngine {
       anomaly_type: 'access_pattern',
       description: 'Attempt to access resources beyond typical privilege level',
       severity: intensity === 'obvious' ? 'critical' : 'high',
-      risk_score: intensity === 'subtle' ? 65 : intensity === 'moderate' ? 80 : 95,
+      risk_score:
+        intensity === 'subtle' ? 65 : intensity === 'moderate' ? 80 : 95,
       detection_time: new Date(),
       related_events: [],
       confidence: 0.8,
@@ -514,7 +601,8 @@ export class UserBehaviorEngine {
       deviation_factor: 1.5,
       attributes: {
         attempted_systems: ['admin_panel', 'backup_system', 'security_console'],
-        access_denied_count: intensity === 'subtle' ? 2 : intensity === 'moderate' ? 5 : 12,
+        access_denied_count:
+          intensity === 'subtle' ? 2 : intensity === 'moderate' ? 5 : 12,
         privilege_level_attempted: 'admin',
         current_privilege_level: user.access_level,
       },

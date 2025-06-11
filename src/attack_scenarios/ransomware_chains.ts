@@ -137,7 +137,8 @@ export const RANSOMWARE_CHAINS: Record<string, RansomwareChain> = {
   CONTI_ENTERPRISE: {
     id: 'CONTI_ENTERPRISE',
     name: 'Conti Enterprise Ransomware Campaign',
-    description: 'Multi-stage enterprise ransomware attack with data exfiltration',
+    description:
+      'Multi-stage enterprise ransomware attack with data exfiltration',
     group: RANSOMWARE_GROUPS.CONTI,
     sophistication: 'expert',
     target_profile: {
@@ -298,7 +299,8 @@ export const RANSOMWARE_CHAINS: Record<string, RansomwareChain> = {
   LOCKBIT_SUPPLY_CHAIN: {
     id: 'LOCKBIT_SUPPLY_CHAIN',
     name: 'LockBit Supply Chain Attack',
-    description: 'Supply chain compromise leading to multiple victim encryption',
+    description:
+      'Supply chain compromise leading to multiple victim encryption',
     group: RANSOMWARE_GROUPS.LOCKBIT,
     sophistication: 'expert',
     target_profile: {

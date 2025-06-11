@@ -17,7 +17,11 @@ export interface InsiderProfile {
 
 export interface InsiderActivity {
   name: string;
-  category: 'data_access' | 'system_modification' | 'network_activity' | 'policy_violation';
+  category:
+    | 'data_access'
+    | 'system_modification'
+    | 'network_activity'
+    | 'policy_violation';
   risk_level: 'low' | 'medium' | 'high' | 'critical';
   techniques: string[];
   indicators: string[];
@@ -118,7 +122,8 @@ export const INSIDER_THREAT_SCENARIOS: Record<string, InsiderThreatScenario> = {
   DATA_THEFT_REVENGE: {
     id: 'DATA_THEFT_REVENGE',
     name: 'Revenge-Motivated Data Theft',
-    description: 'Disgruntled employee steals sensitive data before termination',
+    description:
+      'Disgruntled employee steals sensitive data before termination',
     insider: INSIDER_PROFILES.DISGRUNTLED_EMPLOYEE,
     timeline: {
       buildup_days: 30,
@@ -188,7 +193,8 @@ export const INSIDER_THREAT_SCENARIOS: Record<string, InsiderThreatScenario> = {
   ADMIN_BACKDOOR: {
     id: 'ADMIN_BACKDOOR',
     name: 'Administrator Creates Persistent Backdoor',
-    description: 'System administrator creates hidden access for future exploitation',
+    description:
+      'System administrator creates hidden access for future exploitation',
     insider: INSIDER_PROFILES.PRIVILEGED_ADMIN,
     timeline: {
       buildup_days: 90,
@@ -273,7 +279,8 @@ export const INSIDER_THREAT_SCENARIOS: Record<string, InsiderThreatScenario> = {
   NEGLIGENT_EXPOSURE: {
     id: 'NEGLIGENT_EXPOSURE',
     name: 'Negligent Data Exposure',
-    description: 'Contractor accidentally exposes sensitive data through poor practices',
+    description:
+      'Contractor accidentally exposes sensitive data through poor practices',
     insider: INSIDER_PROFILES.CARELESS_CONTRACTOR,
     timeline: {
       buildup_days: 7,

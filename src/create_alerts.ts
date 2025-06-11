@@ -121,5 +121,8 @@ export default function createAlerts<O extends object>(
     timestampConfig?: import('./utils/timestamp_utils').TimestampConfig;
   } = {},
 ): O & BaseCreateAlertsReturnType {
-  return { ...baseCreateAlerts({ userName, hostName, space, timestampConfig }), ...override };
+  return {
+    ...baseCreateAlerts({ userName, hostName, space, timestampConfig }),
+    ...override,
+  };
 }

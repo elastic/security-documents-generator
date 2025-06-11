@@ -125,11 +125,15 @@ export class PerformanceOptimizer {
     const totalTime = Date.now() - startTime;
     const metrics: OptimizationMetrics = {
       total_processing_time_ms: totalTime,
-      average_batch_time_ms: totalTime / Math.ceil(eventCount / this.batchConfig.batch_size),
+      average_batch_time_ms:
+        totalTime / Math.ceil(eventCount / this.batchConfig.batch_size),
       memory_peak_mb: memoryPeak,
       memory_average_mb: memorySamples > 0 ? memorySum / memorySamples : 0,
       throughput_events_per_second: eventCount / (totalTime / 1000),
-      optimization_efficiency: this.calculateOptimizationEfficiency(eventCount, totalTime),
+      optimization_efficiency: this.calculateOptimizationEfficiency(
+        eventCount,
+        totalTime,
+      ),
       cache_hit_rate: this.calculateCacheHitRate(),
     };
 
@@ -152,7 +156,10 @@ export class PerformanceOptimizer {
     for (const eventCount of eventCounts) {
       try {
         const startTime = Date.now();
-        const result = await this.optimizeLargeScaleGeneration(eventCount, generator);
+        const result = await this.optimizeLargeScaleGeneration(
+          eventCount,
+          generator,
+        );
 
         processingTimes.push(Date.now() - startTime);
         memoryUsages.push(result.metrics.memory_peak_mb);
@@ -182,7 +189,7 @@ export class PerformanceOptimizer {
       processing_times_ms: processingTimes,
       memory_usage_mb: memoryUsages,
       success_rates: successRates,
-      scalability_score,
+      scalability_score: scalabilityScore,
       recommended_batch_size: recommendedBatchSize,
     };
   }
@@ -206,15 +213,23 @@ export class PerformanceOptimizer {
     }
 
     const recent = this.metricsHistory.slice(-5);
-    const avgThroughput = recent.reduce((sum, m) => sum + m.throughput_events_per_second, 0) / recent.length;
-    const avgEfficiency = recent.reduce((sum, m) => sum + m.optimization_efficiency, 0) / recent.length;
+    const avgThroughput =
+      recent.reduce((sum, m) => sum + m.throughput_events_per_second, 0) /
+      recent.length;
+    const avgEfficiency =
+      recent.reduce((sum, m) => sum + m.optimization_efficiency, 0) /
+      recent.length;
 
     // Determine trend
     const firstHalf = recent.slice(0, Math.floor(recent.length / 2));
     const secondHalf = recent.slice(Math.floor(recent.length / 2));
 
-    const firstAvgThroughput = firstHalf.reduce((sum, m) => sum + m.throughput_events_per_second, 0) / firstHalf.length;
-    const secondAvgThroughput = secondHalf.reduce((sum, m) => sum + m.throughput_events_per_second, 0) / secondHalf.length;
+    const firstAvgThroughput =
+      firstHalf.reduce((sum, m) => sum + m.throughput_events_per_second, 0) /
+      firstHalf.length;
+    const secondAvgThroughput =
+      secondHalf.reduce((sum, m) => sum + m.throughput_events_per_second, 0) /
+      secondHalf.length;
 
     let trend: 'improving' | 'stable' | 'degrading' = 'stable';
     if (secondAvgThroughput > firstAvgThroughput * 1.1) {
@@ -228,22 +243,30 @@ export class PerformanceOptimizer {
     const bottlenecks: string[] = [];
 
     if (avgThroughput < 100) {
-      recommendations.push('Consider increasing batch size for better throughput');
+      recommendations.push(
+        'Consider increasing batch size for better throughput',
+      );
       bottlenecks.push('Low throughput detected');
     }
 
-    if (recent.some(m => m.memory_peak_mb > this.batchConfig.memory_threshold_mb)) {
+    if (
+      recent.some(
+        (m) => m.memory_peak_mb > this.batchConfig.memory_threshold_mb,
+      )
+    ) {
       recommendations.push('Enable memory optimization to prevent OOM issues');
       bottlenecks.push('High memory usage detected');
     }
 
-    if (recent.some(m => m.cache_hit_rate < 0.5)) {
+    if (recent.some((m) => m.cache_hit_rate < 0.5)) {
       recommendations.push('Improve caching strategy for better performance');
       bottlenecks.push('Low cache hit rate');
     }
 
     if (avgEfficiency < 0.7) {
-      recommendations.push('Review generation algorithms for optimization opportunities');
+      recommendations.push(
+        'Review generation algorithms for optimization opportunities',
+      );
       bottlenecks.push('Low optimization efficiency');
     }
 
@@ -287,7 +310,7 @@ export class PerformanceOptimizer {
     }
 
     // Add small delay to allow memory cleanup
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 10));
   }
 
   private estimateMemoryUsage(): number {
@@ -298,7 +321,10 @@ export class PerformanceOptimizer {
     return baseMemory + cacheSize + faker.number.int({ min: 10, max: 100 });
   }
 
-  private calculateOptimizationEfficiency(eventCount: number, timeMs: number): number {
+  private calculateOptimizationEfficiency(
+    eventCount: number,
+    timeMs: number,
+  ): number {
     // Calculate efficiency based on events per second vs. expected baseline
     const eventsPerSecond = eventCount / (timeMs / 1000);
     const expectedBaseline = 50; // Expected events per second baseline

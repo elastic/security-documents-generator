@@ -107,7 +107,11 @@ export const THREAT_ACTORS: Record<string, ThreatActorProfile> = {
     ttps: {
       preferredTechniques: ['T1566.002', 'T1190', 'T1486', 'T1567.002'],
       commonTools: ['HOPLIGHT', 'ELECTRICFISH', 'BADCALL'],
-      infrastructure: ['proxy_chains', 'tor_networks', 'compromised_infrastructure'],
+      infrastructure: [
+        'proxy_chains',
+        'tor_networks',
+        'compromised_infrastructure',
+      ],
     },
   },
 };
@@ -117,7 +121,8 @@ export const APT_CAMPAIGNS: Record<string, APTCampaign> = {
   OPERATION_AURORA: {
     id: 'OPERATION_AURORA',
     name: 'Operation Aurora',
-    description: 'Long-term espionage campaign targeting intellectual property theft',
+    description:
+      'Long-term espionage campaign targeting intellectual property theft',
     threatActor: THREAT_ACTORS.APT1,
     duration: { min: 30, max: 180 },
     targetProfile: {
