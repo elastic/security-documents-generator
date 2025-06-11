@@ -83,11 +83,11 @@ Advanced AI with superior reasoning and context understanding.
 
 1. **Choose Your Provider**
    ```bash
-   # Test with OpenAI
-   yarn start generate-alerts -n 5 --ai
-   
+   # Test with OpenAI (default AI provider)
+   yarn start generate-alerts -n 5
+
    # Test with Claude
-   yarn start generate-alerts -n 5 --ai --claude
+   yarn start generate-alerts -n 5 --claude
    ```
 
 2. **Verify API Connectivity**
@@ -97,8 +97,10 @@ Advanced AI with superior reasoning and context understanding.
 
 3. **Generate First AI Campaign**
    ```bash
-   yarn start generate-campaign apt --ai --mitre --events 20
+   yarn start generate-campaign apt --mitre --events 20
    ```
+
+> **Note:** AI generation is always enabled. The `--ai` flag has been removed as AI is now the default behavior.
 
 ### API Key Setup
 
@@ -174,11 +176,11 @@ Advanced AI with superior reasoning and context understanding.
 AI generates contextually relevant security alerts.
 
 ```bash
-# Basic AI alerts
-yarn start generate-alerts -n 50 --ai
+# Basic AI alerts (AI always enabled)
+yarn start generate-alerts -n 50
 
 # MITRE-enhanced AI alerts
-yarn start generate-alerts -n 100 --ai --mitre --sub-techniques
+yarn start generate-alerts -n 100 --mitre --sub-techniques
 ```
 
 **AI Enhancements:**
@@ -191,8 +193,8 @@ yarn start generate-alerts -n 100 --ai --mitre --sub-techniques
 AI creates sophisticated multi-stage attack scenarios.
 
 ```bash
-# AI-powered APT campaign
-yarn start generate-campaign apt --ai --mitre --attack-chains --events 200
+# AI-powered APT campaign (AI always enabled)
+yarn start generate-campaign apt --mitre --attack-chains --events 200
 ```
 
 **AI Capabilities:**
@@ -205,8 +207,8 @@ yarn start generate-campaign apt --ai --mitre --attack-chains --events 200
 AI understands MITRE framework relationships.
 
 ```bash
-# MITRE-aware generation
-yarn start generate-alerts -n 100 --ai --mitre --attack-chains
+# MITRE-aware generation (AI always enabled)
+yarn start generate-alerts -n 100 --mitre --attack-chains
 ```
 
 **MITRE AI Features:**
@@ -219,8 +221,8 @@ yarn start generate-alerts -n 100 --ai --mitre --attack-chains
 AI simulates realistic user and system behaviors.
 
 ```bash
-# Insider threat simulation
-yarn start generate-campaign insider --ai --mitre --events 150
+# Insider threat simulation (AI always enabled)
+yarn start generate-campaign insider --mitre --events 150
 ```
 
 **Behavioral AI:**
@@ -304,7 +306,7 @@ curl -H "x-api-key: sk-ant-..." https://api.anthropic.com/v1/messages
 Enable detailed AI logging:
 
 ```bash
-DEBUG_AI_RESPONSES=true yarn start generate-alerts -n 5 --ai --mitre
+DEBUG_AI_RESPONSES=true yarn start generate-alerts -n 5 --mitre
 ```
 
 ### Error Codes
@@ -364,11 +366,11 @@ DEBUG_AI_RESPONSES=true yarn start generate-alerts -n 5 --ai --mitre
 
 ### 3. Domain-Specific Generation
 ```bash
-# Healthcare-focused alerts
-yarn start generate-campaign apt --ai --mitre --context healthcare --events 100
+# Healthcare-focused alerts (AI always enabled)
+yarn start generate-campaign apt --mitre --context healthcare --events 100
 
 # Financial services scenario
-yarn start generate-campaign ransomware --ai --mitre --context financial --events 150
+yarn start generate-campaign ransomware --mitre --context financial --events 150
 ```
 
 ### 4. Adaptive Learning

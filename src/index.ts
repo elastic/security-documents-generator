@@ -242,12 +242,34 @@ program
 program
   .command('delete-alerts')
   .description('Delete all alerts')
-  .action(deleteAllAlerts);
+  .option(
+    '-s, --space <space>',
+    'Space to delete alerts from (default: all spaces)',
+  )
+  .action(async (options) => {
+    try {
+      await deleteAllAlerts(options.space);
+    } catch (error) {
+      console.error('Error deleting alerts:', error);
+      process.exit(1);
+    }
+  });
 
 program
   .command('delete-events')
   .description('Delete all events')
-  .action(deleteAllEvents);
+  .option(
+    '-s, --space <space>',
+    'Space to delete events from (default: all spaces)',
+  )
+  .action(async (options) => {
+    try {
+      await deleteAllEvents(options.space);
+    } catch (error) {
+      console.error('Error deleting events:', error);
+      process.exit(1);
+    }
+  });
 
 program
   .command('test-mitre')

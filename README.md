@@ -31,7 +31,11 @@ A powerful tool for generating realistic security data for testing and developme
 | `generate-alerts` | AI-enhanced security alerts | `yarn start generate-alerts -n 100 --mitre` |
 | `generate-events` | AI-generated security events | `yarn start generate-events 100 --mitre` |
 | `generate-graph` | AI-powered entity graphs | `yarn start generate-graph --users 100` |
+| `generate-rules` | Detection rules with events | `yarn start rules -r 10 -e 100` |
 | `test-mitre` | Test MITRE AI integration | `yarn start test-mitre -n 10` |
+| `delete-alerts` | Clean up generated alerts | `yarn start delete-alerts -s my-space` |
+| `delete-events` | Clean up generated events | `yarn start delete-events` |
+| `delete-rules` | Clean up detection rules | `yarn start delete-rules -s my-space` |
 
 ## 🎯 Key Features
 
@@ -73,7 +77,7 @@ A powerful tool for generating realistic security data for testing and developme
 yarn start generate-campaign apt --claude --mitre --attack-chains --complexity high --events 200
 ```
 
-### **AI-Enhanced Detection Testing** 
+### **AI-Enhanced Detection Testing**
 ```bash
 # Test MITRE technique coverage with AI realism
 yarn start generate-alerts -n 500 --claude --mitre --sub-techniques --large-scale
@@ -152,6 +156,27 @@ yarn start generate-alerts -n 100 --mitre --start-date "7d" --time-pattern busin
 ### **AI Attack Chain Simulation**
 ```bash
 yarn start generate-campaign ransomware --claude --mitre --attack-chains --sub-techniques --events 150
+```
+
+## 🗑️ Cleanup Commands
+
+Remove all generated data with comprehensive cleanup commands:
+
+```bash
+# Delete all alerts from all spaces
+yarn start delete-alerts
+
+# Delete alerts from specific space only
+yarn start delete-alerts -s security-testing
+
+# Delete all events
+yarn start delete-events
+
+# Delete all detection rules and gap events
+yarn start delete-rules
+
+# Delete rules from specific space
+yarn start delete-rules -s my-space
 ```
 
 ## 🔍 Monitoring & Validation

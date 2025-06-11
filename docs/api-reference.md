@@ -12,9 +12,9 @@ Complete command-line interface reference for the Security Documents Generator.
 | [`generate-graph`](#generate-graph) | AI-powered entity graphs | ✅ | ❌ |
 | [`test-mitre`](#test-mitre) | MITRE AI integration test | ✅ | ✅ |
 | [`rules`](#rules) | AI-enhanced detection rules | ✅ | ✅ |
-| [`delete-alerts`](#delete-alerts) | Clean up alerts | ❌ | ❌ |
-| [`delete-events`](#delete-events) | Clean up events | ❌ | ❌ |
-| [`delete-rules`](#delete-rules) | Clean up rules | ❌ | ❌ |
+| [`delete-alerts`](#delete-alerts) | Clean up alerts | ❌ | ✅ |
+| [`delete-events`](#delete-events) | Clean up events | ❌ | ✅ |
+| [`delete-rules`](#delete-rules) | Clean up rules | ❌ | ✅ |
 
 ## 🎭 generate-campaign
 
@@ -27,7 +27,7 @@ yarn start generate-campaign <type> [options]
 
 ### Campaign Types
 - `apt` - Advanced Persistent Threat campaigns
-- `ransomware` - Ransomware attack scenarios  
+- `ransomware` - Ransomware attack scenarios
 - `insider` - Insider threat simulations
 - `malware` - Malware infection campaigns
 - `phishing` - Phishing attack scenarios
@@ -44,10 +44,11 @@ yarn start generate-campaign <type> [options]
 | `-s, --space <space>` | Kibana space | `default` | `--space security-test` |
 
 #### AI Options
-| Flag | Description | Requires | Example |
-|------|-------------|----------|---------|
-| `--ai` | Enable AI generation | - | `--ai` |
-| `--claude` | Use Claude AI | `--ai` | `--ai --claude` |
+| Flag | Description | Example |
+|------|-------------|---------|
+| `--claude` | Use Claude AI instead of OpenAI | `--claude` |
+
+> **Note:** AI generation is always enabled. The `--ai` flag has been removed as AI is now the default behavior.
 
 #### MITRE Options
 | Flag | Description | Requires | Example |
@@ -73,22 +74,22 @@ yarn start generate-campaign <type> [options]
 #### Basic Campaigns
 ```bash
 # Simple APT campaign
-yarn start generate-campaign apt --ai --mitre --events 50
+yarn start generate-campaign apt --mitre --events 50
 
 # Ransomware with attack chains
-yarn start generate-campaign ransomware --ai --mitre --attack-chains --events 100
+yarn start generate-campaign ransomware --mitre --attack-chains --events 100
 
 # Insider threat simulation
-yarn start generate-campaign insider --ai --mitre --sub-techniques --events 75
+yarn start generate-campaign insider --mitre --sub-techniques --events 75
 ```
 
 #### Advanced Campaigns
 ```bash
 # Expert-level APT with full features
-yarn start generate-campaign apt --ai --claude --mitre --sub-techniques --attack-chains --complexity expert --events 500 --targets 100
+yarn start generate-campaign apt --claude --mitre --sub-techniques --attack-chains --complexity expert --events 500 --targets 100
 
 # Large-scale ransomware test
-yarn start generate-campaign ransomware --ai --mitre --large-scale --events 2000 --targets 200
+yarn start generate-campaign ransomware --mitre --large-scale --events 2000 --targets 200
 
 # Performance testing
 yarn start generate-campaign scale-test --performance-test --events 10000
@@ -97,10 +98,10 @@ yarn start generate-campaign scale-test --performance-test --events 10000
 #### Custom Scenarios
 ```bash
 # SOC training scenario
-yarn start generate-campaign apt --ai --mitre --attack-chains --complexity high --events 300 --space soc-training
+yarn start generate-campaign apt --mitre --attack-chains --complexity high --events 300 --space soc-training
 
 # Red team exercise
-yarn start generate-campaign malware --ai --claude --mitre --sub-techniques --attack-chains --complexity expert --events 800 --targets 150
+yarn start generate-campaign malware --claude --mitre --sub-techniques --attack-chains --complexity expert --events 800 --targets 150
 ```
 
 ## 🚨 generate-alerts
@@ -161,18 +162,18 @@ yarn start generate-alerts [options]
 yarn start generate-alerts -n 50 -h 10 -u 5
 
 # AI-powered alerts
-yarn start generate-alerts -n 100 -h 20 -u 10 
+yarn start generate-alerts -n 100 -h 20 -u 10
 # MITRE-enhanced alerts
-yarn start generate-alerts -n 200 -h 30 -u 15 --ai --mitre
+yarn start generate-alerts -n 200 -h 30 -u 15 --mitre
 ```
 
 #### Advanced Generation
 ```bash
 # Full-featured generation
-yarn start generate-alerts -n 500 -h 50 -u 25 --ai --claude --mitre --sub-techniques --attack-chains
+yarn start generate-alerts -n 500 -h 50 -u 25 --claude --mitre --sub-techniques --attack-chains
 
 # Large-scale generation
-yarn start generate-alerts -n 5000 -h 200 -u 100 --ai --mitre --large-scale
+yarn start generate-alerts -n 5000 -h 200 -u 100 --mitre --large-scale
 
 # Time-based generation
 yarn start generate-alerts -n 100 -h 10 -u 5 --start-date "7d" --time-pattern business_hours
@@ -195,23 +196,24 @@ yarn start generate-events <count> [options]
 ### Options
 | Flag | Description | Requires | Example |
 |------|-------------|----------|---------|
-| `--ai` | Enable AI generation | - | `--ai` |
-| `--claude` | Use Claude AI | `--ai` | `--ai --claude` |
+| `--claude` | Use Claude AI instead of OpenAI | - | `--claude` |
 | `--mitre` | Enable MITRE ATT&CK | - | `--mitre` |
 | `--sub-techniques` | Include sub-techniques | `--mitre` | `--mitre --sub-techniques` |
 | `--attack-chains` | Generate attack chains | `--mitre` | `--mitre --attack-chains` |
 | `--large-scale` | Large-scale optimizations | - | `--large-scale` |
 
+> **Note:** AI generation is always enabled. The `--ai` flag has been removed as AI is now the default behavior.
+
 ### Examples
 ```bash
-# Basic event generation
+# Basic event generation (AI always enabled)
 yarn start generate-events 100
 
-# AI-enhanced events
-yarn start generate-events 500 --ai --mitre
+# MITRE-enhanced events
+yarn start generate-events 500 --mitre
 
 # Claude with MITRE
-yarn start generate-events 1000 --ai --claude --mitre --sub-techniques
+yarn start generate-events 1000 --claude --mitre --sub-techniques
 ```
 
 ## 🕸️ generate-graph
@@ -226,17 +228,19 @@ yarn start generate-graph [options]
 ### Options
 | Flag | Description | Default | Example |
 |------|-------------|---------|---------|
-| `--ai` | Enable AI generation | `false` | `--ai` |
+| `--claude` | Use Claude AI instead of OpenAI | `false` | `--claude` |
 | `-u, --users <number>` | Number of users | `100` | `--users 200` |
 | `-h, --hosts <number>` | Max hosts per user | `3` | `--hosts 5` |
 
+> **Note:** AI generation is always enabled. The `--ai` flag has been removed as AI is now the default behavior.
+
 ### Examples
 ```bash
-# Basic graph generation
+# Basic graph generation (AI always enabled)
 yarn start generate-graph --users 50 --hosts 2
 
-# AI-enhanced graph
-yarn start generate-graph --ai --users 100 --hosts 4
+# Claude-enhanced graph
+yarn start generate-graph --claude --users 100 --hosts 4
 ```
 
 
@@ -266,14 +270,75 @@ yarn start test-mitre -n 20 -s mitre-testing
 
 ## 🗑️ Cleanup Commands
 
+Remove all generated data with comprehensive cleanup commands that support space-specific deletion.
+
 ### delete-alerts
+
+Delete generated security alerts.
+
+#### Syntax
 ```bash
+yarn start delete-alerts [options]
+```
+
+#### Options
+| Flag | Description | Default | Example |
+|------|-------------|---------|---------|
+| `-s, --space <space>` | Space to delete from | All spaces | `-s security-test` |
+
+#### Examples
+```bash
+# Delete all alerts from all spaces
 yarn start delete-alerts
+
+# Delete alerts from specific space only
+yarn start delete-alerts -s my-space
 ```
 
 ### delete-events
+
+Delete generated security events.
+
+#### Syntax
 ```bash
+yarn start delete-events [options]
+```
+
+#### Options
+| Flag | Description | Default | Example |
+|------|-------------|---------|---------|
+| `-s, --space <space>` | Space context (informational) | All events | `-s security-test` |
+
+#### Examples
+```bash
+# Delete all events
 yarn start delete-events
+
+# Delete with space context
+yarn start delete-events -s my-space
+```
+
+### delete-rules
+
+Delete generated detection rules and associated gap events.
+
+#### Syntax
+```bash
+yarn start delete-rules [options]
+```
+
+#### Options
+| Flag | Description | Default | Example |
+|------|-------------|---------|---------|
+| `-s, --space <space>` | Space to delete from | All spaces | `-s security-test` |
+
+#### Examples
+```bash
+# Delete all rules from all spaces
+yarn start delete-rules
+
+# Delete rules from specific space only
+yarn start delete-rules -s my-space
 ```
 
 ## 🔧 Utility Commands
@@ -305,8 +370,8 @@ yarn start delete-rules --space security
 ## 🚨 Flag Dependencies
 
 ### AI Flags
-- `--claude` requires `--ai`
-- `--mitre` requires `--ai`
+- AI generation is always enabled
+- `--claude` switches to Claude AI provider
 
 ### MITRE Flags
 - `--sub-techniques` requires `--mitre`
@@ -314,17 +379,17 @@ yarn start delete-rules --space security
 
 ### Error Examples
 ```bash
-# ❌ Invalid: Claude without AI
-yarn start generate-alerts --claude
-
-# ❌ Invalid: MITRE without AI
-yarn start generate-alerts --mitre
-
 # ❌ Invalid: Sub-techniques without MITRE
-yarn start generate-alerts --ai --sub-techniques
+yarn start generate-alerts --sub-techniques
+
+# ❌ Invalid: Attack chains without MITRE
+yarn start generate-alerts --attack-chains
+
+# ✅ Valid: Claude with MITRE
+yarn start generate-alerts --claude --mitre
 
 # ✅ Valid: Full chain
-yarn start generate-alerts --ai --claude --mitre --sub-techniques --attack-chains
+yarn start generate-alerts --claude --mitre --sub-techniques --attack-chains
 ```
 
 ## 🔄 Command Chaining
@@ -332,17 +397,17 @@ yarn start generate-alerts --ai --claude --mitre --sub-techniques --attack-chain
 ### Sequential Generation
 ```bash
 # Generate multiple campaign types
-yarn start generate-campaign apt --ai --mitre --events 100
-yarn start generate-campaign ransomware --ai --mitre --events 100
-yarn start generate-campaign insider --ai --mitre --events 100
+yarn start generate-campaign apt --mitre --events 100
+yarn start generate-campaign ransomware --mitre --events 100
+yarn start generate-campaign insider --mitre --events 100
 ```
 
 ### Combined Testing
 ```bash
 # Full security scenario
-yarn start generate-campaign apt --ai --mitre --attack-chains --events 200
-yarn start generate-alerts -n 300 --ai --mitre --sub-techniques
-yarn start generate-events 500 --ai --mitre
+yarn start generate-campaign apt --mitre --attack-chains --events 200
+yarn start generate-alerts -n 300 --mitre --sub-techniques
+yarn start generate-events 500 --mitre
 ```
 
 ## 🎯 Best Practices

@@ -504,7 +504,7 @@ export const generateAlerts = async (
   );
 
   progress.stop();
-  
+
   // Cleanup AI service to allow process to exit cleanly
   if (useAI) {
     cleanupAIService();
@@ -515,8 +515,10 @@ export const generateAlerts = async (
 export const generateEvents = async (
   n: number,
   useAI = false,
-  useMitre = false,
+  useMitre = false, // TODO: Implement MITRE support for events
 ) => {
+  // Note: useMitre parameter is reserved for future MITRE integration
+  console.log(useMitre ? 'MITRE mode requested (not yet implemented)' : '');
   const config = getConfig();
 
   if (!config.eventIndex) {
@@ -549,7 +551,7 @@ export const generateEvents = async (
   });
 
   console.log('Finished generating events');
-  
+
   // Cleanup AI service to allow process to exit cleanly
   if (useAI) {
     cleanupAIService();
@@ -692,41 +694,48 @@ export const generateGraph = async ({
   } catch (err) {
     console.log('Error: ', err);
   }
-  
+
   // Cleanup AI service to allow process to exit cleanly
   if (useAI) {
     cleanupAIService();
   }
 };
 
-export const deleteAllAlerts = async () => {
-  console.log('Deleting all alerts...');
+export const deleteAllAlerts = async (space?: string) => {
+  const indexPattern = space
+    ? `.alerts-security.alerts-${space}`
+    : '.alerts-security.alerts-*';
+  console.log(
+    `Deleting all alerts${space ? ` from space '${space}'` : ' from all spaces'}...`,
+  );
+
   try {
-    console.log('Deleted all alerts');
     const client = getEsClient();
 
     await client.deleteByQuery({
-      index: '.alerts-security.alerts-*',
+      index: indexPattern,
       refresh: true,
       query: {
         match_all: {},
       },
     });
+    console.log(
+      `Deleted all alerts${space ? ` from space '${space}'` : ' from all spaces'}`,
+    );
   } catch (error) {
     console.log('Failed to delete alerts');
     console.log(error);
   }
 };
 
-export const deleteAllEvents = async () => {
+export const deleteAllEvents = async (space?: string) => {
   const config = getConfig();
 
-  console.log('Deleting all events...');
+  console.log(`Deleting all events${space ? ` from space '${space}'` : ''}...`);
   if (!config.eventIndex) {
     throw new Error('eventIndex not defined in config');
   }
   try {
-    console.log('Deleted all events');
     const client = getEsClient();
 
     await client.deleteByQuery({
@@ -736,6 +745,7 @@ export const deleteAllEvents = async () => {
         match_all: {},
       },
     });
+    console.log(`Deleted all events${space ? ` from space '${space}'` : ''}`);
   } catch (error) {
     console.log('Failed to delete events');
     console.log(error);
