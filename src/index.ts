@@ -319,7 +319,7 @@ program
       },
       script: {
         source:
-          'ctx._source["risk-engine-configuration"]._meta.mappingsVersion = 4',
+          'ctx._source["risk-engine-configuration"]._meta.mappingsVersion = 3',
         lang: 'painless',
       },
       conflicts: 'proceed',
