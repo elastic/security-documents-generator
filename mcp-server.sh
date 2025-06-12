@@ -1,3 +1,3 @@
 #!/bin/bash
 cd "$(dirname "$0")"
-exec npx tsx src/mcp-server.ts
+exec npx tsx src/mcp_server.ts

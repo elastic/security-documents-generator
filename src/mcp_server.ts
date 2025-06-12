@@ -11,7 +11,14 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 // Import existing functionality
-import { generateAlerts, generateLogs, generateCorrelatedCampaign, deleteAllAlerts, deleteAllEvents, deleteAllLogs } from './commands/documents.js';
+import {
+  generateAlerts,
+  generateLogs,
+  generateCorrelatedCampaign,
+  deleteAllAlerts,
+  deleteAllEvents,
+  deleteAllLogs,
+} from './commands/documents.js';
 import AttackSimulationEngine from './services/attack_simulation_engine.js';
 import { getConfig } from './get_config.js';
 import { createConfigFileOnFirstRun } from './utils/create_config_on_first_run.js';
@@ -88,13 +95,13 @@ class SecurityDataMCPServer {
   constructor() {
     // Temporarily disable MCP mode to debug connection issues
     // enableMCPMode();
-    
+
     this.originalConsoleLog = console.log;
     this.originalConsoleError = console.error;
-    
+
     // Just redirect console.log to stderr for now
     console.log = (...args: any[]) => console.error('[LOG]', ...args);
-    
+
     this.server = new Server(
       {
         name: 'security-data-generator',
@@ -104,7 +111,7 @@ class SecurityDataMCPServer {
         capabilities: {
           tools: {},
         },
-      }
+      },
     );
 
     this.setupToolHandlers();
@@ -131,7 +138,12 @@ class SecurityDataMCPServer {
 
     // Handle unhandled rejections
     process.on('unhandledRejection', (reason, promise) => {
-      console.error('[MCP] Unhandled Rejection at:', promise, 'reason:', reason);
+      console.error(
+        '[MCP] Unhandled Rejection at:',
+        promise,
+        'reason:',
+        reason,
+      );
     });
 
     process.on('uncaughtException', (error) => {
@@ -145,13 +157,13 @@ class SecurityDataMCPServer {
     this.server.setRequestHandler(InitializeRequestSchema, async (request) => {
       console.error('[MCP] Initialize request received, preparing response...');
       const response = {
-        protocolVersion: "2024-11-05",
+        protocolVersion: '2024-11-05',
         capabilities: {
           tools: {},
         },
         serverInfo: {
-          name: "security-data-generator",
-          version: "1.0.0",
+          name: 'security-data-generator',
+          version: '1.0.0',
         },
       };
       console.error('[MCP] Sending initialize response');
@@ -165,126 +177,279 @@ class SecurityDataMCPServer {
         tools: [
           {
             name: 'generate_security_alerts',
-            description: 'Generate AI-powered security alerts with optional MITRE ATT&CK integration',
+            description:
+              'Generate AI-powered security alerts with optional MITRE ATT&CK integration',
             inputSchema: {
               type: 'object',
               properties: {
-                alertCount: { type: 'number', description: 'Number of alerts to generate', default: 10 },
-                hostCount: { type: 'number', description: 'Number of unique hosts', default: 3 },
-                userCount: { type: 'number', description: 'Number of unique users', default: 2 },
-                space: { type: 'string', description: 'Kibana space name', default: 'default' },
-                useAI: { type: 'boolean', description: 'Use AI for generation', default: true },
-                useMitre: { type: 'boolean', description: 'Include MITRE ATT&CK techniques', default: false },
-                startDate: { type: 'string', description: 'Start date (e.g., "7d", "2024-01-01")' },
-                endDate: { type: 'string', description: 'End date (e.g., "now", "2024-01-10")' },
-                timePattern: { type: 'string', description: 'Time pattern: uniform, business_hours, random, attack_simulation, weekend_heavy' }
-              }
-            }
+                alertCount: {
+                  type: 'number',
+                  description: 'Number of alerts to generate',
+                  default: 10,
+                },
+                hostCount: {
+                  type: 'number',
+                  description: 'Number of unique hosts',
+                  default: 3,
+                },
+                userCount: {
+                  type: 'number',
+                  description: 'Number of unique users',
+                  default: 2,
+                },
+                space: {
+                  type: 'string',
+                  description: 'Kibana space name',
+                  default: 'default',
+                },
+                useAI: {
+                  type: 'boolean',
+                  description: 'Use AI for generation',
+                  default: true,
+                },
+                useMitre: {
+                  type: 'boolean',
+                  description: 'Include MITRE ATT&CK techniques',
+                  default: false,
+                },
+                startDate: {
+                  type: 'string',
+                  description: 'Start date (e.g., "7d", "2024-01-01")',
+                },
+                endDate: {
+                  type: 'string',
+                  description: 'End date (e.g., "now", "2024-01-10")',
+                },
+                timePattern: {
+                  type: 'string',
+                  description:
+                    'Time pattern: uniform, business_hours, random, attack_simulation, weekend_heavy',
+                },
+              },
+            },
           },
           {
             name: 'generate_attack_campaign',
-            description: 'Generate sophisticated multi-stage attack campaigns with realistic progression',
+            description:
+              'Generate sophisticated multi-stage attack campaigns with realistic progression',
             inputSchema: {
               type: 'object',
               properties: {
-                campaignType: { 
-                  type: 'string', 
+                campaignType: {
+                  type: 'string',
                   enum: ['apt', 'ransomware', 'insider', 'supply_chain'],
-                  description: 'Type of attack campaign to generate'
+                  description: 'Type of attack campaign to generate',
                 },
-                complexity: { 
+                complexity: {
                   type: 'string',
                   enum: ['low', 'medium', 'high', 'expert'],
                   default: 'high',
-                  description: 'Campaign complexity level'
+                  description: 'Campaign complexity level',
                 },
-                targets: { type: 'number', description: 'Number of target hosts', default: 10 },
-                events: { type: 'number', description: 'Number of events to generate', default: 100 },
-                space: { type: 'string', description: 'Kibana space name', default: 'default' },
-                useAI: { type: 'boolean', description: 'Use AI for generation', default: true },
-                useMitre: { type: 'boolean', description: 'Include MITRE ATT&CK techniques', default: true },
-                realistic: { type: 'boolean', description: 'Generate realistic source logs that trigger alerts', default: false },
-                logsPerStage: { type: 'number', description: 'Logs per attack stage (realistic mode)', default: 8 },
-                detectionRate: { type: 'number', description: 'Detection rate (0.0-1.0)', default: 0.4 }
+                targets: {
+                  type: 'number',
+                  description: 'Number of target hosts',
+                  default: 10,
+                },
+                events: {
+                  type: 'number',
+                  description: 'Number of events to generate',
+                  default: 100,
+                },
+                space: {
+                  type: 'string',
+                  description: 'Kibana space name',
+                  default: 'default',
+                },
+                useAI: {
+                  type: 'boolean',
+                  description: 'Use AI for generation',
+                  default: true,
+                },
+                useMitre: {
+                  type: 'boolean',
+                  description: 'Include MITRE ATT&CK techniques',
+                  default: true,
+                },
+                realistic: {
+                  type: 'boolean',
+                  description:
+                    'Generate realistic source logs that trigger alerts',
+                  default: false,
+                },
+                logsPerStage: {
+                  type: 'number',
+                  description: 'Logs per attack stage (realistic mode)',
+                  default: 8,
+                },
+                detectionRate: {
+                  type: 'number',
+                  description: 'Detection rate (0.0-1.0)',
+                  default: 0.4,
+                },
               },
-              required: ['campaignType']
-            }
+              required: ['campaignType'],
+            },
           },
           {
             name: 'generate_realistic_logs',
-            description: 'Generate realistic source logs for security analysis (Windows, Linux, network, etc.)',
+            description:
+              'Generate realistic source logs for security analysis (Windows, Linux, network, etc.)',
             inputSchema: {
               type: 'object',
               properties: {
-                logCount: { type: 'number', description: 'Number of logs to generate', default: 1000 },
-                hostCount: { type: 'number', description: 'Number of unique hosts', default: 10 },
-                userCount: { type: 'number', description: 'Number of unique users', default: 5 },
-                useAI: { type: 'boolean', description: 'Use AI for generation', default: false },
-                logTypes: { 
-                  type: 'array',
-                  items: { type: 'string', enum: ['system', 'auth', 'network', 'endpoint'] },
-                  description: 'Types of logs to generate',
-                  default: ['system', 'auth', 'network', 'endpoint']
+                logCount: {
+                  type: 'number',
+                  description: 'Number of logs to generate',
+                  default: 1000,
                 },
-                startDate: { type: 'string', description: 'Start date (e.g., "7d", "2024-01-01")' },
-                endDate: { type: 'string', description: 'End date (e.g., "now", "2024-01-10")' },
-                timePattern: { type: 'string', description: 'Time pattern: uniform, business_hours, random, attack_simulation, weekend_heavy' }
-              }
-            }
+                hostCount: {
+                  type: 'number',
+                  description: 'Number of unique hosts',
+                  default: 10,
+                },
+                userCount: {
+                  type: 'number',
+                  description: 'Number of unique users',
+                  default: 5,
+                },
+                useAI: {
+                  type: 'boolean',
+                  description: 'Use AI for generation',
+                  default: false,
+                },
+                logTypes: {
+                  type: 'array',
+                  items: {
+                    type: 'string',
+                    enum: ['system', 'auth', 'network', 'endpoint'],
+                  },
+                  description: 'Types of logs to generate',
+                  default: ['system', 'auth', 'network', 'endpoint'],
+                },
+                startDate: {
+                  type: 'string',
+                  description: 'Start date (e.g., "7d", "2024-01-01")',
+                },
+                endDate: {
+                  type: 'string',
+                  description: 'End date (e.g., "now", "2024-01-10")',
+                },
+                timePattern: {
+                  type: 'string',
+                  description:
+                    'Time pattern: uniform, business_hours, random, attack_simulation, weekend_heavy',
+                },
+              },
+            },
           },
           {
             name: 'generate_correlated_events',
-            description: 'Generate security alerts with correlated supporting logs for investigation',
+            description:
+              'Generate security alerts with correlated supporting logs for investigation',
             inputSchema: {
               type: 'object',
               properties: {
-                alertCount: { type: 'number', description: 'Number of alerts to generate', default: 10 },
-                hostCount: { type: 'number', description: 'Number of unique hosts', default: 3 },
-                userCount: { type: 'number', description: 'Number of unique users', default: 2 },
-                space: { type: 'string', description: 'Kibana space name', default: 'default' },
-                useAI: { type: 'boolean', description: 'Use AI for generation', default: true },
-                useMitre: { type: 'boolean', description: 'Include MITRE ATT&CK techniques', default: false },
-                logVolume: { type: 'number', description: 'Supporting logs per alert', default: 6 },
-                startDate: { type: 'string', description: 'Start date (e.g., "7d", "2024-01-01")' },
-                endDate: { type: 'string', description: 'End date (e.g., "now", "2024-01-10")' },
-                timePattern: { type: 'string', description: 'Time pattern: uniform, business_hours, random, attack_simulation, weekend_heavy' }
-              }
-            }
+                alertCount: {
+                  type: 'number',
+                  description: 'Number of alerts to generate',
+                  default: 10,
+                },
+                hostCount: {
+                  type: 'number',
+                  description: 'Number of unique hosts',
+                  default: 3,
+                },
+                userCount: {
+                  type: 'number',
+                  description: 'Number of unique users',
+                  default: 2,
+                },
+                space: {
+                  type: 'string',
+                  description: 'Kibana space name',
+                  default: 'default',
+                },
+                useAI: {
+                  type: 'boolean',
+                  description: 'Use AI for generation',
+                  default: true,
+                },
+                useMitre: {
+                  type: 'boolean',
+                  description: 'Include MITRE ATT&CK techniques',
+                  default: false,
+                },
+                logVolume: {
+                  type: 'number',
+                  description: 'Supporting logs per alert',
+                  default: 6,
+                },
+                startDate: {
+                  type: 'string',
+                  description: 'Start date (e.g., "7d", "2024-01-01")',
+                },
+                endDate: {
+                  type: 'string',
+                  description: 'End date (e.g., "now", "2024-01-10")',
+                },
+                timePattern: {
+                  type: 'string',
+                  description:
+                    'Time pattern: uniform, business_hours, random, attack_simulation, weekend_heavy',
+                },
+              },
+            },
           },
           {
             name: 'cleanup_security_data',
-            description: 'Clean up generated security data (alerts, events, logs)',
+            description:
+              'Clean up generated security data (alerts, events, logs)',
             inputSchema: {
               type: 'object',
               properties: {
-                type: { 
+                type: {
                   type: 'string',
                   enum: ['alerts', 'events', 'logs'],
-                  description: 'Type of data to clean up'
+                  description: 'Type of data to clean up',
                 },
-                space: { type: 'string', description: 'Kibana space (for alerts/events)' },
-                logTypes: { 
+                space: {
+                  type: 'string',
+                  description: 'Kibana space (for alerts/events)',
+                },
+                logTypes: {
                   type: 'array',
-                  items: { type: 'string', enum: ['system', 'auth', 'network', 'endpoint'] },
+                  items: {
+                    type: 'string',
+                    enum: ['system', 'auth', 'network', 'endpoint'],
+                  },
                   description: 'Types of logs to delete (for logs cleanup)',
-                  default: ['system', 'auth', 'network', 'endpoint']
-                }
+                  default: ['system', 'auth', 'network', 'endpoint'],
+                },
               },
-              required: ['type']
-            }
+              required: ['type'],
+            },
           },
           {
             name: 'get_mitre_techniques',
-            description: 'Query and retrieve MITRE ATT&CK techniques and tactics',
+            description:
+              'Query and retrieve MITRE ATT&CK techniques and tactics',
             inputSchema: {
               type: 'object',
               properties: {
-                tactic: { type: 'string', description: 'MITRE tactic ID (e.g., TA0001) or name' },
-                includeSubTechniques: { type: 'boolean', description: 'Include sub-techniques', default: false }
-              }
-            }
-          }
-        ]
+                tactic: {
+                  type: 'string',
+                  description: 'MITRE tactic ID (e.g., TA0001) or name',
+                },
+                includeSubTechniques: {
+                  type: 'boolean',
+                  description: 'Include sub-techniques',
+                  default: false,
+                },
+              },
+            },
+          },
+        ],
       };
     });
 
@@ -296,34 +461,47 @@ class SecurityDataMCPServer {
       try {
         switch (name) {
           case 'generate_security_alerts':
-            return await this.handleGenerateSecurityAlerts(args as SecurityAlertParams);
-          
+            return await this.handleGenerateSecurityAlerts(
+              args as SecurityAlertParams,
+            );
+
           case 'generate_attack_campaign':
-            return await this.handleGenerateAttackCampaign(args as unknown as AttackCampaignParams);
-          
+            return await this.handleGenerateAttackCampaign(
+              args as unknown as AttackCampaignParams,
+            );
+
           case 'generate_realistic_logs':
-            return await this.handleGenerateRealisticLogs(args as RealisticLogsParams);
-          
+            return await this.handleGenerateRealisticLogs(
+              args as RealisticLogsParams,
+            );
+
           case 'generate_correlated_events':
-            return await this.handleGenerateCorrelatedEvents(args as CorrelatedEventsParams);
-          
+            return await this.handleGenerateCorrelatedEvents(
+              args as CorrelatedEventsParams,
+            );
+
           case 'cleanup_security_data':
-            return await this.handleCleanupSecurityData(args as unknown as CleanupParams);
-          
+            return await this.handleCleanupSecurityData(
+              args as unknown as CleanupParams,
+            );
+
           case 'get_mitre_techniques':
-            return await this.handleGetMitreTechniques(args as MitreTechniquesParams);
-          
+            return await this.handleGetMitreTechniques(
+              args as MitreTechniquesParams,
+            );
+
           default:
             throw new McpError(
               ErrorCode.MethodNotFound,
-              `Unknown tool: ${name}`
+              `Unknown tool: ${name}`,
             );
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         throw new McpError(
           ErrorCode.InternalError,
-          `Tool execution failed: ${errorMessage}`
+          `Tool execution failed: ${errorMessage}`,
         );
       }
     });
@@ -339,7 +517,7 @@ class SecurityDataMCPServer {
       useMitre = false,
       startDate,
       endDate,
-      timePattern
+      timePattern,
     } = params;
 
     // Initialize space if not default
@@ -347,15 +525,18 @@ class SecurityDataMCPServer {
       await initializeSpace(space);
     }
 
-    const timestampConfig = startDate || endDate || timePattern ? {
-      startDate,
-      endDate,
-      pattern: timePattern as any
-    } : {
-      startDate: '1h',  // Default to last hour if no timestamps specified
-      endDate: 'now',
-      pattern: 'uniform' as const
-    };
+    const timestampConfig =
+      startDate || endDate || timePattern
+        ? {
+            startDate,
+            endDate,
+            pattern: timePattern as any,
+          }
+        : {
+            startDate: '1h', // Default to last hour if no timestamps specified
+            endDate: 'now',
+            pattern: 'uniform' as const,
+          };
 
     await generateAlerts(
       alertCount,
@@ -364,16 +545,16 @@ class SecurityDataMCPServer {
       space,
       useAI,
       useMitre,
-      timestampConfig
+      timestampConfig,
     );
 
     return {
       content: [
         {
           type: 'text',
-          text: `Successfully generated ${alertCount} security alerts in space '${space}' with ${hostCount} hosts and ${userCount} users.${useMitre ? ' MITRE ATT&CK techniques included.' : ''}${useAI ? ' AI-powered generation used.' : ''}`
-        }
-      ]
+          text: `Successfully generated ${alertCount} security alerts in space '${space}' with ${hostCount} hosts and ${userCount} users.${useMitre ? ' MITRE ATT&CK techniques included.' : ''}${useAI ? ' AI-powered generation used.' : ''}`,
+        },
+      ],
     };
   }
 
@@ -388,7 +569,7 @@ class SecurityDataMCPServer {
       useMitre = true,
       realistic = false,
       logsPerStage = 8,
-      detectionRate = 0.4
+      detectionRate = 0.4,
     } = params;
 
     // Initialize space if not default
@@ -398,9 +579,11 @@ class SecurityDataMCPServer {
 
     if (realistic) {
       // Use realistic attack engine
-      const { RealisticAttackEngine } = await import('./services/realistic_attack_engine.js');
+      const { RealisticAttackEngine } = await import(
+        './services/realistic_attack_engine.js'
+      );
       const realisticEngine = new RealisticAttackEngine();
-      
+
       const realisticConfig = {
         campaignType,
         complexity,
@@ -413,37 +596,40 @@ class SecurityDataMCPServer {
         useAI,
         useMitre,
         timestampConfig: {
-          startDate: '2h',  // Start 2 hours ago
-          endDate: 'now',   // End now
-          pattern: 'attack_simulation' as const
-        }
+          startDate: '2h', // Start 2 hours ago
+          endDate: 'now', // End now
+          pattern: 'attack_simulation' as const,
+        },
       };
-      
-      const result = await realisticEngine.generateRealisticCampaign(realisticConfig);
-      
+
+      const result =
+        await realisticEngine.generateRealisticCampaign(realisticConfig);
+
       // Index the data to Elasticsearch (this was missing!)
       console.error('[MCP] Indexing realistic campaign data...');
-      
+
       const { getEsClient } = await import('./commands/utils/indices.js');
       const { indexCheck } = await import('./commands/utils/indices.js');
       const { faker } = await import('@faker-js/faker');
-      const logMappings = await import('./mappings/log_mappings.json', { assert: { type: 'json' } });
-      
+      const logMappings = await import('./mappings/log_mappings.json', {
+        assert: { type: 'json' },
+      });
+
       const client = getEsClient();
       const indexOperations: unknown[] = [];
-      
+
       // Index all stage logs
       for (const stage of result.stageLogs) {
         for (const log of stage.logs) {
           const dataset = log['data_stream.dataset'] || 'generic.log';
           const namespace = log['data_stream.namespace'] || 'default';
           const indexName = `logs-${dataset}-${namespace}`;
-          
+
           // Ensure index exists
           await indexCheck(indexName, {
             mappings: logMappings.default as any,
           });
-          
+
           indexOperations.push({
             create: {
               _index: indexName,
@@ -453,7 +639,7 @@ class SecurityDataMCPServer {
           indexOperations.push(log);
         }
       }
-      
+
       // Index detected alerts
       const alertIndex = `.internal.alerts-security.alerts-${space}-000001`;
       for (const alert of result.detectedAlerts) {
@@ -465,28 +651,30 @@ class SecurityDataMCPServer {
         });
         indexOperations.push(alert);
       }
-      
+
       // Bulk index everything
       if (indexOperations.length > 0) {
         const batchSize = 1000;
         for (let i = 0; i < indexOperations.length; i += batchSize) {
           const batch = indexOperations.slice(i, i + batchSize);
           await client.bulk({ body: batch, refresh: true });
-          
+
           if (i + batchSize < indexOperations.length) {
             console.error('[MCP] Indexing progress...');
           }
         }
       }
-      
-      console.error(`[MCP] Successfully indexed ${indexOperations.length / 2} documents`);
-      
+
+      console.error(
+        `[MCP] Successfully indexed ${indexOperations.length / 2} documents`,
+      );
+
       return {
         content: [
           {
             type: 'text',
             text: `🎊 Realistic ${campaignType.toUpperCase()} campaign generated successfully!
-            
+
 🎯 Campaign: ${result.campaign.campaign.name}
 🎭 Threat Actor: ${result.campaign.campaign.threat_actor}
 📋 Total Logs: ${result.stageLogs.reduce((sum, stage) => sum + stage.logs.length, 0)}
@@ -497,9 +685,9 @@ class SecurityDataMCPServer {
 Detection Rate: ${(detectionRate * 100).toFixed(1)}%
 Investigation Guide available with ${result.investigationGuide.length} steps.
 
-Data indexed to Elasticsearch in space '${space}'.`
-          }
-        ]
+Data indexed to Elasticsearch in space '${space}'.`,
+          },
+        ],
       };
     } else {
       // Use sophisticated attack simulation engine
@@ -534,7 +722,7 @@ Data indexed to Elasticsearch in space '${space}'.`
           {
             type: 'text',
             text: `🚀 Sophisticated ${campaignType.toUpperCase()} campaign generated successfully!
-            
+
 ⚔️ Campaign: ${simulation.campaign.name}
 🎭 Threat Actor: ${simulation.campaign.threat_actor}
 🎯 Attack Stages: ${simulation.stages.length}
@@ -545,9 +733,9 @@ Complexity: ${complexity}
 ${useMitre ? '⚔️ MITRE ATT&CK techniques included' : ''}
 ${useAI ? '🤖 AI-powered generation used' : ''}
 
-Data indexed to Elasticsearch in space '${space}'.`
-          }
-        ]
+Data indexed to Elasticsearch in space '${space}'.`,
+          },
+        ],
       };
     }
   }
@@ -561,18 +749,21 @@ Data indexed to Elasticsearch in space '${space}'.`
       logTypes = ['system', 'auth', 'network', 'endpoint'],
       startDate,
       endDate,
-      timePattern
+      timePattern,
     } = params;
 
-    const timestampConfig = startDate || endDate || timePattern ? {
-      startDate,
-      endDate,
-      pattern: timePattern as any
-    } : {
-      startDate: '1h',  // Default to last hour if no timestamps specified
-      endDate: 'now',
-      pattern: 'uniform' as const
-    };
+    const timestampConfig =
+      startDate || endDate || timePattern
+        ? {
+            startDate,
+            endDate,
+            pattern: timePattern as any,
+          }
+        : {
+            startDate: '1h', // Default to last hour if no timestamps specified
+            endDate: 'now',
+            pattern: 'uniform' as const,
+          };
 
     await generateLogs(
       logCount,
@@ -580,7 +771,7 @@ Data indexed to Elasticsearch in space '${space}'.`
       userCount,
       useAI,
       logTypes,
-      timestampConfig
+      timestampConfig,
     );
 
     return {
@@ -592,9 +783,9 @@ Data indexed to Elasticsearch in space '${space}'.`
 Generated with ${hostCount} hosts and ${userCount} users.
 ${useAI ? 'AI-powered generation used.' : ''}
 
-Logs indexed to multiple data streams in Elasticsearch.`
-        }
-      ]
+Logs indexed to multiple data streams in Elasticsearch.`,
+        },
+      ],
     };
   }
 
@@ -609,7 +800,7 @@ Logs indexed to multiple data streams in Elasticsearch.`
       logVolume = 6,
       startDate,
       endDate,
-      timePattern
+      timePattern,
     } = params;
 
     // Initialize space if not default
@@ -617,15 +808,18 @@ Logs indexed to multiple data streams in Elasticsearch.`
       await initializeSpace(space);
     }
 
-    const timestampConfig = startDate || endDate || timePattern ? {
-      startDate,
-      endDate,
-      pattern: timePattern as any
-    } : {
-      startDate: '1h',  // Default to last hour if no timestamps specified
-      endDate: 'now',
-      pattern: 'uniform' as const
-    };
+    const timestampConfig =
+      startDate || endDate || timePattern
+        ? {
+            startDate,
+            endDate,
+            pattern: timePattern as any,
+          }
+        : {
+            startDate: '1h', // Default to last hour if no timestamps specified
+            endDate: 'now',
+            pattern: 'uniform' as const,
+          };
 
     await generateCorrelatedCampaign(
       alertCount,
@@ -635,7 +829,7 @@ Logs indexed to multiple data streams in Elasticsearch.`
       useAI,
       useMitre,
       logVolume,
-      timestampConfig
+      timestampConfig,
     );
 
     return {
@@ -649,14 +843,18 @@ Generated with ${hostCount} hosts and ${userCount} users in space '${space}'.
 ${useMitre ? 'MITRE ATT&CK techniques included.' : ''}
 ${useAI ? 'AI-powered generation used.' : ''}
 
-Perfect for security analyst training and detection rule testing.`
-        }
-      ]
+Perfect for security analyst training and detection rule testing.`,
+        },
+      ],
     };
   }
 
   private async handleCleanupSecurityData(params: CleanupParams) {
-    const { type, space, logTypes = ['system', 'auth', 'network', 'endpoint'] } = params;
+    const {
+      type,
+      space,
+      logTypes = ['system', 'auth', 'network', 'endpoint'],
+    } = params;
 
     switch (type) {
       case 'alerts':
@@ -665,9 +863,9 @@ Perfect for security analyst training and detection rule testing.`
           content: [
             {
               type: 'text',
-              text: `Successfully deleted all alerts${space ? ` from space '${space}'` : ' from all spaces'}.`
-            }
-          ]
+              text: `Successfully deleted all alerts${space ? ` from space '${space}'` : ' from all spaces'}.`,
+            },
+          ],
         };
 
       case 'events':
@@ -676,9 +874,9 @@ Perfect for security analyst training and detection rule testing.`
           content: [
             {
               type: 'text',
-              text: `Successfully deleted all events${space ? ` from space '${space}'` : ''}.`
-            }
-          ]
+              text: `Successfully deleted all events${space ? ` from space '${space}'` : ''}.`,
+            },
+          ],
         };
 
       case 'logs':
@@ -687,9 +885,9 @@ Perfect for security analyst training and detection rule testing.`
           content: [
             {
               type: 'text',
-              text: `Successfully deleted logs from types: ${logTypes.join(', ')}.`
-            }
-          ]
+              text: `Successfully deleted logs from types: ${logTypes.join(', ')}.`,
+            },
+          ],
         };
 
       default:
@@ -701,17 +899,19 @@ Perfect for security analyst training and detection rule testing.`
     const { tactic, includeSubTechniques = false } = params;
 
     // Import MITRE service functions
-    const { loadMitreData, getTechniquesForTactic } = await import('./utils/mitre_attack_service.js');
+    const { loadMitreData, getTechniquesForTactic } = await import(
+      './utils/mitre_attack_service.js'
+    );
     const mitreData = loadMitreData();
-    
+
     if (!mitreData) {
       throw new Error('Failed to load MITRE ATT&CK data');
     }
 
     if (tactic) {
       const techniques = getTechniquesForTactic(mitreData, tactic);
-      const filteredTechniques = includeSubTechniques 
-        ? techniques 
+      const filteredTechniques = includeSubTechniques
+        ? techniques
         : techniques.filter((t: string) => !t.includes('.'));
 
       return {
@@ -722,14 +922,14 @@ Perfect for security analyst training and detection rule testing.`
 
 ${filteredTechniques.map((t: string) => `• ${t}`).join('\n')}
 
-Total: ${filteredTechniques.length} techniques${includeSubTechniques ? ' (including sub-techniques)' : ''}`
-          }
-        ]
+Total: ${filteredTechniques.length} techniques${includeSubTechniques ? ' (including sub-techniques)' : ''}`,
+          },
+        ],
       };
     } else {
       // Return all tactics
       const tactics = Object.keys(mitreData.tactics);
-      
+
       return {
         content: [
           {
@@ -738,9 +938,9 @@ Total: ${filteredTechniques.length} techniques${includeSubTechniques ? ' (includ
 
 ${tactics.map((t: string) => `• ${t}: ${mitreData.tactics[t].name || t}`).join('\n')}
 
-Total: ${tactics.length} tactics available.`
-          }
-        ]
+Total: ${tactics.length} tactics available.`,
+          },
+        ],
       };
     }
   }
@@ -748,11 +948,11 @@ Total: ${tactics.length} tactics available.`
   async run(): Promise<void> {
     try {
       console.error('[MCP] Starting server...');
-      
+
       // Check if config exists
       const fs = await import('fs');
       const { configPath } = await import('./get_config.js');
-      
+
       if (!fs.existsSync(configPath)) {
         console.error(`
 [MCP Server] Configuration file not found at: ${configPath}
@@ -762,7 +962,7 @@ Please create a config.json file with your Elasticsearch/Kibana settings:
   "elastic": { "node": "https://your-cluster.com", "apiKey": "..." },
   "kibana": { "node": "https://your-kibana.com", "apiKey": "..." },
   "useAI": true,
-  "openaiApiKey": "sk-..." 
+  "openaiApiKey": "sk-..."
 }
 
 See README-MCP.md for configuration details.
@@ -772,7 +972,7 @@ See README-MCP.md for configuration details.
 
       const transport = new StdioServerTransport();
       await this.server.connect(transport);
-      
+
       console.error('[MCP] Security Data Generator MCP Server ready');
     } catch (error) {
       console.error('[MCP] Server startup failed:', error);

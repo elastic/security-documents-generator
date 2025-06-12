@@ -5,7 +5,7 @@ Transform your existing AI-powered security data generator into a **Model Contex
 ## 🎯 What This Enables
 
 - **Conversational Security Data Generation**: Ask Claude to create specific attack scenarios
-- **Realistic Attack Campaigns**: Generate multi-stage attacks with proper log-to-alert progression  
+- **Realistic Attack Campaigns**: Generate multi-stage attacks with proper log-to-alert progression
 - **MITRE ATT&CK Integration**: Create data mapped to real-world techniques and tactics
 - **Investigation Training**: Generate correlated events perfect for SOC analyst training
 - **SIEM Testing**: Create realistic data for testing detection rules and dashboards
@@ -27,7 +27,7 @@ Create or update your `config.json` with Elasticsearch/Kibana credentials and AI
 {
   "elastic": {
     "node": "http://localhost:9200",
-    "username": "elastic", 
+    "username": "elastic",
     "password": "changeme"
   },
   "kibana": {
@@ -58,7 +58,7 @@ Create or update your `config.json` with Elasticsearch/Kibana credentials and AI
   "mcpServers": {
     "security-data-generator": {
       "command": "npx",
-      "args": ["tsx", "src/mcp-server.ts"],
+      "args": ["tsx", "src/mcp_server.ts"],
       "cwd": "/absolute/path/to/mcp-document-server"
     }
   }
@@ -71,7 +71,7 @@ Restart Claude Desktop, then start generating security data conversationally:
 
 **Basic Examples:**
 - "Generate 50 realistic security alerts with MITRE ATT&CK techniques"
-- "Create a ransomware attack campaign with 200 events across 10 hosts"  
+- "Create a ransomware attack campaign with 200 events across 10 hosts"
 - "Generate 1000 Windows authentication logs for the past week"
 
 **Advanced Examples:**
@@ -86,13 +86,13 @@ Generate AI-powered security alerts with optional MITRE ATT&CK integration.
 
 **Parameters:**
 - `alertCount` (number): Number of alerts to generate (default: 10)
-- `hostCount` (number): Number of unique hosts (default: 3) 
+- `hostCount` (number): Number of unique hosts (default: 3)
 - `userCount` (number): Number of unique users (default: 2)
 - `space` (string): Kibana space name (default: "default")
 - `useAI` (boolean): Use AI for generation (default: true)
 - `useMitre` (boolean): Include MITRE ATT&CK techniques (default: false)
 - `startDate` (string): Start date (e.g., "7d", "2024-01-01")
-- `endDate` (string): End date (e.g., "now", "2024-01-10") 
+- `endDate` (string): End date (e.g., "now", "2024-01-10")
 - `timePattern` (string): Time pattern (uniform, business_hours, random, attack_simulation, weekend_heavy)
 
 ### `generate_attack_campaign`
@@ -120,7 +120,7 @@ Generate realistic source logs for security analysis (Windows, Linux, network, e
 - `useAI` (boolean): Use AI for generation (default: false)
 - `logTypes` (array): Types of logs ['system', 'auth', 'network', 'endpoint'] (default: all)
 - `startDate` (string): Start date
-- `endDate` (string): End date  
+- `endDate` (string): End date
 - `timePattern` (string): Time pattern
 
 ### `generate_correlated_events`
@@ -313,7 +313,7 @@ The MCP server transforms the existing CLI-based security data generator into a 
                                               │ ┌──────────────────────────────────┐ │
                                               │ │  🤖 AI Integration Layer         │ │
                                               │ │  • AttackSimulationEngine        │ │
-                                              │ │  • RealisticAttackEngine         │ │  
+                                              │ │  • RealisticAttackEngine         │ │
                                               │ │  • CorrelatedAlertGenerator      │ │
                                               │ │  • LogCorrelationEngine          │ │
                                               │ └──────────────────────────────────┘ │
@@ -353,9 +353,9 @@ The MCP server transforms the existing CLI-based security data generator into a 
 
 ### Key Components
 
-**MCP Server Layer** (`src/mcp-server.ts`)
+**MCP Server Layer** (`src/mcp_server.ts`)
 - **Transport**: STDIO for seamless desktop integration
-- **Protocol**: JSON-RPC 2.0 following MCP specification  
+- **Protocol**: JSON-RPC 2.0 following MCP specification
 - **Tools**: 6 main tools exposing existing functionality
 - **Error Handling**: Comprehensive error capture and user-friendly messages
 - **Configuration**: Reuses existing `config.json` system
@@ -385,7 +385,7 @@ The MCP server transforms the existing CLI-based security data generator into a 
 ### Data Flow Architecture
 
 1. **Request Initiation**: AI client sends natural language request via MCP protocol
-2. **Tool Resolution**: MCP server maps request to appropriate tool and parameters  
+2. **Tool Resolution**: MCP server maps request to appropriate tool and parameters
 3. **Business Logic Execution**: Tool calls existing services with AI enhancement
 4. **Data Generation**: Realistic security data created using AI and correlation engines
 5. **Elasticsearch Indexing**: Generated data indexed to appropriate data streams
@@ -413,7 +413,7 @@ The MCP server transforms the existing CLI-based security data generator into a 
 **Problem**: Claude Desktop can't connect to MCP server
 ```bash
 # Check server can start manually
-npx tsx src/mcp-server.ts
+npx tsx src/mcp_server.ts
 
 # Common fixes:
 1. Ensure config.json exists with valid Elasticsearch credentials
@@ -580,7 +580,7 @@ mcp-document-server/
 ## 🚀 Ready to Start?
 
 1. **Clone & Configure**: Set up your `config.json` with Elasticsearch and AI credentials
-2. **Connect Claude**: Add MCP server to Claude Desktop configuration  
+2. **Connect Claude**: Add MCP server to Claude Desktop configuration
 3. **Generate Data**: Start with simple requests and scale to complex scenarios
 4. **Explore & Learn**: Use generated data for SIEM testing, SOC training, and security research
 

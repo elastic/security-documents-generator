@@ -8,7 +8,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck": "tsc --noEmit",
     "start": "tsx src/index",
-    "mcp": "tsx src/mcp-server.ts",
+    "mcp": "tsx src/mcp_server.ts",
     "lint": "eslint",
     "checks": "yarn typecheck && yarn lint"
   },
