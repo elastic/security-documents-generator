@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "security-data-generator": {
+      "command": "npx",
+      "args": ["tsx", "src/mcp-server.ts"],
+      "cwd": "/Users/enrique/workspace/experiment/mcp-document-server"
+    }
+  }
+}

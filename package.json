@@ -8,6 +8,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck": "tsc --noEmit",
     "start": "tsx src/index",
+    "mcp": "tsx src/mcp-server.ts",
     "lint": "eslint",
     "checks": "yarn typecheck && yarn lint"
   },
@@ -22,6 +23,7 @@
     "@elastic/elasticsearch": "^9.0.0",
     "@faker-js/faker": "^9.0.0",
     "@inquirer/prompts": "^7.3.1",
+    "@modelcontextprotocol/sdk": "^1.12.1",
     "chalk": "^5.2.0",
     "cli-progress": "^3.12.0",
     "commander": "^14.0.0",

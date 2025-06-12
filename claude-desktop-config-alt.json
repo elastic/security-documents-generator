@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "security-data-generator": {
+      "command": "/Users/enrique/workspace/experiment/mcp-document-server/mcp-server.sh"
+    }
+  }
+}
