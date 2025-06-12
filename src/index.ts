@@ -28,6 +28,7 @@ import {
   SUPPORTED_PAD_JOBS,
 } from './commands/privileged_access_detection_ml/privileged_access_detection_ml';
 import { promptForFileSelection } from './commands/utils/cli_utils';
+import { getEsClient } from './commands/utils/indices';
 
 await createConfigFileOnFirstRun();
 
@@ -217,6 +218,128 @@ program
       seed: parseIntBase10(seedAnswer),
       options: entityStoreAnswers,
     });
+  });
+
+program
+  .command('risk-score-ingest-bug')
+  .description('Generate risk score ingest bug data')
+  .option('-s <s>', 'space')
+  .action(async (options) => {
+    console.log(
+      `‼️ NOTE THIS SCRIPT MUST BE RUN AS SUPERUSER! ASK MARK FOR THE create_superuser.sh script ‼️ `,
+    );
+
+    const space = options.s || 'default';
+    initializeSpace(space);
+
+    await generateEntityStore({
+      space,
+      users: 10,
+      hosts: 10,
+      services: 10,
+      genericEntities: 0,
+      seed: 123456789,
+      options: [
+        ENTITY_STORE_OPTIONS.seed,
+        ENTITY_STORE_OPTIONS.criticality,
+        ENTITY_STORE_OPTIONS.riskEngine,
+        ENTITY_STORE_OPTIONS.rule,
+      ],
+    });
+
+    const pipelineId =
+      'entity_analytics_create_eventIngest_from_timestamp-pipeline-' + space;
+    const riskScoreLatestIndexName = 'risk-score.risk-score-latest-' + space;
+    const assetCriticalityIndexName =
+      '.asset-criticality.asset-criticality-' + space;
+
+    async function getBackingIndexFromDataStream(datastreamName: string) {
+      const response = await client.indices.getDataStream({
+        name: datastreamName,
+      });
+
+      const dataStream = response.data_streams[0];
+      const indices = dataStream.indices;
+      const latestBackingIndex = indices[indices.length - 1]?.index_name;
+
+      console.log(
+        `Latest backing index from _data_stream:`,
+        latestBackingIndex,
+      );
+      return latestBackingIndex;
+    }
+
+    const client = await getEsClient();
+
+    const indices = [assetCriticalityIndexName, riskScoreLatestIndexName];
+
+    const riskScoreBackingIndex = await getBackingIndexFromDataStream(
+      'risk-score.risk-score-' + space,
+    );
+
+    console.log(`Risk score backing index: ${riskScoreBackingIndex}`);
+
+    indices.push(riskScoreBackingIndex);
+
+    for (const index of indices) {
+      await client.indices.putSettings({
+        index,
+        settings: {
+          'index.default_pipeline': null,
+        },
+      });
+      console.log(`Removed default pipeline from index: ${index}`);
+    }
+
+    await client.ingest.deletePipeline({
+      id: pipelineId,
+    });
+
+    for (const index of [riskScoreLatestIndexName, riskScoreBackingIndex]) {
+      await client.indices.putSettings({
+        index,
+        settings: {
+          'index.default_pipeline': pipelineId,
+        },
+      });
+      console.log(`Added default pipeline for index: ${index}`);
+    }
+
+    console.log('downgrading risk engine mapping version');
+
+    await client.updateByQuery({
+      index: '.kibana_security_solution_9.1*',
+      query: {
+        bool: {
+          must: [
+            { term: { type: { value: 'risk-engine-configuration' } } },
+            { term: { namespaces: { value: space } } },
+          ],
+        },
+      },
+      script: {
+        source:
+          'ctx._source["risk-engine-configuration"]._meta.mappingsVersion = 3',
+        lang: 'painless',
+      },
+      conflicts: 'proceed',
+      refresh: true,
+    });
+
+    console.log('Risk score ingest bug setup completed');
+
+    console.log('downgrading asset criticality mapping version');
+
+    await client.indices.putMapping({
+      index: assetCriticalityIndexName,
+      _meta: {
+        version: 3,
+      },
+    });
+
+    console.log(
+      `Asset criticality mapping version downgraded for index: ${assetCriticalityIndexName}`,
+    );
   });
 
 program
