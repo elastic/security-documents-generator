@@ -26,6 +26,8 @@ export const SUPPORTED_PAD_JOBS = [
   'pad_linux_high_count_privileged_process_events_by_user',
 ];
 
+const LOGS_LINUX_INDEX = 'logs-linux';
+
 export const generatePrivilegedAccessDetectionData = async ({
   numberOfUsers,
   eventMultiplier,
@@ -34,9 +36,10 @@ export const generatePrivilegedAccessDetectionData = async ({
   eventMultiplier: number;
 }) => {
   try {
-    await deleteSourceIndex();
-    await createPrivilegedAccessDetectionSourceIndex();
+    await deleteSourceIndex(LOGS_LINUX_INDEX);
+    await createPrivilegedAccessDetectionSourceIndex(LOGS_LINUX_INDEX);
     await ingestIntoSourceIndex(
+      LOGS_LINUX_INDEX,
       getAllPrivilegedAccessDetectionEvents(numberOfUsers, eventMultiplier),
     );
   } catch (e) {
