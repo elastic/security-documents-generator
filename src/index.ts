@@ -18,20 +18,22 @@ import {
   uploadPerfDataFileInterval,
 } from './commands/entity_store_perf';
 import { checkbox, input } from '@inquirer/prompts';
-import {ENTITY_STORE_OPTIONS, generateNewSeed, PRIVILEGED_USER_MONITORING_OPTIONS} from './constants';
+import {
+  ENTITY_STORE_OPTIONS,
+  generateNewSeed,
+  PRIVILEGED_USER_MONITORING_OPTIONS,
+} from './constants';
 import { initializeSpace } from './utils';
 import { generateAssetCriticality } from './commands/asset_criticality';
 import { deleteAllRules, generateRulesAndAlerts } from './commands/rules';
 import { createConfigFileOnFirstRun } from './utils/create_config_on_first_run';
-import {
-  generatePrivilegedAccessDetectionData,
-} from './commands/privileged_access_detection_ml/privileged_access_detection_ml';
+import { generatePrivilegedAccessDetectionData } from './commands/privileged_access_detection_ml/privileged_access_detection_ml';
 import { promptForFileSelection } from './commands/utils/cli_utils';
-import {UserGenerator} from "./commands/privileged_access_detection_ml/event_generator";
-import {generatePrivilegedUserMonitoringData} from "./commands/privileged_user_monitoring/privileged_user_monitoring";
-import {generateCSVFile} from "./commands/privileged_user_monitoring/generate_csv_file";
-import {dirname} from "path";
-import {fileURLToPath} from "url";
+import { UserGenerator } from './commands/privileged_access_detection_ml/event_generator';
+import { generatePrivilegedUserMonitoringData } from './commands/privileged_user_monitoring/privileged_user_monitoring';
+import { generateCSVFile } from './commands/privileged_user_monitoring/generate_csv_file';
+import { dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 await createConfigFileOnFirstRun();
 
@@ -307,40 +309,55 @@ program
   )
   .action(async () => {
     const privilegedUserMonitoringAnswers = await checkbox<
-        keyof typeof PRIVILEGED_USER_MONITORING_OPTIONS
+      keyof typeof PRIVILEGED_USER_MONITORING_OPTIONS
     >({
-        message: 'Select options',
-        choices: [
-            {
-                name: 'Whether to generate basic source events for users',
-                value: PRIVILEGED_USER_MONITORING_OPTIONS.sourceEventData,
-                checked: true,
-            },
-            {
-                name: 'Whether to generate anomalous source events for users, matching the privileged access detection jobs',
-                value: PRIVILEGED_USER_MONITORING_OPTIONS.anomalyData,
-                checked: true,
-            },
-            {
-                name: 'Whether to create a CSV file with the user names, in order to upload during onboarding.',
-                value: PRIVILEGED_USER_MONITORING_OPTIONS.csvFile,
-                checked: true,
-            }
-        ],
+      message: 'Select options',
+      choices: [
+        {
+          name: 'Whether to generate basic source events for users',
+          value: PRIVILEGED_USER_MONITORING_OPTIONS.sourceEventData,
+          checked: true,
+        },
+        {
+          name: 'Whether to generate anomalous source events for users, matching the privileged access detection jobs',
+          value: PRIVILEGED_USER_MONITORING_OPTIONS.anomalyData,
+          checked: true,
+        },
+        {
+          name: 'Whether to create a CSV file with the user names, in order to upload during onboarding.',
+          value: PRIVILEGED_USER_MONITORING_OPTIONS.csvFile,
+          checked: true,
+        },
+      ],
     });
 
-    const userCount = Number(await input({
+    const userCount = Number(
+      await input({
         message: 'How many users',
         default: '10',
-    }));
+      }),
+    );
 
-    const users = UserGenerator.getUsers(userCount)
+    const users = UserGenerator.getUsers(userCount);
 
-    if (privilegedUserMonitoringAnswers.includes(PRIVILEGED_USER_MONITORING_OPTIONS.sourceEventData)) await generatePrivilegedUserMonitoringData({users});
-    if (privilegedUserMonitoringAnswers.includes(PRIVILEGED_USER_MONITORING_OPTIONS.anomalyData)) await generatePrivilegedAccessDetectionData({users});
-    if (privilegedUserMonitoringAnswers.includes(PRIVILEGED_USER_MONITORING_OPTIONS.csvFile)) await generateCSVFile({users});
+    if (
+      privilegedUserMonitoringAnswers.includes(
+        PRIVILEGED_USER_MONITORING_OPTIONS.sourceEventData,
+      )
+    )
+      await generatePrivilegedUserMonitoringData({ users });
+    if (
+      privilegedUserMonitoringAnswers.includes(
+        PRIVILEGED_USER_MONITORING_OPTIONS.anomalyData,
+      )
+    )
+      await generatePrivilegedAccessDetectionData({ users });
+    if (
+      privilegedUserMonitoringAnswers.includes(
+        PRIVILEGED_USER_MONITORING_OPTIONS.csvFile,
+      )
+    )
+      await generateCSVFile({ users });
   });
-
-
 
 program.parse();

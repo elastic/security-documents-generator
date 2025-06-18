@@ -3,13 +3,11 @@ import {
   deleteSourceIndex,
   ingestIntoSourceIndex,
 } from './index_management';
-import {User, UserEventGenerator} from './event_generator';
+import { User, UserEventGenerator } from './event_generator';
 
 const LOGS_LINUX_INDEX = 'logs-linux';
 
-const getAllPrivilegedAccessDetectionEvents = (
-  users: User[],
-) => {
+const getAllPrivilegedAccessDetectionEvents = (users: User[]) => {
   const events = [];
   const eventMultiplier = 1; // We want this value to be consistent for evenly distributed events and anomalous events
 

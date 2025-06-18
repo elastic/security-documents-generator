@@ -1,6 +1,8 @@
 import { getEsClient, indexCheck, ingest } from '../utils/indices';
 
-export const createPrivilegedAccessDetectionSourceIndex = async (index: string) => {
+export const createPrivilegedAccessDetectionSourceIndex = async (
+  index: string,
+) => {
   try {
     await indexCheck(index, {
       mappings: {
@@ -111,5 +113,7 @@ export const deleteSourceIndex = async (index: string) => {
   }
 };
 
-export const ingestIntoSourceIndex = async (index: string, documents: Array<object>) =>
-  await ingest(index, documents);
+export const ingestIntoSourceIndex = async (
+  index: string,
+  documents: Array<object>,
+) => await ingest(index, documents);
