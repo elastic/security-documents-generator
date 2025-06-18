@@ -46,6 +46,7 @@ export interface LogContext {
   isAttack?: boolean; // Whether this is an attack-related log
   hostPerformance?: 'low' | 'normal' | 'high'; // Host performance state
   timeOfDay?: 'business_hours' | 'off_hours' | 'weekend';
+  techniqueId?: string; // MITRE ATT&CK technique ID
 }
 
 /**
@@ -386,8 +387,9 @@ export class MultiFieldGenerator {
 
   private determineSeverity(baseLog: Record<string, any>): string {
     // Check existing severity fields
-    if (baseLog['event.severity'] || baseLog['log.level']) {
-      const level = (baseLog['event.severity'] || baseLog['log.level']).toLowerCase();
+    const severity = baseLog['event.severity'] || baseLog['log.level'];
+    if (severity && typeof severity === 'string') {
+      const level = severity.toLowerCase();
       if (['critical', 'error', 'high'].includes(level)) return 'high';
       if (['warning', 'warn', 'medium'].includes(level)) return 'medium';
       if (['info', 'debug', 'low'].includes(level)) return 'low';

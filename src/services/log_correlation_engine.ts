@@ -2,6 +2,7 @@ import { faker } from '@faker-js/faker';
 import { generateTimestamp } from '../utils/timestamp_utils';
 import type { BaseCreateAlertsReturnType } from '../create_alerts';
 import type { TimestampConfig } from '../utils/timestamp_utils';
+import { MultiFieldGenerator } from '../utils/multi_field_generator';
 
 export interface CorrelationConfig {
   hostName?: string;
@@ -9,6 +10,13 @@ export interface CorrelationConfig {
   timestampConfig?: TimestampConfig;
   alertTimestamp?: string;
   logCount?: number; // Number of supporting logs to generate
+  multiFieldConfig?: {
+    fieldCount: number;
+    categories?: string[];
+    performanceMode?: boolean;
+    contextWeightEnabled?: boolean;
+    correlationEnabled?: boolean;
+  };
 }
 
 export interface CorrelatedLogSet {
@@ -229,7 +237,29 @@ export class LogCorrelationEngine {
       ],
     });
 
-    return logs.slice(0, logCount);
+    const finalLogs = logs.slice(0, logCount);
+
+    // Apply multi-field generation if configured
+    if (config.multiFieldConfig) {
+      const multiFieldGenerator = new MultiFieldGenerator({
+        fieldCount: config.multiFieldConfig.fieldCount,
+        categories: config.multiFieldConfig.categories,
+        performanceMode: config.multiFieldConfig.performanceMode,
+        contextWeightEnabled: config.multiFieldConfig.contextWeightEnabled,
+        correlationEnabled: config.multiFieldConfig.correlationEnabled,
+      });
+
+      return finalLogs.map(log => {
+        const result = multiFieldGenerator.generateFields(log, {
+          logType: log['data_stream.dataset'] || 'security',
+          isAttack: true,
+          techniqueId: 'T1566.001',
+        });
+        return { ...log, ...result.fields };
+      });
+    }
+
+    return finalLogs;
   }
 
   /**
@@ -379,7 +409,29 @@ export class LogCorrelationEngine {
       'related.user': [userName],
     });
 
-    return logs.slice(0, logCount);
+    const finalLogs = logs.slice(0, logCount);
+
+    // Apply multi-field generation if configured
+    if (config.multiFieldConfig) {
+      const multiFieldGenerator = new MultiFieldGenerator({
+        fieldCount: config.multiFieldConfig.fieldCount,
+        categories: config.multiFieldConfig.categories,
+        performanceMode: config.multiFieldConfig.performanceMode,
+        contextWeightEnabled: config.multiFieldConfig.contextWeightEnabled,
+        correlationEnabled: config.multiFieldConfig.correlationEnabled,
+      });
+
+      return finalLogs.map(log => {
+        const result = multiFieldGenerator.generateFields(log, {
+          logType: log['data_stream.dataset'] || 'security',
+          isAttack: true,
+          techniqueId: 'T1059.001',
+        });
+        return { ...log, ...result.fields };
+      });
+    }
+
+    return finalLogs;
   }
 
   /**
@@ -505,7 +557,29 @@ export class LogCorrelationEngine {
       'related.user': [userName],
     });
 
-    return logs.slice(0, logCount);
+    const finalLogs = logs.slice(0, logCount);
+
+    // Apply multi-field generation if configured
+    if (config.multiFieldConfig) {
+      const multiFieldGenerator = new MultiFieldGenerator({
+        fieldCount: config.multiFieldConfig.fieldCount,
+        categories: config.multiFieldConfig.categories,
+        performanceMode: config.multiFieldConfig.performanceMode,
+        contextWeightEnabled: config.multiFieldConfig.contextWeightEnabled,
+        correlationEnabled: config.multiFieldConfig.correlationEnabled,
+      });
+
+      return finalLogs.map(log => {
+        const result = multiFieldGenerator.generateFields(log, {
+          logType: log['data_stream.dataset'] || 'security',
+          isAttack: true,
+          techniqueId: 'T1055',
+        });
+        return { ...log, ...result.fields };
+      });
+    }
+
+    return finalLogs;
   }
 
   /**

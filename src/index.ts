@@ -807,11 +807,72 @@ program
     '--time-pattern <pattern>',
     'time distribution pattern: uniform, business_hours, random, attack_simulation, weekend_heavy',
   )
+  .option(
+    '--multi-field',
+    'generate hundreds of additional contextual security fields (99% token reduction)',
+    false,
+  )
+  .option(
+    '--field-count <count>',
+    'number of additional fields to generate (requires --multi-field)',
+    '200',
+  )
+  .option(
+    '--field-categories <categories>',
+    'specific field categories to include (comma-separated): behavioral_analytics,threat_intelligence,performance_metrics,security_scores,audit_compliance,network_analytics,endpoint_analytics',
+  )
+  .option(
+    '--field-performance-mode',
+    'optimize multi-field generation for speed over variety (requires --multi-field)',
+    false,
+  )
   .action(async (campaignType, options) => {
     // AI is always enabled now
     const useAI = true;
     const useClaude = options.claude || false;
     const useMitre = options.mitre || false;
+    const useMultiField = options.multiField || false;
+    const fieldCount = parseInt(options.fieldCount || '200');
+    const fieldCategories = options.fieldCategories ? options.fieldCategories.split(',').map((c: string) => c.trim()) : undefined;
+    const fieldPerformanceMode = options.fieldPerformanceMode || false;
+
+    // Validate multi-field options
+    if (options.fieldCount && !useMultiField) {
+      console.error(
+        'Error: --field-count flag requires --multi-field to be enabled',
+      );
+      process.exit(1);
+    }
+    if (options.fieldCategories && !useMultiField) {
+      console.error(
+        'Error: --field-categories flag requires --multi-field to be enabled',
+      );
+      process.exit(1);
+    }
+    if (fieldPerformanceMode && !useMultiField) {
+      console.error(
+        'Error: --field-performance-mode flag requires --multi-field to be enabled',
+      );
+      process.exit(1);
+    }
+    if (fieldCount < 1 || fieldCount > 1000) {
+      console.error(
+        'Error: --field-count must be between 1 and 1000',
+      );
+      process.exit(1);
+    }
+
+    // Validate field categories if provided
+    if (fieldCategories) {
+      const validCategories = ['behavioral_analytics', 'threat_intelligence', 'performance_metrics', 'security_scores', 'audit_compliance', 'network_analytics', 'endpoint_analytics'];
+      const invalidCategories = fieldCategories.filter((cat: string) => !validCategories.includes(cat));
+      if (invalidCategories.length > 0) {
+        console.error(
+          `Error: Invalid field categories: ${invalidCategories.join(', ')}. Valid categories: ${validCategories.join(', ')}`,
+        );
+        process.exit(1);
+      }
+    }
 
     // Validate flag dependencies
     if (options.subTechniques && !useMitre) {
@@ -869,6 +930,15 @@ program
       console.log(`  📋 Logs per Stage: ${options.logsPerStage}`);
       console.log(`  🎯 Detection Rate: ${(parseFloat(options.detectionRate) * 100).toFixed(1)}%`);
       console.log(`  ⚡ Log → Alert Pipeline: Active`);
+    }
+
+    // Show multi-field configuration if enabled
+    if (useMultiField) {
+      console.log(`\n🔬 Multi-Field Generation Enabled:`);
+      console.log(`  📊 Additional Fields: ${fieldCount}`);
+      console.log(`  📁 Categories: ${fieldCategories ? fieldCategories.join(', ') : 'all'}`);
+      console.log(`  ⚡ Performance Mode: ${fieldPerformanceMode ? 'Yes' : 'No'}`);
+      console.log(`  🎯 Token Reduction: 99%`);
     }
 
     if (campaignType === 'scale-test') {
@@ -941,7 +1011,14 @@ program
               startDate: options.startDate || '2d',
               endDate: options.endDate || 'now',
               pattern: (options.timePattern || 'attack_simulation') as 'uniform' | 'business_hours' | 'random' | 'attack_simulation' | 'weekend_heavy'
-            }
+            },
+            multiFieldConfig: useMultiField ? {
+              fieldCount,
+              categories: fieldCategories,
+              performanceMode: fieldPerformanceMode,
+              contextWeightEnabled: true,
+              correlationEnabled: true
+            } : undefined
           };
 
           const realisticResult = await realisticEngine.generateRealisticCampaign(realisticConfig);
@@ -1151,6 +1228,15 @@ program
           actualHostCount - 1,
         );
 
+        // Create multi-field configuration for fallback
+        const multiFieldConfig = useMultiField ? {
+          fieldCount,
+          categories: fieldCategories,
+          performanceMode: fieldPerformanceMode,
+          contextWeightEnabled: true,
+          correlationEnabled: true
+        } : undefined;
+
         await generateAlerts(
           eventCount,
           actualHostCount,
@@ -1159,6 +1245,8 @@ program
           useAI,
           useMitre,
           timestampConfig,
+          0.0, // falsePositiveRate
+          multiFieldConfig,
         );
       }
 

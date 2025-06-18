@@ -26,6 +26,15 @@ export interface RealisticCampaignConfig {
   useAI: boolean;
   useMitre: boolean;
   timestampConfig?: TimestampConfig;
+
+  // Multi-field settings
+  multiFieldConfig?: {
+    fieldCount: number;
+    categories?: string[];
+    performanceMode?: boolean;
+    contextWeightEnabled?: boolean;
+    correlationEnabled?: boolean;
+  };
 }
 
 export interface RealisticCampaignResult {
@@ -185,6 +194,7 @@ export class RealisticAttackEngine {
                 pattern: 'attack_simulation',
               },
               logCount: config.logsPerStage,
+              multiFieldConfig: config.multiFieldConfig,
             });
 
           logs.push(...techniqueeLogs);
