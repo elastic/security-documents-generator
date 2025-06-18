@@ -6,25 +6,26 @@ let mcpModeActive = false;
 
 export function enableMCPMode() {
   if (mcpModeActive) return;
-  
+
   mcpModeActive = true;
-  
+
   // Store original functions
   originalStdoutWrite = process.stdout.write;
   originalConsoleLog = console.log;
-  
+
   // Override stdout.write to only allow MCP JSON
-  process.stdout.write = function(data: any, ...args: any[]) {
+  process.stdout.write = function (data: any, ...args: any[]) {
     if (typeof data === 'string') {
       const trimmed = data.trim();
       // Allow all valid JSON messages (MCP requests and responses)
-      if (trimmed.startsWith('{') && (
-          trimmed.includes('"jsonrpc"') || 
-          trimmed.includes('"method"') || 
-          trimmed.includes('"result"') || 
+      if (
+        trimmed.startsWith('{') &&
+        (trimmed.includes('"jsonrpc"') ||
+          trimmed.includes('"method"') ||
+          trimmed.includes('"result"') ||
           trimmed.includes('"error"') ||
-          trimmed.includes('"id"')
-        )) {
+          trimmed.includes('"id"'))
+      ) {
         return originalStdoutWrite.call(this, data, ...args);
       }
       // Block all other output including emojis and progress bars
@@ -33,16 +34,16 @@ export function enableMCPMode() {
     // For non-string data, redirect to stderr
     return process.stderr.write(data, ...args);
   };
-  
+
   // Override console.log to go to stderr
   console.log = (...args: any[]) => console.error('[LOG]', ...args);
 }
 
 export function disableMCPMode() {
   if (!mcpModeActive) return;
-  
+
   mcpModeActive = false;
-  
+
   // Restore original functions
   if (originalStdoutWrite) {
     process.stdout.write = originalStdoutWrite;

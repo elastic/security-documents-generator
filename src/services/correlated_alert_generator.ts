@@ -1,4 +1,7 @@
-import { LogCorrelationEngine, CorrelatedLogSet } from './log_correlation_engine';
+import {
+  LogCorrelationEngine,
+  CorrelatedLogSet,
+} from './log_correlation_engine';
 import createAlerts, { BaseCreateAlertsReturnType } from '../create_alerts';
 import { generateMITREAlert } from '../utils/ai_service';
 import { faker } from '@faker-js/faker';
@@ -16,7 +19,7 @@ export interface CorrelatedGenerationConfig {
 
 /**
  * Correlated Alert Generator
- * 
+ *
  * Generates security alerts along with their supporting source logs
  * to create realistic attack scenarios that would actually trigger
  * the generated alerts.
@@ -31,7 +34,9 @@ export class CorrelatedAlertGenerator {
   /**
    * Generate a single correlated alert with supporting logs
    */
-  async generateCorrelatedAlert(config: CorrelatedGenerationConfig = {}): Promise<CorrelatedLogSet> {
+  async generateCorrelatedAlert(
+    config: CorrelatedGenerationConfig = {},
+  ): Promise<CorrelatedLogSet> {
     const {
       hostName = faker.internet.domainName(),
       userName = faker.internet.username(),
@@ -39,7 +44,7 @@ export class CorrelatedAlertGenerator {
       timestampConfig,
       logVolumeMultiplier = 6,
       useAI = false,
-      useMitre = false
+      useMitre = false,
     } = config;
 
     let alert: BaseCreateAlertsReturnType;
@@ -50,26 +55,32 @@ export class CorrelatedAlertGenerator {
         hostName,
         userName,
         space,
-        examples: [createAlerts({}, { hostName, userName, space, timestampConfig })],
-        timestampConfig
+        examples: [
+          createAlerts({}, { hostName, userName, space, timestampConfig }),
+        ],
+        timestampConfig,
       });
     } else {
-      alert = createAlerts({}, {
-        hostName,
-        userName,
-        space,
-        timestampConfig
-      });
+      alert = createAlerts(
+        {},
+        {
+          hostName,
+          userName,
+          space,
+          timestampConfig,
+        },
+      );
     }
 
     // Generate correlated logs for this alert
-    const correlatedScenario = await this.correlationEngine.generateAttackScenario(alert, {
-      hostName,
-      userName,
-      timestampConfig,
-      logCount: logVolumeMultiplier,
-      alertTimestamp: alert['@timestamp']
-    });
+    const correlatedScenario =
+      await this.correlationEngine.generateAttackScenario(alert, {
+        hostName,
+        userName,
+        timestampConfig,
+        logCount: logVolumeMultiplier,
+        alertTimestamp: alert['@timestamp'],
+      });
 
     return correlatedScenario;
   }
@@ -79,12 +90,12 @@ export class CorrelatedAlertGenerator {
    */
   async generateCorrelatedAlertBatch(
     alertCount: number,
-    config: CorrelatedGenerationConfig = {}
+    config: CorrelatedGenerationConfig = {},
   ): Promise<CorrelatedLogSet[]> {
     const {
       hostName = faker.internet.domainName(),
       userName = faker.internet.username(),
-      logVolumeMultiplier = 6
+      logVolumeMultiplier = 6,
     } = config;
 
     const scenarios: CorrelatedLogSet[] = [];
@@ -94,35 +105,40 @@ export class CorrelatedAlertGenerator {
         const scenario = await this.generateCorrelatedAlert({
           ...config,
           hostName: hostName,
-          userName: userName
+          userName: userName,
         });
         scenarios.push(scenario);
 
         // Add small delay to avoid overwhelming APIs
         if (config.useAI && i < alertCount - 1) {
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await new Promise((resolve) => setTimeout(resolve, 200));
         }
       } catch (error) {
         console.error(`Error generating correlated alert ${i + 1}:`, error);
-        
-        // Fallback to standard alert generation
-        const fallbackAlert = createAlerts({}, {
-          hostName,
-          userName,
-          space: config.space,
-          timestampConfig: config.timestampConfig
-        });
 
-        const fallbackLogs = await this.correlationEngine.generateCorrelatedLogs(fallbackAlert, {
-          hostName,
-          userName,
-          logCount: logVolumeMultiplier
-        });
+        // Fallback to standard alert generation
+        const fallbackAlert = createAlerts(
+          {},
+          {
+            hostName,
+            userName,
+            space: config.space,
+            timestampConfig: config.timestampConfig,
+          },
+        );
+
+        const fallbackLogs =
+          await this.correlationEngine.generateCorrelatedLogs(fallbackAlert, {
+            hostName,
+            userName,
+            logCount: logVolumeMultiplier,
+          });
 
         scenarios.push({
           alert: fallbackAlert,
           supportingLogs: fallbackLogs,
-          attackNarrative: 'Fallback attack scenario: Basic detection with supporting evidence'
+          attackNarrative:
+            'Fallback attack scenario: Basic detection with supporting evidence',
         });
       }
     }
@@ -137,7 +153,7 @@ export class CorrelatedAlertGenerator {
     alertCount: number,
     targetHosts: string[],
     targetUsers: string[],
-    config: CorrelatedGenerationConfig = {}
+    config: CorrelatedGenerationConfig = {},
   ): Promise<{
     scenarios: CorrelatedLogSet[];
     campaignSummary: {
@@ -160,7 +176,9 @@ export class CorrelatedAlertGenerator {
     let earliestTime = new Date();
     let latestTime = new Date(0);
 
-    console.log(`Generating correlated attack campaign with ${alertCount} alerts...`);
+    console.log(
+      `Generating correlated attack campaign with ${alertCount} alerts...`,
+    );
 
     for (let i = 0; i < alertCount; i++) {
       const hostName = targetHosts[i % targetHosts.length];
@@ -170,17 +188,18 @@ export class CorrelatedAlertGenerator {
         const scenario = await this.generateCorrelatedAlert({
           ...config,
           hostName,
-          userName
+          userName,
         });
 
         scenarios.push(scenario);
         totalLogs += scenario.supportingLogs.length;
-        
+
         // Track attack metadata
         const alertAny = scenario.alert as any;
-        const technique = alertAny['threat.technique.id'] || 
-                         alertAny['threat.technique.name'] || 
-                         'Unknown';
+        const technique =
+          alertAny['threat.technique.id'] ||
+          alertAny['threat.technique.name'] ||
+          'Unknown';
         attackTypes.add(Array.isArray(technique) ? technique[0] : technique);
         affectedHosts.add(hostName);
         affectedUsers.add(userName);
@@ -192,12 +211,14 @@ export class CorrelatedAlertGenerator {
 
         // Progress indicator
         if ((i + 1) % 10 === 0) {
-          console.log(`Generated ${i + 1}/${alertCount} correlated scenarios...`);
+          console.log(
+            `Generated ${i + 1}/${alertCount} correlated scenarios...`,
+          );
         }
 
         // Throttle API calls
         if (config.useAI && i < alertCount - 1) {
-          await new Promise(resolve => setTimeout(resolve, 300));
+          await new Promise((resolve) => setTimeout(resolve, 300));
         }
       } catch (error) {
         console.error(`Error generating campaign scenario ${i + 1}:`, error);
@@ -212,13 +233,13 @@ export class CorrelatedAlertGenerator {
       affectedUsers: Array.from(affectedUsers),
       timeSpan: {
         start: earliestTime.toISOString(),
-        end: latestTime.toISOString()
-      }
+        end: latestTime.toISOString(),
+      },
     };
 
     return {
       scenarios,
-      campaignSummary
+      campaignSummary,
     };
   }
 
@@ -237,16 +258,16 @@ export class CorrelatedAlertGenerator {
     for (const scenario of scenarios) {
       // Add alert
       alerts.push(scenario.alert);
-      
+
       // Add supporting logs
       logs.push(...scenario.supportingLogs);
-      
+
       // Prepare alert for indexing
       indexOperations.push({
         create: {
           _index: '.alerts-security.alerts-default', // or determine from space
-          _id: scenario.alert['kibana.alert.uuid']
-        }
+          _id: scenario.alert['kibana.alert.uuid'],
+        },
       });
       indexOperations.push(scenario.alert);
 
@@ -259,8 +280,8 @@ export class CorrelatedAlertGenerator {
         indexOperations.push({
           create: {
             _index: indexName,
-            _id: faker.string.uuid()
-          }
+            _id: faker.string.uuid(),
+          },
         });
         indexOperations.push(log);
       }
@@ -269,7 +290,7 @@ export class CorrelatedAlertGenerator {
     return {
       alerts,
       logs,
-      indexOperations
+      indexOperations,
     };
   }
 }

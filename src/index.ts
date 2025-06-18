@@ -112,6 +112,25 @@ program
     'percentage of alerts to mark as false positives (0.0-1.0) for testing detection rules',
     '0.0',
   )
+  .option(
+    '--multi-field',
+    'generate hundreds of additional contextual security fields (99% token reduction)',
+    false,
+  )
+  .option(
+    '--field-count <count>',
+    'number of additional fields to generate (requires --multi-field)',
+    '200',
+  )
+  .option(
+    '--field-categories <categories>',
+    'specific field categories to include (comma-separated): behavioral_analytics,threat_intelligence,performance_metrics,security_scores,audit_compliance,network_analytics,endpoint_analytics',
+  )
+  .option(
+    '--field-performance-mode',
+    'optimize multi-field generation for speed over variety (requires --multi-field)',
+    false,
+  )
   .description(
     'Generate AI-powered security alerts with optional MITRE ATT&CK scenarios',
   )
@@ -124,6 +143,10 @@ program
     const useClaude = options.claude || false;
     const useMitre = options.mitre || false;
     const falsePositiveRate = parseFloat(options.falsePositiveRate || '0.0');
+    const useMultiField = options.multiField || false;
+    const fieldCount = parseInt(options.fieldCount || '200');
+    const fieldCategories = options.fieldCategories ? options.fieldCategories.split(',').map((c: string) => c.trim()) : undefined;
+    const fieldPerformanceMode = options.fieldPerformanceMode || false;
 
     // Validate false positive rate
     if (falsePositiveRate < 0.0 || falsePositiveRate > 1.0) {
@@ -131,6 +154,44 @@ program
         'Error: --false-positive-rate must be between 0.0 and 1.0',
       );
       process.exit(1);
+    }
+
+    // Validate multi-field options
+    if (options.fieldCount && !useMultiField) {
+      console.error(
+        'Error: --field-count flag requires --multi-field to be enabled',
+      );
+      process.exit(1);
+    }
+    if (options.fieldCategories && !useMultiField) {
+      console.error(
+        'Error: --field-categories flag requires --multi-field to be enabled',
+      );
+      process.exit(1);
+    }
+    if (fieldPerformanceMode && !useMultiField) {
+      console.error(
+        'Error: --field-performance-mode flag requires --multi-field to be enabled',
+      );
+      process.exit(1);
+    }
+    if (fieldCount < 1 || fieldCount > 1000) {
+      console.error(
+        'Error: --field-count must be between 1 and 1000',
+      );
+      process.exit(1);
+    }
+
+    // Validate field categories if provided
+    if (fieldCategories) {
+      const validCategories = ['behavioral_analytics', 'threat_intelligence', 'performance_metrics', 'security_scores', 'audit_compliance', 'network_analytics', 'endpoint_analytics'];
+      const invalidCategories = fieldCategories.filter((cat: string) => !validCategories.includes(cat));
+      if (invalidCategories.length > 0) {
+        console.error(
+          `Error: Invalid field categories: ${invalidCategories.join(', ')}. Valid categories: ${validCategories.join(', ')}`,
+        );
+        process.exit(1);
+      }
     }
 
     // Validate flag dependencies
@@ -152,7 +213,7 @@ program
       );
       process.exit(1);
     }
-    
+
     // Validate focus tactic exists in MITRE data
     if (options.focusTactic) {
       const validTactics = ['TA0001', 'TA0002', 'TA0003', 'TA0004', 'TA0005', 'TA0006', 'TA0007', 'TA0008', 'TA0009', 'TA0010', 'TA0011', 'TA0040'];
@@ -186,6 +247,24 @@ program
       pattern: options.timePattern,
     };
 
+    // Show multi-field configuration if enabled
+    if (useMultiField) {
+      console.log(`\n🔬 Multi-Field Generation Enabled:`);
+      console.log(`  📊 Additional Fields: ${fieldCount}`);
+      console.log(`  📁 Categories: ${fieldCategories ? fieldCategories.join(', ') : 'all'}`);
+      console.log(`  ⚡ Performance Mode: ${fieldPerformanceMode ? 'Yes' : 'No'}`);
+      console.log(`  🎯 Token Reduction: 99%`);
+    }
+
+    // Create multi-field configuration
+    const multiFieldConfig = useMultiField ? {
+      fieldCount,
+      categories: fieldCategories,
+      performanceMode: fieldPerformanceMode,
+      contextWeightEnabled: true,
+      correlationEnabled: true
+    } : undefined;
+
     generateAlerts(
       alertsCount,
       userCount,
@@ -195,6 +274,7 @@ program
       useMitre,
       timestampConfig,
       falsePositiveRate,
+      multiFieldConfig,
     );
   });
 
@@ -290,12 +370,47 @@ program
     '--time-pattern <pattern>',
     'time distribution pattern: uniform, business_hours, random, attack_simulation, weekend_heavy',
   )
+  .option(
+    '--multi-field',
+    'generate hundreds of additional contextual security fields (99% token reduction)',
+    false,
+  )
+  .option(
+    '--field-count <count>',
+    'number of additional fields to generate (requires --multi-field)',
+    '200',
+  )
+  .option(
+    '--field-categories <categories>',
+    'specific field categories to include (comma-separated): behavioral_analytics,threat_intelligence,performance_metrics,security_scores,audit_compliance,network_analytics,endpoint_analytics',
+  )
+  .option(
+    '--field-performance-mode',
+    'optimize multi-field generation for speed over variety (requires --multi-field)',
+    false,
+  )
+  .option(
+    '--session-view',
+    'generate Session View compatible data with process hierarchies and terminal output',
+    false,
+  )
+  .option(
+    '--visual-analyzer',
+    'generate Visual Event Analyzer compatible data with process entity tracking',
+    false,
+  )
   .action(async (options) => {
     const logCount = parseInt(options.n || '1000');
     const hostCount = parseInt(options.h || '10');
     const userCount = parseInt(options.u || '5');
     const useAI = options.claude || false;
     const logTypes = options.types.split(',').map((t: string) => t.trim());
+    const useMultiField = options.multiField || false;
+    const fieldCount = parseInt(options.fieldCount || '200');
+    const fieldCategories = options.fieldCategories ? options.fieldCategories.split(',').map((c: string) => c.trim()) : undefined;
+    const fieldPerformanceMode = options.fieldPerformanceMode || false;
+    const sessionView = options.sessionView || false;
+    const visualAnalyzer = options.visualAnalyzer || false;
 
     // Validate log types
     const validTypes = ['system', 'auth', 'network', 'endpoint'];
@@ -307,9 +422,63 @@ program
       process.exit(1);
     }
 
+    // Validate multi-field options
+    if (options.fieldCount && !useMultiField) {
+      console.error(
+        'Error: --field-count flag requires --multi-field to be enabled',
+      );
+      process.exit(1);
+    }
+    if (options.fieldCategories && !useMultiField) {
+      console.error(
+        'Error: --field-categories flag requires --multi-field to be enabled',
+      );
+      process.exit(1);
+    }
+    if (fieldPerformanceMode && !useMultiField) {
+      console.error(
+        'Error: --field-performance-mode flag requires --multi-field to be enabled',
+      );
+      process.exit(1);
+    }
+    if (fieldCount < 1 || fieldCount > 1000) {
+      console.error(
+        'Error: --field-count must be between 1 and 1000',
+      );
+      process.exit(1);
+    }
+
+    // Validate field categories if provided
+    if (fieldCategories) {
+      const validCategories = ['behavioral_analytics', 'threat_intelligence', 'performance_metrics', 'security_scores', 'audit_compliance', 'network_analytics', 'endpoint_analytics'];
+      const invalidCategories = fieldCategories.filter((cat: string) => !validCategories.includes(cat));
+      if (invalidCategories.length > 0) {
+        console.error(
+          `Error: Invalid field categories: ${invalidCategories.join(', ')}. Valid categories: ${validCategories.join(', ')}`,
+        );
+        process.exit(1);
+      }
+    }
+
     // Apply Phase 3 configuration overrides if Claude is used
     if (options.claude) {
       applyPhase3ConfigOverrides({ ...options, subTechniques: false, attackChains: false, largeScale: false });
+    }
+
+    // Show multi-field configuration if enabled
+    if (useMultiField) {
+      console.log(`\n🔬 Multi-Field Generation Enabled:`);
+      console.log(`  📊 Additional Fields: ${fieldCount}`);
+      console.log(`  📁 Categories: ${fieldCategories ? fieldCategories.join(', ') : 'all'}`);
+      console.log(`  ⚡ Performance Mode: ${fieldPerformanceMode ? 'Yes' : 'No'}`);
+      console.log(`  🎯 Token Reduction: 99%`);
+    }
+
+    // Show Session View and Visual Analyzer configuration
+    if (sessionView || visualAnalyzer) {
+      console.log(`\n🔍 Enhanced Analysis Features:`);
+      if (sessionView) console.log(`  📱 Session View: Process hierarchies and terminal output`);
+      if (visualAnalyzer) console.log(`  👁️ Visual Event Analyzer: Process entity tracking`);
     }
 
     // Pass timestamp configuration options
@@ -319,6 +488,15 @@ program
       pattern: options.timePattern,
     };
 
+    // Create multi-field configuration
+    const multiFieldConfig = useMultiField ? {
+      fieldCount,
+      categories: fieldCategories,
+      performanceMode: fieldPerformanceMode,
+      contextWeightEnabled: true,
+      correlationEnabled: true
+    } : undefined;
+
     await generateLogs(
       logCount,
       hostCount,
@@ -326,6 +504,9 @@ program
       useAI,
       logTypes,
       timestampConfig,
+      multiFieldConfig,
+      sessionView,
+      visualAnalyzer,
     );
   });
 
@@ -366,11 +547,11 @@ program
 
     // Apply Phase 3 configuration overrides if flags are used
     if (options.claude || options.mitre) {
-      applyPhase3ConfigOverrides({ 
-        ...options, 
-        subTechniques: false, 
-        attackChains: false, 
-        largeScale: false 
+      applyPhase3ConfigOverrides({
+        ...options,
+        subTechniques: false,
+        attackChains: false,
+        largeScale: false
       });
     }
 
@@ -462,7 +643,7 @@ program
   .action(async (options) => {
     try {
       const logTypes = options.types.split(',').map((t: string) => t.trim());
-      
+
       // Validate log types
       const validTypes = ['system', 'auth', 'network', 'endpoint'];
       const invalidTypes = logTypes.filter((type: string) => !validTypes.includes(type));
@@ -681,7 +862,7 @@ program
       );
     }
     console.log(`  📁 Space: ${options.space}`);
-    
+
     // Show realistic mode configuration
     if (options.realistic) {
       console.log(`\n🔗 Realistic Mode Enabled:`);
@@ -741,10 +922,10 @@ program
         if (options.realistic) {
           // Use realistic attack engine instead
           console.log('\n🎭 Initializing Realistic Attack Engine...');
-          
+
           const { RealisticAttackEngine } = await import('./services/realistic_attack_engine');
           const realisticEngine = new RealisticAttackEngine();
-          
+
           const realisticConfig = {
             campaignType: campaignType as 'apt' | 'ransomware' | 'insider' | 'supply_chain',
             complexity: options.complexity as 'low' | 'medium' | 'high' | 'expert',
@@ -762,9 +943,9 @@ program
               pattern: (options.timePattern || 'attack_simulation') as 'uniform' | 'business_hours' | 'random' | 'attack_simulation' | 'weekend_heavy'
             }
           };
-          
+
           const realisticResult = await realisticEngine.generateRealisticCampaign(realisticConfig);
-          
+
           console.log(`\n🎊 Realistic Campaign Generated Successfully:`);
           console.log(`  🎯 Attack Stages: ${realisticResult.campaign.stages.length}`);
           console.log(`  ⚔️  Campaign: ${realisticResult.campaign.campaign.name}`);
@@ -773,36 +954,36 @@ program
           console.log(`  🚨 Detected Alerts: ${realisticResult.detectedAlerts.length}`);
           console.log(`  ⚪ Missed Activities: ${realisticResult.missedActivities.length}`);
           console.log(`  📅 Timeline: ${realisticResult.timeline.stages.length} events`);
-          
+
           // Display investigation guide
           console.log(`\n📖 Investigation Guide:`);
           realisticResult.investigationGuide.slice(0, 3).forEach(step => {
             console.log(`  ${step.step}. ${step.action}`);
           });
-          
+
           // Index the data to Elasticsearch
           console.log('\n📤 Indexing realistic campaign data...');
-          
+
           // Import necessary functions
           const { getEsClient } = await import('./commands/utils/indices');
           const { indexCheck } = await import('./commands/utils/indices');
           const logMappings = await import('./mappings/log_mappings.json', { assert: { type: 'json' } });
-          
+
           const client = getEsClient();
           const indexOperations: unknown[] = [];
-          
+
           // Index all stage logs
           for (const stage of realisticResult.stageLogs) {
             for (const log of stage.logs) {
               const dataset = log['data_stream.dataset'] || 'generic.log';
               const namespace = log['data_stream.namespace'] || 'default';
               const indexName = `logs-${dataset}-${namespace}`;
-              
+
               // Ensure index exists
               await indexCheck(indexName, {
                 mappings: logMappings.default as any,
               });
-              
+
               indexOperations.push({
                 create: {
                   _index: indexName,
@@ -812,7 +993,7 @@ program
               indexOperations.push(log);
             }
           }
-          
+
           // Index detected alerts
           const alertIndex = `.internal.alerts-security.alerts-${options.space}-000001`;
           for (const alert of realisticResult.detectedAlerts) {
@@ -824,20 +1005,20 @@ program
             });
             indexOperations.push(alert);
           }
-          
+
           // Bulk index everything
           if (indexOperations.length > 0) {
             const batchSize = 1000;
             for (let i = 0; i < indexOperations.length; i += batchSize) {
               const batch = indexOperations.slice(i, i + batchSize);
               await client.bulk({ operations: batch, refresh: true });
-              
+
               if (i + batchSize < indexOperations.length) {
                 process.stdout.write('.');
               }
             }
           }
-          
+
           console.log('\n\n🎉 Realistic Campaign Complete!');
           console.log(`📍 View in Kibana space: ${options.space}`);
           console.log(`🔍 Filter logs with: logs-*`);
@@ -919,22 +1100,22 @@ program
 
         // Index the generated events to Elasticsearch
         console.log(`\n📤 Indexing ${result.length} events to Elasticsearch...`);
-        
+
         // Import required functions for indexing
         const { getAlertIndex } = await import('./utils');
         const { getEsClient } = await import('./commands/utils/indices');
-        
+
         // Convert alerts to bulk operations
         const alertIndex = getAlertIndex(options.space);
         const bulkOps: unknown[] = [];
-        
+
         for (const alert of result) {
           bulkOps.push(
             { index: { _index: alertIndex, _id: alert['kibana.alert.uuid'] } },
             { ...alert },
           );
         }
-        
+
         // Bulk index to Elasticsearch
         const client = getEsClient();
         try {

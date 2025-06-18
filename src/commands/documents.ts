@@ -19,7 +19,11 @@ import {
   cleanupAIService,
 } from '../utils/ai_service';
 import { TimestampConfig } from '../utils/timestamp_utils';
-import { applyFalsePositiveLogic, generateFalsePositiveStats } from '../utils/false_positive_generator';
+import {
+  applyFalsePositiveLogic,
+  generateFalsePositiveStats,
+} from '../utils/false_positive_generator';
+import { MultiFieldGenerator } from '../utils/multi_field_generator';
 
 const generateDocs = async ({
   createDocs,
@@ -58,21 +62,25 @@ const bulkUpsert = async (docs: unknown[]) => {
 
   try {
     const result = await client.bulk({ operations: docs, refresh: true });
-    
+
     if (result.errors) {
       // Only show errors, not successful operations
-      const errors = result.items.filter((item: any) => 
-        item.create?.error || item.index?.error
+      const errors = result.items.filter(
+        (item: any) => item.create?.error || item.index?.error,
       );
       if (errors.length > 0) {
-        console.log(`Warning: ${errors.length} documents failed to index:`, 
-          errors.slice(0, 2).map((item: any) => 
-            item.create?.error?.reason || item.index?.error?.reason
-          )
+        console.log(
+          `Warning: ${errors.length} documents failed to index:`,
+          errors
+            .slice(0, 2)
+            .map(
+              (item: any) =>
+                item.create?.error?.reason || item.index?.error?.reason,
+            ),
         );
       }
     }
-    
+
     return result;
   } catch (err) {
     console.log('Error in bulkUpsert: ', err);
@@ -226,6 +234,13 @@ export const generateAlerts = async (
   useMitre = false,
   timestampConfig?: TimestampConfig,
   falsePositiveRate = 0.0,
+  multiFieldConfig?: {
+    fieldCount: number;
+    categories?: string[];
+    performanceMode?: boolean;
+    contextWeightEnabled?: boolean;
+    correlationEnabled?: boolean;
+  },
 ) => {
   if (userCount > alertCount) {
     console.log('User count should be less than alert count');
@@ -241,7 +256,11 @@ export const generateAlerts = async (
     `Generating ${alertCount} alerts containing ${hostCount} hosts and ${userCount} users in space ${space}${
       useAI ? ' using AI' : ''
     }${useMitre ? ' with MITRE ATT&CK' : ''}${
-      falsePositiveRate > 0 ? ` (${(falsePositiveRate * 100).toFixed(1)}% false positives)` : ''
+      multiFieldConfig ? ` with ${multiFieldConfig.fieldCount} additional fields` : ''
+    }${
+      falsePositiveRate > 0
+        ? ` (${(falsePositiveRate * 100).toFixed(1)}% false positives)`
+        : ''
     }`,
   );
 
@@ -257,7 +276,6 @@ export const generateAlerts = async (
     }
     process.exit(1);
   }
-
 
   if (useMitre && !config.mitre?.enabled) {
     console.log(
@@ -284,6 +302,26 @@ export const generateAlerts = async (
       timestampConfig,
     });
 
+    // Apply multi-field generation if enabled
+    if (multiFieldConfig) {
+      const multiFieldGenerator = new MultiFieldGenerator({
+        fieldCount: multiFieldConfig.fieldCount,
+        categories: multiFieldConfig.categories,
+        performanceMode: multiFieldConfig.performanceMode,
+        contextWeightEnabled: multiFieldConfig.contextWeightEnabled,
+        correlationEnabled: multiFieldConfig.correlationEnabled,
+      });
+
+      const result = multiFieldGenerator.generateFields(alert, {
+        logType: 'security',
+        isAttack: true, // Alerts typically represent security incidents
+        severity: 'medium', // Default severity for alerts
+      });
+
+      // Merge multi-fields into the alert
+      alert = { ...alert, ...result.fields };
+    }
+
     // Apply false positive logic if enabled
     if (falsePositiveRate > 0) {
       const alertsArray = applyFalsePositiveLogic([alert], falsePositiveRate);
@@ -308,6 +346,56 @@ export const generateAlerts = async (
   }));
 
   // If AI is enabled, use a different approach for generation
+  // However, if multi-field is enabled with high field count, we can skip AI batch processing
+  // since multi-field generation provides rich data without AI overhead and batch complexity
+  const skipAIBatch = multiFieldConfig && multiFieldConfig.fieldCount > 100;
+  
+  if (useAI && config.useAI && !skipAIBatch) {
+    console.log(
+      `Using AI for alert generation${useMitre ? ' with MITRE ATT&CK' : ''}...`,
+    );
+  } else if (skipAIBatch) {
+    console.log(
+      `Using high-performance template generation with ${multiFieldConfig?.fieldCount} enriched fields (skipping AI batch for performance)...`,
+    );
+  
+    // Use the standard batch processing for template generation with multi-field enrichment
+    const batchedAlertEntities = chunk(alertEntityNames, batchSize);
+    const operations: unknown[] = [];
+    
+    const progress = new cliProgress.SingleBar(
+      {},
+      cliProgress.Presets.shades_classic,
+    );
+    progress.start(alertCount, 0);
+
+    await pMap(
+      batchedAlertEntities,
+      async (alertBatch) => {
+        for (const alertEntity of alertBatch) {
+          const batchOps = batchOpForIndex(alertEntity);
+          operations.push(...batchOps);
+          progress.increment();
+        }
+      },
+      { concurrency },
+    );
+
+    progress.stop();
+
+    // Bulk insert the operations
+    const client = getEsClient();
+    try {
+      await client.bulk({ operations, refresh: true });
+      console.log(`✅ Successfully indexed ${alertCount} alerts with multi-field enrichment`);
+    } catch (error) {
+      console.error('❌ Error indexing enriched alerts:', error);
+      throw error;
+    }
+
+    return;
+  }
+  
   if (useAI && config.useAI) {
     console.log(
       `Using AI for alert generation${useMitre ? ' with MITRE ATT&CK' : ''}...`,
@@ -404,9 +492,34 @@ export const generateAlerts = async (
             });
           }
 
+          // Apply multi-field generation if enabled
+          if (multiFieldConfig) {
+            const multiFieldGenerator = new MultiFieldGenerator({
+              fieldCount: multiFieldConfig.fieldCount,
+              categories: multiFieldConfig.categories,
+              performanceMode: multiFieldConfig.performanceMode,
+              contextWeightEnabled: multiFieldConfig.contextWeightEnabled,
+              correlationEnabled: multiFieldConfig.correlationEnabled,
+            });
+
+            generatedAlerts = generatedAlerts.map(alert => {
+              const alertRecord = alert as Record<string, any>;
+              const result = multiFieldGenerator.generateFields(alert, {
+                logType: 'security',
+                isAttack: useMitre || alertRecord['threat.technique.id'] !== undefined,
+                severity: alertRecord['event.severity'] || 'medium',
+              });
+
+              return { ...alert, ...result.fields };
+            });
+          }
+
           // Apply false positive logic if enabled
           if (falsePositiveRate > 0) {
-            generatedAlerts = applyFalsePositiveLogic(generatedAlerts, falsePositiveRate);
+            generatedAlerts = applyFalsePositiveLogic(
+              generatedAlerts,
+              falsePositiveRate,
+            );
           }
 
           // Add the generated alerts to the chunk operations
@@ -439,7 +552,10 @@ export const generateAlerts = async (
 
             // Apply false positive logic to fallback alerts too
             if (falsePositiveRate > 0) {
-              const alertsArray = applyFalsePositiveLogic([alert], falsePositiveRate);
+              const alertsArray = applyFalsePositiveLogic(
+                [alert],
+                falsePositiveRate,
+              );
               alert = alertsArray[0];
             }
 
@@ -508,9 +624,13 @@ export const generateAlerts = async (
       // Since we can't easily access them here, we'll show expected stats
       const expectedFalsePositives = Math.round(alertCount * falsePositiveRate);
       console.log(`\n📊 False Positive Statistics:`);
-      console.log(`  🎯 Expected False Positives: ~${expectedFalsePositives} (${(falsePositiveRate * 100).toFixed(1)}%)`);
+      console.log(
+        `  🎯 Expected False Positives: ~${expectedFalsePositives} (${(falsePositiveRate * 100).toFixed(1)}%)`,
+      );
       console.log(`  ✅ Alerts marked as resolved with workflow reasons`);
-      console.log(`  📋 Categories: maintenance, authorized_tools, normal_business, false_detection`);
+      console.log(
+        `  📋 Categories: maintenance, authorized_tools, normal_business, false_detection`,
+      );
     }
 
     // Cleanup AI service to allow process to exit cleanly
@@ -551,9 +671,13 @@ export const generateAlerts = async (
   if (falsePositiveRate > 0) {
     const expectedFalsePositives = Math.round(alertCount * falsePositiveRate);
     console.log(`\n📊 False Positive Statistics:`);
-    console.log(`  🎯 Expected False Positives: ~${expectedFalsePositives} (${(falsePositiveRate * 100).toFixed(1)}%)`);
+    console.log(
+      `  🎯 Expected False Positives: ~${expectedFalsePositives} (${(falsePositiveRate * 100).toFixed(1)}%)`,
+    );
     console.log(`  ✅ Alerts marked as resolved with workflow reasons`);
-    console.log(`  📋 Categories: maintenance, authorized_tools, normal_business, false_detection`);
+    console.log(
+      `  📋 Categories: maintenance, authorized_tools, normal_business, false_detection`,
+    );
   }
 
   // Cleanup AI service to allow process to exit cleanly
@@ -609,19 +733,21 @@ export const generateEvents = async (
   }
 };
 
-export const deleteAllLogs = async (logTypes: string[] = ['system', 'auth', 'network', 'endpoint']) => {
+export const deleteAllLogs = async (
+  logTypes: string[] = ['system', 'auth', 'network', 'endpoint'],
+) => {
   console.log(`Deleting all logs from types: ${logTypes.join(', ')}...`);
 
   const { getLogIndexForType } = await import('../log_generators');
   const { getEsClient } = await import('./utils/indices');
-  
+
   try {
     const client = getEsClient();
-    
+
     // Delete logs from each specified type
     for (const logType of logTypes) {
       const indexPattern = getLogIndexForType(logType, '*'); // Use wildcard for all namespaces
-      
+
       try {
         console.log(`Deleting logs from ${indexPattern}...`);
         await client.deleteByQuery({
@@ -634,13 +760,15 @@ export const deleteAllLogs = async (logTypes: string[] = ['system', 'auth', 'net
         console.log(`Deleted logs from ${logType} indices`);
       } catch (error: any) {
         if (error.meta?.statusCode === 404) {
-          console.log(`No ${logType} indices found (this is normal if none were created)`);
+          console.log(
+            `No ${logType} indices found (this is normal if none were created)`,
+          );
         } else {
           console.error(`Failed to delete ${logType} logs:`, error.message);
         }
       }
     }
-    
+
     console.log('Log deletion completed');
   } catch (error) {
     console.error('Failed to delete logs:', error);
@@ -656,10 +784,25 @@ export const generateLogs = async (
   useAI = false,
   logTypes: string[] = ['system', 'auth', 'network', 'endpoint'],
   timestampConfig?: TimestampConfig,
+  multiFieldConfig?: {
+    fieldCount: number;
+    categories?: string[];
+    performanceMode?: boolean;
+    contextWeightEnabled?: boolean;
+    correlationEnabled?: boolean;
+  },
+  sessionView = false,
+  visualAnalyzer = false,
 ) => {
   console.log(
     `Generating ${logCount} realistic source logs across ${logTypes.join(', ')} with ${hostCount} hosts and ${userCount} users${
       useAI ? ' using AI' : ''
+    }${
+      multiFieldConfig ? ` with ${multiFieldConfig.fieldCount} additional fields` : ''
+    }${
+      sessionView ? ' (Session View compatible)' : ''
+    }${
+      visualAnalyzer ? ' (Visual Analyzer compatible)' : ''
     }`,
   );
 
@@ -678,7 +821,9 @@ export const generateLogs = async (
     detectLogType,
     getDatasetForLogType,
   } = await import('../log_generators');
-  const logMappings = await import('../mappings/log_mappings.json', { assert: { type: 'json' } });
+  const logMappings = await import('../mappings/log_mappings.json', {
+    assert: { type: 'json' },
+  });
 
   // Generate entity names
   console.log('Generating entity names...');
@@ -708,19 +853,46 @@ export const generateLogs = async (
 
   // Pre-create indices with mappings
   const usedIndices = new Set<string>();
-  
+
   for (let i = 0; i < logCount; i++) {
     const userName = userNames[i % userCount];
     const hostName = hostNames[i % hostCount];
 
     try {
       // Generate realistic log
-      const log = createRealisticLog({}, {
-        hostName,
-        userName,
-        timestampConfig,
-        logTypeWeights,
-      });
+      let log = createRealisticLog(
+        {},
+        {
+          hostName,
+          userName,
+          timestampConfig,
+          logTypeWeights,
+        },
+      );
+
+      // Apply multi-field generation if enabled
+      if (multiFieldConfig) {
+        const multiFieldGenerator = new MultiFieldGenerator({
+          fieldCount: multiFieldConfig.fieldCount,
+          categories: multiFieldConfig.categories,
+          performanceMode: multiFieldConfig.performanceMode,
+          contextWeightEnabled: multiFieldConfig.contextWeightEnabled,
+          correlationEnabled: multiFieldConfig.correlationEnabled,
+        });
+
+        const logType = log['data_stream.dataset']?.includes('auth') ? 'auth' :
+                       log['data_stream.dataset']?.includes('network') ? 'network' :
+                       log['data_stream.dataset']?.includes('endpoint') ? 'endpoint' : 'system';
+
+        const result = multiFieldGenerator.generateFields(log, {
+          logType,
+          isAttack: log['threat.technique.id'] !== undefined || log['event.action']?.includes('suspicious'),
+          severity: log['event.severity'] || log['log.level'] || 'info',
+        });
+
+        // Merge multi-fields into the log
+        log = { ...log, ...result.fields };
+      }
 
       // Use the actual dataset from the log to determine the index
       const dataset = log['data_stream.dataset'] || 'generic.log';
@@ -776,7 +948,9 @@ export const generateLogs = async (
   }
 
   progress.stop();
-  console.log(`Generated ${logCount} realistic source logs across multiple indices`);
+  console.log(
+    `Generated ${logCount} realistic source logs across multiple indices`,
+  );
   console.log(`Used indices: ${Array.from(usedIndices).join(', ')}`);
 
   // Cleanup AI service if used
@@ -799,29 +973,32 @@ export const generateCorrelatedCampaign = async (
   console.log(
     `Generating ${alertCount} correlated alerts with supporting logs across ${hostCount} hosts and ${userCount} users${
       useAI ? ' using AI' : ''
-    }${useMitre ? ' with MITRE ATT&CK' : ''}`
+    }${useMitre ? ' with MITRE ATT&CK' : ''}`,
   );
 
   const config = getConfig();
   if (useAI && !config.useAI) {
     console.log(
-      'AI generation requested but not enabled in config. Set "useAI": true in config.json'
+      'AI generation requested but not enabled in config. Set "useAI": true in config.json',
     );
     process.exit(1);
   }
 
-
   // Import the correlated alert generator
-  const { CorrelatedAlertGenerator } = await import('../services/correlated_alert_generator');
-  const logMappings = await import('../mappings/log_mappings.json', { assert: { type: 'json' } });
+  const { CorrelatedAlertGenerator } = await import(
+    '../services/correlated_alert_generator'
+  );
+  const logMappings = await import('../mappings/log_mappings.json', {
+    assert: { type: 'json' },
+  });
 
   // Generate entity names
   console.log('Generating target entities...');
   const userNames = Array.from({ length: userCount }, () =>
-    faker.internet.username()
+    faker.internet.username(),
   );
   const hostNames = Array.from({ length: hostCount }, () =>
-    faker.internet.domainName()
+    faker.internet.domainName(),
   );
 
   console.log('Initializing correlation engine...');
@@ -829,7 +1006,7 @@ export const generateCorrelatedCampaign = async (
 
   const progress = new cliProgress.SingleBar(
     {},
-    cliProgress.Presets.shades_classic
+    cliProgress.Presets.shades_classic,
   );
 
   progress.start(alertCount, 0);
@@ -845,32 +1022,44 @@ export const generateCorrelatedCampaign = async (
         useAI,
         useMitre,
         timestampConfig,
-        logVolumeMultiplier
-      }
+        logVolumeMultiplier,
+      },
     );
 
     progress.stop();
 
     console.log('\n📊 Campaign Summary:');
     console.log(`  🚨 Total Alerts: ${campaign.campaignSummary.totalAlerts}`);
-    console.log(`  📋 Total Supporting Logs: ${campaign.campaignSummary.totalLogs}`);
-    console.log(`  🎯 Attack Types: ${campaign.campaignSummary.attackTypes.join(', ')}`);
-    console.log(`  🏠 Affected Hosts: ${campaign.campaignSummary.affectedHosts.length}`);
-    console.log(`  👥 Affected Users: ${campaign.campaignSummary.affectedUsers.length}`);
-    console.log(`  ⏰ Time Span: ${campaign.campaignSummary.timeSpan.start} → ${campaign.campaignSummary.timeSpan.end}`);
+    console.log(
+      `  📋 Total Supporting Logs: ${campaign.campaignSummary.totalLogs}`,
+    );
+    console.log(
+      `  🎯 Attack Types: ${campaign.campaignSummary.attackTypes.join(', ')}`,
+    );
+    console.log(
+      `  🏠 Affected Hosts: ${campaign.campaignSummary.affectedHosts.length}`,
+    );
+    console.log(
+      `  👥 Affected Users: ${campaign.campaignSummary.affectedUsers.length}`,
+    );
+    console.log(
+      `  ⏰ Time Span: ${campaign.campaignSummary.timeSpan.start} → ${campaign.campaignSummary.timeSpan.end}`,
+    );
 
     // Extract data for indexing
     console.log('\nPreparing data for Elasticsearch indexing...');
-    const { indexOperations } = generator.extractLogsForIndexing(campaign.scenarios);
+    const { indexOperations } = generator.extractLogsForIndexing(
+      campaign.scenarios,
+    );
 
     // Ensure all indices exist with proper mappings
     console.log('Creating indices and mappings...');
     const usedIndices = new Set<string>();
-    
+
     for (let i = 0; i < indexOperations.length; i += 2) {
       const operation = indexOperations[i] as any;
       const indexName = operation.create._index;
-      
+
       if (!usedIndices.has(indexName)) {
         await indexCheck(indexName, {
           mappings: logMappings.default as MappingTypeMapping,
@@ -880,23 +1069,27 @@ export const generateCorrelatedCampaign = async (
     }
 
     // Bulk index all data
-    console.log(`Indexing ${indexOperations.length / 2} documents to Elasticsearch...`);
-    
+    console.log(
+      `Indexing ${indexOperations.length / 2} documents to Elasticsearch...`,
+    );
+
     // Process in batches to avoid overwhelming Elasticsearch
     const batchSize = 1000;
     for (let i = 0; i < indexOperations.length; i += batchSize) {
       const batch = indexOperations.slice(i, i + batchSize);
       await bulkUpsert(batch);
-      
+
       if (i + batchSize < indexOperations.length) {
         process.stdout.write(`.`);
       }
     }
-    
+
     console.log('\n\n✅ Correlated campaign generation completed!');
     console.log(`📍 View alerts in Kibana space: ${space}`);
     console.log(`🔍 View supporting logs with filter: logs-*`);
-    console.log(`🎭 Each alert now has ${logVolumeMultiplier} supporting log events`);
+    console.log(
+      `🎭 Each alert now has ${logVolumeMultiplier} supporting log events`,
+    );
 
     // Show example attack narratives
     if (campaign.scenarios.length > 0) {
@@ -905,7 +1098,6 @@ export const generateCorrelatedCampaign = async (
         console.log(`  ${i + 1}. ${scenario.attackNarrative}`);
       });
     }
-
   } catch (error) {
     progress.stop();
     console.error('Error generating correlated campaign:', error);

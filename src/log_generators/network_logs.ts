@@ -7,30 +7,37 @@ export interface NetworkLogConfig {
   timestampConfig?: import('../utils/timestamp_utils').TimestampConfig;
 }
 
-const COMMON_PORTS = [80, 443, 22, 23, 21, 25, 53, 110, 143, 993, 995, 3389, 5985, 5986];
+const COMMON_PORTS = [
+  80, 443, 22, 23, 21, 25, 53, 110, 143, 993, 995, 3389, 5985, 5986,
+];
 const SUSPICIOUS_PORTS = [4444, 1234, 31337, 8080, 9999, 6666, 1337];
 const DNS_QUERY_TYPES = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'PTR'];
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'];
-const HTTP_STATUS_CODES = [200, 201, 301, 302, 400, 401, 403, 404, 500, 502, 503];
+const HTTP_STATUS_CODES = [
+  200, 201, 301, 302, 400, 401, 403, 404, 500, 502, 503,
+];
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
-  'curl/7.68.0',  // Suspicious
-  'python-requests/2.25.1',  // Suspicious
-  'Wget/1.20.3'  // Suspicious
+  'curl/7.68.0', // Suspicious
+  'python-requests/2.25.1', // Suspicious
+  'Wget/1.20.3', // Suspicious
 ];
 
 export const generateNetworkConnectionLog = (config: NetworkLogConfig = {}) => {
   const {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
-    timestampConfig
+    timestampConfig,
   } = config;
 
   const sourceIp = faker.internet.ip();
   const destIp = faker.internet.ip();
-  const destPort = faker.helpers.arrayElement([...COMMON_PORTS, ...SUSPICIOUS_PORTS]);
+  const destPort = faker.helpers.arrayElement([
+    ...COMMON_PORTS,
+    ...SUSPICIOUS_PORTS,
+  ]);
   const protocol = faker.helpers.arrayElement(['tcp', 'udp', 'icmp']);
   const action = faker.helpers.arrayElement(['allowed', 'blocked', 'dropped']);
 
@@ -70,12 +77,17 @@ export const generateDNSLog = (config: NetworkLogConfig = {}) => {
   const {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
-    timestampConfig
+    timestampConfig,
   } = config;
 
   const queryType = faker.helpers.arrayElement(DNS_QUERY_TYPES);
   const domain = faker.internet.domainName();
-  const responseCode = faker.helpers.arrayElement(['NOERROR', 'NXDOMAIN', 'SERVFAIL', 'REFUSED']);
+  const responseCode = faker.helpers.arrayElement([
+    'NOERROR',
+    'NXDOMAIN',
+    'SERVFAIL',
+    'REFUSED',
+  ]);
 
   return {
     '@timestamp': generateTimestamp(timestampConfig),
@@ -84,13 +96,18 @@ export const generateDNSLog = (config: NetworkLogConfig = {}) => {
     'data_stream.dataset': 'network.dns',
     'data_stream.namespace': 'default',
     'data_stream.type': 'logs',
-    'dns.answers': responseCode === 'NOERROR' ? [{
-      'class': 'IN',
-      'data': queryType === 'A' ? faker.internet.ip() : domain,
-      'name': domain,
-      'ttl': faker.number.int({ min: 300, max: 86400 }),
-      'type': queryType
-    }] : [],
+    'dns.answers':
+      responseCode === 'NOERROR'
+        ? [
+            {
+              class: 'IN',
+              data: queryType === 'A' ? faker.internet.ip() : domain,
+              name: domain,
+              ttl: faker.number.int({ min: 300, max: 86400 }),
+              type: queryType,
+            },
+          ]
+        : [],
     'dns.header_flags': ['RD', 'RA'],
     'dns.id': faker.number.int({ min: 1, max: 65535 }),
     'dns.op_code': 'QUERY',
@@ -126,7 +143,7 @@ export const generateHTTPLog = (config: NetworkLogConfig = {}) => {
   const {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
-    timestampConfig
+    timestampConfig,
   } = config;
 
   const method = faker.helpers.arrayElement(HTTP_METHODS);
@@ -151,7 +168,9 @@ export const generateHTTPLog = (config: NetworkLogConfig = {}) => {
     'host.name': hostName,
     'http.request.body.bytes': faker.number.int({ min: 0, max: 10240 }),
     'http.request.method': method,
-    'http.request.referrer': faker.helpers.maybe(() => faker.internet.url(), { probability: 0.6 }),
+    'http.request.referrer': faker.helpers.maybe(() => faker.internet.url(), {
+      probability: 0.6,
+    }),
     'http.response.body.bytes': faker.number.int({ min: 200, max: 1048576 }),
     'http.response.status_code': statusCode,
     'http.version': '1.1',
@@ -161,22 +180,25 @@ export const generateHTTPLog = (config: NetworkLogConfig = {}) => {
     'url.domain': faker.internet.domainName(),
     'url.original': url,
     'url.path': faker.internet.url(),
-    'url.query': faker.helpers.maybe(() => `q=${faker.lorem.word()}`, { probability: 0.4 }),
+    'url.query': faker.helpers.maybe(() => `q=${faker.lorem.word()}`, {
+      probability: 0.4,
+    }),
     'user.name': userName,
     'user_agent.device.name': 'Other',
     'user_agent.name': userAgent.includes('Mozilla') ? 'Chrome' : 'Other',
     'user_agent.original': userAgent,
-    'user_agent.os.name': faker.helpers.arrayElement(['Windows', 'macOS', 'Linux']),
+    'user_agent.os.name': faker.helpers.arrayElement([
+      'Windows',
+      'macOS',
+      'Linux',
+    ]),
     'related.ip': [faker.internet.ip()],
     'related.user': [userName],
   };
 };
 
 export const generateFirewallLog = (config: NetworkLogConfig = {}) => {
-  const {
-    hostName = faker.internet.domainName(),
-    timestampConfig
-  } = config;
+  const { hostName = faker.internet.domainName(), timestampConfig } = config;
 
   const action = faker.helpers.arrayElement(['ACCEPT', 'DROP', 'REJECT']);
   const protocol = faker.helpers.arrayElement(['TCP', 'UDP', 'ICMP']);
@@ -199,30 +221,45 @@ export const generateFirewallLog = (config: NetworkLogConfig = {}) => {
     'event.outcome': action === 'ACCEPT' ? 'success' : 'failure',
     'event.type': ['denied'],
     'host.name': hostName,
-    'iptables.input_device': faker.helpers.arrayElement(['eth0', 'wlan0', 'lo']),
-    'iptables.output_device': faker.helpers.arrayElement(['eth0', 'wlan0', 'lo']),
+    'iptables.input_device': faker.helpers.arrayElement([
+      'eth0',
+      'wlan0',
+      'lo',
+    ]),
+    'iptables.output_device': faker.helpers.arrayElement([
+      'eth0',
+      'wlan0',
+      'lo',
+    ]),
     'log.file.path': '/var/log/iptables.log',
     'log.level': 'info',
     'network.bytes': faker.number.int({ min: 40, max: 1500 }),
     'network.community_id': faker.string.alphanumeric(32),
-    'network.iana_number': protocol === 'TCP' ? '6' : protocol === 'UDP' ? '17' : '1',
+    'network.iana_number':
+      protocol === 'TCP' ? '6' : protocol === 'UDP' ? '17' : '1',
     'network.packets': 1,
     'network.transport': protocol.toLowerCase(),
     'rule.name': `${action}_${protocol}`,
     'source.ip': sourceIp,
     'source.port': faker.internet.port(),
     'destination.ip': destIp,
-    'destination.port': faker.helpers.arrayElement([...COMMON_PORTS, ...SUSPICIOUS_PORTS]),
+    'destination.port': faker.helpers.arrayElement([
+      ...COMMON_PORTS,
+      ...SUSPICIOUS_PORTS,
+    ]),
     'related.ip': [sourceIp, destIp],
   };
 };
 
-export default function createNetworkLog(override = {}, config: NetworkLogConfig = {}) {
+export default function createNetworkLog(
+  override = {},
+  config: NetworkLogConfig = {},
+) {
   const logGenerators = [
     generateNetworkConnectionLog,
     generateDNSLog,
     generateHTTPLog,
-    generateFirewallLog
+    generateFirewallLog,
   ];
 
   // Weight different log types for realism
@@ -230,7 +267,7 @@ export default function createNetworkLog(override = {}, config: NetworkLogConfig
     ...Array(4).fill(generateNetworkConnectionLog),
     ...Array(3).fill(generateHTTPLog),
     ...Array(2).fill(generateDNSLog),
-    generateFirewallLog
+    generateFirewallLog,
   ];
 
   const selectedGenerator = faker.helpers.arrayElement(weightedGenerators);

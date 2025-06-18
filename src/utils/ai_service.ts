@@ -43,6 +43,7 @@ import {
   handleAIError,
   safeJsonParse,
 } from './error_handling';
+import createAlerts from '../create_alerts';
 import {
   generateAlertSystemPrompt,
   generateMitreAlertSystemPrompt,
@@ -753,12 +754,23 @@ export const generateAIAlertBatch = async (
               rawContent = response.choices[0].message.content || '[]';
             }
 
+            // Debug logging for AI responses
+            if (process.env.DEBUG_AI_RESPONSES === 'true') {
+              console.log(`AI Raw Response: ${rawContent.substring(0, 500)}...`);
+            }
+
             // Clean and validate the JSON content
             const cleanedContent = sanitizeJSONResponse(rawContent);
             const content = safeJsonParse(
               cleanedContent,
               'Batch response parsing',
             );
+
+            // Debug logging for parsed content
+            if (process.env.DEBUG_AI_RESPONSES === 'true') {
+              console.log(`Parsed Content Type: ${typeof content}, Array: ${Array.isArray(content)}`);
+              console.log(`Content Keys: ${content && typeof content === 'object' ? Object.keys(content) : 'N/A'}`);
+            }
 
             // Handle different response formats
             if (Array.isArray(content)) {
@@ -781,6 +793,8 @@ export const generateAIAlertBatch = async (
                 }
               }
             } else {
+              // If content is not recognized, fall back to individual generation
+              console.warn('AI response format not recognized, falling back to individual generation');
               generatedAlerts = [];
             }
 
@@ -789,10 +803,64 @@ export const generateAIAlertBatch = async (
               generatedAlerts,
               batch.length,
             );
+
+            // If we still have no valid alerts after validation, fall back to individual generation
+            if (generatedAlerts.length === 0 || generatedAlerts.every(alert => Object.keys(alert).length === 0)) {
+              console.warn('Batch generation failed, falling back to individual AI generation');
+              generatedAlerts = [];
+              
+              // Generate alerts individually as fallback
+              for (const entity of batch) {
+                try {
+                  const individualAlert = await generateAIAlert({
+                    hostName: entity.hostName,
+                    userName: entity.userName,
+                    space,
+                    examples,
+                    timestampConfig,
+                  });
+                  generatedAlerts.push(individualAlert);
+                } catch (individualError) {
+                  console.warn(`Individual alert generation failed for ${entity.hostName}:${entity.userName}, using template`);
+                  // Use template as final fallback
+                  const templateAlert = createAlerts({}, {
+                    hostName: entity.hostName,
+                    userName: entity.userName,
+                    space,
+                    timestampConfig,
+                  });
+                  generatedAlerts.push(templateAlert);
+                }
+              }
+            }
           } catch (e) {
             console.error('Error parsing batch response:', e);
-            // Fallback: create empty objects for each entity
-            generatedAlerts = batch.map(() => ({}));
+            console.warn('Falling back to individual generation due to batch error');
+            
+            // Fallback: Generate individually for each entity
+            generatedAlerts = [];
+            for (const entity of batch) {
+              try {
+                const individualAlert = await generateAIAlert({
+                  hostName: entity.hostName,
+                  userName: entity.userName,
+                  space,
+                  examples,
+                  timestampConfig,
+                });
+                generatedAlerts.push(individualAlert);
+              } catch (individualError) {
+                console.warn(`Individual alert generation failed for ${entity.hostName}:${entity.userName}, using template`);
+                // Use template as final fallback
+                const templateAlert = createAlerts({}, {
+                  hostName: entity.hostName,
+                  userName: entity.userName,
+                  space,
+                  timestampConfig,
+                });
+                generatedAlerts.push(templateAlert);
+              }
+            }
           }
 
           // Process each alert in the batch

@@ -75,16 +75,25 @@ export function markAlertAsFalsePositive(
   category?: keyof typeof FALSE_POSITIVE_CATEGORIES,
 ): ExtendedAlert {
   // Select a random category if not provided
-  const selectedCategory = category || faker.helpers.arrayElement(Object.keys(FALSE_POSITIVE_CATEGORIES) as Array<keyof typeof FALSE_POSITIVE_CATEGORIES>);
-  
+  const selectedCategory =
+    category ||
+    faker.helpers.arrayElement(
+      Object.keys(FALSE_POSITIVE_CATEGORIES) as Array<
+        keyof typeof FALSE_POSITIVE_CATEGORIES
+      >,
+    );
+
   // Get a random reason from the selected category
-  const reason = faker.helpers.arrayElement(FALSE_POSITIVE_CATEGORIES[selectedCategory]);
-  
+  const reason = faker.helpers.arrayElement(
+    FALSE_POSITIVE_CATEGORIES[selectedCategory],
+  );
+
   // Generate resolution metadata
   const resolvedBy = faker.helpers.arrayElement(SOC_ANALYSTS);
   const originalTimestamp = new Date(alert['@timestamp']);
   const resolutionTime = new Date(
-    originalTimestamp.getTime() + faker.number.int({ min: 300000, max: 7200000 }) // 5 minutes to 2 hours later
+    originalTimestamp.getTime() +
+      faker.number.int({ min: 300000, max: 7200000 }), // 5 minutes to 2 hours later
   );
 
   return {
@@ -99,7 +108,7 @@ export function markAlertAsFalsePositive(
     'kibana.alert.false_positive.category': selectedCategory,
     'kibana.alert.false_positive.analyst': resolvedBy,
     'kibana.alert.false_positive.resolution_time_minutes': Math.round(
-      (resolutionTime.getTime() - originalTimestamp.getTime()) / 60000
+      (resolutionTime.getTime() - originalTimestamp.getTime()) / 60000,
     ),
     // Add to rule false positives array for pattern analysis
     'kibana.alert.rule.false_positives': [
@@ -129,7 +138,7 @@ export function applyFalsePositiveLogic(
     return alerts;
   }
 
-  return alerts.map(alert => {
+  return alerts.map((alert) => {
     if (shouldMarkAsFalsePositive(falsePositiveRate)) {
       return markAlertAsFalsePositive(alert);
     }
@@ -141,9 +150,11 @@ export function applyFalsePositiveLogic(
  * Generates false positive statistics for reporting
  */
 export function generateFalsePositiveStats(alerts: ExtendedAlert[]) {
-  const falsePositives = alerts.filter(alert => alert['kibana.alert.false_positive']);
+  const falsePositives = alerts.filter(
+    (alert) => alert['kibana.alert.false_positive'],
+  );
   const total = alerts.length;
-  
+
   if (falsePositives.length === 0) {
     return {
       total,
@@ -158,17 +169,20 @@ export function generateFalsePositiveStats(alerts: ExtendedAlert[]) {
   const categories: Record<string, number> = {};
   let totalResolutionTime = 0;
 
-  falsePositives.forEach(alert => {
+  falsePositives.forEach((alert) => {
     const category = alert['kibana.alert.false_positive.category'] || 'unknown';
     categories[category] = (categories[category] || 0) + 1;
-    totalResolutionTime += alert['kibana.alert.false_positive.resolution_time_minutes'] || 0;
+    totalResolutionTime +=
+      alert['kibana.alert.false_positive.resolution_time_minutes'] || 0;
   });
 
   return {
     total,
     falsePositives: falsePositives.length,
-    rate: (falsePositives.length / total * 100).toFixed(1),
+    rate: ((falsePositives.length / total) * 100).toFixed(1),
     categories,
-    avgResolutionTimeMinutes: Math.round(totalResolutionTime / falsePositives.length),
+    avgResolutionTimeMinutes: Math.round(
+      totalResolutionTime / falsePositives.length,
+    ),
   };
 }

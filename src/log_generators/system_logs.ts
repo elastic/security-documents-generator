@@ -9,33 +9,65 @@ export interface SystemLogConfig {
 
 // Common system processes and services
 const SYSTEM_PROCESSES = [
-  'svchost.exe', 'winlogon.exe', 'csrss.exe', 'lsass.exe', 'explorer.exe',
-  'systemd', 'init', 'kthreadd', 'migration', 'ksoftirqd', 'watchdog',
-  'chrome.exe', 'firefox.exe', 'notepad.exe', 'cmd.exe', 'powershell.exe',
-  'ssh', 'sshd', 'httpd', 'nginx', 'mysql', 'postgres'
+  'svchost.exe',
+  'winlogon.exe',
+  'csrss.exe',
+  'lsass.exe',
+  'explorer.exe',
+  'systemd',
+  'init',
+  'kthreadd',
+  'migration',
+  'ksoftirqd',
+  'watchdog',
+  'chrome.exe',
+  'firefox.exe',
+  'notepad.exe',
+  'cmd.exe',
+  'powershell.exe',
+  'ssh',
+  'sshd',
+  'httpd',
+  'nginx',
+  'mysql',
+  'postgres',
 ];
 
 const SYSTEM_SERVICES = [
-  'Windows Update', 'Windows Defender', 'Task Scheduler', 'Event Log',
-  'systemd-logind', 'NetworkManager', 'cron', 'apache2', 'docker'
+  'Windows Update',
+  'Windows Defender',
+  'Task Scheduler',
+  'Event Log',
+  'systemd-logind',
+  'NetworkManager',
+  'cron',
+  'apache2',
+  'docker',
 ];
 
 const FILE_PATHS = [
-  'C:\\Windows\\System32\\', 'C:\\Program Files\\', 'C:\\Users\\',
-  '/usr/bin/', '/usr/sbin/', '/var/log/', '/tmp/', '/home/', '/etc/'
+  'C:\\Windows\\System32\\',
+  'C:\\Program Files\\',
+  'C:\\Users\\',
+  '/usr/bin/',
+  '/usr/sbin/',
+  '/var/log/',
+  '/tmp/',
+  '/home/',
+  '/etc/',
 ];
 
 const REGISTRY_KEYS = [
   'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run',
   'HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run',
-  'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services'
+  'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services',
 ];
 
 export const generateProcessLog = (config: SystemLogConfig = {}) => {
   const {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
-    timestampConfig
+    timestampConfig,
   } = config;
 
   const process = faker.helpers.arrayElement(SYSTEM_PROCESSES);
@@ -58,13 +90,17 @@ export const generateProcessLog = (config: SystemLogConfig = {}) => {
     'event.type': faker.helpers.arrayElement(['start', 'end', 'creation']),
     'host.name': hostName,
     'host.os.family': faker.helpers.arrayElement(['windows', 'linux', 'macos']),
-    'host.os.name': faker.helpers.arrayElement(['Windows 10', 'Ubuntu', 'macOS']),
+    'host.os.name': faker.helpers.arrayElement([
+      'Windows 10',
+      'Ubuntu',
+      'macOS',
+    ]),
     'process.name': process,
     'process.pid': pid,
     'process.ppid': ppid,
-    'process.executable': process.includes('.exe') ? 
-      `${faker.helpers.arrayElement(FILE_PATHS)}${process}` : 
-      `${faker.helpers.arrayElement(FILE_PATHS)}${process}`,
+    'process.executable': process.includes('.exe')
+      ? `${faker.helpers.arrayElement(FILE_PATHS)}${process}`
+      : `${faker.helpers.arrayElement(FILE_PATHS)}${process}`,
     'process.command_line': `${process} ${faker.helpers.maybe(() => '--verbose', { probability: 0.3 }) || ''}`,
     'user.name': userName,
     'user.domain': faker.internet.domainName(),
@@ -75,7 +111,7 @@ export const generateFileLog = (config: SystemLogConfig = {}) => {
   const {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
-    timestampConfig
+    timestampConfig,
   } = config;
 
   const fileName = faker.system.fileName();
@@ -89,12 +125,21 @@ export const generateFileLog = (config: SystemLogConfig = {}) => {
     'data_stream.namespace': 'default',
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
-    'event.action': faker.helpers.arrayElement(['creation', 'deletion', 'modification', 'rename']),
+    'event.action': faker.helpers.arrayElement([
+      'creation',
+      'deletion',
+      'modification',
+      'rename',
+    ]),
     'event.category': ['file'],
     'event.dataset': 'endpoint.events.file',
     'event.kind': 'event',
     'event.module': 'endpoint',
-    'event.type': faker.helpers.arrayElement(['creation', 'deletion', 'change']),
+    'event.type': faker.helpers.arrayElement([
+      'creation',
+      'deletion',
+      'change',
+    ]),
     'file.name': fileName,
     'file.path': filePath,
     'file.directory': faker.helpers.arrayElement(FILE_PATHS),
@@ -113,7 +158,7 @@ export const generateRegistryLog = (config: SystemLogConfig = {}) => {
   const {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
-    timestampConfig
+    timestampConfig,
   } = config;
 
   return {
@@ -124,16 +169,28 @@ export const generateRegistryLog = (config: SystemLogConfig = {}) => {
     'data_stream.namespace': 'default',
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
-    'event.action': faker.helpers.arrayElement(['modification', 'creation', 'deletion']),
+    'event.action': faker.helpers.arrayElement([
+      'modification',
+      'creation',
+      'deletion',
+    ]),
     'event.category': ['registry'],
     'event.dataset': 'endpoint.events.registry',
     'event.kind': 'event',
     'event.module': 'endpoint',
-    'event.type': faker.helpers.arrayElement(['creation', 'deletion', 'change']),
+    'event.type': faker.helpers.arrayElement([
+      'creation',
+      'deletion',
+      'change',
+    ]),
     'host.name': hostName,
     'host.os.family': 'windows',
     'host.os.name': 'Windows 10',
-    'process.name': faker.helpers.arrayElement(['regedit.exe', 'reg.exe', 'powershell.exe']),
+    'process.name': faker.helpers.arrayElement([
+      'regedit.exe',
+      'reg.exe',
+      'powershell.exe',
+    ]),
     'process.pid': faker.number.int({ min: 100, max: 65535 }),
     'registry.key': faker.helpers.arrayElement(REGISTRY_KEYS),
     'registry.value': faker.lorem.word(),
@@ -147,7 +204,7 @@ export const generateServiceLog = (config: SystemLogConfig = {}) => {
   const {
     hostName = faker.internet.domainName(),
     userName = 'SYSTEM',
-    timestampConfig
+    timestampConfig,
   } = config;
 
   const service = faker.helpers.arrayElement(SYSTEM_SERVICES);
@@ -160,7 +217,11 @@ export const generateServiceLog = (config: SystemLogConfig = {}) => {
     'data_stream.namespace': 'default',
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
-    'event.action': faker.helpers.arrayElement(['service-started', 'service-stopped', 'service-installed']),
+    'event.action': faker.helpers.arrayElement([
+      'service-started',
+      'service-stopped',
+      'service-installed',
+    ]),
     'event.category': ['system'],
     'event.code': faker.helpers.arrayElement(['7036', '7035', '7034']),
     'event.dataset': 'system.system',
@@ -171,9 +232,14 @@ export const generateServiceLog = (config: SystemLogConfig = {}) => {
     'host.name': hostName,
     'host.os.family': 'windows',
     'log.level': faker.helpers.arrayElement(['info', 'warning', 'error']),
-    'message': `The ${service} service entered the ${faker.helpers.arrayElement(['running', 'stopped', 'starting'])} state.`,
+    message: `The ${service} service entered the ${faker.helpers.arrayElement(['running', 'stopped', 'starting'])} state.`,
     'service.name': service,
-    'service.state': faker.helpers.arrayElement(['running', 'stopped', 'starting', 'stopping']),
+    'service.state': faker.helpers.arrayElement([
+      'running',
+      'stopped',
+      'starting',
+      'stopping',
+    ]),
     'user.name': userName,
     'winlog.channel': 'System',
     'winlog.event_id': faker.helpers.arrayElement([7036, 7035, 7034]),
@@ -182,11 +248,21 @@ export const generateServiceLog = (config: SystemLogConfig = {}) => {
   };
 };
 
-export default function createSystemLog(override = {}, config: SystemLogConfig = {}) {
-  const logTypes: Array<(config: SystemLogConfig) => any> = [generateProcessLog, generateFileLog, generateServiceLog];
-  
+export default function createSystemLog(
+  override = {},
+  config: SystemLogConfig = {},
+) {
+  const logTypes: Array<(config: SystemLogConfig) => any> = [
+    generateProcessLog,
+    generateFileLog,
+    generateServiceLog,
+  ];
+
   // Add registry logs only for Windows hosts
-  if (!config.hostName || faker.helpers.maybe(() => true, { probability: 0.6 })) {
+  if (
+    !config.hostName ||
+    faker.helpers.maybe(() => true, { probability: 0.6 })
+  ) {
     logTypes.push(generateRegistryLog);
   }
 

@@ -160,10 +160,11 @@ export const selectMitreTechniques = (
   maxTechniques = 2,
 ): Array<{ tactic: string; technique: string; subTechnique?: string }> => {
   const config = getConfig();
-  
+
   // Check if focus tactic is specified
-  const focusTactic = (config.mitre as Record<string, unknown>)?.focusTactic as string;
-  
+  const focusTactic = (config.mitre as Record<string, unknown>)
+    ?.focusTactic as string;
+
   let enabledTactics: string[];
   if (focusTactic) {
     // Only use the focus tactic if specified

@@ -1,0 +1,852 @@
+import { OpenAI } from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
+import { readFileSync } from 'fs';
+import path from 'path';
+import { faker } from '@faker-js/faker';
+// Local imports
+import { getConfig } from '../get_config';
+import { generateTimestamp } from './timestamp_utils';
+import { aiResponseCache, generateAlertCacheKey, generateEventCacheKey, generateMitreCacheKey, startCacheMaintenance, stopCacheMaintenance, } from './cache_service';
+import { validateAndSanitizeAlert, sanitizeJSONResponse, validateBatchResponse, } from './validation_service';
+import { loadMitreData, generateAttackChain, selectMitreTechniques, createMitreContext, generateMitreFields, } from './mitre_attack_service';
+import { AIInitializationError, validateConfiguration, withRetry, handleAIError, safeJsonParse, } from './error_handling';
+import { generateAlertSystemPrompt, generateMitreAlertSystemPrompt, generateEventSystemPrompt, generateBatchAlertSystemPrompt, generateAlertUserPrompt, generateMitreAlertUserPrompt, generateEventUserPrompt, generateBatchAlertUserPrompt, JSON_RESPONSE_INSTRUCTION, ESSENTIAL_ALERT_FIELDS, } from './prompt_templates';
+/**
+ * Refactored AI Service for Security Documents Generation
+ *
+ * This service has been modularized for better maintainability:
+ * - Types and interfaces extracted to ai_service_types.ts
+ * - MITRE ATT&CK functionality in mitre_attack_service.ts
+ * - Validation and sanitization in validation_service.ts
+ * - Caching logic in cache_service.ts
+ * - Error handling in error_handling.ts
+ * - Prompt templates in prompt_templates.ts
+ */
+// Initialize AI clients
+let openai = null;
+let claude = null;
+// Track if cache maintenance has been started
+let cacheMaintenanceStarted = false;
+// Function to ensure cache maintenance is running
+const ensureCacheMaintenanceStarted = () => {
+    if (!cacheMaintenanceStarted) {
+        startCacheMaintenance();
+        cacheMaintenanceStarted = true;
+    }
+};
+// Function to initialize AI clients with proper error handling
+const initializeAI = () => {
+    try {
+        const config = getConfig();
+        validateConfiguration(config);
+        // Initialize Claude if enabled
+        if (config.useClaudeAI) {
+            claude = new Anthropic({
+                apiKey: config.claudeApiKey,
+            });
+            return; // Use Claude as primary
+        }
+        // Initialize OpenAI clients
+        if (config.useAzureOpenAI) {
+            openai = new OpenAI({
+                apiKey: config.azureOpenAIApiKey,
+                baseURL: `${config.azureOpenAIEndpoint}/openai/deployments/${config.azureOpenAIDeployment}`,
+                defaultQuery: {
+                    'api-version': config.azureOpenAIApiVersion || '2023-05-15',
+                },
+                defaultHeaders: { 'api-key': config.azureOpenAIApiKey },
+            });
+        }
+        else {
+            // Standard OpenAI
+            openai = new OpenAI({
+                apiKey: config.openaiApiKey,
+            });
+        }
+    }
+    catch (error) {
+        throw new AIInitializationError('Failed to initialize AI client', {
+            originalError: error instanceof Error ? error.message : String(error),
+        });
+    }
+};
+// Load mapping schemas for context - optimized to extract only essential fields
+const loadMappingSchema = (mappingFile, maxSize = 1000) => {
+    try {
+        const filePath = path.resolve(process.cwd(), 'src/mappings', mappingFile);
+        const content = readFileSync(filePath, 'utf8');
+        // Try to parse and extract essential schema information
+        try {
+            const parsed = safeJsonParse(content, 'Schema parsing');
+            const essentialFields = extractEssentialFields(parsed);
+            return JSON.stringify(essentialFields, null, 2);
+        }
+        catch {
+            // Fallback to truncation if parsing fails
+            return content.substring(0, maxSize);
+        }
+    }
+    catch (error) {
+        console.error(`Failed to load mapping schema: ${mappingFile}`, error);
+        return '{}';
+    }
+};
+// Extract only the essential fields from the schema to reduce token usage
+const extractEssentialFields = (schema) => {
+    if (!schema.properties)
+        return schema;
+    const essentialFields = {};
+    const properties = schema.properties;
+    ESSENTIAL_ALERT_FIELDS.forEach((key) => {
+        if (properties[key]) {
+            essentialFields[key] = properties[key];
+        }
+    });
+    return { properties: essentialFields };
+};
+// Default alert template with required fields
+const createDefaultAlertTemplate = (hostName, userName, space, timestampConfig) => {
+    const timestamp = generateTimestamp(timestampConfig);
+    const ruleUuid = faker.string.uuid();
+    return {
+        'host.name': hostName,
+        'user.name': userName,
+        'kibana.alert.uuid': faker.string.uuid(),
+        'kibana.alert.rule.name': 'Security Alert Detection',
+        'kibana.alert.rule.description': 'Automated security alert detection',
+        'kibana.alert.start': timestamp,
+        'kibana.alert.last_detected': timestamp,
+        'kibana.version': '8.7.0',
+        'kibana.space_ids': [space],
+        '@timestamp': timestamp,
+        'event.kind': 'signal',
+        'event.category': ['security'],
+        'event.action': 'alert_generated',
+        'kibana.alert.status': 'active',
+        'kibana.alert.workflow_status': 'open',
+        'kibana.alert.depth': 1,
+        'kibana.alert.severity': 'medium',
+        'kibana.alert.risk_score': 47,
+        'rule.name': 'Security Alert Detection',
+        // Essential Kibana Security fields for proper alert display
+        'kibana.alert.rule.category': 'Custom Query Rule',
+        'kibana.alert.rule.consumer': 'siem',
+        'kibana.alert.rule.execution.uuid': faker.string.uuid(),
+        'kibana.alert.rule.producer': 'siem',
+        'kibana.alert.rule.rule_type_id': 'siem.queryRule',
+        'kibana.alert.rule.uuid': ruleUuid,
+        'kibana.alert.rule.tags': [],
+        'kibana.alert.original_time': timestamp,
+        'kibana.alert.ancestors': [
+            {
+                id: faker.string.alphanumeric(20),
+                type: 'event',
+                index: 'security-alerts',
+                depth: 0,
+            },
+        ],
+        'kibana.alert.reason': `event on ${hostName} created security alert`,
+        'kibana.alert.rule.actions': [],
+        'kibana.alert.rule.author': [],
+        'kibana.alert.rule.created_at': timestamp,
+        'kibana.alert.rule.created_by': 'elastic',
+        'kibana.alert.rule.enabled': true,
+        'kibana.alert.rule.exceptions_list': [],
+        'kibana.alert.rule.false_positives': [],
+        'kibana.alert.rule.from': 'now-360s',
+        'kibana.alert.rule.immutable': false,
+        'kibana.alert.rule.interval': '5m',
+        'kibana.alert.rule.indices': ['security*'],
+        'kibana.alert.rule.license': '',
+        'kibana.alert.rule.max_signals': 100,
+        'kibana.alert.rule.references': [],
+        'kibana.alert.rule.risk_score_mapping': [],
+        'kibana.alert.rule.rule_id': faker.string.uuid(),
+        'kibana.alert.rule.severity_mapping': [],
+        'kibana.alert.rule.threat': [],
+        'kibana.alert.rule.to': 'now',
+        'kibana.alert.rule.type': 'query',
+        'kibana.alert.rule.updated_at': timestamp,
+        'kibana.alert.rule.updated_by': 'elastic',
+        'kibana.alert.rule.version': 1,
+        'kibana.alert.rule.risk_score': 47,
+        'kibana.alert.rule.severity': 'medium',
+        'kibana.alert.rule.parameters': {
+            description: 'Automated security alert detection',
+            risk_score: 47,
+            severity: 'medium',
+            license: '',
+            author: [],
+            false_positives: [],
+            from: 'now-360s',
+            rule_id: faker.string.uuid(),
+            max_signals: 100,
+            risk_score_mapping: [],
+            severity_mapping: [],
+            threat: [],
+            to: 'now',
+            references: [],
+            version: 1,
+            exceptions_list: [],
+            immutable: false,
+            related_integrations: [],
+            required_fields: [],
+            setup: '',
+            type: 'query',
+            language: 'kuery',
+            index: ['security*'],
+            query: '*',
+            filters: [],
+        },
+    };
+};
+// Process examples to extract the most relevant fields for context
+const processExamples = (examples = []) => {
+    if (examples.length === 0)
+        return '[]';
+    // Select a subset of the most informative examples
+    const processedExamples = examples.slice(0, 2).map((example) => {
+        // Extract only the most relevant fields to reduce tokens
+        const relevantFields = {};
+        [
+            'host.name',
+            'user.name',
+            'event.kind',
+            'event.category',
+            'kibana.alert.severity',
+            'kibana.alert.risk_score',
+            'source.ip',
+            'destination.ip',
+            'process.name',
+        ].forEach((field) => {
+            const keys = field.split('.');
+            let current = example;
+            let currentTarget = relevantFields;
+            for (let i = 0; i < keys.length; i++) {
+                const key = keys[i];
+                if (i === keys.length - 1) {
+                    if (current && current[key] !== undefined) {
+                        currentTarget[key] = current[key];
+                    }
+                }
+                else {
+                    if (current &&
+                        current[key] !== undefined &&
+                        typeof current[key] === 'object') {
+                        current = current[key];
+                        if (!currentTarget[key])
+                            currentTarget[key] = {};
+                        currentTarget = currentTarget[key];
+                    }
+                    else {
+                        break;
+                    }
+                }
+            }
+        });
+        return relevantFields;
+    });
+    return JSON.stringify(processedExamples);
+};
+// Generate an alert using AI based on examples and mapping schema
+export const generateAIAlert = async (params) => {
+    const { userName = 'user-1', hostName = 'host-1', space = 'default', examples = [], alertType = 'general', timestampConfig, mitreEnabled = false, attackChain, } = params;
+    return withRetry(async () => {
+        if (!openai && !claude) {
+            initializeAI();
+        }
+        if (!openai && !claude) {
+            throw new AIInitializationError('Failed to initialize AI client');
+        }
+        // Ensure cache maintenance is running
+        ensureCacheMaintenanceStarted();
+        // Check cache first
+        const cacheKey = generateAlertCacheKey(hostName, userName, space, alertType);
+        const cached = aiResponseCache.get(cacheKey);
+        if (cached) {
+            return cached.data;
+        }
+        // Load alert mapping schema - optimized
+        const alertMappingSchema = loadMappingSchema('alertMappings.json');
+        // Process examples for context - optimized
+        const examplesContext = processExamples(examples);
+        // Create system prompt with optional attack chain context
+        let systemPrompt;
+        if (mitreEnabled && attackChain) {
+            // Generate sophisticated MITRE prompt with attack chain correlation
+            const mitreContext = attackChain
+                ? `
+CAMPAIGN CORRELATION CONTEXT:
+- Campaign ID: ${attackChain.campaignId}
+- Stage: ${attackChain.stageName} (${attackChain.stageIndex}/${attackChain.totalStages})
+- Threat Actor: ${attackChain.threatActor}
+- Parent Events: ${attackChain.parentEvents.length} previous events in chain
+- Stage ID: ${attackChain.stageId}
+
+Generate an alert that shows CLEAR CORRELATION to this attack campaign stage. Include campaign correlation fields and ensure the alert fits the attack progression context.
+        `
+                : '';
+            systemPrompt = generateMitreAlertSystemPrompt({
+                hostName,
+                userName,
+                space,
+                mitreContext,
+                schemaExcerpt: alertMappingSchema.substring(0, 800),
+                attackChain: true,
+                chainSeverity: 'high',
+            });
+        }
+        else if (mitreEnabled) {
+            systemPrompt = generateMitreAlertSystemPrompt({
+                hostName,
+                userName,
+                space,
+                schemaExcerpt: alertMappingSchema.substring(0, 800),
+            });
+        }
+        else {
+            systemPrompt = generateAlertSystemPrompt({
+                hostName,
+                userName,
+                space,
+                alertType,
+                schemaExcerpt: alertMappingSchema.substring(0, 800),
+            });
+        }
+        const userPrompt = generateAlertUserPrompt({
+            hostName,
+            userName,
+            examples: examples.length > 0 ? examplesContext : undefined,
+        });
+        try {
+            const config = getConfig();
+            let generatedAlert = {};
+            if (claude) {
+                // Use Claude API
+                const response = await claude.messages.create({
+                    model: config.claudeModel || 'claude-3-5-sonnet-20241022',
+                    max_tokens: 2000,
+                    messages: [
+                        {
+                            role: 'user',
+                            content: `${systemPrompt}\n\n${userPrompt}\n\n${JSON_RESPONSE_INSTRUCTION}`,
+                        },
+                    ],
+                    temperature: 0.7,
+                });
+                const content = response.content[0];
+                if (content.type === 'text') {
+                    generatedAlert = safeJsonParse(content.text || '{}', 'Claude response parsing');
+                }
+            }
+            else if (openai) {
+                // Use OpenAI API
+                const modelName = config.useAzureOpenAI && config.azureOpenAIDeployment
+                    ? config.azureOpenAIDeployment
+                    : 'gpt-4o';
+                const response = await openai.chat.completions.create({
+                    model: modelName,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt },
+                    ],
+                    response_format: { type: 'json_object' },
+                    temperature: 0.7,
+                });
+                generatedAlert = safeJsonParse(response.choices[0].message.content || '{}', 'OpenAI response parsing');
+            }
+            // Create a default template with required fields
+            const defaultTemplate = createDefaultAlertTemplate(hostName, userName, space, timestampConfig);
+            // Merge the generated alert with the default template to ensure required fields
+            const mergedAlert = {
+                ...defaultTemplate,
+                ...generatedAlert,
+                // Always ensure these specific fields (override AI if needed)
+                'host.name': hostName,
+                'user.name': userName,
+                'kibana.space_ids': [space],
+                'kibana.alert.uuid': generatedAlert['kibana.alert.uuid'] ||
+                    defaultTemplate['kibana.alert.uuid'],
+                // Ensure template timestamps are preserved (don't let AI override)
+                '@timestamp': defaultTemplate['@timestamp'],
+                'kibana.alert.start': defaultTemplate['kibana.alert.start'],
+                'kibana.alert.last_detected': defaultTemplate['kibana.alert.last_detected'],
+                'kibana.alert.original_time': defaultTemplate['kibana.alert.original_time'],
+                'kibana.alert.rule.created_at': defaultTemplate['kibana.alert.rule.created_at'],
+                'kibana.alert.rule.updated_at': defaultTemplate['kibana.alert.rule.updated_at'],
+            };
+            // Validate and sanitize the alert
+            const validatedAlert = validateAndSanitizeAlert(mergedAlert, hostName, userName, space, timestampConfig);
+            // Store in cache
+            aiResponseCache.set(cacheKey, {
+                data: validatedAlert,
+                timestamp: Date.now(),
+            });
+            return validatedAlert;
+        }
+        catch (error) {
+            handleAIError(error, 'Error generating AI alert');
+            // Fallback to default template if AI generation fails
+            return createDefaultAlertTemplate(hostName, userName, space, timestampConfig);
+        }
+    }, 3, 1000, 'generateAIAlert');
+};
+// Generate an event using AI based on mapping schema
+export const generateAIEvent = async (params = {}) => {
+    const { id_field, id_value } = params;
+    return withRetry(async () => {
+        if (!openai && !claude) {
+            initializeAI();
+        }
+        if (!openai && !claude) {
+            throw new AIInitializationError('Failed to initialize AI client');
+        }
+        // Check cache first
+        const cacheKey = generateEventCacheKey(id_field, id_value);
+        const cached = aiResponseCache.get(cacheKey);
+        if (cached) {
+            return cached.data;
+        }
+        // Load event mapping schema - optimized
+        const eventMappingSchema = loadMappingSchema('eventMappings.json', 800);
+        // Create system prompt
+        const systemPrompt = generateEventSystemPrompt({
+            idField: id_field,
+            idValue: id_value,
+            schemaExcerpt: eventMappingSchema,
+        });
+        const userPrompt = generateEventUserPrompt();
+        try {
+            const config = getConfig();
+            let generatedEvent = {};
+            if (claude) {
+                // Use Claude API
+                const response = await claude.messages.create({
+                    model: config.claudeModel || 'claude-3-5-sonnet-20241022',
+                    max_tokens: 2000,
+                    messages: [
+                        {
+                            role: 'user',
+                            content: `${systemPrompt}\n\n${userPrompt}\n\n${JSON_RESPONSE_INSTRUCTION}`,
+                        },
+                    ],
+                    temperature: 0.7,
+                });
+                const content = response.content[0];
+                if (content.type === 'text') {
+                    generatedEvent = safeJsonParse(content.text || '{}', 'Claude event response parsing');
+                }
+            }
+            else if (openai) {
+                // Use OpenAI API
+                const modelName = config.useAzureOpenAI && config.azureOpenAIDeployment
+                    ? config.azureOpenAIDeployment
+                    : 'gpt-4o';
+                const response = await openai.chat.completions.create({
+                    model: modelName,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt },
+                    ],
+                    response_format: { type: 'json_object' },
+                    temperature: 0.7,
+                });
+                generatedEvent = safeJsonParse(response.choices[0].message.content || '{}', 'OpenAI event response parsing');
+            }
+            // Ensure timestamp is present
+            if (!generatedEvent['@timestamp']) {
+                generatedEvent['@timestamp'] = new Date().toISOString();
+            }
+            // Add any override values
+            const finalEvent = {
+                ...generatedEvent,
+                ...(id_field && id_value ? { [id_field]: id_value } : {}),
+            };
+            // Store in cache
+            aiResponseCache.set(cacheKey, {
+                data: finalEvent,
+                timestamp: Date.now(),
+            });
+            return finalEvent;
+        }
+        catch (error) {
+            handleAIError(error, 'Error generating AI event');
+            // Fallback to basic event structure
+            return {
+                '@timestamp': new Date().toISOString(),
+                ...(id_field && id_value ? { [id_field]: id_value } : {}),
+            };
+        }
+    }, 3, 1000, 'generateAIEvent');
+};
+// Generate multiple alerts in a batch to reduce API calls
+export const generateAIAlertBatch = async (params) => {
+    const { entities = [], space = 'default', examples = [], batchSize = 5, timestampConfig, } = params;
+    if (entities.length === 0) {
+        return [];
+    }
+    return withRetry(async () => {
+        if (!openai && !claude) {
+            initializeAI();
+        }
+        if (!openai && !claude) {
+            throw new AIInitializationError('Failed to initialize AI client');
+        }
+        // Process examples for context
+        const examplesContext = processExamples(examples);
+        // Load alert mapping schema - optimized
+        const alertMappingSchema = loadMappingSchema('alertMappings.json', 800);
+        // Process in batches of the specified size
+        const results = [];
+        const batches = [];
+        // Split entities into batches
+        for (let i = 0; i < entities.length; i += batchSize) {
+            batches.push(entities.slice(i, i + batchSize));
+        }
+        // Process each batch
+        for (const batch of batches) {
+            try {
+                // Create system prompt for batch generation
+                const systemPrompt = generateBatchAlertSystemPrompt({
+                    batchSize: batch.length,
+                    space,
+                    schemaExcerpt: alertMappingSchema,
+                });
+                const userPrompt = generateBatchAlertUserPrompt({
+                    batchSize: batch.length,
+                    entities: batch,
+                    examples: examples.length > 0 ? examplesContext : undefined,
+                });
+                const config = getConfig();
+                let response;
+                if (claude) {
+                    // Use Claude API
+                    response = await claude.messages.create({
+                        model: config.claudeModel || 'claude-3-5-sonnet-20241022',
+                        max_tokens: 4000,
+                        messages: [
+                            {
+                                role: 'user',
+                                content: `${systemPrompt}\n\n${userPrompt}\n\n${JSON_RESPONSE_INSTRUCTION}`,
+                            },
+                        ],
+                        temperature: 0.7,
+                    });
+                }
+                else if (openai) {
+                    // Use OpenAI API
+                    const modelName = config.useAzureOpenAI && config.azureOpenAIDeployment
+                        ? config.azureOpenAIDeployment
+                        : 'gpt-4o';
+                    response = await openai.chat.completions.create({
+                        model: modelName,
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: userPrompt },
+                        ],
+                        response_format: { type: 'json_object' },
+                        temperature: 0.7,
+                    });
+                }
+                let generatedAlerts = [];
+                try {
+                    let rawContent = '[]';
+                    if (claude &&
+                        response &&
+                        'content' in response &&
+                        response.content &&
+                        response.content[0]) {
+                        rawContent =
+                            response.content[0].type === 'text'
+                                ? response.content[0].text || '[]'
+                                : '[]';
+                    }
+                    else if (openai &&
+                        response &&
+                        'choices' in response &&
+                        response.choices &&
+                        response.choices[0]) {
+                        rawContent = response.choices[0].message.content || '[]';
+                    }
+                    // Clean and validate the JSON content
+                    const cleanedContent = sanitizeJSONResponse(rawContent);
+                    const content = safeJsonParse(cleanedContent, 'Batch response parsing');
+                    // Handle different response formats
+                    if (Array.isArray(content)) {
+                        generatedAlerts = content;
+                    }
+                    else if (content && typeof content === 'object') {
+                        // Check if the object has an 'alerts', 'alert', or 'data' property
+                        const contentObj = content;
+                        if (contentObj.alerts && Array.isArray(contentObj.alerts)) {
+                            generatedAlerts = contentObj.alerts;
+                        }
+                        else if (contentObj.alert && Array.isArray(contentObj.alert)) {
+                            generatedAlerts = contentObj.alert;
+                        }
+                        else if (contentObj.data && Array.isArray(contentObj.data)) {
+                            generatedAlerts = contentObj.data;
+                        }
+                        else {
+                            // Single object response - replicate it for each entity if we need multiple
+                            if (batch.length > 1) {
+                                generatedAlerts = batch.map(() => ({ ...content }));
+                            }
+                            else {
+                                generatedAlerts = [content];
+                            }
+                        }
+                    }
+                    else {
+                        generatedAlerts = [];
+                    }
+                    // Validate batch response
+                    generatedAlerts = validateBatchResponse(generatedAlerts, batch.length);
+                }
+                catch (e) {
+                    console.error('Error parsing batch response:', e);
+                    // Fallback: create empty objects for each entity
+                    generatedAlerts = batch.map(() => ({}));
+                }
+                // Process each alert in the batch
+                for (let i = 0; i < batch.length; i++) {
+                    const entity = batch[i];
+                    const generatedAlert = i < generatedAlerts.length ? generatedAlerts[i] : {};
+                    // Create a default template
+                    const defaultTemplate = createDefaultAlertTemplate(entity.hostName, entity.userName, space, timestampConfig);
+                    // Merge and validate
+                    const mergedAlert = {
+                        ...defaultTemplate,
+                        ...generatedAlert,
+                        'host.name': entity.hostName,
+                        'user.name': entity.userName,
+                        'kibana.space_ids': [space],
+                        'kibana.alert.uuid': generatedAlert['kibana.alert.uuid'] || defaultTemplate['kibana.alert.uuid'],
+                        // Preserve template timestamps
+                        '@timestamp': defaultTemplate['@timestamp'],
+                        'kibana.alert.start': defaultTemplate['kibana.alert.start'],
+                        'kibana.alert.last_detected': defaultTemplate['kibana.alert.last_detected'],
+                        'kibana.alert.original_time': defaultTemplate['kibana.alert.original_time'],
+                        'kibana.alert.rule.created_at': defaultTemplate['kibana.alert.rule.created_at'],
+                        'kibana.alert.rule.updated_at': defaultTemplate['kibana.alert.rule.updated_at'],
+                    };
+                    const validatedAlert = validateAndSanitizeAlert(mergedAlert, entity.hostName, entity.userName, space, timestampConfig);
+                    results.push(validatedAlert);
+                    // Store in cache
+                    const cacheKey = generateAlertCacheKey(entity.hostName, entity.userName, space, 'general');
+                    aiResponseCache.set(cacheKey, {
+                        data: validatedAlert,
+                        timestamp: Date.now(),
+                    });
+                }
+            }
+            catch (error) {
+                console.error('Error generating AI alert batch:', error);
+                // Fallback to individual generation for this batch
+                for (const entity of batch) {
+                    try {
+                        const alert = await generateAIAlert({
+                            userName: entity.userName,
+                            hostName: entity.hostName,
+                            space,
+                            examples,
+                            timestampConfig,
+                        });
+                        results.push(alert);
+                    }
+                    catch (e) {
+                        console.error('Error in fallback generation:', e);
+                        // Use default template as last resort
+                        const defaultAlert = createDefaultAlertTemplate(entity.hostName, entity.userName, space, timestampConfig);
+                        results.push(defaultAlert);
+                    }
+                }
+            }
+        }
+        return results;
+    }, 2, 2000, 'generateAIAlertBatch');
+};
+// Generate AI alert with MITRE ATT&CK integration
+export const generateMITREAlert = async (params) => {
+    const { userName = 'user-1', hostName = 'host-1', space = 'default', examples = [], timestampConfig, } = params;
+    return withRetry(async () => {
+        if (!openai && !claude) {
+            initializeAI();
+        }
+        if (!openai && !claude) {
+            throw new AIInitializationError('Failed to initialize AI client');
+        }
+        // Load MITRE data
+        const mitreData = loadMitreData();
+        if (!mitreData) {
+            console.warn('MITRE data not available, falling back to standard alert generation');
+            return generateAIAlert({
+                userName,
+                hostName,
+                space,
+                examples,
+                alertType: 'general',
+                timestampConfig,
+            });
+        }
+        const config = getConfig();
+        const maxTechniques = config.mitre?.maxTechniquesPerAlert || 2;
+        // Decide between attack chain or individual techniques
+        let selectedTechniques = [];
+        let attackChain = undefined;
+        let mitreContext = '';
+        if (config.mitre?.enableAttackChains &&
+            Math.random() < (config.mitre?.chainProbability || 0.15)) {
+            // Generate attack chain
+            attackChain =
+                generateAttackChain(mitreData, config.mitre?.maxChainLength || 3) ||
+                    undefined;
+            if (attackChain) {
+                mitreContext = createMitreContext([], mitreData, attackChain);
+                selectedTechniques = attackChain.techniques;
+            }
+        }
+        // Fallback to individual technique selection if no chain was generated
+        if (!attackChain) {
+            selectedTechniques = selectMitreTechniques(mitreData, maxTechniques);
+            mitreContext = createMitreContext(selectedTechniques, mitreData);
+        }
+        // Check cache first
+        const techniqueIds = selectedTechniques
+            .map((t) => t.subTechnique ? `${t.technique}.${t.subTechnique}` : t.technique)
+            .join('-');
+        const chainId = attackChain ? attackChain.chainId : '';
+        const cacheKey = generateMitreCacheKey(hostName, userName, space, techniqueIds, chainId);
+        const cached = aiResponseCache.get(cacheKey);
+        if (cached) {
+            return cached.data;
+        }
+        // Load alert mapping schema
+        const alertMappingSchema = loadMappingSchema('alertMappings.json', 800);
+        // Create system prompt
+        const systemPrompt = generateMitreAlertSystemPrompt({
+            hostName,
+            userName,
+            space,
+            mitreContext,
+            schemaExcerpt: alertMappingSchema.substring(0, 600),
+            attackChain: !!attackChain,
+            chainSeverity: attackChain?.severity,
+        });
+        const userPrompt = generateMitreAlertUserPrompt({
+            hostName,
+            userName,
+            attackChain: !!attackChain,
+        });
+        try {
+            let generatedAlert = {};
+            if (claude) {
+                // Use Claude API
+                const response = await claude.messages.create({
+                    model: config.claudeModel || 'claude-3-5-sonnet-20241022',
+                    max_tokens: 2000,
+                    messages: [
+                        {
+                            role: 'user',
+                            content: `${systemPrompt}\n\n${userPrompt}\n\n${JSON_RESPONSE_INSTRUCTION}`,
+                        },
+                    ],
+                    temperature: 0.8,
+                });
+                const content = response.content[0];
+                if (content.type === 'text') {
+                    generatedAlert = safeJsonParse(content.text || '{}', 'Claude MITRE response parsing');
+                }
+            }
+            else if (openai) {
+                // Use OpenAI API
+                const modelName = config.useAzureOpenAI && config.azureOpenAIDeployment
+                    ? config.azureOpenAIDeployment
+                    : 'gpt-4o';
+                const response = await openai.chat.completions.create({
+                    model: modelName,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt },
+                    ],
+                    response_format: { type: 'json_object' },
+                    temperature: 0.8,
+                });
+                generatedAlert = safeJsonParse(response.choices[0].message.content || '{}', 'OpenAI MITRE response parsing');
+            }
+            // Create default template
+            const defaultTemplate = createDefaultAlertTemplate(hostName, userName, space, timestampConfig);
+            // Generate MITRE-specific fields
+            const mitreFields = generateMitreFields(selectedTechniques, mitreData, attackChain);
+            // Merge all parts
+            const mergedAlert = {
+                ...defaultTemplate,
+                ...generatedAlert,
+                ...mitreFields,
+                // Always ensure these specific fields
+                'host.name': hostName,
+                'user.name': userName,
+                'kibana.space_ids': [space],
+                // Preserve template timestamps (don't let AI override)
+                '@timestamp': defaultTemplate['@timestamp'],
+                'kibana.alert.start': defaultTemplate['kibana.alert.start'],
+                'kibana.alert.last_detected': defaultTemplate['kibana.alert.last_detected'],
+                'kibana.alert.original_time': defaultTemplate['kibana.alert.original_time'],
+                'kibana.alert.rule.created_at': defaultTemplate['kibana.alert.rule.created_at'],
+                'kibana.alert.rule.updated_at': defaultTemplate['kibana.alert.rule.updated_at'],
+            };
+            // Validate the alert
+            const validatedAlert = validateAndSanitizeAlert(mergedAlert, hostName, userName, space, timestampConfig);
+            // Store in cache
+            aiResponseCache.set(cacheKey, {
+                data: validatedAlert,
+                timestamp: Date.now(),
+            });
+            return validatedAlert;
+        }
+        catch (error) {
+            console.error('Error generating MITRE alert:', error);
+            // Fallback to standard alert generation
+            return generateAIAlert({
+                userName,
+                hostName,
+                space,
+                examples,
+                alertType: 'mitre-fallback',
+                timestampConfig,
+            });
+        }
+    }, 3, 1000, 'generateMITREAlert');
+};
+// Function to extract schema structure from mapping (kept for compatibility)
+export const extractSchemaFromMapping = (mappingJson) => {
+    try {
+        const mapping = safeJsonParse(mappingJson, 'Schema mapping parsing');
+        const schemaStructure = {};
+        const extractProperties = (properties, parentPath = '') => {
+            Object.entries(properties).forEach(([key, value]) => {
+                const currentPath = parentPath ? `${parentPath}.${key}` : key;
+                if (value.type) {
+                    schemaStructure[currentPath] = value.type;
+                }
+                if (value.properties) {
+                    extractProperties(value.properties, currentPath);
+                }
+            });
+        };
+        const mappingObj = mapping;
+        if (mappingObj.properties) {
+            extractProperties(mappingObj.properties);
+        }
+        return schemaStructure;
+    }
+    catch (error) {
+        console.error('Error extracting schema from mapping:', error);
+        return {};
+    }
+};
+// Cleanup function to stop cache maintenance and allow process to exit
+export const cleanupAIService = () => {
+    stopCacheMaintenance();
+    cacheMaintenanceStarted = false;
+};

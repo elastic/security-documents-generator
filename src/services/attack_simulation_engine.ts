@@ -529,7 +529,9 @@ export class AttackSimulationEngine {
 
       // Wait for batch to complete and filter out failed requests
       const batchResults = await Promise.all(batchPromises);
-      const successfulResults = batchResults.filter(result => result !== null);
+      const successfulResults = batchResults.filter(
+        (result) => result !== null,
+      );
       events.push(...successfulResults);
 
       // Small delay between batches to avoid overwhelming the API

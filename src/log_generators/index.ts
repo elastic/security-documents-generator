@@ -29,7 +29,10 @@ export interface UnifiedLogConfig {
   };
 }
 
-export function createRealisticLog(override = {}, config: UnifiedLogConfig = {}) {
+export function createRealisticLog(
+  override = {},
+  config: UnifiedLogConfig = {},
+) {
   const {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
@@ -38,16 +41,24 @@ export function createRealisticLog(override = {}, config: UnifiedLogConfig = {})
       system: 30,
       auth: 20,
       network: 35,
-      endpoint: 15
-    }
+      endpoint: 15,
+    },
   } = config;
 
   // Create weighted array of generators
   const generators = [
-    ...Array(logTypeWeights.system || 30).fill(() => createSystemLog({}, { hostName, userName, timestampConfig })),
-    ...Array(logTypeWeights.auth || 20).fill(() => createAuthLog({}, { hostName, userName, timestampConfig })),
-    ...Array(logTypeWeights.network || 35).fill(() => createNetworkLog({}, { hostName, userName, timestampConfig })),
-    ...Array(logTypeWeights.endpoint || 15).fill(() => createEndpointLog({}, { hostName, userName, timestampConfig }))
+    ...Array(logTypeWeights.system || 30).fill(() =>
+      createSystemLog({}, { hostName, userName, timestampConfig }),
+    ),
+    ...Array(logTypeWeights.auth || 20).fill(() =>
+      createAuthLog({}, { hostName, userName, timestampConfig }),
+    ),
+    ...Array(logTypeWeights.network || 35).fill(() =>
+      createNetworkLog({}, { hostName, userName, timestampConfig }),
+    ),
+    ...Array(logTypeWeights.endpoint || 15).fill(() =>
+      createEndpointLog({}, { hostName, userName, timestampConfig }),
+    ),
   ];
 
   const selectedGenerator = faker.helpers.arrayElement(generators);
@@ -60,7 +71,10 @@ export function createRealisticLog(override = {}, config: UnifiedLogConfig = {})
 }
 
 // Helper function to get appropriate index name based on log type
-export function getLogIndexForType(logType: string, namespace = 'default'): string {
+export function getLogIndexForType(
+  logType: string,
+  namespace = 'default',
+): string {
   const indexMap: Record<string, string> = {
     system: `logs-system.system-${namespace}`,
     auth: `logs-system.auth-${namespace}`,
@@ -68,7 +82,7 @@ export function getLogIndexForType(logType: string, namespace = 'default'): stri
     endpoint: `logs-endpoint.events-${namespace}`,
     web: `logs-apache.access-${namespace}`,
     dns: `logs-network.dns-${namespace}`,
-    firewall: `logs-iptables.log-${namespace}`
+    firewall: `logs-iptables.log-${namespace}`,
   };
 
   return indexMap[logType] || `logs-generic-${namespace}`;
@@ -83,7 +97,7 @@ export function getDatasetForLogType(logType: string): string {
     endpoint: 'endpoint.events',
     web: 'apache.access',
     dns: 'network.dns',
-    firewall: 'iptables.log'
+    firewall: 'iptables.log',
   };
 
   return datasetMap[logType] || 'generic.log';
@@ -95,15 +109,24 @@ export function detectLogType(log: any): string {
     const dataset = log['data_stream.dataset'];
     if (dataset.includes('system')) return 'system';
     if (dataset.includes('auth') || dataset.includes('security')) return 'auth';
-    if (dataset.includes('network') || dataset.includes('dns') || dataset.includes('apache')) return 'network';
+    if (
+      dataset.includes('network') ||
+      dataset.includes('dns') ||
+      dataset.includes('apache')
+    )
+      return 'network';
     if (dataset.includes('endpoint')) return 'endpoint';
   }
-  
+
   if (log['event.category']) {
-    const categories = Array.isArray(log['event.category']) ? log['event.category'] : [log['event.category']];
+    const categories = Array.isArray(log['event.category'])
+      ? log['event.category']
+      : [log['event.category']];
     if (categories.includes('authentication')) return 'auth';
-    if (categories.includes('network') || categories.includes('web')) return 'network';
-    if (categories.includes('process') || categories.includes('malware')) return 'endpoint';
+    if (categories.includes('network') || categories.includes('web'))
+      return 'network';
+    if (categories.includes('process') || categories.includes('malware'))
+      return 'endpoint';
     if (categories.includes('system')) return 'system';
   }
 

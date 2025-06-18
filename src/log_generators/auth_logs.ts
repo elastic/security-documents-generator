@@ -8,30 +8,51 @@ export interface AuthLogConfig {
 }
 
 const AUTH_METHODS = [
-  'password', 'kerberos', 'ntlm', 'certificate', 'mfa', 'biometric'
+  'password',
+  'kerberos',
+  'ntlm',
+  'certificate',
+  'mfa',
+  'biometric',
 ];
 
 const LOGIN_TYPES = [
-  'interactive', 'network', 'batch', 'service', 'unlock', 'remote'
+  'interactive',
+  'network',
+  'batch',
+  'service',
+  'unlock',
+  'remote',
 ];
 
 const FAILURE_REASONS = [
-  'bad_password', 'account_locked', 'account_disabled', 'expired_password',
-  'logon_time_restriction', 'workstation_restriction', 'password_expired',
-  'account_expired', 'user_not_found'
+  'bad_password',
+  'account_locked',
+  'account_disabled',
+  'expired_password',
+  'logon_time_restriction',
+  'workstation_restriction',
+  'password_expired',
+  'account_expired',
+  'user_not_found',
 ];
 
 const PRIVILEGE_OPERATIONS = [
-  'SeDebugPrivilege', 'SeBackupPrivilege', 'SeRestorePrivilege', 
-  'SeTakeOwnershipPrivilege', 'SeLoadDriverPrivilege', 'SeSystemtimePrivilege',
-  'SeShutdownPrivilege', 'SeRemoteShutdownPrivilege'
+  'SeDebugPrivilege',
+  'SeBackupPrivilege',
+  'SeRestorePrivilege',
+  'SeTakeOwnershipPrivilege',
+  'SeLoadDriverPrivilege',
+  'SeSystemtimePrivilege',
+  'SeShutdownPrivilege',
+  'SeRemoteShutdownPrivilege',
 ];
 
 export const generateLoginSuccessLog = (config: AuthLogConfig = {}) => {
   const {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
-    timestampConfig
+    timestampConfig,
   } = config;
 
   return {
@@ -54,7 +75,7 @@ export const generateLoginSuccessLog = (config: AuthLogConfig = {}) => {
     'host.name': hostName,
     'host.os.family': 'windows',
     'log.level': 'information',
-    'message': `An account was successfully logged on.`,
+    message: `An account was successfully logged on.`,
     'source.ip': faker.internet.ip(),
     'source.port': faker.internet.port(),
     'user.name': userName,
@@ -77,7 +98,7 @@ export const generateLoginFailureLog = (config: AuthLogConfig = {}) => {
   const {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
-    timestampConfig
+    timestampConfig,
   } = config;
 
   const failureReason = faker.helpers.arrayElement(FAILURE_REASONS);
@@ -102,7 +123,7 @@ export const generateLoginFailureLog = (config: AuthLogConfig = {}) => {
     'host.name': hostName,
     'host.os.family': 'windows',
     'log.level': 'information',
-    'message': `An account failed to log on. Reason: ${failureReason}`,
+    message: `An account failed to log on. Reason: ${failureReason}`,
     'source.ip': faker.internet.ip(),
     'source.port': faker.internet.port(),
     'user.name': userName,
@@ -124,7 +145,7 @@ export const generatePrivilegeEscalationLog = (config: AuthLogConfig = {}) => {
   const {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
-    timestampConfig
+    timestampConfig,
   } = config;
 
   const privilege = faker.helpers.arrayElement(PRIVILEGE_OPERATIONS);
@@ -149,7 +170,7 @@ export const generatePrivilegeEscalationLog = (config: AuthLogConfig = {}) => {
     'host.name': hostName,
     'host.os.family': 'windows',
     'log.level': 'information',
-    'message': `Special privileges assigned to new logon. Privileges: ${privilege}`,
+    message: `Special privileges assigned to new logon. Privileges: ${privilege}`,
     'user.name': userName,
     'user.domain': faker.internet.domainName(),
     'user.id': faker.string.uuid(),
@@ -167,7 +188,7 @@ export const generateAccountLockoutLog = (config: AuthLogConfig = {}) => {
   const {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
-    timestampConfig
+    timestampConfig,
   } = config;
 
   return {
@@ -190,7 +211,7 @@ export const generateAccountLockoutLog = (config: AuthLogConfig = {}) => {
     'host.name': hostName,
     'host.os.family': 'windows',
     'log.level': 'information',
-    'message': `A user account was locked out.`,
+    message: `A user account was locked out.`,
     'source.ip': faker.internet.ip(),
     'user.name': userName,
     'user.domain': faker.internet.domainName(),
@@ -209,10 +230,14 @@ export const generateLinuxAuthLog = (config: AuthLogConfig = {}) => {
   const {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
-    timestampConfig
+    timestampConfig,
   } = config;
 
-  const authMethod = faker.helpers.arrayElement(['password', 'publickey', 'keyboard-interactive']);
+  const authMethod = faker.helpers.arrayElement([
+    'password',
+    'publickey',
+    'keyboard-interactive',
+  ]);
   const outcome = faker.helpers.arrayElement(['success', 'failure']);
 
   return {
@@ -235,9 +260,10 @@ export const generateLinuxAuthLog = (config: AuthLogConfig = {}) => {
     'host.os.name': 'Ubuntu',
     'log.file.path': '/var/log/auth.log',
     'log.level': 'info',
-    'message': outcome === 'success' ? 
-      `Accepted ${authMethod} for ${userName} from ${faker.internet.ip()} port ${faker.internet.port()}` :
-      `Failed ${authMethod} for ${userName} from ${faker.internet.ip()} port ${faker.internet.port()}`,
+    message:
+      outcome === 'success'
+        ? `Accepted ${authMethod} for ${userName} from ${faker.internet.ip()} port ${faker.internet.port()}`
+        : `Failed ${authMethod} for ${userName} from ${faker.internet.ip()} port ${faker.internet.port()}`,
     'process.name': 'sshd',
     'process.pid': faker.number.int({ min: 1000, max: 65535 }),
     'service.type': 'ssh',
@@ -250,13 +276,16 @@ export const generateLinuxAuthLog = (config: AuthLogConfig = {}) => {
   };
 };
 
-export default function createAuthLog(override = {}, config: AuthLogConfig = {}) {
+export default function createAuthLog(
+  override = {},
+  config: AuthLogConfig = {},
+) {
   const logGenerators = [
     generateLoginSuccessLog,
     generateLoginFailureLog,
     generatePrivilegeEscalationLog,
     generateAccountLockoutLog,
-    generateLinuxAuthLog
+    generateLinuxAuthLog,
   ];
 
   // Weight success vs failure logs (70% success, 30% failure for realism)
@@ -265,7 +294,7 @@ export default function createAuthLog(override = {}, config: AuthLogConfig = {})
     ...Array(3).fill(generateLoginFailureLog),
     generatePrivilegeEscalationLog,
     generateAccountLockoutLog,
-    generateLinuxAuthLog
+    generateLinuxAuthLog,
   ];
 
   const selectedGenerator = faker.helpers.arrayElement(weightedGenerators);
