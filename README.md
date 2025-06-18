@@ -48,6 +48,10 @@ Examples of config:
 
 ## Commands
 
+### Privileged User Monitoring
+
+`yarn start privileged-user-monitoring` - Generate source events and anomalous source data for privileged user monitoring and the privileged access detection ML jobs.
+
 ### Entity store
 
 `yarn start entity-store` - Generate data for entity store

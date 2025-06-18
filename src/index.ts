@@ -303,7 +303,7 @@ program
   });
 
 program
-  .command('privileged_user_monitoring')
+  .command('privileged-user-monitoring')
   .description(
     `Generate source events and anomalous source data for privileged user monitoring and the privileged access detection ML jobs.`,
   )
