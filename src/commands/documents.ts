@@ -19,6 +19,7 @@ import {
   cleanupAIService,
 } from '../utils/ai_service';
 import { TimestampConfig } from '../utils/timestamp_utils';
+import { applyFalsePositiveLogic, generateFalsePositiveStats } from '../utils/false_positive_generator';
 
 const generateDocs = async ({
   createDocs,
@@ -56,7 +57,7 @@ const bulkUpsert = async (docs: unknown[]) => {
   const client = getEsClient();
 
   try {
-    const result = await client.bulk({ body: docs, refresh: true });
+    const result = await client.bulk({ operations: docs, refresh: true });
     
     if (result.errors) {
       // Only show errors, not successful operations
@@ -224,6 +225,7 @@ export const generateAlerts = async (
   useAI = false,
   useMitre = false,
   timestampConfig?: TimestampConfig,
+  falsePositiveRate = 0.0,
 ) => {
   if (userCount > alertCount) {
     console.log('User count should be less than alert count');
@@ -238,7 +240,9 @@ export const generateAlerts = async (
   console.log(
     `Generating ${alertCount} alerts containing ${hostCount} hosts and ${userCount} users in space ${space}${
       useAI ? ' using AI' : ''
-    }${useMitre ? ' with MITRE ATT&CK' : ''}`,
+    }${useMitre ? ' with MITRE ATT&CK' : ''}${
+      falsePositiveRate > 0 ? ` (${(falsePositiveRate * 100).toFixed(1)}% false positives)` : ''
+    }`,
   );
 
   const config = getConfig();
@@ -254,12 +258,6 @@ export const generateAlerts = async (
     process.exit(1);
   }
 
-  if (useMitre && !useAI) {
-    console.log(
-      'MITRE integration requires AI generation. Use both --ai and --mitre flags.',
-    );
-    process.exit(1);
-  }
 
   if (useMitre && !config.mitre?.enabled) {
     console.log(
@@ -278,16 +276,22 @@ export const generateAlerts = async (
   }: {
     userName: string;
     hostName: string;
-  }) =>
-    alertToBatchOps(
-      createAlerts(no_overrides, {
-        userName,
-        hostName,
-        space,
-        timestampConfig,
-      }),
-      getAlertIndex(space),
-    );
+  }) => {
+    let alert = createAlerts(no_overrides, {
+      userName,
+      hostName,
+      space,
+      timestampConfig,
+    });
+
+    // Apply false positive logic if enabled
+    if (falsePositiveRate > 0) {
+      const alertsArray = applyFalsePositiveLogic([alert], falsePositiveRate);
+      alert = alertsArray[0];
+    }
+
+    return alertToBatchOps(alert, getAlertIndex(space));
+  };
 
   console.log('Generating entity names...');
   const userNames = Array.from({ length: userCount }, () =>
@@ -400,6 +404,11 @@ export const generateAlerts = async (
             });
           }
 
+          // Apply false positive logic if enabled
+          if (falsePositiveRate > 0) {
+            generatedAlerts = applyFalsePositiveLogic(generatedAlerts, falsePositiveRate);
+          }
+
           // Add the generated alerts to the chunk operations
           for (const alert of generatedAlerts) {
             chunkOperations.push({
@@ -421,12 +430,18 @@ export const generateAlerts = async (
 
           // Fallback to standard generation for this chunk
           for (const entity of currentChunk) {
-            const alert = createAlerts(no_overrides, {
+            let alert = createAlerts(no_overrides, {
               userName: entity.userName,
               hostName: entity.hostName,
               space,
               timestampConfig,
             });
+
+            // Apply false positive logic to fallback alerts too
+            if (falsePositiveRate > 0) {
+              const alertsArray = applyFalsePositiveLogic([alert], falsePositiveRate);
+              alert = alertsArray[0];
+            }
 
             chunkOperations.push({
               index: {
@@ -487,6 +502,17 @@ export const generateAlerts = async (
       );
     }
 
+    // Display false positive statistics if enabled
+    if (falsePositiveRate > 0) {
+      // For AI generation, we need to collect stats from the generated alerts
+      // Since we can't easily access them here, we'll show expected stats
+      const expectedFalsePositives = Math.round(alertCount * falsePositiveRate);
+      console.log(`\n📊 False Positive Statistics:`);
+      console.log(`  🎯 Expected False Positives: ~${expectedFalsePositives} (${(falsePositiveRate * 100).toFixed(1)}%)`);
+      console.log(`  ✅ Alerts marked as resolved with workflow reasons`);
+      console.log(`  📋 Categories: maintenance, authorized_tools, normal_business, false_detection`);
+    }
+
     // Cleanup AI service to allow process to exit cleanly
     cleanupAIService();
     return;
@@ -520,6 +546,15 @@ export const generateAlerts = async (
   );
 
   progress.stop();
+
+  // Display false positive statistics if enabled
+  if (falsePositiveRate > 0) {
+    const expectedFalsePositives = Math.round(alertCount * falsePositiveRate);
+    console.log(`\n📊 False Positive Statistics:`);
+    console.log(`  🎯 Expected False Positives: ~${expectedFalsePositives} (${(falsePositiveRate * 100).toFixed(1)}%)`);
+    console.log(`  ✅ Alerts marked as resolved with workflow reasons`);
+    console.log(`  📋 Categories: maintenance, authorized_tools, normal_business, false_detection`);
+  }
 
   // Cleanup AI service to allow process to exit cleanly
   if (useAI) {
@@ -775,12 +810,6 @@ export const generateCorrelatedCampaign = async (
     process.exit(1);
   }
 
-  if (useMitre && !useAI) {
-    console.log(
-      'MITRE integration requires AI generation. Use both --ai and --mitre flags.'
-    );
-    process.exit(1);
-  }
 
   // Import the correlated alert generator
   const { CorrelatedAlertGenerator } = await import('../services/correlated_alert_generator');
@@ -1020,7 +1049,7 @@ export const generateGraph = async ({
   try {
     const client = getEsClient();
 
-    const result = await client.bulk({ body: alerts, refresh: true });
+    const result = await client.bulk({ operations: alerts, refresh: true });
     console.log(`${result.items.length} alerts created`);
   } catch (err) {
     console.log('Error: ', err);

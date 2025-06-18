@@ -147,6 +147,11 @@ yarn start generate-alerts [options]
 | `--end-date <date>` | End date | `now` | `--end-date "now"` |
 | `--time-pattern <pattern>` | Time distribution | `uniform` | `--time-pattern business_hours` |
 
+#### False Positive Testing
+| Flag | Description | Default | Example |
+|------|-------------|---------|---------|
+| `--false-positive-rate <rate>` | Percentage of alerts marked as false positives (0.0-1.0) | `0.0` | `--false-positive-rate 0.2` |
+
 ### Time Patterns
 - `uniform` - Even distribution
 - `business_hours` - 9 AM - 6 PM, Mon-Fri
@@ -177,6 +182,18 @@ yarn start generate-alerts -n 5000 -h 200 -u 100 --mitre --large-scale
 
 # Time-based generation
 yarn start generate-alerts -n 100 -h 10 -u 5 --start-date "7d" --time-pattern business_hours
+```
+
+#### False Positive Testing
+```bash
+# Generate 20% false positives for rule tuning
+yarn start generate-alerts -n 100 -h 10 -u 5 --false-positive-rate 0.2
+
+# SOC workflow testing with high false positive rate
+yarn start generate-alerts -n 200 -h 20 -u 10 --false-positive-rate 0.4 --mitre
+
+# Detection rule testing with realistic false positive patterns
+yarn start generate-alerts -n 500 -h 50 -u 25 --false-positive-rate 0.15 --claude --mitre
 ```
 
 ## 📊 generate-events

@@ -107,6 +107,11 @@ program
     '--time-pattern <pattern>',
     'time distribution pattern: uniform, business_hours, random, attack_simulation, weekend_heavy',
   )
+  .option(
+    '--false-positive-rate <rate>',
+    'percentage of alerts to mark as false positives (0.0-1.0) for testing detection rules',
+    '0.0',
+  )
   .description(
     'Generate AI-powered security alerts with optional MITRE ATT&CK scenarios',
   )
@@ -118,6 +123,15 @@ program
     const useAI = true; // AI is always enabled now
     const useClaude = options.claude || false;
     const useMitre = options.mitre || false;
+    const falsePositiveRate = parseFloat(options.falsePositiveRate || '0.0');
+
+    // Validate false positive rate
+    if (falsePositiveRate < 0.0 || falsePositiveRate > 1.0) {
+      console.error(
+        'Error: --false-positive-rate must be between 0.0 and 1.0',
+      );
+      process.exit(1);
+    }
 
     // Validate flag dependencies
     if (options.subTechniques && !useMitre) {
@@ -180,6 +194,7 @@ program
       useAI,
       useMitre,
       timestampConfig,
+      falsePositiveRate,
     );
   });
 
@@ -599,6 +614,18 @@ program
     'detection rate (0.0-1.0) - what percentage of activity gets detected',
     '0.4',
   )
+  .option(
+    '--start-date <date>',
+    'start date for data generation (e.g., "7d", "1w", "2024-01-01")',
+  )
+  .option(
+    '--end-date <date>',
+    'end date for data generation (e.g., "now", "1d", "2024-01-10")',
+  )
+  .option(
+    '--time-pattern <pattern>',
+    'time distribution pattern: uniform, business_hours, random, attack_simulation, weekend_heavy',
+  )
   .action(async (campaignType, options) => {
     // AI is always enabled now
     const useAI = true;
@@ -730,9 +757,9 @@ program
             useAI,
             useMitre,
             timestampConfig: {
-              startDate: '2d',
-              endDate: 'now',
-              pattern: 'attack_simulation' as const
+              startDate: options.startDate || '2d',
+              endDate: options.endDate || 'now',
+              pattern: (options.timePattern || 'attack_simulation') as 'uniform' | 'business_hours' | 'random' | 'attack_simulation' | 'weekend_heavy'
             }
           };
           
@@ -803,7 +830,7 @@ program
             const batchSize = 1000;
             for (let i = 0; i < indexOperations.length; i += batchSize) {
               const batch = indexOperations.slice(i, i + batchSize);
-              await client.bulk({ body: batch, refresh: true });
+              await client.bulk({ operations: batch, refresh: true });
               
               if (i + batchSize < indexOperations.length) {
                 process.stdout.write('.');
@@ -840,9 +867,9 @@ program
           console.log(`\n🔗 Generating Sophisticated Correlated Events...`);
 
           const timestampConfig = {
-            startDate: simulation.campaign.duration.start.toISOString(),
-            endDate: simulation.campaign.duration.end.toISOString(),
-            pattern: 'attack_simulation' as const,
+            startDate: options.startDate || simulation.campaign.duration.start.toISOString(),
+            endDate: options.endDate || simulation.campaign.duration.end.toISOString(),
+            pattern: (options.timePattern || 'attack_simulation') as 'uniform' | 'business_hours' | 'random' | 'attack_simulation' | 'weekend_heavy',
           };
 
           const correlatedEvents =
@@ -865,8 +892,8 @@ program
 
         // Execute sophisticated generation with dynamic timeout based on event count
         // Use more generous timeout for AI generation
-        const baseTimeout = 90000; // 90 seconds base timeout
-        const timeoutMs = Math.max(baseTimeout, eventCount * 5000); // 5 seconds per event
+        const baseTimeout = 180000; // 180 seconds base timeout (3 minutes)
+        const timeoutMs = Math.max(baseTimeout, eventCount * 10000); // 10 seconds per event
         console.log(
           `⏱️  Timeout set to ${Math.round(timeoutMs / 1000)} seconds for ${eventCount} events`,
         );
@@ -911,7 +938,7 @@ program
         // Bulk index to Elasticsearch
         const client = getEsClient();
         try {
-          await client.bulk({ body: bulkOps, refresh: true });
+          await client.bulk({ operations: bulkOps, refresh: true });
           console.log(`✅ Successfully indexed ${result.length} events to ${alertIndex}`);
         } catch (err) {
           console.error('❌ Error indexing events:', err);

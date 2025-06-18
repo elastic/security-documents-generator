@@ -1,6 +1,30 @@
 import { faker } from '@faker-js/faker';
 import { generateTimestamp } from './utils/timestamp_utils';
 
+// Realistic security alert rule names
+const REALISTIC_ALERT_NAMES = [
+  'Suspicious PowerShell Activity Detected',
+  'Malware Detection - Endpoint Security',
+  'Failed Login Attempts from Multiple IPs',
+  'Privilege Escalation Attempt',
+  'Suspicious Network Traffic to External Domain',
+  'File Integrity Monitoring Alert',
+  'Credential Dumping Activity',
+  'Process Injection Detected',
+  'Unusual Outbound Network Connection',
+  'Windows Defender Real-time Protection Disabled',
+  'Suspicious Registry Modification',
+  'Unauthorized Service Installation',
+  'Command and Control Communication',
+  'Data Exfiltration Attempt',
+  'Lateral Movement Detected',
+  'Brute Force Attack on SSH',
+  'Web Shell Detection',
+  'Suspicious DNS Query',
+  'Endpoint Agent Tampering',
+  'Critical System File Modified',
+];
+
 function baseCreateAlerts({
   userName = 'user-1',
   hostName = 'host-1',
@@ -50,7 +74,7 @@ function baseCreateAlerts({
     'kibana.alert.rule.category': 'Custom Query Rule',
     'kibana.alert.rule.consumer': 'siem',
     'kibana.alert.rule.execution.uuid': faker.string.uuid(),
-    'kibana.alert.rule.name': 'Alert create by documents-generator',
+    'kibana.alert.rule.name': faker.helpers.arrayElement(REALISTIC_ALERT_NAMES),
     'kibana.alert.rule.producer': 'siem',
     'kibana.alert.rule.rule_type_id': 'siem.queryRule',
     'kibana.alert.rule.uuid': faker.string.uuid(),

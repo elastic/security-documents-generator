@@ -657,7 +657,7 @@ class SecurityDataMCPServer {
         const batchSize = 1000;
         for (let i = 0; i < indexOperations.length; i += batchSize) {
           const batch = indexOperations.slice(i, i + batchSize);
-          await client.bulk({ body: batch, refresh: true });
+          await client.bulk({ operations: batch, refresh: true });
 
           if (i + batchSize < indexOperations.length) {
             console.error('[MCP] Indexing progress...');

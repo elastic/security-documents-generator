@@ -287,7 +287,7 @@ export class AttackSimulationEngine {
       );
 
       console.log(
-        `\n🔄 Stage ${stageIndex + 1}/${simulation.stages.length}: ${stage.name}`,
+        `🔄 Stage ${stageIndex + 1}/${simulation.stages.length}: ${stage.name}`,
       );
       console.log(
         `  ⏰ Duration: ${stage.start_time.toISOString()} → ${stage.end_time.toISOString()}`,
@@ -397,7 +397,8 @@ export class AttackSimulationEngine {
     timeRange: TimeRange,
   ): Promise<SimulationStage[]> {
     const stages: SimulationStage[] = [];
-    const scenarioStages = scenario.stages || [];
+    // Handle both stages (APT, ransomware, supply-chain) and activities (insider)
+    const scenarioStages = scenario.stages || scenario.activities || [];
 
     let currentTime = new Date(timeRange.start);
 
@@ -453,10 +454,18 @@ export class AttackSimulationEngine {
       stage.techniques.length > 0 ? stage.techniques : ['T1001']; // Fallback technique
     const eventsPerTechnique = Math.ceil(targetEventCount / techniques.length);
 
+    // Create all AI generation tasks upfront for parallel processing
+    const aiTasks: Array<{
+      technique: string;
+      hostname: string;
+      username: string;
+      timestampConfig: TimestampConfig;
+    }> = [];
+
     for (const technique of techniques) {
       const techniqueEvents = Math.min(
         eventsPerTechnique,
-        targetEventCount - events.length,
+        targetEventCount - aiTasks.length,
       );
 
       for (let i = 0; i < techniqueEvents; i++) {
@@ -469,43 +478,63 @@ export class AttackSimulationEngine {
           pattern: 'attack_simulation',
         };
 
+        aiTasks.push({ technique, hostname, username, timestampConfig });
+
+        // Stop if we've reached the target event count
+        if (aiTasks.length >= targetEventCount) {
+          break;
+        }
+      }
+
+      if (aiTasks.length >= targetEventCount) {
+        break;
+      }
+    }
+
+    // Process AI tasks in parallel batches for better performance
+    const batchSize = 5; // Process 5 AI calls concurrently
+    const batches = [];
+    for (let i = 0; i < aiTasks.length; i += batchSize) {
+      batches.push(aiTasks.slice(i, i + batchSize));
+    }
+
+    for (const batch of batches) {
+      const batchPromises = batch.map(async (task) => {
         try {
-          const alert = await generateAIAlert({
-            userName: username,
-            hostName: hostname,
+          return await generateAIAlert({
+            userName: task.username,
+            hostName: task.hostname,
             space,
-            alertType: `${stage.tactic}_${technique}`,
-            timestampConfig,
+            alertType: `${stage.tactic}_${task.technique}`,
+            timestampConfig: task.timestampConfig,
             mitreEnabled: useMitre,
             attackChain: {
               campaignId: context.campaign_id,
               stageId: stage.id,
               stageName: stage.name,
-              stageIndex: techniques.indexOf(technique) + 1,
+              stageIndex: techniques.indexOf(task.technique) + 1,
               totalStages: techniques.length,
               threatActor: context.threat_actor,
               parentEvents: context.parent_events,
             },
           });
-
-          events.push(alert);
-
-          // Brief delay to avoid overwhelming the API
-          if (i < techniqueEvents - 1) {
-            await new Promise((resolve) => setTimeout(resolve, 100));
-          }
         } catch (error) {
           console.warn(
-            `⚠️  Alert generation failed for ${technique} (${i + 1}/${techniqueEvents}):`,
+            `⚠️  Alert generation failed for ${task.technique}:`,
             error instanceof Error ? error.message : 'Unknown error',
           );
-          // Continue with other events instead of stopping - resilient generation
+          return null; // Return null for failed requests
         }
-      }
+      });
 
-      // Stop if we've reached the target event count
-      if (events.length >= targetEventCount) {
-        break;
+      // Wait for batch to complete and filter out failed requests
+      const batchResults = await Promise.all(batchPromises);
+      const successfulResults = batchResults.filter(result => result !== null);
+      events.push(...successfulResults);
+
+      // Small delay between batches to avoid overwhelming the API
+      if (batches.indexOf(batch) < batches.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
       }
     }
 
