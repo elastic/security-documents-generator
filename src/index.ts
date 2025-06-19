@@ -70,6 +70,8 @@ program
   .option('-h <h>', 'number of hosts')
   .option('-u <h>', 'number of users')
   .option('-s <h>', 'space (will be created if it does not exist)')
+  .option('--namespace <namespace>', 'custom namespace for alert indices (default: default)')
+  .option('--environments <count>', 'generate alerts across multiple environment namespaces', parseIntBase10)
   .option('--claude', 'use Claude AI instead of OpenAI', false)
   .option(
     '--mitre',
@@ -120,7 +122,6 @@ program
   .option(
     '--field-count <count>',
     'number of additional fields to generate (requires --multi-field)',
-    '200',
   )
   .option(
     '--field-categories <categories>',
@@ -139,6 +140,8 @@ program
     const hostCount = parseInt(options.h || '1');
     const userCount = parseInt(options.u || '1');
     const space = options.s || 'default';
+    const namespace = options.namespace || 'default';
+    const environments = options.environments || 1;
     const useAI = true; // AI is always enabled now
     const useClaude = options.claude || false;
     const useMitre = options.mitre || false;
@@ -175,9 +178,9 @@ program
       );
       process.exit(1);
     }
-    if (fieldCount < 1 || fieldCount > 1000) {
+    if (fieldCount < 1 || fieldCount > 50000) {
       console.error(
-        'Error: --field-count must be between 1 and 1000',
+        'Error: --field-count must be between 1 and 50,000',
       );
       process.exit(1);
     }
@@ -265,17 +268,55 @@ program
       correlationEnabled: true
     } : undefined;
 
-    generateAlerts(
-      alertsCount,
-      userCount,
-      hostCount,
-      space,
-      useAI,
-      useMitre,
-      timestampConfig,
-      falsePositiveRate,
-      multiFieldConfig,
-    );
+    // Handle multiple environments
+    if (environments > 1) {
+      console.log(`\n🌍 Multi-Environment Generation Enabled:`);
+      console.log(`  📊 Environments: ${environments}`);
+      console.log(`  📁 Base Namespace: ${namespace}`);
+      console.log(`  🎯 Total Alerts: ${alertsCount * environments}`);
+      
+      for (let i = 1; i <= environments; i++) {
+        const envNamespace = `${namespace}-env-${i.toString().padStart(3, '0')}`;
+        const envSpace = `${space}-${envNamespace}`;
+        
+        console.log(`\n🔄 Generating environment ${i}/${environments}: ${envNamespace}`);
+        
+        if (envSpace !== 'default') {
+          await initializeSpace(envSpace);
+        }
+        
+        await generateAlerts(
+          alertsCount,
+          userCount,
+          hostCount,
+          envSpace,
+          useAI,
+          useMitre,
+          timestampConfig,
+          falsePositiveRate,
+          multiFieldConfig,
+          envNamespace,
+        );
+      }
+      
+      console.log(`\n✅ Multi-Environment Generation Complete!`);
+      console.log(`  🌍 Generated across ${environments} environments`);
+      console.log(`  📊 Total alerts: ${alertsCount * environments}`);
+      console.log(`  📁 Namespaces: ${namespace}-env-001 through ${namespace}-env-${environments.toString().padStart(3, '0')}`);
+    } else {
+      generateAlerts(
+        alertsCount,
+        userCount,
+        hostCount,
+        space,
+        useAI,
+        useMitre,
+        timestampConfig,
+        falsePositiveRate,
+        multiFieldConfig,
+        namespace,
+      );
+    }
   });
 
 program
@@ -378,7 +419,6 @@ program
   .option(
     '--field-count <count>',
     'number of additional fields to generate (requires --multi-field)',
-    '200',
   )
   .option(
     '--field-categories <categories>',
@@ -399,6 +439,8 @@ program
     'generate Visual Event Analyzer compatible data with process entity tracking',
     false,
   )
+  .option('--namespace <namespace>', 'custom namespace for log indices (default: default)')
+  .option('--environments <count>', 'generate logs across multiple environment namespaces', parseIntBase10)
   .action(async (options) => {
     const logCount = parseInt(options.n || '1000');
     const hostCount = parseInt(options.h || '10');
@@ -411,6 +453,8 @@ program
     const fieldPerformanceMode = options.fieldPerformanceMode || false;
     const sessionView = options.sessionView || false;
     const visualAnalyzer = options.visualAnalyzer || false;
+    const namespace = options.namespace || 'default';
+    const environments = options.environments || 1;
 
     // Validate log types
     const validTypes = ['system', 'auth', 'network', 'endpoint'];
@@ -441,9 +485,9 @@ program
       );
       process.exit(1);
     }
-    if (fieldCount < 1 || fieldCount > 1000) {
+    if (fieldCount < 1 || fieldCount > 50000) {
       console.error(
-        'Error: --field-count must be between 1 and 1000',
+        'Error: --field-count must be between 1 and 50,000',
       );
       process.exit(1);
     }
@@ -497,17 +541,51 @@ program
       correlationEnabled: true
     } : undefined;
 
-    await generateLogs(
-      logCount,
-      hostCount,
-      userCount,
-      useAI,
-      logTypes,
-      timestampConfig,
-      multiFieldConfig,
-      sessionView,
-      visualAnalyzer,
-    );
+    // Handle multiple environments
+    if (environments > 1) {
+      console.log(`\n🌍 Multi-Environment Log Generation Enabled:`);
+      console.log(`  📊 Environments: ${environments}`);
+      console.log(`  📁 Base Namespace: ${namespace}`);
+      console.log(`  📊 Total Logs: ${logCount * environments}`);
+      console.log(`  📁 Types: ${logTypes.join(', ')}`);
+      
+      for (let i = 1; i <= environments; i++) {
+        const envNamespace = `${namespace}-env-${i.toString().padStart(3, '0')}`;
+        
+        console.log(`\n🔄 Generating environment ${i}/${environments}: ${envNamespace}`);
+        
+        await generateLogs(
+          logCount,
+          hostCount,
+          userCount,
+          useAI,
+          logTypes,
+          timestampConfig,
+          multiFieldConfig,
+          sessionView,
+          visualAnalyzer,
+          envNamespace,
+        );
+      }
+      
+      console.log(`\n✅ Multi-Environment Log Generation Complete!`);
+      console.log(`  🌍 Generated across ${environments} environments`);
+      console.log(`  📊 Total logs: ${logCount * environments}`);
+      console.log(`  📁 Index pattern: logs-*-${namespace}-env-*`);
+    } else {
+      await generateLogs(
+        logCount,
+        hostCount,
+        userCount,
+        useAI,
+        logTypes,
+        timestampConfig,
+        multiFieldConfig,
+        sessionView,
+        visualAnalyzer,
+        namespace,
+      );
+    }
   });
 
 program
@@ -536,6 +614,8 @@ program
     '--time-pattern <pattern>',
     'time distribution pattern: uniform, business_hours, random, attack_simulation, weekend_heavy',
   )
+  .option('--namespace <namespace>', 'custom namespace for correlated data indices (default: default)')
+  .option('--environments <count>', 'generate correlated data across multiple environment namespaces', parseIntBase10)
   .action(async (options) => {
     const alertCount = parseInt(options.n || '10');
     const hostCount = parseInt(options.h || '3');
@@ -544,6 +624,8 @@ program
     const logVolume = parseInt(options.logVolume || '6');
     const useAI = options.claude || false;
     const useMitre = options.mitre || false;
+    const namespace = options.namespace || 'default';
+    const environments = options.environments || 1;
 
     // Apply Phase 3 configuration overrides if flags are used
     if (options.claude || options.mitre) {
@@ -567,16 +649,54 @@ program
       pattern: options.timePattern,
     };
 
-    await generateCorrelatedCampaign(
-      alertCount,
-      hostCount,
-      userCount,
-      space,
-      useAI,
-      useMitre,
-      logVolume,
-      timestampConfig,
-    );
+    // Handle multiple environments
+    if (environments > 1) {
+      console.log(`\n🌍 Multi-Environment Correlated Generation Enabled:`);
+      console.log(`  📊 Environments: ${environments}`);
+      console.log(`  📁 Base Namespace: ${namespace}`);
+      console.log(`  🎯 Total Alerts: ${alertCount * environments}`);
+      console.log(`  📊 Logs per Alert: ${logVolume}`);
+      
+      for (let i = 1; i <= environments; i++) {
+        const envNamespace = `${namespace}-env-${i.toString().padStart(3, '0')}`;
+        const envSpace = `${space}-${envNamespace}`;
+        
+        console.log(`\n🔄 Generating environment ${i}/${environments}: ${envNamespace}`);
+        
+        if (envSpace !== 'default') {
+          await initializeSpace(envSpace);
+        }
+        
+        await generateCorrelatedCampaign(
+          alertCount,
+          hostCount,
+          userCount,
+          envSpace,
+          useAI,
+          useMitre,
+          logVolume,
+          timestampConfig,
+          envNamespace,
+        );
+      }
+      
+      console.log(`\n✅ Multi-Environment Correlated Generation Complete!`);
+      console.log(`  🌍 Generated across ${environments} environments`);
+      console.log(`  📊 Total alerts: ${alertCount * environments}`);
+      console.log(`  📊 Total logs: ${alertCount * environments * logVolume}`);
+    } else {
+      await generateCorrelatedCampaign(
+        alertCount,
+        hostCount,
+        userCount,
+        space,
+        useAI,
+        useMitre,
+        logVolume,
+        timestampConfig,
+        namespace,
+      );
+    }
   });
 
 program
@@ -815,7 +935,6 @@ program
   .option(
     '--field-count <count>',
     'number of additional fields to generate (requires --multi-field)',
-    '200',
   )
   .option(
     '--field-categories <categories>',
@@ -826,6 +945,8 @@ program
     'optimize multi-field generation for speed over variety (requires --multi-field)',
     false,
   )
+  .option('--namespace <namespace>', 'custom namespace for campaign data indices (default: default)')
+  .option('--environments <count>', 'generate campaigns across multiple environment namespaces', parseIntBase10)
   .action(async (campaignType, options) => {
     // AI is always enabled now
     const useAI = true;
@@ -835,6 +956,8 @@ program
     const fieldCount = parseInt(options.fieldCount || '200');
     const fieldCategories = options.fieldCategories ? options.fieldCategories.split(',').map((c: string) => c.trim()) : undefined;
     const fieldPerformanceMode = options.fieldPerformanceMode || false;
+    const namespace = options.namespace || 'default';
+    const environments = options.environments || 1;
 
     // Validate multi-field options
     if (options.fieldCount && !useMultiField) {
@@ -855,9 +978,9 @@ program
       );
       process.exit(1);
     }
-    if (fieldCount < 1 || fieldCount > 1000) {
+    if (fieldCount < 1 || fieldCount > 50000) {
       console.error(
-        'Error: --field-count must be between 1 and 1000',
+        'Error: --field-count must be between 1 and 50,000',
       );
       process.exit(1);
     }

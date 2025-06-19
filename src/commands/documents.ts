@@ -241,6 +241,7 @@ export const generateAlerts = async (
     contextWeightEnabled?: boolean;
     correlationEnabled?: boolean;
   },
+  namespace = 'default',
 ) => {
   if (userCount > alertCount) {
     console.log('User count should be less than alert count');
@@ -310,6 +311,8 @@ export const generateAlerts = async (
         performanceMode: multiFieldConfig.performanceMode,
         contextWeightEnabled: multiFieldConfig.contextWeightEnabled,
         correlationEnabled: multiFieldConfig.correlationEnabled,
+        useExpandedFields: multiFieldConfig.fieldCount > 1000,
+        expandedFieldCount: Math.max(multiFieldConfig.fieldCount * 2, 10000),
       });
 
       const result = multiFieldGenerator.generateFields(alert, {
@@ -500,6 +503,8 @@ export const generateAlerts = async (
               performanceMode: multiFieldConfig.performanceMode,
               contextWeightEnabled: multiFieldConfig.contextWeightEnabled,
               correlationEnabled: multiFieldConfig.correlationEnabled,
+              useExpandedFields: multiFieldConfig.fieldCount > 1000,
+              expandedFieldCount: Math.max(multiFieldConfig.fieldCount * 2, 10000),
             });
 
             generatedAlerts = generatedAlerts.map(alert => {
@@ -691,6 +696,7 @@ export const generateEvents = async (
   n: number,
   useAI = false,
   useMitre = false, // TODO: Implement MITRE support for events
+  namespace = 'default',
 ) => {
   // Note: useMitre parameter is reserved for future MITRE integration
   console.log(useMitre ? 'MITRE mode requested (not yet implemented)' : '');
@@ -793,6 +799,7 @@ export const generateLogs = async (
   },
   sessionView = false,
   visualAnalyzer = false,
+  namespace = 'default',
 ) => {
   console.log(
     `Generating ${logCount} realistic source logs across ${logTypes.join(', ')} with ${hostCount} hosts and ${userCount} users${
@@ -867,6 +874,7 @@ export const generateLogs = async (
           userName,
           timestampConfig,
           logTypeWeights,
+          namespace,
         },
       );
 
@@ -878,6 +886,8 @@ export const generateLogs = async (
           performanceMode: multiFieldConfig.performanceMode,
           contextWeightEnabled: multiFieldConfig.contextWeightEnabled,
           correlationEnabled: multiFieldConfig.correlationEnabled,
+          useExpandedFields: multiFieldConfig.fieldCount > 1000,
+          expandedFieldCount: Math.max(multiFieldConfig.fieldCount * 2, 10000),
         });
 
         const logType = log['data_stream.dataset']?.includes('auth') ? 'auth' :
@@ -896,8 +906,8 @@ export const generateLogs = async (
 
       // Use the actual dataset from the log to determine the index
       const dataset = log['data_stream.dataset'] || 'generic.log';
-      const namespace = log['data_stream.namespace'] || 'default';
-      const indexName = `logs-${dataset}-${namespace}`;
+      const logNamespace = log['data_stream.namespace'] || 'default';
+      const indexName = `logs-${dataset}-${logNamespace}`;
 
       // Determine log type for any other operations
       const logType = detectLogType(log);
@@ -969,6 +979,7 @@ export const generateCorrelatedCampaign = async (
   useMitre = false,
   logVolumeMultiplier = 6,
   timestampConfig?: TimestampConfig,
+  namespace = 'default',
 ) => {
   console.log(
     `Generating ${alertCount} correlated alerts with supporting logs across ${hostCount} hosts and ${userCount} users${
@@ -1114,6 +1125,7 @@ export const generateGraph = async ({
   users = 100,
   maxHosts = 3,
   useAI = false,
+  namespace = 'default',
 }) => {
   console.log(`Generating alerts graph${useAI ? ' using AI' : ''}...`);
 

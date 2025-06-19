@@ -5,6 +5,7 @@ export interface SystemLogConfig {
   hostName?: string;
   userName?: string;
   timestampConfig?: import('../utils/timestamp_utils').TimestampConfig;
+  namespace?: string;
 }
 
 // Common system processes and services
@@ -68,6 +69,7 @@ export const generateProcessLog = (config: SystemLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   const process = faker.helpers.arrayElement(SYSTEM_PROCESSES);
@@ -79,7 +81,7 @@ export const generateProcessLog = (config: SystemLogConfig = {}) => {
     'agent.type': 'endpoint',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'endpoint.events.process',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': faker.helpers.arrayElement(['start', 'end', 'creation']),
@@ -112,6 +114,7 @@ export const generateFileLog = (config: SystemLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   const fileName = faker.system.fileName();
@@ -122,7 +125,7 @@ export const generateFileLog = (config: SystemLogConfig = {}) => {
     'agent.type': 'endpoint',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'endpoint.events.file',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': faker.helpers.arrayElement([
@@ -159,6 +162,7 @@ export const generateRegistryLog = (config: SystemLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   return {
@@ -166,7 +170,7 @@ export const generateRegistryLog = (config: SystemLogConfig = {}) => {
     'agent.type': 'endpoint',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'endpoint.events.registry',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': faker.helpers.arrayElement([
@@ -205,6 +209,7 @@ export const generateServiceLog = (config: SystemLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = 'SYSTEM',
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   const service = faker.helpers.arrayElement(SYSTEM_SERVICES);
@@ -214,7 +219,7 @@ export const generateServiceLog = (config: SystemLogConfig = {}) => {
     'agent.type': 'winlogbeat',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'system.system',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': faker.helpers.arrayElement([

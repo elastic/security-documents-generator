@@ -27,6 +27,7 @@ export interface UnifiedLogConfig {
     network?: number;
     endpoint?: number;
   };
+  namespace?: string;
 }
 
 export function createRealisticLog(
@@ -43,21 +44,22 @@ export function createRealisticLog(
       network: 35,
       endpoint: 15,
     },
+    namespace = 'default',
   } = config;
 
   // Create weighted array of generators
   const generators = [
     ...Array(logTypeWeights.system || 30).fill(() =>
-      createSystemLog({}, { hostName, userName, timestampConfig }),
+      createSystemLog({}, { hostName, userName, timestampConfig, namespace }),
     ),
     ...Array(logTypeWeights.auth || 20).fill(() =>
-      createAuthLog({}, { hostName, userName, timestampConfig }),
+      createAuthLog({}, { hostName, userName, timestampConfig, namespace }),
     ),
     ...Array(logTypeWeights.network || 35).fill(() =>
-      createNetworkLog({}, { hostName, userName, timestampConfig }),
+      createNetworkLog({}, { hostName, userName, timestampConfig, namespace }),
     ),
     ...Array(logTypeWeights.endpoint || 15).fill(() =>
-      createEndpointLog({}, { hostName, userName, timestampConfig }),
+      createEndpointLog({}, { hostName, userName, timestampConfig, namespace }),
     ),
   ];
 

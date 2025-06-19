@@ -20,6 +20,7 @@ import {
   getFieldsInCategory,
   getTotalFieldCount 
 } from './multi_field_templates';
+import { generateExpandedFieldTemplates } from './field_expansion_generator';
 
 export interface MultiFieldConfig {
   fieldCount?: number; // Number of additional fields to generate (default: 200)
@@ -28,6 +29,8 @@ export interface MultiFieldConfig {
   correlationEnabled?: boolean; // Enable realistic value correlations (default: true)
   performanceMode?: boolean; // Optimize for speed over variety (default: false)
   seedValue?: string; // Seed for reproducible generation (optional)
+  useExpandedFields?: boolean; // Use algorithmic field expansion for 10,000+ fields (default: false)
+  expandedFieldCount?: number; // Target count for expanded field generation (default: 10000)
 }
 
 export interface MultiFieldResult {
@@ -58,6 +61,7 @@ export interface LogContext {
 export class MultiFieldGenerator {
   private config: Required<Omit<MultiFieldConfig, 'seedValue'>> & { seedValue?: string };
   private rng: any; // Seeded random number generator
+  private expandedFieldTemplates: Record<string, FieldTemplate> | null = null;
 
   constructor(config: MultiFieldConfig = {}) {
     this.config = {
@@ -66,12 +70,19 @@ export class MultiFieldGenerator {
       contextWeightEnabled: config.contextWeightEnabled ?? true,
       correlationEnabled: config.correlationEnabled ?? true,
       performanceMode: config.performanceMode ?? false,
+      useExpandedFields: config.useExpandedFields ?? false,
+      expandedFieldCount: config.expandedFieldCount ?? 10000,
       seedValue: config.seedValue
     };
 
     // Initialize seeded RNG if seed provided
     if (this.config.seedValue) {
       faker.seed(this.hashSeed(this.config.seedValue));
+    }
+
+    // Initialize expanded field templates if requested
+    if (this.config.useExpandedFields) {
+      this.expandedFieldTemplates = generateExpandedFieldTemplates(this.config.expandedFieldCount);
     }
   }
 
@@ -151,19 +162,19 @@ export class MultiFieldGenerator {
   private selectFields(context: LogContext): string[] {
     const availableFields: Array<{ field: string, weight: number }> = [];
 
+    // Use expanded fields if available, otherwise use standard templates
+    const fieldSource = this.config.useExpandedFields && this.expandedFieldTemplates 
+      ? this.expandedFieldTemplates 
+      : this.getStandardFieldTemplates();
+
     // Collect all fields with their weights
-    for (const category of this.config.categories) {
-      const categoryFields = MULTI_FIELD_TEMPLATES[category];
-      if (!categoryFields) continue;
+    for (const [fieldName, template] of Object.entries(fieldSource)) {
+      let weight = template.context_weight ?? 5;
 
-      for (const [fieldName, template] of Object.entries(categoryFields)) {
-        let weight = template.context_weight ?? 5;
+      // Adjust weights based on context
+      weight = this.adjustWeightForContext(fieldName, weight, context);
 
-        // Adjust weights based on context
-        weight = this.adjustWeightForContext(fieldName, weight, context);
-
-        availableFields.push({ field: fieldName, weight });
-      }
+      availableFields.push({ field: fieldName, weight });
     }
 
     // Sort by weight if context weighting is enabled
@@ -428,7 +439,26 @@ export class MultiFieldGenerator {
     return 'normal';
   }
 
+  private getStandardFieldTemplates(): Record<string, FieldTemplate> {
+    const allFields: Record<string, FieldTemplate> = {};
+    for (const category of this.config.categories) {
+      const categoryFields = MULTI_FIELD_TEMPLATES[category];
+      if (categoryFields) {
+        Object.assign(allFields, categoryFields);
+      }
+    }
+    return allFields;
+  }
+
   private getFieldTemplate(fieldName: string): FieldTemplate | null {
+    // Check expanded fields first if available
+    if (this.config.useExpandedFields && this.expandedFieldTemplates) {
+      if (this.expandedFieldTemplates[fieldName]) {
+        return this.expandedFieldTemplates[fieldName];
+      }
+    }
+
+    // Fallback to standard templates
     for (const category of Object.values(MULTI_FIELD_TEMPLATES)) {
       if (category[fieldName]) {
         return category[fieldName];

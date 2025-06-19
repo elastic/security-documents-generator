@@ -4,19 +4,25 @@ import { getEsClient } from '../commands/utils/indices';
 const DUMMY_RULE_ID = 'dummy-rule';
 
 export const initializeSpace = async (space: string) => {
-  await ensureSpaceExists(space);
+  try {
+    await ensureSpaceExists(space);
 
-  if (await alertIndexExistsInSpace(space)) {
-    console.log('Skipping space initialization.');
-    return;
+    if (await alertIndexExistsInSpace(space)) {
+      console.log('Skipping space initialization.');
+      return;
+    }
+    console.log(`Initializing space ${space}`);
+    console.log(`Creating dummy rule to initialize alerts index in ${space}`);
+    await kibanaApi.createRule({ space, id: DUMMY_RULE_ID });
+    await waitForAlertIndexMapping(space);
+    console.log('Deleting dummy rule');
+    await kibanaApi.deleteRule(DUMMY_RULE_ID, space);
+    console.log('Dummy rule deleted. Space initialized');
+  } catch (error) {
+    console.warn(`⚠️  Warning: Could not initialize Kibana space '${space}': ${error}`);
+    console.warn('Continuing without space creation. Alerts will use default space.');
+    console.warn('To enable space creation, ensure Kibana is running and accessible.');
   }
-  console.log(`Initializing space ${space}`);
-  console.log(`Creating dummy rule to initialize alerts index in ${space}`);
-  await kibanaApi.createRule({ space, id: DUMMY_RULE_ID });
-  await waitForAlertIndexMapping(space);
-  console.log('Deleting dummy rule');
-  await kibanaApi.deleteRule(DUMMY_RULE_ID, space);
-  console.log('Dummy rule deleted. Space initialized');
 };
 
 const alertIndexExistsInSpace = async (space: string): Promise<boolean> => {

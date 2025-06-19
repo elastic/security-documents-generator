@@ -5,6 +5,7 @@ export interface EndpointLogConfig {
   hostName?: string;
   userName?: string;
   timestampConfig?: import('../utils/timestamp_utils').TimestampConfig;
+  namespace?: string;
 }
 
 const MALWARE_FAMILIES = [
@@ -82,6 +83,7 @@ export const generateMalwareDetectionLog = (config: EndpointLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   const malwareFamily = faker.helpers.arrayElement(MALWARE_FAMILIES);
@@ -97,7 +99,7 @@ export const generateMalwareDetectionLog = (config: EndpointLogConfig = {}) => {
     'agent.type': 'endpoint',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'endpoint.alerts',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': 'malware-detected',
@@ -147,6 +149,7 @@ export const generateProcessInjectionLog = (config: EndpointLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   const technique = faker.helpers.arrayElement(DLL_INJECTION_TECHNIQUES);
@@ -169,7 +172,7 @@ export const generateProcessInjectionLog = (config: EndpointLogConfig = {}) => {
     'agent.type': 'endpoint',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'endpoint.events.process',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': 'process-injection',
@@ -214,6 +217,7 @@ export const generateBehavioralAnomalyLog = (
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   const anomalyType = faker.helpers.arrayElement([
@@ -230,7 +234,7 @@ export const generateBehavioralAnomalyLog = (
     'agent.type': 'endpoint',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'endpoint.behavioral',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': 'behavioral-anomaly',
@@ -282,6 +286,7 @@ export const generateEvasionDetectionLog = (config: EndpointLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   const technique = faker.helpers.arrayElement(EVASION_TECHNIQUES);
@@ -291,7 +296,7 @@ export const generateEvasionDetectionLog = (config: EndpointLogConfig = {}) => {
     'agent.type': 'endpoint',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'endpoint.events.security',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': 'evasion-detected',
@@ -322,6 +327,7 @@ export const generateMemoryPatternLog = (config: EndpointLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   return {
@@ -329,7 +335,7 @@ export const generateMemoryPatternLog = (config: EndpointLogConfig = {}) => {
     'agent.type': 'endpoint',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'endpoint.events.memory',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': 'memory-scan',
@@ -380,6 +386,7 @@ export const generateFileSystemReconLog = (config: EndpointLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   const reconCommands = [
@@ -404,7 +411,7 @@ export const generateFileSystemReconLog = (config: EndpointLogConfig = {}) => {
     'agent.type': 'endpoint',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'endpoint.events.file',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': 'file_system_info_accessed',
@@ -444,6 +451,7 @@ export const generateProcessReconLog = (config: EndpointLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   const processReconCommands = [
@@ -467,7 +475,7 @@ export const generateProcessReconLog = (config: EndpointLogConfig = {}) => {
     'agent.type': 'endpoint',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'endpoint.events.process',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': 'process_info_accessed',
@@ -499,6 +507,7 @@ export const generateScheduledTaskLog = (config: EndpointLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   const taskActions = ['scheduled_task_created', 'scheduled_task_modified'];
@@ -515,7 +524,7 @@ export const generateScheduledTaskLog = (config: EndpointLogConfig = {}) => {
     'agent.type': 'endpoint',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'endpoint.events.registry',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': faker.helpers.arrayElement(taskActions),
@@ -549,6 +558,7 @@ export const generateRegistryRunKeyLog = (config: EndpointLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   const runKeyPaths = [
@@ -572,7 +582,7 @@ export const generateRegistryRunKeyLog = (config: EndpointLogConfig = {}) => {
     'agent.type': 'endpoint',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'endpoint.events.registry',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': 'registry_value_set',
@@ -605,6 +615,7 @@ export const generateCredentialAccessLog = (config: EndpointLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   const credTool = faker.helpers.arrayElement(CREDENTIAL_ACCESS_TOOLS);
@@ -624,7 +635,7 @@ export const generateCredentialAccessLog = (config: EndpointLogConfig = {}) => {
     'agent.type': 'endpoint',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'endpoint.events.process',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': 'credential_access_attempt',
@@ -661,6 +672,7 @@ export const generateLateralMovementLog = (config: EndpointLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   const lateralTools = [
@@ -686,7 +698,7 @@ export const generateLateralMovementLog = (config: EndpointLogConfig = {}) => {
     'agent.type': 'endpoint',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'endpoint.events.process',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': 'lateral_movement_attempt',

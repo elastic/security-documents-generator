@@ -23,10 +23,20 @@ A powerful tool for generating realistic security scenarios with complete forens
 
 ## 🎯 Core Features
 
-### 🔬 **Multi-Field Generation** ⭐ NEW
-- **500+ Security Fields**: Behavioral analytics, threat intelligence, performance metrics
+### 🌍 **Multi-Environment & Multi-Index Generation** ⭐ NEW
+- **Hundreds of Environments**: Scale to 100s-1000s of simulated environments
+- **Custom Namespaces**: `--namespace prod` creates prod-env-001, prod-env-002, etc.
+- **Environment Isolation**: Complete data separation between environments
+- **Index Distribution**: Each environment gets its own set of indices
+- **Horizontal Scaling**: Perfect for load testing and multi-tenant scenarios
+
+### 🔬 **Enterprise-Scale Multi-Field Generation** ⭐ ENHANCED
+- **10,000+ Security Fields**: Enterprise-scale field generation with dual-mode architecture
+- **12 Specialized Categories**: Core + enterprise categories (forensics, cloud, malware, geo, incident response)
 - **99% Token Reduction**: Zero AI calls for field generation (algorithmic approach)
-- **95% Faster Generation**: <100ms for 500 fields per document
+- **Sub-Second Performance**: <1s for 25,000+ fields per document
+- **Auto-Scaling**: Automatically switches to enterprise mode for >1,000 fields
+- **Dual-Mode Architecture**: Template mode (1-1,000) + algorithmic expansion (1,000+)
 - **Context-Aware**: Attack scenarios get threat fields, normal logs get performance fields
 - **Realistic Correlations**: CPU high → memory high, threat confidence → risk score
 
@@ -50,13 +60,22 @@ A powerful tool for generating realistic security scenarios with complete forens
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| **`generate-alerts --multi-field`** | **🔬 Alerts with hundreds of fields** | `yarn start generate-alerts -n 100 --multi-field --field-count 300` |
+| **`generate-alerts --environments`** | **🌍 Multi-environment alerts** | `yarn start generate-alerts -n 100 --environments 50 --namespace prod` |
+| **`generate-logs --environments`** | **🌍 Multi-environment logs** | `yarn start generate-logs -n 1000 --environments 25 --namespace staging` |
 | **`generate-campaign --realistic`** | **🌟 Complete attack scenarios** | `yarn start generate-campaign apt --realistic --mitre` |
+| **`generate-alerts --multi-field`** | **🔬 Alerts with 10,000+ fields** | `yarn start generate-alerts -n 100 --multi-field --field-count 10000` |
 | `generate-logs --multi-field` | Source logs with enriched fields | `yarn start generate-logs -n 1000 --multi-field --field-count 200` |
 | `generate-campaign` | Multi-stage attack campaigns | `yarn start generate-campaign ransomware --mitre` |
 | `generate-correlated` | Alerts with supporting logs | `yarn start generate-correlated -n 20 --mitre` |
 | `generate-logs` | Realistic source logs | `yarn start generate-logs -n 1000 --types system,auth` |
 | `generate-alerts` | AI-enhanced security alerts | `yarn start generate-alerts -n 100 --mitre` |
+
+### 🌍 Multi-Environment Generation Examples
+| Command | Result | Indices Created |
+|---------|--------|----------------|
+| `yarn start generate-alerts -n 100 --environments 50` | 5,000 alerts across 50 environments | `.alerts-security.alerts-default-env-001` through `050` |
+| `yarn start generate-logs -n 1000 --environments 25 --namespace prod` | 25,000 logs across 25 prod environments | `logs-*-prod-env-001` through `025` |
+| `yarn start generate-campaign apt --environments 10` | APT campaigns across 10 environments | Complete attack data across 10 environment sets |
 
 ### 🔬 Multi-Field Generation Examples
 | Command | Result | Performance |
@@ -72,6 +91,36 @@ A powerful tool for generating realistic security scenarios with complete forens
 | `delete-events` | Clean up generated events |
 | `delete-logs` | Clean up source logs |
 | `delete-rules` | Clean up detection rules |
+
+## 🌍 Multi-Environment Generation
+
+### **🚀 Scale to Hundreds of Environments**
+Generate data across multiple simulated environments with complete isolation:
+
+```bash
+# Generate alerts across 50 production environments
+yarn start generate-alerts -n 100 --environments 50 --namespace prod
+# Creates: .alerts-security.alerts-prod-env-001 through prod-env-050
+# Total: 5,000 alerts across 50 indices
+
+# Generate logs across 100 datacenter environments
+yarn start generate-logs -n 1000 --environments 100 --namespace datacenter --types system,network
+# Creates: logs-system.system-datacenter-env-001 through datacenter-env-100
+#          logs-network.traffic-datacenter-env-001 through datacenter-env-100
+# Total: 200,000 logs across 200 indices
+
+# Generate complete attack campaigns across multiple staging environments
+yarn start generate-campaign ransomware --environments 25 --namespace staging --realistic
+# Creates: Complete ransomware scenarios across staging-env-001 through staging-env-025
+```
+
+### **🏯 Use Cases for Multi-Environment Generation**
+- **Load Testing**: Simulate hundreds of production environments
+- **Multi-Tenant Scenarios**: Separate customer environments  
+- **Geographic Distribution**: Different datacenter namespaces
+- **Environment Staging**: dev, staging, prod separation
+- **Compliance Testing**: Isolated audit environments
+- **Performance Analysis**: Compare metrics across environment types
 
 ## 🔬 Multi-Field Generation
 

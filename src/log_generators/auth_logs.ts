@@ -5,6 +5,7 @@ export interface AuthLogConfig {
   hostName?: string;
   userName?: string;
   timestampConfig?: import('../utils/timestamp_utils').TimestampConfig;
+  namespace?: string;
 }
 
 const AUTH_METHODS = [
@@ -53,6 +54,7 @@ export const generateLoginSuccessLog = (config: AuthLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   return {
@@ -60,7 +62,7 @@ export const generateLoginSuccessLog = (config: AuthLogConfig = {}) => {
     'agent.type': 'winlogbeat',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'security.security',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': 'logged-in',
@@ -99,6 +101,7 @@ export const generateLoginFailureLog = (config: AuthLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   const failureReason = faker.helpers.arrayElement(FAILURE_REASONS);
@@ -108,7 +111,7 @@ export const generateLoginFailureLog = (config: AuthLogConfig = {}) => {
     'agent.type': 'winlogbeat',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'security.security',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': 'logon-failed',
@@ -146,6 +149,7 @@ export const generatePrivilegeEscalationLog = (config: AuthLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   const privilege = faker.helpers.arrayElement(PRIVILEGE_OPERATIONS);
@@ -155,7 +159,7 @@ export const generatePrivilegeEscalationLog = (config: AuthLogConfig = {}) => {
     'agent.type': 'winlogbeat',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'security.security',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': 'privilege-use',
@@ -189,6 +193,7 @@ export const generateAccountLockoutLog = (config: AuthLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   return {
@@ -196,7 +201,7 @@ export const generateAccountLockoutLog = (config: AuthLogConfig = {}) => {
     'agent.type': 'winlogbeat',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'security.security',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': 'user-account-locked',
@@ -231,6 +236,7 @@ export const generateLinuxAuthLog = (config: AuthLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   const authMethod = faker.helpers.arrayElement([
@@ -245,7 +251,7 @@ export const generateLinuxAuthLog = (config: AuthLogConfig = {}) => {
     'agent.type': 'filebeat',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'system.auth',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': outcome === 'success' ? 'ssh_login' : 'ssh_login_failed',

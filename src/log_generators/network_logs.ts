@@ -5,6 +5,7 @@ export interface NetworkLogConfig {
   hostName?: string;
   userName?: string;
   timestampConfig?: import('../utils/timestamp_utils').TimestampConfig;
+  namespace?: string;
 }
 
 const COMMON_PORTS = [
@@ -30,6 +31,7 @@ export const generateNetworkConnectionLog = (config: NetworkLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   const sourceIp = faker.internet.ip();
@@ -46,7 +48,7 @@ export const generateNetworkConnectionLog = (config: NetworkLogConfig = {}) => {
     'agent.type': 'packetbeat',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'network.flows',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': action,
@@ -78,6 +80,7 @@ export const generateDNSLog = (config: NetworkLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   const queryType = faker.helpers.arrayElement(DNS_QUERY_TYPES);
@@ -94,7 +97,7 @@ export const generateDNSLog = (config: NetworkLogConfig = {}) => {
     'agent.type': 'packetbeat',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'network.dns',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'dns.answers':
       responseCode === 'NOERROR'
@@ -144,6 +147,7 @@ export const generateHTTPLog = (config: NetworkLogConfig = {}) => {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
     timestampConfig,
+    namespace = 'default',
   } = config;
 
   const method = faker.helpers.arrayElement(HTTP_METHODS);
@@ -156,7 +160,7 @@ export const generateHTTPLog = (config: NetworkLogConfig = {}) => {
     'agent.type': 'filebeat',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'apache.access',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.category': ['web'],
@@ -198,7 +202,7 @@ export const generateHTTPLog = (config: NetworkLogConfig = {}) => {
 };
 
 export const generateFirewallLog = (config: NetworkLogConfig = {}) => {
-  const { hostName = faker.internet.domainName(), timestampConfig } = config;
+  const { hostName = faker.internet.domainName(), timestampConfig, namespace = 'default' } = config;
 
   const action = faker.helpers.arrayElement(['ACCEPT', 'DROP', 'REJECT']);
   const protocol = faker.helpers.arrayElement(['TCP', 'UDP', 'ICMP']);
@@ -210,7 +214,7 @@ export const generateFirewallLog = (config: NetworkLogConfig = {}) => {
     'agent.type': 'filebeat',
     'agent.version': '8.15.0',
     'data_stream.dataset': 'iptables.log',
-    'data_stream.namespace': 'default',
+    'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': action.toLowerCase(),
