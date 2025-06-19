@@ -44,6 +44,10 @@ yarn start generate-logs -n 1000 --multi-field --field-count 15000 \
 
 # Multi-environment deployment with extensive fields
 yarn start generate-alerts -n 100 --environments 50 --multi-field --field-count 20000
+
+# Enterprise-scale campaign generation with comprehensive fields
+yarn start generate-campaign apt --environments 25 --multi-field --field-count 15000
+yarn start generate-campaign ransomware --environments 50 --multi-field --field-count 10000 --realistic
 ```
 
 ### Advanced Usage
@@ -475,6 +479,26 @@ yarn start generate-campaign apt --mitre --multi-field --field-count 500 \
 # Enterprise-scale incident response training
 yarn start generate-campaign ransomware --multi-field --field-count 8000 \
   --field-categories incident_response,forensics_analysis,malware_analysis
+```
+
+### 🌍 Multi-Environment Campaign Generation (NEW)
+
+```bash
+# Enterprise APT simulation across 25 environments
+yarn start generate-campaign apt --environments 25 --namespace enterprise \
+  --multi-field --field-count 15000 --realistic --complexity expert
+
+# Global ransomware outbreak simulation (50 environments)
+yarn start generate-campaign ransomware --environments 50 --namespace global \
+  --multi-field --field-count 10000 --realistic --detection-rate 0.3
+
+# Supply chain attack across multiple subsidiaries
+yarn start generate-campaign supply_chain --environments 100 --namespace subsidiary \
+  --multi-field --field-count 12000 --field-categories cloud_security,threat_intelligence
+
+# Insider threat across departmental environments
+yarn start generate-campaign insider --environments 20 --namespace department \
+  --multi-field --field-count 8000 --field-categories behavioral_analytics,audit_compliance
 ```
 
 ### Detection Rule Testing

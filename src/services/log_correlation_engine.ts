@@ -249,7 +249,7 @@ export class LogCorrelationEngine {
         correlationEnabled: config.multiFieldConfig.correlationEnabled,
       });
 
-      return finalLogs.map(log => {
+      return finalLogs.map((log) => {
         const result = multiFieldGenerator.generateFields(log, {
           logType: log['data_stream.dataset'] || 'security',
           isAttack: true,
@@ -421,7 +421,7 @@ export class LogCorrelationEngine {
         correlationEnabled: config.multiFieldConfig.correlationEnabled,
       });
 
-      return finalLogs.map(log => {
+      return finalLogs.map((log) => {
         const result = multiFieldGenerator.generateFields(log, {
           logType: log['data_stream.dataset'] || 'security',
           isAttack: true,
@@ -569,7 +569,7 @@ export class LogCorrelationEngine {
         correlationEnabled: config.multiFieldConfig.correlationEnabled,
       });
 
-      return finalLogs.map(log => {
+      return finalLogs.map((log) => {
         const result = multiFieldGenerator.generateFields(log, {
           logType: log['data_stream.dataset'] || 'security',
           isAttack: true,

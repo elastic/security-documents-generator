@@ -70,8 +70,15 @@ program
   .option('-h <h>', 'number of hosts')
   .option('-u <h>', 'number of users')
   .option('-s <h>', 'space (will be created if it does not exist)')
-  .option('--namespace <namespace>', 'custom namespace for alert indices (default: default)')
-  .option('--environments <count>', 'generate alerts across multiple environment namespaces', parseIntBase10)
+  .option(
+    '--namespace <namespace>',
+    'custom namespace for alert indices (default: default)',
+  )
+  .option(
+    '--environments <count>',
+    'generate alerts across multiple environment namespaces',
+    parseIntBase10,
+  )
   .option('--claude', 'use Claude AI instead of OpenAI', false)
   .option(
     '--mitre',
@@ -125,7 +132,7 @@ program
   )
   .option(
     '--field-categories <categories>',
-    'specific field categories to include (comma-separated): behavioral_analytics,threat_intelligence,performance_metrics,security_scores,audit_compliance,network_analytics,endpoint_analytics',
+    'specific field categories to include (comma-separated): behavioral_analytics,threat_intelligence,performance_metrics,security_scores,audit_compliance,network_analytics,endpoint_analytics,forensics_analysis,cloud_security,malware_analysis,geolocation_intelligence,incident_response',
   )
   .option(
     '--field-performance-mode',
@@ -148,14 +155,14 @@ program
     const falsePositiveRate = parseFloat(options.falsePositiveRate || '0.0');
     const useMultiField = options.multiField || false;
     const fieldCount = parseInt(options.fieldCount || '200');
-    const fieldCategories = options.fieldCategories ? options.fieldCategories.split(',').map((c: string) => c.trim()) : undefined;
+    const fieldCategories = options.fieldCategories
+      ? options.fieldCategories.split(',').map((c: string) => c.trim())
+      : undefined;
     const fieldPerformanceMode = options.fieldPerformanceMode || false;
 
     // Validate false positive rate
     if (falsePositiveRate < 0.0 || falsePositiveRate > 1.0) {
-      console.error(
-        'Error: --false-positive-rate must be between 0.0 and 1.0',
-      );
+      console.error('Error: --false-positive-rate must be between 0.0 and 1.0');
       process.exit(1);
     }
 
@@ -179,16 +186,29 @@ program
       process.exit(1);
     }
     if (fieldCount < 1 || fieldCount > 50000) {
-      console.error(
-        'Error: --field-count must be between 1 and 50,000',
-      );
+      console.error('Error: --field-count must be between 1 and 50,000');
       process.exit(1);
     }
 
     // Validate field categories if provided
     if (fieldCategories) {
-      const validCategories = ['behavioral_analytics', 'threat_intelligence', 'performance_metrics', 'security_scores', 'audit_compliance', 'network_analytics', 'endpoint_analytics'];
-      const invalidCategories = fieldCategories.filter((cat: string) => !validCategories.includes(cat));
+      const validCategories = [
+        'behavioral_analytics',
+        'threat_intelligence',
+        'performance_metrics',
+        'security_scores',
+        'audit_compliance',
+        'network_analytics',
+        'endpoint_analytics',
+        'forensics_analysis',
+        'cloud_security',
+        'malware_analysis',
+        'geolocation_intelligence',
+        'incident_response',
+      ];
+      const invalidCategories = fieldCategories.filter(
+        (cat: string) => !validCategories.includes(cat),
+      );
       if (invalidCategories.length > 0) {
         console.error(
           `Error: Invalid field categories: ${invalidCategories.join(', ')}. Valid categories: ${validCategories.join(', ')}`,
@@ -219,7 +239,20 @@ program
 
     // Validate focus tactic exists in MITRE data
     if (options.focusTactic) {
-      const validTactics = ['TA0001', 'TA0002', 'TA0003', 'TA0004', 'TA0005', 'TA0006', 'TA0007', 'TA0008', 'TA0009', 'TA0010', 'TA0011', 'TA0040'];
+      const validTactics = [
+        'TA0001',
+        'TA0002',
+        'TA0003',
+        'TA0004',
+        'TA0005',
+        'TA0006',
+        'TA0007',
+        'TA0008',
+        'TA0009',
+        'TA0010',
+        'TA0011',
+        'TA0040',
+      ];
       if (!validTactics.includes(options.focusTactic)) {
         console.error(
           `Error: Invalid tactic ${options.focusTactic}. Valid tactics: ${validTactics.join(', ')}`,
@@ -254,19 +287,25 @@ program
     if (useMultiField) {
       console.log(`\n🔬 Multi-Field Generation Enabled:`);
       console.log(`  📊 Additional Fields: ${fieldCount}`);
-      console.log(`  📁 Categories: ${fieldCategories ? fieldCategories.join(', ') : 'all'}`);
-      console.log(`  ⚡ Performance Mode: ${fieldPerformanceMode ? 'Yes' : 'No'}`);
+      console.log(
+        `  📁 Categories: ${fieldCategories ? fieldCategories.join(', ') : 'all'}`,
+      );
+      console.log(
+        `  ⚡ Performance Mode: ${fieldPerformanceMode ? 'Yes' : 'No'}`,
+      );
       console.log(`  🎯 Token Reduction: 99%`);
     }
 
     // Create multi-field configuration
-    const multiFieldConfig = useMultiField ? {
-      fieldCount,
-      categories: fieldCategories,
-      performanceMode: fieldPerformanceMode,
-      contextWeightEnabled: true,
-      correlationEnabled: true
-    } : undefined;
+    const multiFieldConfig = useMultiField
+      ? {
+          fieldCount,
+          categories: fieldCategories,
+          performanceMode: fieldPerformanceMode,
+          contextWeightEnabled: true,
+          correlationEnabled: true,
+        }
+      : undefined;
 
     // Handle multiple environments
     if (environments > 1) {
@@ -274,17 +313,19 @@ program
       console.log(`  📊 Environments: ${environments}`);
       console.log(`  📁 Base Namespace: ${namespace}`);
       console.log(`  🎯 Total Alerts: ${alertsCount * environments}`);
-      
+
       for (let i = 1; i <= environments; i++) {
         const envNamespace = `${namespace}-env-${i.toString().padStart(3, '0')}`;
         const envSpace = `${space}-${envNamespace}`;
-        
-        console.log(`\n🔄 Generating environment ${i}/${environments}: ${envNamespace}`);
-        
+
+        console.log(
+          `\n🔄 Generating environment ${i}/${environments}: ${envNamespace}`,
+        );
+
         if (envSpace !== 'default') {
           await initializeSpace(envSpace);
         }
-        
+
         await generateAlerts(
           alertsCount,
           userCount,
@@ -298,11 +339,13 @@ program
           envNamespace,
         );
       }
-      
+
       console.log(`\n✅ Multi-Environment Generation Complete!`);
       console.log(`  🌍 Generated across ${environments} environments`);
       console.log(`  📊 Total alerts: ${alertsCount * environments}`);
-      console.log(`  📁 Namespaces: ${namespace}-env-001 through ${namespace}-env-${environments.toString().padStart(3, '0')}`);
+      console.log(
+        `  📁 Namespaces: ${namespace}-env-001 through ${namespace}-env-${environments.toString().padStart(3, '0')}`,
+      );
     } else {
       generateAlerts(
         alertsCount,
@@ -422,7 +465,7 @@ program
   )
   .option(
     '--field-categories <categories>',
-    'specific field categories to include (comma-separated): behavioral_analytics,threat_intelligence,performance_metrics,security_scores,audit_compliance,network_analytics,endpoint_analytics',
+    'specific field categories to include (comma-separated): behavioral_analytics,threat_intelligence,performance_metrics,security_scores,audit_compliance,network_analytics,endpoint_analytics,forensics_analysis,cloud_security,malware_analysis,geolocation_intelligence,incident_response',
   )
   .option(
     '--field-performance-mode',
@@ -439,8 +482,15 @@ program
     'generate Visual Event Analyzer compatible data with process entity tracking',
     false,
   )
-  .option('--namespace <namespace>', 'custom namespace for log indices (default: default)')
-  .option('--environments <count>', 'generate logs across multiple environment namespaces', parseIntBase10)
+  .option(
+    '--namespace <namespace>',
+    'custom namespace for log indices (default: default)',
+  )
+  .option(
+    '--environments <count>',
+    'generate logs across multiple environment namespaces',
+    parseIntBase10,
+  )
   .action(async (options) => {
     const logCount = parseInt(options.n || '1000');
     const hostCount = parseInt(options.h || '10');
@@ -449,7 +499,9 @@ program
     const logTypes = options.types.split(',').map((t: string) => t.trim());
     const useMultiField = options.multiField || false;
     const fieldCount = parseInt(options.fieldCount || '200');
-    const fieldCategories = options.fieldCategories ? options.fieldCategories.split(',').map((c: string) => c.trim()) : undefined;
+    const fieldCategories = options.fieldCategories
+      ? options.fieldCategories.split(',').map((c: string) => c.trim())
+      : undefined;
     const fieldPerformanceMode = options.fieldPerformanceMode || false;
     const sessionView = options.sessionView || false;
     const visualAnalyzer = options.visualAnalyzer || false;
@@ -458,7 +510,9 @@ program
 
     // Validate log types
     const validTypes = ['system', 'auth', 'network', 'endpoint'];
-    const invalidTypes = logTypes.filter((type: string) => !validTypes.includes(type));
+    const invalidTypes = logTypes.filter(
+      (type: string) => !validTypes.includes(type),
+    );
     if (invalidTypes.length > 0) {
       console.error(
         `Error: Invalid log types: ${invalidTypes.join(', ')}. Valid types: ${validTypes.join(', ')}`,
@@ -486,16 +540,29 @@ program
       process.exit(1);
     }
     if (fieldCount < 1 || fieldCount > 50000) {
-      console.error(
-        'Error: --field-count must be between 1 and 50,000',
-      );
+      console.error('Error: --field-count must be between 1 and 50,000');
       process.exit(1);
     }
 
     // Validate field categories if provided
     if (fieldCategories) {
-      const validCategories = ['behavioral_analytics', 'threat_intelligence', 'performance_metrics', 'security_scores', 'audit_compliance', 'network_analytics', 'endpoint_analytics'];
-      const invalidCategories = fieldCategories.filter((cat: string) => !validCategories.includes(cat));
+      const validCategories = [
+        'behavioral_analytics',
+        'threat_intelligence',
+        'performance_metrics',
+        'security_scores',
+        'audit_compliance',
+        'network_analytics',
+        'endpoint_analytics',
+        'forensics_analysis',
+        'cloud_security',
+        'malware_analysis',
+        'geolocation_intelligence',
+        'incident_response',
+      ];
+      const invalidCategories = fieldCategories.filter(
+        (cat: string) => !validCategories.includes(cat),
+      );
       if (invalidCategories.length > 0) {
         console.error(
           `Error: Invalid field categories: ${invalidCategories.join(', ')}. Valid categories: ${validCategories.join(', ')}`,
@@ -506,23 +573,36 @@ program
 
     // Apply Phase 3 configuration overrides if Claude is used
     if (options.claude) {
-      applyPhase3ConfigOverrides({ ...options, subTechniques: false, attackChains: false, largeScale: false });
+      applyPhase3ConfigOverrides({
+        ...options,
+        subTechniques: false,
+        attackChains: false,
+        largeScale: false,
+      });
     }
 
     // Show multi-field configuration if enabled
     if (useMultiField) {
       console.log(`\n🔬 Multi-Field Generation Enabled:`);
       console.log(`  📊 Additional Fields: ${fieldCount}`);
-      console.log(`  📁 Categories: ${fieldCategories ? fieldCategories.join(', ') : 'all'}`);
-      console.log(`  ⚡ Performance Mode: ${fieldPerformanceMode ? 'Yes' : 'No'}`);
+      console.log(
+        `  📁 Categories: ${fieldCategories ? fieldCategories.join(', ') : 'all'}`,
+      );
+      console.log(
+        `  ⚡ Performance Mode: ${fieldPerformanceMode ? 'Yes' : 'No'}`,
+      );
       console.log(`  🎯 Token Reduction: 99%`);
     }
 
     // Show Session View and Visual Analyzer configuration
     if (sessionView || visualAnalyzer) {
       console.log(`\n🔍 Enhanced Analysis Features:`);
-      if (sessionView) console.log(`  📱 Session View: Process hierarchies and terminal output`);
-      if (visualAnalyzer) console.log(`  👁️ Visual Event Analyzer: Process entity tracking`);
+      if (sessionView)
+        console.log(
+          `  📱 Session View: Process hierarchies and terminal output`,
+        );
+      if (visualAnalyzer)
+        console.log(`  👁️ Visual Event Analyzer: Process entity tracking`);
     }
 
     // Pass timestamp configuration options
@@ -533,13 +613,15 @@ program
     };
 
     // Create multi-field configuration
-    const multiFieldConfig = useMultiField ? {
-      fieldCount,
-      categories: fieldCategories,
-      performanceMode: fieldPerformanceMode,
-      contextWeightEnabled: true,
-      correlationEnabled: true
-    } : undefined;
+    const multiFieldConfig = useMultiField
+      ? {
+          fieldCount,
+          categories: fieldCategories,
+          performanceMode: fieldPerformanceMode,
+          contextWeightEnabled: true,
+          correlationEnabled: true,
+        }
+      : undefined;
 
     // Handle multiple environments
     if (environments > 1) {
@@ -548,12 +630,14 @@ program
       console.log(`  📁 Base Namespace: ${namespace}`);
       console.log(`  📊 Total Logs: ${logCount * environments}`);
       console.log(`  📁 Types: ${logTypes.join(', ')}`);
-      
+
       for (let i = 1; i <= environments; i++) {
         const envNamespace = `${namespace}-env-${i.toString().padStart(3, '0')}`;
-        
-        console.log(`\n🔄 Generating environment ${i}/${environments}: ${envNamespace}`);
-        
+
+        console.log(
+          `\n🔄 Generating environment ${i}/${environments}: ${envNamespace}`,
+        );
+
         await generateLogs(
           logCount,
           hostCount,
@@ -567,7 +651,7 @@ program
           envNamespace,
         );
       }
-      
+
       console.log(`\n✅ Multi-Environment Log Generation Complete!`);
       console.log(`  🌍 Generated across ${environments} environments`);
       console.log(`  📊 Total logs: ${logCount * environments}`);
@@ -590,7 +674,9 @@ program
 
 program
   .command('generate-correlated')
-  .description('Generate realistic security alerts with correlated supporting logs')
+  .description(
+    'Generate realistic security alerts with correlated supporting logs',
+  )
   .option('-n <n>', 'number of alerts to generate', '10')
   .option('-h <h>', 'number of hosts', '3')
   .option('-u <u>', 'number of users', '2')
@@ -614,8 +700,15 @@ program
     '--time-pattern <pattern>',
     'time distribution pattern: uniform, business_hours, random, attack_simulation, weekend_heavy',
   )
-  .option('--namespace <namespace>', 'custom namespace for correlated data indices (default: default)')
-  .option('--environments <count>', 'generate correlated data across multiple environment namespaces', parseIntBase10)
+  .option(
+    '--namespace <namespace>',
+    'custom namespace for correlated data indices (default: default)',
+  )
+  .option(
+    '--environments <count>',
+    'generate correlated data across multiple environment namespaces',
+    parseIntBase10,
+  )
   .action(async (options) => {
     const alertCount = parseInt(options.n || '10');
     const hostCount = parseInt(options.h || '3');
@@ -633,7 +726,7 @@ program
         ...options,
         subTechniques: false,
         attackChains: false,
-        largeScale: false
+        largeScale: false,
       });
     }
 
@@ -656,17 +749,19 @@ program
       console.log(`  📁 Base Namespace: ${namespace}`);
       console.log(`  🎯 Total Alerts: ${alertCount * environments}`);
       console.log(`  📊 Logs per Alert: ${logVolume}`);
-      
+
       for (let i = 1; i <= environments; i++) {
         const envNamespace = `${namespace}-env-${i.toString().padStart(3, '0')}`;
         const envSpace = `${space}-${envNamespace}`;
-        
-        console.log(`\n🔄 Generating environment ${i}/${environments}: ${envNamespace}`);
-        
+
+        console.log(
+          `\n🔄 Generating environment ${i}/${environments}: ${envNamespace}`,
+        );
+
         if (envSpace !== 'default') {
           await initializeSpace(envSpace);
         }
-        
+
         await generateCorrelatedCampaign(
           alertCount,
           hostCount,
@@ -679,7 +774,7 @@ program
           envNamespace,
         );
       }
-      
+
       console.log(`\n✅ Multi-Environment Correlated Generation Complete!`);
       console.log(`  🌍 Generated across ${environments} environments`);
       console.log(`  📊 Total alerts: ${alertCount * environments}`);
@@ -766,7 +861,9 @@ program
 
       // Validate log types
       const validTypes = ['system', 'auth', 'network', 'endpoint'];
-      const invalidTypes = logTypes.filter((type: string) => !validTypes.includes(type));
+      const invalidTypes = logTypes.filter(
+        (type: string) => !validTypes.includes(type),
+      );
       if (invalidTypes.length > 0) {
         console.error(
           `Error: Invalid log types: ${invalidTypes.join(', ')}. Valid types: ${validTypes.join(', ')}`,
@@ -938,15 +1035,22 @@ program
   )
   .option(
     '--field-categories <categories>',
-    'specific field categories to include (comma-separated): behavioral_analytics,threat_intelligence,performance_metrics,security_scores,audit_compliance,network_analytics,endpoint_analytics',
+    'specific field categories to include (comma-separated): behavioral_analytics,threat_intelligence,performance_metrics,security_scores,audit_compliance,network_analytics,endpoint_analytics,forensics_analysis,cloud_security,malware_analysis,geolocation_intelligence,incident_response',
   )
   .option(
     '--field-performance-mode',
     'optimize multi-field generation for speed over variety (requires --multi-field)',
     false,
   )
-  .option('--namespace <namespace>', 'custom namespace for campaign data indices (default: default)')
-  .option('--environments <count>', 'generate campaigns across multiple environment namespaces', parseIntBase10)
+  .option(
+    '--namespace <namespace>',
+    'custom namespace for campaign data indices (default: default)',
+  )
+  .option(
+    '--environments <count>',
+    'generate campaigns across multiple environment namespaces',
+    parseIntBase10,
+  )
   .action(async (campaignType, options) => {
     // AI is always enabled now
     const useAI = true;
@@ -954,7 +1058,9 @@ program
     const useMitre = options.mitre || false;
     const useMultiField = options.multiField || false;
     const fieldCount = parseInt(options.fieldCount || '200');
-    const fieldCategories = options.fieldCategories ? options.fieldCategories.split(',').map((c: string) => c.trim()) : undefined;
+    const fieldCategories = options.fieldCategories
+      ? options.fieldCategories.split(',').map((c: string) => c.trim())
+      : undefined;
     const fieldPerformanceMode = options.fieldPerformanceMode || false;
     const namespace = options.namespace || 'default';
     const environments = options.environments || 1;
@@ -979,16 +1085,29 @@ program
       process.exit(1);
     }
     if (fieldCount < 1 || fieldCount > 50000) {
-      console.error(
-        'Error: --field-count must be between 1 and 50,000',
-      );
+      console.error('Error: --field-count must be between 1 and 50,000');
       process.exit(1);
     }
 
     // Validate field categories if provided
     if (fieldCategories) {
-      const validCategories = ['behavioral_analytics', 'threat_intelligence', 'performance_metrics', 'security_scores', 'audit_compliance', 'network_analytics', 'endpoint_analytics'];
-      const invalidCategories = fieldCategories.filter((cat: string) => !validCategories.includes(cat));
+      const validCategories = [
+        'behavioral_analytics',
+        'threat_intelligence',
+        'performance_metrics',
+        'security_scores',
+        'audit_compliance',
+        'network_analytics',
+        'endpoint_analytics',
+        'forensics_analysis',
+        'cloud_security',
+        'malware_analysis',
+        'geolocation_intelligence',
+        'incident_response',
+      ];
+      const invalidCategories = fieldCategories.filter(
+        (cat: string) => !validCategories.includes(cat),
+      );
       if (invalidCategories.length > 0) {
         console.error(
           `Error: Invalid field categories: ${invalidCategories.join(', ')}. Valid categories: ${validCategories.join(', ')}`,
@@ -1051,7 +1170,9 @@ program
     if (options.realistic) {
       console.log(`\n🔗 Realistic Mode Enabled:`);
       console.log(`  📋 Logs per Stage: ${options.logsPerStage}`);
-      console.log(`  🎯 Detection Rate: ${(parseFloat(options.detectionRate) * 100).toFixed(1)}%`);
+      console.log(
+        `  🎯 Detection Rate: ${(parseFloat(options.detectionRate) * 100).toFixed(1)}%`,
+      );
       console.log(`  ⚡ Log → Alert Pipeline: Active`);
     }
 
@@ -1059,9 +1180,24 @@ program
     if (useMultiField) {
       console.log(`\n🔬 Multi-Field Generation Enabled:`);
       console.log(`  📊 Additional Fields: ${fieldCount}`);
-      console.log(`  📁 Categories: ${fieldCategories ? fieldCategories.join(', ') : 'all'}`);
-      console.log(`  ⚡ Performance Mode: ${fieldPerformanceMode ? 'Yes' : 'No'}`);
+      console.log(
+        `  📁 Categories: ${fieldCategories ? fieldCategories.join(', ') : 'all'}`,
+      );
+      console.log(
+        `  ⚡ Performance Mode: ${fieldPerformanceMode ? 'Yes' : 'No'}`,
+      );
       console.log(`  🎯 Token Reduction: 99%`);
+    }
+
+    // Show multi-environment configuration if enabled
+    if (environments > 1) {
+      console.log(`\n🌍 Multi-Environment Generation Enabled:`);
+      console.log(`  📊 Environments: ${environments}`);
+      console.log(`  📁 Base Namespace: ${namespace}`);
+      console.log(
+        `  🎯 Total Events: ${eventCount * environments} (${eventCount} per environment)`,
+      );
+      console.log(`  📈 Horizontal Scaling: Active`);
     }
 
     if (campaignType === 'scale-test') {
@@ -1087,21 +1223,32 @@ program
 
     console.log('\n🚀 Generating Campaign Data...');
 
-    if (campaignType === 'scale-test') {
-      console.log('\n🧪 Running Performance & Scalability Tests...');
-      // TODO: Implement actual scalability testing
-      console.log(
-        '   📊 Scalability testing framework ready for implementation',
-      );
-    } else {
+    // Helper function to generate campaign for a single environment
+    const generateSingleCampaign = async (
+      targetSpace: string,
+      environmentInfo?: string,
+    ) => {
+      if (environmentInfo) {
+        console.log(`\n🌍 ${environmentInfo}`);
+      }
+
+      if (campaignType === 'scale-test') {
+        console.log('\n🧪 Running Performance & Scalability Tests...');
+        // TODO: Implement actual scalability testing
+        console.log(
+          '   📊 Scalability testing framework ready for implementation',
+        );
+        return;
+      }
+
       // Initialize space if not default
-      if (options.space !== 'default') {
-        await initializeSpace(options.space);
+      if (targetSpace !== 'default') {
+        await initializeSpace(targetSpace);
       }
 
       // Use sophisticated AttackSimulationEngine for realistic campaign generation
       console.log(
-        `📝 Generating sophisticated ${campaignType} campaign with ${eventCount} events...`,
+        `📝 Generating sophisticated ${campaignType} campaign with ${eventCount} events in ${targetSpace}...`,
       );
 
       const simulationEngine = new AttackSimulationEngine({
@@ -1116,48 +1263,82 @@ program
           // Use realistic attack engine instead
           console.log('\n🎭 Initializing Realistic Attack Engine...');
 
-          const { RealisticAttackEngine } = await import('./services/realistic_attack_engine');
+          const { RealisticAttackEngine } = await import(
+            './services/realistic_attack_engine'
+          );
           const realisticEngine = new RealisticAttackEngine();
 
           const realisticConfig = {
-            campaignType: campaignType as 'apt' | 'ransomware' | 'insider' | 'supply_chain',
-            complexity: options.complexity as 'low' | 'medium' | 'high' | 'expert',
+            campaignType: campaignType as
+              | 'apt'
+              | 'ransomware'
+              | 'insider'
+              | 'supply_chain',
+            complexity: options.complexity as
+              | 'low'
+              | 'medium'
+              | 'high'
+              | 'expert',
             enableRealisticLogs: true,
             logsPerStage: parseInt(options.logsPerStage || '8'),
             detectionRate: parseFloat(options.detectionRate || '0.4'),
             eventCount,
             targetCount,
-            space: options.space,
+            space: targetSpace,
             useAI,
             useMitre,
             timestampConfig: {
               startDate: options.startDate || '2d',
               endDate: options.endDate || 'now',
-              pattern: (options.timePattern || 'attack_simulation') as 'uniform' | 'business_hours' | 'random' | 'attack_simulation' | 'weekend_heavy'
+              pattern: (options.timePattern || 'attack_simulation') as
+                | 'uniform'
+                | 'business_hours'
+                | 'random'
+                | 'attack_simulation'
+                | 'weekend_heavy',
             },
-            multiFieldConfig: useMultiField ? {
-              fieldCount,
-              categories: fieldCategories,
-              performanceMode: fieldPerformanceMode,
-              contextWeightEnabled: true,
-              correlationEnabled: true
-            } : undefined
+            multiFieldConfig: useMultiField
+              ? {
+                  fieldCount,
+                  categories: fieldCategories,
+                  performanceMode: fieldPerformanceMode,
+                  contextWeightEnabled: true,
+                  correlationEnabled: true,
+                  useExpandedFields: fieldCount > 1000,
+                  expandedFieldCount: fieldCount,
+                }
+              : undefined,
           };
 
-          const realisticResult = await realisticEngine.generateRealisticCampaign(realisticConfig);
+          const realisticResult =
+            await realisticEngine.generateRealisticCampaign(realisticConfig);
 
           console.log(`\n🎊 Realistic Campaign Generated Successfully:`);
-          console.log(`  🎯 Attack Stages: ${realisticResult.campaign.stages.length}`);
-          console.log(`  ⚔️  Campaign: ${realisticResult.campaign.campaign.name}`);
-          console.log(`  🎭 Threat Actor: ${realisticResult.campaign.campaign.threat_actor}`);
-          console.log(`  📋 Total Logs: ${realisticResult.stageLogs.reduce((sum, stage) => sum + stage.logs.length, 0)}`);
-          console.log(`  🚨 Detected Alerts: ${realisticResult.detectedAlerts.length}`);
-          console.log(`  ⚪ Missed Activities: ${realisticResult.missedActivities.length}`);
-          console.log(`  📅 Timeline: ${realisticResult.timeline.stages.length} events`);
+          console.log(
+            `  🎯 Attack Stages: ${realisticResult.campaign.stages.length}`,
+          );
+          console.log(
+            `  ⚔️  Campaign: ${realisticResult.campaign.campaign.name}`,
+          );
+          console.log(
+            `  🎭 Threat Actor: ${realisticResult.campaign.campaign.threat_actor}`,
+          );
+          console.log(
+            `  📋 Total Logs: ${realisticResult.stageLogs.reduce((sum, stage) => sum + stage.logs.length, 0)}`,
+          );
+          console.log(
+            `  🚨 Detected Alerts: ${realisticResult.detectedAlerts.length}`,
+          );
+          console.log(
+            `  ⚪ Missed Activities: ${realisticResult.missedActivities.length}`,
+          );
+          console.log(
+            `  📅 Timeline: ${realisticResult.timeline.stages.length} events`,
+          );
 
           // Display investigation guide
           console.log(`\n📖 Investigation Guide:`);
-          realisticResult.investigationGuide.slice(0, 3).forEach(step => {
+          realisticResult.investigationGuide.slice(0, 3).forEach((step) => {
             console.log(`  ${step.step}. ${step.action}`);
           });
 
@@ -1167,17 +1348,25 @@ program
           // Import necessary functions
           const { getEsClient } = await import('./commands/utils/indices');
           const { indexCheck } = await import('./commands/utils/indices');
-          const logMappings = await import('./mappings/log_mappings.json', { assert: { type: 'json' } });
+          const logMappings = await import('./mappings/log_mappings.json', {
+            assert: { type: 'json' },
+          });
 
           const client = getEsClient();
           const indexOperations: unknown[] = [];
 
-          // Index all stage logs
+          // Index all stage logs with environment-specific namespace
           for (const stage of realisticResult.stageLogs) {
             for (const log of stage.logs) {
               const dataset = log['data_stream.dataset'] || 'generic.log';
-              const namespace = log['data_stream.namespace'] || 'default';
-              const indexName = `logs-${dataset}-${namespace}`;
+              const baseNamespace = log['data_stream.namespace'] || 'default';
+              // Use environment-specific namespace if multi-environment mode
+              const logNamespace =
+                environments > 1 ? targetSpace : baseNamespace;
+              const indexName = `logs-${dataset}-${logNamespace}`;
+
+              // Update log with correct namespace
+              log['data_stream.namespace'] = logNamespace;
 
               // Ensure index exists
               await indexCheck(indexName, {
@@ -1194,9 +1383,12 @@ program
             }
           }
 
-          // Index detected alerts
-          const alertIndex = `.internal.alerts-security.alerts-${options.space}-000001`;
+          // Index detected alerts with environment-specific space
+          const alertIndex = `.internal.alerts-security.alerts-${targetSpace}-000001`;
           for (const alert of realisticResult.detectedAlerts) {
+            // Update alert space IDs for multi-environment
+            alert['kibana.space_ids'] = [targetSpace];
+
             indexOperations.push({
               create: {
                 _index: alertIndex,
@@ -1220,10 +1412,13 @@ program
           }
 
           console.log('\n\n🎉 Realistic Campaign Complete!');
-          console.log(`📍 View in Kibana space: ${options.space}`);
+          console.log(`📍 View in Kibana space: ${targetSpace}`);
           console.log(`🔍 Filter logs with: logs-*`);
           console.log(`🚨 View alerts in Security app`);
-          console.log(`📈 ${realisticResult.detectedAlerts.length} alerts triggered by ${realisticResult.stageLogs.reduce((sum, stage) => sum + stage.logs.length, 0)} source logs`);
+          console.log(
+            `📈 ${realisticResult.detectedAlerts.length} alerts triggered by ${realisticResult.stageLogs.reduce((sum, stage) => sum + stage.logs.length, 0)} source logs`,
+          );
+          return;
         }
 
         // Generate sophisticated attack simulation with correlation (original code)
@@ -1248,9 +1443,17 @@ program
           console.log(`\n🔗 Generating Sophisticated Correlated Events...`);
 
           const timestampConfig = {
-            startDate: options.startDate || simulation.campaign.duration.start.toISOString(),
-            endDate: options.endDate || simulation.campaign.duration.end.toISOString(),
-            pattern: (options.timePattern || 'attack_simulation') as 'uniform' | 'business_hours' | 'random' | 'attack_simulation' | 'weekend_heavy',
+            startDate:
+              options.startDate ||
+              simulation.campaign.duration.start.toISOString(),
+            endDate:
+              options.endDate || simulation.campaign.duration.end.toISOString(),
+            pattern: (options.timePattern || 'attack_simulation') as
+              | 'uniform'
+              | 'business_hours'
+              | 'random'
+              | 'attack_simulation'
+              | 'weekend_heavy',
           };
 
           const correlatedEvents =
@@ -1258,7 +1461,7 @@ program
               simulation,
               targetCount,
               eventCount,
-              options.space,
+              targetSpace,
               useMitre,
               timestampConfig,
             );
@@ -1279,7 +1482,7 @@ program
           `⏱️  Timeout set to ${Math.round(timeoutMs / 1000)} seconds for ${eventCount} events`,
         );
 
-        const result = await Promise.race([
+        const result = (await Promise.race([
           sophisticatedGeneration(),
           new Promise((_, reject) =>
             setTimeout(
@@ -1292,24 +1495,29 @@ program
               timeoutMs,
             ),
           ),
-        ]) as any[];
+        ])) as any[];
 
         if (!result || !Array.isArray(result)) {
           throw new Error('Sophisticated generation failed');
         }
 
         // Index the generated events to Elasticsearch
-        console.log(`\n📤 Indexing ${result.length} events to Elasticsearch...`);
+        console.log(
+          `\n📤 Indexing ${result.length} events to Elasticsearch...`,
+        );
 
         // Import required functions for indexing
         const { getAlertIndex } = await import('./utils');
         const { getEsClient } = await import('./commands/utils/indices');
 
-        // Convert alerts to bulk operations
-        const alertIndex = getAlertIndex(options.space);
+        // Convert alerts to bulk operations with environment-specific space
+        const alertIndex = getAlertIndex(targetSpace);
         const bulkOps: unknown[] = [];
 
         for (const alert of result) {
+          // Update alert space IDs for multi-environment
+          alert['kibana.space_ids'] = [targetSpace];
+
           bulkOps.push(
             { index: { _index: alertIndex, _id: alert['kibana.alert.uuid'] } },
             { ...alert },
@@ -1320,7 +1528,9 @@ program
         const client = getEsClient();
         try {
           await client.bulk({ operations: bulkOps, refresh: true });
-          console.log(`✅ Successfully indexed ${result.length} events to ${alertIndex}`);
+          console.log(
+            `✅ Successfully indexed ${result.length} events to ${alertIndex}`,
+          );
         } catch (err) {
           console.error('❌ Error indexing events:', err);
           throw err;
@@ -1352,19 +1562,23 @@ program
         );
 
         // Create multi-field configuration for fallback
-        const multiFieldConfig = useMultiField ? {
-          fieldCount,
-          categories: fieldCategories,
-          performanceMode: fieldPerformanceMode,
-          contextWeightEnabled: true,
-          correlationEnabled: true
-        } : undefined;
+        const multiFieldConfig = useMultiField
+          ? {
+              fieldCount,
+              categories: fieldCategories,
+              performanceMode: fieldPerformanceMode,
+              contextWeightEnabled: true,
+              correlationEnabled: true,
+              useExpandedFields: fieldCount > 1000,
+              expandedFieldCount: fieldCount,
+            }
+          : undefined;
 
         await generateAlerts(
           eventCount,
           actualHostCount,
           actualUserCount,
-          options.space,
+          targetSpace,
           useAI,
           useMitre,
           timestampConfig,
@@ -1372,6 +1586,40 @@ program
           multiFieldConfig,
         );
       }
+    };
+
+    // Multi-environment generation logic
+    if (environments > 1) {
+      console.log(
+        `\n🌍 Multi-Environment Campaign Generation: ${environments} environments`,
+      );
+      console.log(
+        `📊 Total Events: ${eventCount * environments} (${eventCount} per environment)`,
+      );
+      console.log(`🚀 Starting parallel campaign generation...\n`);
+
+      const startTime = Date.now();
+
+      for (let i = 1; i <= environments; i++) {
+        const envNamespace = `${namespace}-env-${i.toString().padStart(3, '0')}`;
+        const environmentInfo = `Environment ${i}/${environments}: ${envNamespace}`;
+
+        await generateSingleCampaign(envNamespace, environmentInfo);
+      }
+
+      const totalTime = Date.now() - startTime;
+      const totalEvents = eventCount * environments;
+
+      console.log('\n🌍 Multi-Environment Campaign Generation Complete!');
+      console.log(`📊 Total Events Generated: ${totalEvents}`);
+      console.log(`🌍 Environments: ${environments}`);
+      console.log(`⏱️  Total Time: ${Math.round(totalTime / 1000)}s`);
+      console.log(
+        `🚀 Average: ${Math.round(totalEvents / (totalTime / 1000))} events/sec`,
+      );
+    } else {
+      // Single environment generation
+      await generateSingleCampaign(options.space);
 
       // Cleanup AI service to allow process to exit cleanly
       if (useAI) {

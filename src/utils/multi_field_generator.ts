@@ -1,9 +1,9 @@
 /**
  * Multi-Field Generator Service
- * 
+ *
  * High-performance, token-free multi-field generation for security documents.
  * Generates hundreds of contextually relevant security fields using algorithmic approaches.
- * 
+ *
  * Performance Features:
  * - 99% token reduction vs AI generation
  * - <100ms generation time for 500 fields
@@ -13,12 +13,12 @@
  */
 
 import { faker } from '@faker-js/faker';
-import { 
-  MULTI_FIELD_TEMPLATES, 
-  FieldTemplate, 
-  getFieldCategories, 
+import {
+  MULTI_FIELD_TEMPLATES,
+  FieldTemplate,
+  getFieldCategories,
   getFieldsInCategory,
-  getTotalFieldCount 
+  getTotalFieldCount,
 } from './multi_field_templates';
 import { generateExpandedFieldTemplates } from './field_expansion_generator';
 
@@ -54,12 +54,14 @@ export interface LogContext {
 
 /**
  * Main Multi-Field Generator Class
- * 
+ *
  * Provides high-performance generation of hundreds of security-relevant fields
  * with realistic correlations and context awareness.
  */
 export class MultiFieldGenerator {
-  private config: Required<Omit<MultiFieldConfig, 'seedValue'>> & { seedValue?: string };
+  private config: Required<Omit<MultiFieldConfig, 'seedValue'>> & {
+    seedValue?: string;
+  };
   private rng: any; // Seeded random number generator
   private expandedFieldTemplates: Record<string, FieldTemplate> | null = null;
 
@@ -72,7 +74,7 @@ export class MultiFieldGenerator {
       performanceMode: config.performanceMode ?? false,
       useExpandedFields: config.useExpandedFields ?? false,
       expandedFieldCount: config.expandedFieldCount ?? 10000,
-      seedValue: config.seedValue
+      seedValue: config.seedValue,
     };
 
     // Initialize seeded RNG if seed provided
@@ -82,7 +84,9 @@ export class MultiFieldGenerator {
 
     // Initialize expanded field templates if requested
     if (this.config.useExpandedFields) {
-      this.expandedFieldTemplates = generateExpandedFieldTemplates(this.config.expandedFieldCount);
+      this.expandedFieldTemplates = generateExpandedFieldTemplates(
+        this.config.expandedFieldCount,
+      );
     }
   }
 
@@ -91,7 +95,7 @@ export class MultiFieldGenerator {
    */
   public generateFields(
     baseLog: Record<string, any> = {},
-    context: LogContext = {}
+    context: LogContext = {},
   ): MultiFieldResult {
     const startTime = Date.now();
 
@@ -102,10 +106,14 @@ export class MultiFieldGenerator {
     const selectedFields = this.selectFields(logContext);
 
     // Generate field values with correlations
-    const fields = this.generateFieldValues(selectedFields, baseLog, logContext);
+    const fields = this.generateFieldValues(
+      selectedFields,
+      baseLog,
+      logContext,
+    );
 
     // Apply realistic correlations
-    const correlationsApplied = this.config.correlationEnabled 
+    const correlationsApplied = this.config.correlationEnabled
       ? this.applyFieldCorrelations(fields, logContext)
       : 0;
 
@@ -117,15 +125,18 @@ export class MultiFieldGenerator {
         totalFieldsGenerated: Object.keys(fields).length,
         categoriesUsed: this.config.categories,
         generationTimeMs,
-        correlationsApplied
-      }
+        correlationsApplied,
+      },
     };
   }
 
   /**
    * Analyze log context to inform field selection
    */
-  private analyzeLogContext(baseLog: Record<string, any>, context: LogContext): LogContext {
+  private analyzeLogContext(
+    baseLog: Record<string, any>,
+    context: LogContext,
+  ): LogContext {
     const analyzed: LogContext = { ...context };
 
     // Detect log type from base log if not provided
@@ -160,12 +171,13 @@ export class MultiFieldGenerator {
    * Select fields based on context and weights
    */
   private selectFields(context: LogContext): string[] {
-    const availableFields: Array<{ field: string, weight: number }> = [];
+    const availableFields: Array<{ field: string; weight: number }> = [];
 
     // Use expanded fields if available, otherwise use standard templates
-    const fieldSource = this.config.useExpandedFields && this.expandedFieldTemplates 
-      ? this.expandedFieldTemplates 
-      : this.getStandardFieldTemplates();
+    const fieldSource =
+      this.config.useExpandedFields && this.expandedFieldTemplates
+        ? this.expandedFieldTemplates
+        : this.getStandardFieldTemplates();
 
     // Collect all fields with their weights
     for (const [fieldName, template] of Object.entries(fieldSource)) {
@@ -189,12 +201,20 @@ export class MultiFieldGenerator {
   /**
    * Adjust field weight based on log context
    */
-  private adjustWeightForContext(fieldName: string, baseWeight: number, context: LogContext): number {
+  private adjustWeightForContext(
+    fieldName: string,
+    baseWeight: number,
+    context: LogContext,
+  ): number {
     let weight = baseWeight;
 
     // Boost security-related fields for attacks
     if (context.isAttack) {
-      if (fieldName.includes('threat.') || fieldName.includes('security.') || fieldName.includes('risk.')) {
+      if (
+        fieldName.includes('threat.') ||
+        fieldName.includes('security.') ||
+        fieldName.includes('risk.')
+      ) {
         weight *= 1.5;
       }
       if (fieldName.includes('anomaly') || fieldName.includes('suspicious')) {
@@ -203,7 +223,10 @@ export class MultiFieldGenerator {
     }
 
     // Boost performance fields for high/low performance contexts
-    if (context.hostPerformance === 'high' || context.hostPerformance === 'low') {
+    if (
+      context.hostPerformance === 'high' ||
+      context.hostPerformance === 'low'
+    ) {
       if (fieldName.includes('performance.') || fieldName.includes('usage')) {
         weight *= 1.2;
       }
@@ -236,10 +259,13 @@ export class MultiFieldGenerator {
   /**
    * Weighted field selection algorithm
    */
-  private weightedFieldSelection(weightedFields: Array<{ field: string, weight: number }>, count: number): string[] {
+  private weightedFieldSelection(
+    weightedFields: Array<{ field: string; weight: number }>,
+    count: number,
+  ): string[] {
     if (this.config.performanceMode) {
       // Performance mode: just take the top weighted fields
-      return weightedFields.slice(0, count).map(f => f.field);
+      return weightedFields.slice(0, count).map((f) => f.field);
     }
 
     // Weighted random sampling for variety
@@ -270,9 +296,9 @@ export class MultiFieldGenerator {
    * Generate values for selected fields
    */
   private generateFieldValues(
-    selectedFields: string[], 
-    baseLog: Record<string, any>, 
-    context: LogContext
+    selectedFields: string[],
+    baseLog: Record<string, any>,
+    context: LogContext,
   ): Record<string, any> {
     const fields: Record<string, any> = {};
 
@@ -289,45 +315,68 @@ export class MultiFieldGenerator {
   /**
    * Apply realistic correlations between fields
    */
-  private applyFieldCorrelations(fields: Record<string, any>, context: LogContext): number {
+  private applyFieldCorrelations(
+    fields: Record<string, any>,
+    context: LogContext,
+  ): number {
     let correlationsApplied = 0;
 
     // CPU-Memory correlation
-    if (fields['system.performance.cpu_usage'] && fields['system.performance.memory_usage']) {
+    if (
+      fields['system.performance.cpu_usage'] &&
+      fields['system.performance.memory_usage']
+    ) {
       const cpuUsage = fields['system.performance.cpu_usage'];
       if (cpuUsage > 80) {
         // High CPU often correlates with high memory
-        fields['system.performance.memory_usage'] = Math.min(100, cpuUsage + faker.number.float({ min: -10, max: 15 }));
+        fields['system.performance.memory_usage'] = Math.min(
+          100,
+          cpuUsage + faker.number.float({ min: -10, max: 15 }),
+        );
         correlationsApplied++;
       }
     }
 
     // Threat score correlations
-    if (fields['threat.intelligence.confidence'] && fields['security.score.overall_risk']) {
+    if (
+      fields['threat.intelligence.confidence'] &&
+      fields['security.score.overall_risk']
+    ) {
       const threatConfidence = fields['threat.intelligence.confidence'];
       if (threatConfidence > 70) {
         // High threat confidence increases risk score
-        fields['security.score.overall_risk'] = Math.min(100, threatConfidence + faker.number.float({ min: 0, max: 20 }));
+        fields['security.score.overall_risk'] = Math.min(
+          100,
+          threatConfidence + faker.number.float({ min: 0, max: 20 }),
+        );
         correlationsApplied++;
       }
     }
 
     // Behavioral anomaly correlations
-    if (fields['user_behavior.anomaly_score'] && fields['user_behavior.risk_score']) {
+    if (
+      fields['user_behavior.anomaly_score'] &&
+      fields['user_behavior.risk_score']
+    ) {
       const anomalyScore = fields['user_behavior.anomaly_score'];
       // Risk score correlates with anomaly score
-      fields['user_behavior.risk_score'] = anomalyScore + faker.number.float({ min: -15, max: 10 });
+      fields['user_behavior.risk_score'] =
+        anomalyScore + faker.number.float({ min: -15, max: 10 });
       correlationsApplied++;
     }
 
     // Network activity correlations
-    if (fields['network.analytics.malicious_ip_connections'] && fields['network.analytics.suspicious_domain_count']) {
-      const maliciousConnections = fields['network.analytics.malicious_ip_connections'];
+    if (
+      fields['network.analytics.malicious_ip_connections'] &&
+      fields['network.analytics.suspicious_domain_count']
+    ) {
+      const maliciousConnections =
+        fields['network.analytics.malicious_ip_connections'];
       if (maliciousConnections > 0) {
         // Malicious IP connections often come with suspicious domains
         fields['network.analytics.suspicious_domain_count'] = Math.max(
           fields['network.analytics.suspicious_domain_count'],
-          maliciousConnections + faker.number.int({ min: 0, max: 5 })
+          maliciousConnections + faker.number.int({ min: 0, max: 5 }),
         );
         correlationsApplied++;
       }
@@ -336,10 +385,13 @@ export class MultiFieldGenerator {
     // Attack context correlations
     if (context.isAttack) {
       // Boost anomaly scores for attack scenarios
-      Object.keys(fields).forEach(key => {
+      Object.keys(fields).forEach((key) => {
         if (key.includes('anomaly_score') || key.includes('suspicious')) {
           if (typeof fields[key] === 'number' && fields[key] < 70) {
-            fields[key] = Math.min(100, fields[key] + faker.number.float({ min: 20, max: 40 }));
+            fields[key] = Math.min(
+              100,
+              fields[key] + faker.number.float({ min: 20, max: 40 }),
+            );
             correlationsApplied++;
           }
         }
@@ -364,8 +416,8 @@ export class MultiFieldGenerator {
 
     // Detect from event category
     if (baseLog['event.category']) {
-      const categories = Array.isArray(baseLog['event.category']) 
-        ? baseLog['event.category'] 
+      const categories = Array.isArray(baseLog['event.category'])
+        ? baseLog['event.category']
         : [baseLog['event.category']];
       if (categories.includes('authentication')) return 'auth';
       if (categories.includes('network')) return 'network';
@@ -384,12 +436,19 @@ export class MultiFieldGenerator {
 
     // Check for suspicious event actions
     const suspiciousActions = [
-      'process_injection', 'lateral_movement', 'privilege_escalation',
-      'defense_evasion', 'persistence', 'data_exfiltration'
+      'process_injection',
+      'lateral_movement',
+      'privilege_escalation',
+      'defense_evasion',
+      'persistence',
+      'data_exfiltration',
     ];
-    
+
     const eventAction = baseLog['event.action'];
-    if (eventAction && suspiciousActions.some(action => eventAction.includes(action))) {
+    if (
+      eventAction &&
+      suspiciousActions.some((action) => eventAction.includes(action))
+    ) {
       return true;
     }
 
@@ -408,12 +467,15 @@ export class MultiFieldGenerator {
 
     // Default based on log type
     const logType = this.detectLogType(baseLog);
-    if (logType === 'endpoint' && this.detectAttackIndicators(baseLog)) return 'high';
-    
+    if (logType === 'endpoint' && this.detectAttackIndicators(baseLog))
+      return 'high';
+
     return 'medium';
   }
 
-  private determineTimeContext(baseLog: Record<string, any>): 'business_hours' | 'off_hours' | 'weekend' {
+  private determineTimeContext(
+    baseLog: Record<string, any>,
+  ): 'business_hours' | 'off_hours' | 'weekend' {
     const timestamp = baseLog['@timestamp'] || new Date().toISOString();
     const date = new Date(timestamp);
     const hour = date.getHours();
@@ -421,16 +483,19 @@ export class MultiFieldGenerator {
 
     // Weekend
     if (day === 0 || day === 6) return 'weekend';
-    
+
     // Business hours (9 AM - 5 PM)
     if (hour >= 9 && hour <= 17) return 'business_hours';
-    
+
     return 'off_hours';
   }
 
-  private determineHostPerformance(baseLog: Record<string, any>): 'low' | 'normal' | 'high' {
+  private determineHostPerformance(
+    baseLog: Record<string, any>,
+  ): 'low' | 'normal' | 'high' {
     // Check if there are performance indicators in the log
-    const cpuUsage = baseLog['system.cpu.usage.percentage'] || baseLog['host.cpu.usage'];
+    const cpuUsage =
+      baseLog['system.cpu.usage.percentage'] || baseLog['host.cpu.usage'];
     if (cpuUsage) {
       if (cpuUsage > 80) return 'high';
       if (cpuUsage < 20) return 'low';
@@ -471,7 +536,7 @@ export class MultiFieldGenerator {
     let hash = 0;
     for (let i = 0; i < seed.length; i++) {
       const char = seed.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convert to 32-bit integer
     }
     return Math.abs(hash);
@@ -483,7 +548,7 @@ export class MultiFieldGenerator {
   static generateQuick(
     baseLog: Record<string, any> = {},
     fieldCount = 200,
-    context: LogContext = {}
+    context: LogContext = {},
   ): Record<string, any> {
     const generator = new MultiFieldGenerator({ fieldCount });
     const result = generator.generateFields(baseLog, context);
@@ -500,15 +565,15 @@ export class MultiFieldGenerator {
   } {
     const categories = getFieldCategories();
     const fieldsPerCategory: Record<string, number> = {};
-    
-    categories.forEach(category => {
+
+    categories.forEach((category) => {
       fieldsPerCategory[category] = getFieldsInCategory(category).length;
     });
 
     return {
       totalFields: getTotalFieldCount(),
       categories,
-      fieldsPerCategory
+      fieldsPerCategory,
     };
   }
 }
@@ -518,7 +583,7 @@ export class MultiFieldGenerator {
  */
 export function generateMultiFields(
   baseLog: Record<string, any> = {},
-  config: MultiFieldConfig = {}
+  config: MultiFieldConfig = {},
 ): Record<string, any> {
   const generator = new MultiFieldGenerator(config);
   const result = generator.generateFields(baseLog);

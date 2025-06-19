@@ -484,10 +484,14 @@ Generate an alert that shows CLEAR CORRELATION to this attack campaign stage. In
           // Ensure template timestamps are preserved (don't let AI override)
           '@timestamp': defaultTemplate['@timestamp'],
           'kibana.alert.start': defaultTemplate['kibana.alert.start'],
-          'kibana.alert.last_detected': defaultTemplate['kibana.alert.last_detected'],
-          'kibana.alert.original_time': defaultTemplate['kibana.alert.original_time'],
-          'kibana.alert.rule.created_at': defaultTemplate['kibana.alert.rule.created_at'],
-          'kibana.alert.rule.updated_at': defaultTemplate['kibana.alert.rule.updated_at'],
+          'kibana.alert.last_detected':
+            defaultTemplate['kibana.alert.last_detected'],
+          'kibana.alert.original_time':
+            defaultTemplate['kibana.alert.original_time'],
+          'kibana.alert.rule.created_at':
+            defaultTemplate['kibana.alert.rule.created_at'],
+          'kibana.alert.rule.updated_at':
+            defaultTemplate['kibana.alert.rule.updated_at'],
         };
 
         // Validate and sanitize the alert
@@ -756,7 +760,9 @@ export const generateAIAlertBatch = async (
 
             // Debug logging for AI responses
             if (process.env.DEBUG_AI_RESPONSES === 'true') {
-              console.log(`AI Raw Response: ${rawContent.substring(0, 500)}...`);
+              console.log(
+                `AI Raw Response: ${rawContent.substring(0, 500)}...`,
+              );
             }
 
             // Clean and validate the JSON content
@@ -768,8 +774,12 @@ export const generateAIAlertBatch = async (
 
             // Debug logging for parsed content
             if (process.env.DEBUG_AI_RESPONSES === 'true') {
-              console.log(`Parsed Content Type: ${typeof content}, Array: ${Array.isArray(content)}`);
-              console.log(`Content Keys: ${content && typeof content === 'object' ? Object.keys(content) : 'N/A'}`);
+              console.log(
+                `Parsed Content Type: ${typeof content}, Array: ${Array.isArray(content)}`,
+              );
+              console.log(
+                `Content Keys: ${content && typeof content === 'object' ? Object.keys(content) : 'N/A'}`,
+              );
             }
 
             // Handle different response formats
@@ -794,7 +804,9 @@ export const generateAIAlertBatch = async (
               }
             } else {
               // If content is not recognized, fall back to individual generation
-              console.warn('AI response format not recognized, falling back to individual generation');
+              console.warn(
+                'AI response format not recognized, falling back to individual generation',
+              );
               generatedAlerts = [];
             }
 
@@ -805,10 +817,15 @@ export const generateAIAlertBatch = async (
             );
 
             // If we still have no valid alerts after validation, fall back to individual generation
-            if (generatedAlerts.length === 0 || generatedAlerts.every(alert => Object.keys(alert).length === 0)) {
-              console.warn('Batch generation failed, falling back to individual AI generation');
+            if (
+              generatedAlerts.length === 0 ||
+              generatedAlerts.every((alert) => Object.keys(alert).length === 0)
+            ) {
+              console.warn(
+                'Batch generation failed, falling back to individual AI generation',
+              );
               generatedAlerts = [];
-              
+
               // Generate alerts individually as fallback
               for (const entity of batch) {
                 try {
@@ -821,22 +838,29 @@ export const generateAIAlertBatch = async (
                   });
                   generatedAlerts.push(individualAlert);
                 } catch (individualError) {
-                  console.warn(`Individual alert generation failed for ${entity.hostName}:${entity.userName}, using template`);
+                  console.warn(
+                    `Individual alert generation failed for ${entity.hostName}:${entity.userName}, using template`,
+                  );
                   // Use template as final fallback
-                  const templateAlert = createAlerts({}, {
-                    hostName: entity.hostName,
-                    userName: entity.userName,
-                    space,
-                    timestampConfig,
-                  });
+                  const templateAlert = createAlerts(
+                    {},
+                    {
+                      hostName: entity.hostName,
+                      userName: entity.userName,
+                      space,
+                      timestampConfig,
+                    },
+                  );
                   generatedAlerts.push(templateAlert);
                 }
               }
             }
           } catch (e) {
             console.error('Error parsing batch response:', e);
-            console.warn('Falling back to individual generation due to batch error');
-            
+            console.warn(
+              'Falling back to individual generation due to batch error',
+            );
+
             // Fallback: Generate individually for each entity
             generatedAlerts = [];
             for (const entity of batch) {
@@ -850,14 +874,19 @@ export const generateAIAlertBatch = async (
                 });
                 generatedAlerts.push(individualAlert);
               } catch (individualError) {
-                console.warn(`Individual alert generation failed for ${entity.hostName}:${entity.userName}, using template`);
+                console.warn(
+                  `Individual alert generation failed for ${entity.hostName}:${entity.userName}, using template`,
+                );
                 // Use template as final fallback
-                const templateAlert = createAlerts({}, {
-                  hostName: entity.hostName,
-                  userName: entity.userName,
-                  space,
-                  timestampConfig,
-                });
+                const templateAlert = createAlerts(
+                  {},
+                  {
+                    hostName: entity.hostName,
+                    userName: entity.userName,
+                    space,
+                    timestampConfig,
+                  },
+                );
                 generatedAlerts.push(templateAlert);
               }
             }
@@ -891,10 +920,14 @@ export const generateAIAlertBatch = async (
               // Preserve template timestamps
               '@timestamp': defaultTemplate['@timestamp'],
               'kibana.alert.start': defaultTemplate['kibana.alert.start'],
-              'kibana.alert.last_detected': defaultTemplate['kibana.alert.last_detected'],
-              'kibana.alert.original_time': defaultTemplate['kibana.alert.original_time'],
-              'kibana.alert.rule.created_at': defaultTemplate['kibana.alert.rule.created_at'],
-              'kibana.alert.rule.updated_at': defaultTemplate['kibana.alert.rule.updated_at'],
+              'kibana.alert.last_detected':
+                defaultTemplate['kibana.alert.last_detected'],
+              'kibana.alert.original_time':
+                defaultTemplate['kibana.alert.original_time'],
+              'kibana.alert.rule.created_at':
+                defaultTemplate['kibana.alert.rule.created_at'],
+              'kibana.alert.rule.updated_at':
+                defaultTemplate['kibana.alert.rule.updated_at'],
             };
 
             const validatedAlert = validateAndSanitizeAlert(
@@ -1139,10 +1172,14 @@ export const generateMITREAlert = async (
           // Preserve template timestamps (don't let AI override)
           '@timestamp': defaultTemplate['@timestamp'],
           'kibana.alert.start': defaultTemplate['kibana.alert.start'],
-          'kibana.alert.last_detected': defaultTemplate['kibana.alert.last_detected'],
-          'kibana.alert.original_time': defaultTemplate['kibana.alert.original_time'],
-          'kibana.alert.rule.created_at': defaultTemplate['kibana.alert.rule.created_at'],
-          'kibana.alert.rule.updated_at': defaultTemplate['kibana.alert.rule.updated_at'],
+          'kibana.alert.last_detected':
+            defaultTemplate['kibana.alert.last_detected'],
+          'kibana.alert.original_time':
+            defaultTemplate['kibana.alert.original_time'],
+          'kibana.alert.rule.created_at':
+            defaultTemplate['kibana.alert.rule.created_at'],
+          'kibana.alert.rule.updated_at':
+            defaultTemplate['kibana.alert.rule.updated_at'],
         };
 
         // Validate the alert

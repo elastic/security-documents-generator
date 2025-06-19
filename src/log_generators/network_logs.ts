@@ -202,7 +202,11 @@ export const generateHTTPLog = (config: NetworkLogConfig = {}) => {
 };
 
 export const generateFirewallLog = (config: NetworkLogConfig = {}) => {
-  const { hostName = faker.internet.domainName(), timestampConfig, namespace = 'default' } = config;
+  const {
+    hostName = faker.internet.domainName(),
+    timestampConfig,
+    namespace = 'default',
+  } = config;
 
   const action = faker.helpers.arrayElement(['ACCEPT', 'DROP', 'REJECT']);
   const protocol = faker.helpers.arrayElement(['TCP', 'UDP', 'ICMP']);

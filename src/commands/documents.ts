@@ -257,7 +257,9 @@ export const generateAlerts = async (
     `Generating ${alertCount} alerts containing ${hostCount} hosts and ${userCount} users in space ${space}${
       useAI ? ' using AI' : ''
     }${useMitre ? ' with MITRE ATT&CK' : ''}${
-      multiFieldConfig ? ` with ${multiFieldConfig.fieldCount} additional fields` : ''
+      multiFieldConfig
+        ? ` with ${multiFieldConfig.fieldCount} additional fields`
+        : ''
     }${
       falsePositiveRate > 0
         ? ` (${(falsePositiveRate * 100).toFixed(1)}% false positives)`
@@ -352,7 +354,7 @@ export const generateAlerts = async (
   // However, if multi-field is enabled with high field count, we can skip AI batch processing
   // since multi-field generation provides rich data without AI overhead and batch complexity
   const skipAIBatch = multiFieldConfig && multiFieldConfig.fieldCount > 100;
-  
+
   if (useAI && config.useAI && !skipAIBatch) {
     console.log(
       `Using AI for alert generation${useMitre ? ' with MITRE ATT&CK' : ''}...`,
@@ -361,11 +363,11 @@ export const generateAlerts = async (
     console.log(
       `Using high-performance template generation with ${multiFieldConfig?.fieldCount} enriched fields (skipping AI batch for performance)...`,
     );
-  
+
     // Use the standard batch processing for template generation with multi-field enrichment
     const batchedAlertEntities = chunk(alertEntityNames, batchSize);
     const operations: unknown[] = [];
-    
+
     const progress = new cliProgress.SingleBar(
       {},
       cliProgress.Presets.shades_classic,
@@ -390,7 +392,9 @@ export const generateAlerts = async (
     const client = getEsClient();
     try {
       await client.bulk({ operations, refresh: true });
-      console.log(`✅ Successfully indexed ${alertCount} alerts with multi-field enrichment`);
+      console.log(
+        `✅ Successfully indexed ${alertCount} alerts with multi-field enrichment`,
+      );
     } catch (error) {
       console.error('❌ Error indexing enriched alerts:', error);
       throw error;
@@ -398,7 +402,7 @@ export const generateAlerts = async (
 
     return;
   }
-  
+
   if (useAI && config.useAI) {
     console.log(
       `Using AI for alert generation${useMitre ? ' with MITRE ATT&CK' : ''}...`,
@@ -504,14 +508,18 @@ export const generateAlerts = async (
               contextWeightEnabled: multiFieldConfig.contextWeightEnabled,
               correlationEnabled: multiFieldConfig.correlationEnabled,
               useExpandedFields: multiFieldConfig.fieldCount > 1000,
-              expandedFieldCount: Math.max(multiFieldConfig.fieldCount * 2, 10000),
+              expandedFieldCount: Math.max(
+                multiFieldConfig.fieldCount * 2,
+                10000,
+              ),
             });
 
-            generatedAlerts = generatedAlerts.map(alert => {
+            generatedAlerts = generatedAlerts.map((alert) => {
               const alertRecord = alert as Record<string, any>;
               const result = multiFieldGenerator.generateFields(alert, {
                 logType: 'security',
-                isAttack: useMitre || alertRecord['threat.technique.id'] !== undefined,
+                isAttack:
+                  useMitre || alertRecord['threat.technique.id'] !== undefined,
                 severity: alertRecord['event.severity'] || 'medium',
               });
 
@@ -805,10 +813,10 @@ export const generateLogs = async (
     `Generating ${logCount} realistic source logs across ${logTypes.join(', ')} with ${hostCount} hosts and ${userCount} users${
       useAI ? ' using AI' : ''
     }${
-      multiFieldConfig ? ` with ${multiFieldConfig.fieldCount} additional fields` : ''
-    }${
-      sessionView ? ' (Session View compatible)' : ''
-    }${
+      multiFieldConfig
+        ? ` with ${multiFieldConfig.fieldCount} additional fields`
+        : ''
+    }${sessionView ? ' (Session View compatible)' : ''}${
       visualAnalyzer ? ' (Visual Analyzer compatible)' : ''
     }`,
   );
@@ -890,13 +898,19 @@ export const generateLogs = async (
           expandedFieldCount: Math.max(multiFieldConfig.fieldCount * 2, 10000),
         });
 
-        const logType = log['data_stream.dataset']?.includes('auth') ? 'auth' :
-                       log['data_stream.dataset']?.includes('network') ? 'network' :
-                       log['data_stream.dataset']?.includes('endpoint') ? 'endpoint' : 'system';
+        const logType = log['data_stream.dataset']?.includes('auth')
+          ? 'auth'
+          : log['data_stream.dataset']?.includes('network')
+            ? 'network'
+            : log['data_stream.dataset']?.includes('endpoint')
+              ? 'endpoint'
+              : 'system';
 
         const result = multiFieldGenerator.generateFields(log, {
           logType,
-          isAttack: log['threat.technique.id'] !== undefined || log['event.action']?.includes('suspicious'),
+          isAttack:
+            log['threat.technique.id'] !== undefined ||
+            log['event.action']?.includes('suspicious'),
           severity: log['event.severity'] || log['log.level'] || 'info',
         });
 

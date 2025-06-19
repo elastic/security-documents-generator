@@ -19,9 +19,15 @@ export const initializeSpace = async (space: string) => {
     await kibanaApi.deleteRule(DUMMY_RULE_ID, space);
     console.log('Dummy rule deleted. Space initialized');
   } catch (error) {
-    console.warn(`⚠️  Warning: Could not initialize Kibana space '${space}': ${error}`);
-    console.warn('Continuing without space creation. Alerts will use default space.');
-    console.warn('To enable space creation, ensure Kibana is running and accessible.');
+    console.warn(
+      `⚠️  Warning: Could not initialize Kibana space '${space}': ${error}`,
+    );
+    console.warn(
+      'Continuing without space creation. Alerts will use default space.',
+    );
+    console.warn(
+      'To enable space creation, ensure Kibana is running and accessible.',
+    );
   }
 };
 

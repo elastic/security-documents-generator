@@ -1,6 +1,6 @@
 /**
  * Field Expansion Generator
- * 
+ *
  * Automatically generates thousands of additional security fields using algorithmic patterns.
  * This approach scales to 10,000+ fields while maintaining zero token usage.
  */
@@ -12,47 +12,171 @@ import { FieldTemplate } from './multi_field_templates';
 const FIELD_PATTERNS = {
   // Performance metrics patterns
   performance: {
-    systems: ['cpu', 'memory', 'disk', 'network', 'gpu', 'storage', 'cache', 'bandwidth'],
-    metrics: ['usage', 'latency', 'throughput', 'errors', 'timeouts', 'utilization', 'load', 'pressure'],
+    systems: [
+      'cpu',
+      'memory',
+      'disk',
+      'network',
+      'gpu',
+      'storage',
+      'cache',
+      'bandwidth',
+    ],
+    metrics: [
+      'usage',
+      'latency',
+      'throughput',
+      'errors',
+      'timeouts',
+      'utilization',
+      'load',
+      'pressure',
+    ],
     timeframes: ['1m', '5m', '15m', '1h', '24h', 'peak', 'avg', 'min'],
-    types: ['percentage', 'bytes', 'count', 'score']
+    types: ['percentage', 'bytes', 'count', 'score'],
   },
-  
+
   // Security scoring patterns
   security: {
-    aspects: ['vulnerability', 'threat', 'risk', 'compliance', 'anomaly', 'behavior', 'reputation', 'confidence'],
-    scopes: ['user', 'host', 'network', 'application', 'endpoint', 'process', 'service', 'entity'],
-    algorithms: ['ml', 'rule_based', 'statistical', 'heuristic', 'signature', 'behavioral'],
-    severities: ['low', 'medium', 'high', 'critical']
+    aspects: [
+      'vulnerability',
+      'threat',
+      'risk',
+      'compliance',
+      'anomaly',
+      'behavior',
+      'reputation',
+      'confidence',
+    ],
+    scopes: [
+      'user',
+      'host',
+      'network',
+      'application',
+      'endpoint',
+      'process',
+      'service',
+      'entity',
+    ],
+    algorithms: [
+      'ml',
+      'rule_based',
+      'statistical',
+      'heuristic',
+      'signature',
+      'behavioral',
+    ],
+    severities: ['low', 'medium', 'high', 'critical'],
   },
-  
+
   // Behavioral analysis patterns
   behavioral: {
-    entities: ['user', 'host', 'process', 'service', 'application', 'network', 'device'],
-    behaviors: ['login', 'access', 'execution', 'communication', 'modification', 'creation', 'deletion'],
-    patterns: ['frequency', 'timing', 'location', 'sequence', 'volume', 'velocity', 'variety'],
-    analysis: ['baseline', 'deviation', 'anomaly', 'clustering', 'correlation', 'trend']
+    entities: [
+      'user',
+      'host',
+      'process',
+      'service',
+      'application',
+      'network',
+      'device',
+    ],
+    behaviors: [
+      'login',
+      'access',
+      'execution',
+      'communication',
+      'modification',
+      'creation',
+      'deletion',
+    ],
+    patterns: [
+      'frequency',
+      'timing',
+      'location',
+      'sequence',
+      'volume',
+      'velocity',
+      'variety',
+    ],
+    analysis: [
+      'baseline',
+      'deviation',
+      'anomaly',
+      'clustering',
+      'correlation',
+      'trend',
+    ],
   },
-  
+
   // Network analysis patterns
   network: {
-    protocols: ['http', 'https', 'dns', 'tcp', 'udp', 'smtp', 'ftp', 'ssh', 'rdp', 'smb'],
-    metrics: ['connections', 'bytes', 'packets', 'sessions', 'flows', 'requests', 'responses'],
-    analysis: ['bandwidth', 'latency', 'errors', 'anomalies', 'patterns', 'geography', 'reputation']
+    protocols: [
+      'http',
+      'https',
+      'dns',
+      'tcp',
+      'udp',
+      'smtp',
+      'ftp',
+      'ssh',
+      'rdp',
+      'smb',
+    ],
+    metrics: [
+      'connections',
+      'bytes',
+      'packets',
+      'sessions',
+      'flows',
+      'requests',
+      'responses',
+    ],
+    analysis: [
+      'bandwidth',
+      'latency',
+      'errors',
+      'anomalies',
+      'patterns',
+      'geography',
+      'reputation',
+    ],
   },
-  
+
   // Endpoint monitoring patterns
   endpoint: {
-    components: ['process', 'file', 'registry', 'service', 'driver', 'module', 'library'],
-    activities: ['creation', 'modification', 'deletion', 'execution', 'injection', 'persistence'],
-    detections: ['malware', 'suspicious', 'unauthorized', 'anomalous', 'policy_violation']
-  }
+    components: [
+      'process',
+      'file',
+      'registry',
+      'service',
+      'driver',
+      'module',
+      'library',
+    ],
+    activities: [
+      'creation',
+      'modification',
+      'deletion',
+      'execution',
+      'injection',
+      'persistence',
+    ],
+    detections: [
+      'malware',
+      'suspicious',
+      'unauthorized',
+      'anomalous',
+      'policy_violation',
+    ],
+  },
 };
 
 /**
  * Generate expanded field templates using algorithmic patterns
  */
-export function generateExpandedFieldTemplates(targetCount: number = 10000): Record<string, FieldTemplate> {
+export function generateExpandedFieldTemplates(
+  targetCount: number = 10000,
+): Record<string, FieldTemplate> {
   const expandedFields: Record<string, FieldTemplate> = {};
   let generatedCount = 0;
 
@@ -88,7 +212,9 @@ export function generateExpandedFieldTemplates(targetCount: number = 10000): Rec
 /**
  * Generate performance metric fields
  */
-function generatePerformanceFields(count: number): Record<string, FieldTemplate> {
+function generatePerformanceFields(
+  count: number,
+): Record<string, FieldTemplate> {
   const fields: Record<string, FieldTemplate> = {};
   let generated = 0;
 
@@ -96,15 +222,20 @@ function generatePerformanceFields(count: number): Record<string, FieldTemplate>
     for (const metric of FIELD_PATTERNS.performance.metrics) {
       for (const timeframe of FIELD_PATTERNS.performance.timeframes) {
         if (generated >= count) break;
-        
+
         const fieldName = `performance.${system}.${metric}.${timeframe}`;
         fields[fieldName] = {
-          type: metric.includes('usage') || metric.includes('utilization') ? 'float' : 'integer',
-          generator: metric.includes('usage') || metric.includes('utilization') 
-            ? () => faker.number.float({ min: 0, max: 100, fractionDigits: 2 })
-            : () => faker.number.int({ min: 0, max: 10000 }),
+          type:
+            metric.includes('usage') || metric.includes('utilization')
+              ? 'float'
+              : 'integer',
+          generator:
+            metric.includes('usage') || metric.includes('utilization')
+              ? () =>
+                  faker.number.float({ min: 0, max: 100, fractionDigits: 2 })
+              : () => faker.number.int({ min: 0, max: 10000 }),
           description: `${system} ${metric} over ${timeframe}`,
-          context_weight: 6
+          context_weight: 6,
         };
         generated++;
       }
@@ -117,7 +248,9 @@ function generatePerformanceFields(count: number): Record<string, FieldTemplate>
 /**
  * Generate security scoring fields
  */
-function generateSecurityScoringFields(count: number): Record<string, FieldTemplate> {
+function generateSecurityScoringFields(
+  count: number,
+): Record<string, FieldTemplate> {
   const fields: Record<string, FieldTemplate> = {};
   let generated = 0;
 
@@ -125,13 +258,14 @@ function generateSecurityScoringFields(count: number): Record<string, FieldTempl
     for (const scope of FIELD_PATTERNS.security.scopes) {
       for (const algorithm of FIELD_PATTERNS.security.algorithms) {
         if (generated >= count) break;
-        
+
         const fieldName = `security.${aspect}.${scope}.${algorithm}_score`;
         fields[fieldName] = {
           type: 'float',
-          generator: () => faker.number.float({ min: 0, max: 100, fractionDigits: 2 }),
+          generator: () =>
+            faker.number.float({ min: 0, max: 100, fractionDigits: 2 }),
           description: `${aspect} score for ${scope} using ${algorithm} analysis`,
-          context_weight: 8
+          context_weight: 8,
         };
         generated++;
 
@@ -140,9 +274,10 @@ function generateSecurityScoringFields(count: number): Record<string, FieldTempl
           const confFieldName = `security.${aspect}.${scope}.${algorithm}_confidence`;
           fields[confFieldName] = {
             type: 'float',
-            generator: () => faker.number.float({ min: 0, max: 1, fractionDigits: 3 }),
+            generator: () =>
+              faker.number.float({ min: 0, max: 1, fractionDigits: 3 }),
             description: `Confidence level for ${aspect} ${scope} ${algorithm} analysis`,
-            context_weight: 7
+            context_weight: 7,
           };
           generated++;
         }
@@ -156,7 +291,9 @@ function generateSecurityScoringFields(count: number): Record<string, FieldTempl
 /**
  * Generate behavioral analysis fields
  */
-function generateBehavioralFields(count: number): Record<string, FieldTemplate> {
+function generateBehavioralFields(
+  count: number,
+): Record<string, FieldTemplate> {
   const fields: Record<string, FieldTemplate> = {};
   let generated = 0;
 
@@ -165,15 +302,20 @@ function generateBehavioralFields(count: number): Record<string, FieldTemplate> 
       for (const pattern of FIELD_PATTERNS.behavioral.patterns) {
         for (const analysis of FIELD_PATTERNS.behavioral.analysis) {
           if (generated >= count) break;
-          
+
           const fieldName = `behavioral.${entity}.${behavior}.${pattern}.${analysis}`;
           fields[fieldName] = {
-            type: pattern === 'frequency' || pattern === 'volume' ? 'integer' : 'float',
-            generator: pattern === 'frequency' || pattern === 'volume' 
-              ? () => faker.number.int({ min: 0, max: 1000 })
-              : () => faker.number.float({ min: 0, max: 100, fractionDigits: 2 }),
+            type:
+              pattern === 'frequency' || pattern === 'volume'
+                ? 'integer'
+                : 'float',
+            generator:
+              pattern === 'frequency' || pattern === 'volume'
+                ? () => faker.number.int({ min: 0, max: 1000 })
+                : () =>
+                    faker.number.float({ min: 0, max: 100, fractionDigits: 2 }),
             description: `${entity} ${behavior} ${pattern} ${analysis}`,
-            context_weight: 7
+            context_weight: 7,
           };
           generated++;
         }
@@ -187,7 +329,9 @@ function generateBehavioralFields(count: number): Record<string, FieldTemplate> 
 /**
  * Generate network analysis fields
  */
-function generateNetworkAnalysisFields(count: number): Record<string, FieldTemplate> {
+function generateNetworkAnalysisFields(
+  count: number,
+): Record<string, FieldTemplate> {
   const fields: Record<string, FieldTemplate> = {};
   let generated = 0;
 
@@ -195,17 +339,21 @@ function generateNetworkAnalysisFields(count: number): Record<string, FieldTempl
     for (const metric of FIELD_PATTERNS.network.metrics) {
       for (const analysis of FIELD_PATTERNS.network.analysis) {
         if (generated >= count) break;
-        
+
         const fieldName = `network.${protocol}.${metric}.${analysis}`;
         fields[fieldName] = {
-          type: metric.includes('bytes') || metric.includes('count') ? 'integer' : 'float',
-          generator: metric.includes('bytes') 
+          type:
+            metric.includes('bytes') || metric.includes('count')
+              ? 'integer'
+              : 'float',
+          generator: metric.includes('bytes')
             ? () => faker.number.int({ min: 0, max: 1073741824 }) // 0-1GB
             : metric.includes('count') || metric.includes('connections')
-            ? () => faker.number.int({ min: 0, max: 10000 })
-            : () => faker.number.float({ min: 0, max: 100, fractionDigits: 2 }),
+              ? () => faker.number.int({ min: 0, max: 10000 })
+              : () =>
+                  faker.number.float({ min: 0, max: 100, fractionDigits: 2 }),
           description: `${protocol} ${metric} ${analysis}`,
-          context_weight: 7
+          context_weight: 7,
         };
         generated++;
       }
@@ -218,7 +366,9 @@ function generateNetworkAnalysisFields(count: number): Record<string, FieldTempl
 /**
  * Generate endpoint monitoring fields
  */
-function generateEndpointMonitoringFields(count: number): Record<string, FieldTemplate> {
+function generateEndpointMonitoringFields(
+  count: number,
+): Record<string, FieldTemplate> {
   const fields: Record<string, FieldTemplate> = {};
   let generated = 0;
 
@@ -226,13 +376,13 @@ function generateEndpointMonitoringFields(count: number): Record<string, FieldTe
     for (const activity of FIELD_PATTERNS.endpoint.activities) {
       for (const detection of FIELD_PATTERNS.endpoint.detections) {
         if (generated >= count) break;
-        
+
         const fieldName = `endpoint.${component}.${activity}.${detection}_count`;
         fields[fieldName] = {
           type: 'integer',
           generator: () => faker.number.int({ min: 0, max: 100 }),
           description: `${component} ${activity} ${detection} count`,
-          context_weight: 8
+          context_weight: 8,
         };
         generated++;
 
@@ -241,9 +391,10 @@ function generateEndpointMonitoringFields(count: number): Record<string, FieldTe
           const scoreFieldName = `endpoint.${component}.${activity}.${detection}_score`;
           fields[scoreFieldName] = {
             type: 'float',
-            generator: () => faker.number.float({ min: 0, max: 100, fractionDigits: 2 }),
+            generator: () =>
+              faker.number.float({ min: 0, max: 100, fractionDigits: 2 }),
             description: `${component} ${activity} ${detection} score`,
-            context_weight: 8
+            context_weight: 8,
           };
           generated++;
         }
@@ -257,26 +408,57 @@ function generateEndpointMonitoringFields(count: number): Record<string, FieldTe
 /**
  * Generate random security-related fields to fill remaining quota
  */
-function generateRandomSecurityFields(count: number): Record<string, FieldTemplate> {
+function generateRandomSecurityFields(
+  count: number,
+): Record<string, FieldTemplate> {
   const fields: Record<string, FieldTemplate> = {};
-  
-  const prefixes = ['security', 'threat', 'risk', 'compliance', 'audit', 'monitoring', 'analysis'];
-  const categories = ['score', 'count', 'ratio', 'percentage', 'latency', 'size', 'duration'];
-  const suffixes = ['high', 'medium', 'low', 'detected', 'blocked', 'allowed', 'failed', 'success'];
+
+  const prefixes = [
+    'security',
+    'threat',
+    'risk',
+    'compliance',
+    'audit',
+    'monitoring',
+    'analysis',
+  ];
+  const categories = [
+    'score',
+    'count',
+    'ratio',
+    'percentage',
+    'latency',
+    'size',
+    'duration',
+  ];
+  const suffixes = [
+    'high',
+    'medium',
+    'low',
+    'detected',
+    'blocked',
+    'allowed',
+    'failed',
+    'success',
+  ];
 
   for (let i = 0; i < count; i++) {
     const prefix = faker.helpers.arrayElement(prefixes);
     const category = faker.helpers.arrayElement(categories);
     const suffix = faker.helpers.arrayElement(suffixes);
     const fieldName = `${prefix}.dynamic_${i}.${category}_${suffix}`;
-    
+
     fields[fieldName] = {
-      type: category.includes('count') || category.includes('size') ? 'integer' : 'float',
-      generator: category.includes('count') || category.includes('size')
-        ? () => faker.number.int({ min: 0, max: 1000 })
-        : () => faker.number.float({ min: 0, max: 100, fractionDigits: 2 }),
+      type:
+        category.includes('count') || category.includes('size')
+          ? 'integer'
+          : 'float',
+      generator:
+        category.includes('count') || category.includes('size')
+          ? () => faker.number.int({ min: 0, max: 1000 })
+          : () => faker.number.float({ min: 0, max: 100, fractionDigits: 2 }),
       description: `Dynamically generated ${prefix} ${category} ${suffix}`,
-      context_weight: 5
+      context_weight: 5,
     };
   }
 

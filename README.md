@@ -76,6 +76,7 @@ A powerful tool for generating realistic security scenarios with complete forens
 | `yarn start generate-alerts -n 100 --environments 50` | 5,000 alerts across 50 environments | `.alerts-security.alerts-default-env-001` through `050` |
 | `yarn start generate-logs -n 1000 --environments 25 --namespace prod` | 25,000 logs across 25 prod environments | `logs-*-prod-env-001` through `025` |
 | `yarn start generate-campaign apt --environments 10` | APT campaigns across 10 environments | Complete attack data across 10 environment sets |
+| **`yarn start generate-campaign ransomware --environments 50 --realistic`** | **🌟 Realistic ransomware across 50 environments** | **Complete log→alert pipelines across 50 environment sets** |
 
 ### 🔬 Multi-Field Generation Examples
 | Command | Result | Performance |
@@ -83,6 +84,7 @@ A powerful tool for generating realistic security scenarios with complete forens
 | `yarn start generate-alerts -n 100 --multi-field` | 100 alerts + 200 fields each | <1 second |
 | `yarn start generate-logs -n 1000 --multi-field --field-count 500` | 1000 logs + 500 fields each | <5 seconds |
 | `yarn start generate-campaign apt --multi-field --field-count 300` | APT campaign + 300 enriched fields | <10 seconds |
+| **`yarn start generate-campaign ransomware --environments 25 --multi-field --field-count 5000`** | **🌟 Enterprise ransomware across 25 environments + 5,000 fields** | **<30 seconds** |
 
 ### 🗑️ Cleanup Commands
 | Command | Description |
