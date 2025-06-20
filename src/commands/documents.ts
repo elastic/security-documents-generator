@@ -364,9 +364,21 @@ export const generateAlerts = async (
       `Using high-performance template generation with ${multiFieldConfig?.fieldCount} enriched fields (skipping AI batch for performance)...`,
     );
 
-    // Use the standard batch processing for template generation with multi-field enrichment
-    const batchedAlertEntities = chunk(alertEntityNames, batchSize);
-    const operations: unknown[] = [];
+    // Calculate appropriate batch size based on field count to avoid 413 errors
+    let adjustedBatchSize = batchSize;
+    const fieldCount = multiFieldConfig?.fieldCount || 0;
+    if (fieldCount > 10000) {
+      adjustedBatchSize = 1; // Process one at a time for very large field counts
+    } else if (fieldCount > 5000) {
+      adjustedBatchSize = 5;
+    } else if (fieldCount > 1000) {
+      adjustedBatchSize = Math.min(25, batchSize);
+    }
+
+    console.log(`Using adjusted batch size of ${adjustedBatchSize} for ${fieldCount} fields per document`);
+
+    // Use the adjusted batch processing for template generation with multi-field enrichment
+    const batchedAlertEntities = chunk(alertEntityNames, adjustedBatchSize);
 
     const progress = new cliProgress.SingleBar(
       {},
@@ -374,31 +386,34 @@ export const generateAlerts = async (
     );
     progress.start(alertCount, 0);
 
-    await pMap(
-      batchedAlertEntities,
-      async (alertBatch) => {
-        for (const alertEntity of alertBatch) {
-          const batchOps = batchOpForIndex(alertEntity);
-          operations.push(...batchOps);
-          progress.increment();
-        }
-      },
-      { concurrency },
-    );
+    const client = getEsClient();
+
+    // Process in smaller batches to avoid request size limits
+    for (const alertBatch of batchedAlertEntities) {
+      const operations: unknown[] = [];
+      
+      for (const alertEntity of alertBatch) {
+        const batchOps = batchOpForIndex(alertEntity);
+        operations.push(...batchOps);
+        progress.increment();
+      }
+
+      // Bulk insert this batch
+      try {
+        await client.bulk({ operations, refresh: false });
+      } catch (error) {
+        console.error('❌ Error indexing batch:', error);
+        throw error;
+      }
+    }
+
+    // Final refresh
+    await client.indices.refresh({ index: getAlertIndex(space) });
 
     progress.stop();
-
-    // Bulk insert the operations
-    const client = getEsClient();
-    try {
-      await client.bulk({ operations, refresh: true });
-      console.log(
-        `✅ Successfully indexed ${alertCount} alerts with multi-field enrichment`,
-      );
-    } catch (error) {
-      console.error('❌ Error indexing enriched alerts:', error);
-      throw error;
-    }
+    console.log(
+      `✅ Successfully indexed ${alertCount} alerts with multi-field enrichment`,
+    );
 
     return;
   }
