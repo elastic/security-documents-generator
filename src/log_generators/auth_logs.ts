@@ -61,6 +61,7 @@ export const generateLoginSuccessLog = (config: AuthLogConfig = {}) => {
     '@timestamp': generateTimestamp(timestampConfig),
     'agent.type': 'winlogbeat',
     'agent.version': '8.15.0',
+    'authentication.method': faker.helpers.arrayElement(AUTH_METHODS),
     'data_stream.dataset': 'security.security',
     'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
@@ -110,6 +111,7 @@ export const generateLoginFailureLog = (config: AuthLogConfig = {}) => {
     '@timestamp': generateTimestamp(timestampConfig),
     'agent.type': 'winlogbeat',
     'agent.version': '8.15.0',
+    'authentication.method': faker.helpers.arrayElement(AUTH_METHODS),
     'data_stream.dataset': 'security.security',
     'data_stream.namespace': namespace,
     'data_stream.type': 'logs',
@@ -286,14 +288,6 @@ export default function createAuthLog(
   override = {},
   config: AuthLogConfig = {},
 ) {
-  const logGenerators = [
-    generateLoginSuccessLog,
-    generateLoginFailureLog,
-    generatePrivilegeEscalationLog,
-    generateAccountLockoutLog,
-    generateLinuxAuthLog,
-  ];
-
   // Weight success vs failure logs (70% success, 30% failure for realism)
   const weightedGenerators = [
     ...Array(7).fill(generateLoginSuccessLog),

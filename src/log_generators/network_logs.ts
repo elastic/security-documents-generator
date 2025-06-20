@@ -263,13 +263,6 @@ export default function createNetworkLog(
   override = {},
   config: NetworkLogConfig = {},
 ) {
-  const logGenerators = [
-    generateNetworkConnectionLog,
-    generateDNSLog,
-    generateHTTPLog,
-    generateFirewallLog,
-  ];
-
   // Weight different log types for realism
   const weightedGenerators = [
     ...Array(4).fill(generateNetworkConnectionLog),

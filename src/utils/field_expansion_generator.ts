@@ -180,28 +180,31 @@ export function generateExpandedFieldTemplates(
   const expandedFields: Record<string, FieldTemplate> = {};
   let generatedCount = 0;
 
-  // Generate performance metric fields (2000 fields)
-  const perfFields = generatePerformanceFields(2000);
+  // Distribute targetCount across 5 categories
+  const fieldsPerCategory = Math.floor(targetCount / 5);
+
+  // Generate performance metric fields
+  const perfFields = generatePerformanceFields(fieldsPerCategory);
   Object.assign(expandedFields, perfFields);
   generatedCount += Object.keys(perfFields).length;
 
-  // Generate security scoring fields (2000 fields)
-  const secFields = generateSecurityScoringFields(2000);
+  // Generate security scoring fields
+  const secFields = generateSecurityScoringFields(fieldsPerCategory);
   Object.assign(expandedFields, secFields);
   generatedCount += Object.keys(secFields).length;
 
-  // Generate behavioral analysis fields (2000 fields)
-  const behavFields = generateBehavioralFields(2000);
+  // Generate behavioral analysis fields
+  const behavFields = generateBehavioralFields(fieldsPerCategory);
   Object.assign(expandedFields, behavFields);
   generatedCount += Object.keys(behavFields).length;
 
-  // Generate network analysis fields (2000 fields)
-  const netFields = generateNetworkAnalysisFields(2000);
+  // Generate network analysis fields
+  const netFields = generateNetworkAnalysisFields(fieldsPerCategory);
   Object.assign(expandedFields, netFields);
   generatedCount += Object.keys(netFields).length;
 
-  // Generate endpoint monitoring fields (2000 fields)
-  const endpointFields = generateEndpointMonitoringFields(2000);
+  // Generate endpoint monitoring fields
+  const endpointFields = generateEndpointMonitoringFields(fieldsPerCategory);
   Object.assign(expandedFields, endpointFields);
   generatedCount += Object.keys(endpointFields).length;
 
@@ -400,66 +403,6 @@ function generateEndpointMonitoringFields(
         }
       }
     }
-  }
-
-  return fields;
-}
-
-/**
- * Generate random security-related fields to fill remaining quota
- */
-function generateRandomSecurityFields(
-  count: number,
-): Record<string, FieldTemplate> {
-  const fields: Record<string, FieldTemplate> = {};
-
-  const prefixes = [
-    'security',
-    'threat',
-    'risk',
-    'compliance',
-    'audit',
-    'monitoring',
-    'analysis',
-  ];
-  const categories = [
-    'score',
-    'count',
-    'ratio',
-    'percentage',
-    'latency',
-    'size',
-    'duration',
-  ];
-  const suffixes = [
-    'high',
-    'medium',
-    'low',
-    'detected',
-    'blocked',
-    'allowed',
-    'failed',
-    'success',
-  ];
-
-  for (let i = 0; i < count; i++) {
-    const prefix = faker.helpers.arrayElement(prefixes);
-    const category = faker.helpers.arrayElement(categories);
-    const suffix = faker.helpers.arrayElement(suffixes);
-    const fieldName = `${prefix}.dynamic_${i}.${category}_${suffix}`;
-
-    fields[fieldName] = {
-      type:
-        category.includes('count') || category.includes('size')
-          ? 'integer'
-          : 'float',
-      generator:
-        category.includes('count') || category.includes('size')
-          ? () => faker.number.int({ min: 0, max: 1000 })
-          : () => faker.number.float({ min: 0, max: 100, fractionDigits: 2 }),
-      description: `Dynamically generated ${prefix} ${category} ${suffix}`,
-      context_weight: 5,
-    };
   }
 
   return fields;

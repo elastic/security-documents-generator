@@ -23,11 +23,8 @@ import {
 } from './commands/documents.js';
 import { generateRulesAndAlerts, deleteAllRules } from './commands/rules.js';
 import AttackSimulationEngine from './services/attack_simulation_engine.js';
-import { getConfig } from './get_config.js';
-import { createConfigFileOnFirstRun } from './utils/create_config_on_first_run.js';
 import { initializeSpace } from './utils/index.js';
 import { cleanupAIService } from './utils/ai_service.js';
-import { enableMCPMode, withMCPMode } from './utils/mcp_wrapper.js';
 
 // Tool interface definitions
 interface SecurityAlertParams {
@@ -223,7 +220,7 @@ class SecurityDataMCPServer {
 
   private setupToolHandlers(): void {
     // Handle initialization
-    this.server.setRequestHandler(InitializeRequestSchema, async (request) => {
+    this.server.setRequestHandler(InitializeRequestSchema, async (_request) => {
       console.error('[MCP] Initialize request received, preparing response...');
       const response = {
         protocolVersion: '2024-11-05',
@@ -278,7 +275,8 @@ class SecurityDataMCPServer {
                 },
                 environments: {
                   type: 'number',
-                  description: 'Generate alerts across multiple environment namespaces',
+                  description:
+                    'Generate alerts across multiple environment namespaces',
                   default: 1,
                 },
                 useAI: {
@@ -293,17 +291,20 @@ class SecurityDataMCPServer {
                 },
                 subTechniques: {
                   type: 'boolean',
-                  description: 'Include MITRE sub-techniques (requires useMitre)',
+                  description:
+                    'Include MITRE sub-techniques (requires useMitre)',
                   default: false,
                 },
                 attackChains: {
                   type: 'boolean',
-                  description: 'Generate realistic attack chains (requires useMitre)',
+                  description:
+                    'Generate realistic attack chains (requires useMitre)',
                   default: false,
                 },
                 largeScale: {
                   type: 'boolean',
-                  description: 'Enable performance optimizations for large datasets',
+                  description:
+                    'Enable performance optimizations for large datasets',
                   default: false,
                 },
                 focusTactic: {
@@ -325,17 +326,20 @@ class SecurityDataMCPServer {
                 },
                 falsePositiveRate: {
                   type: 'number',
-                  description: 'Percentage of alerts to mark as false positives (0.0-1.0)',
+                  description:
+                    'Percentage of alerts to mark as false positives (0.0-1.0)',
                   default: 0.0,
                 },
                 multiField: {
                   type: 'boolean',
-                  description: 'Generate hundreds of additional contextual security fields',
+                  description:
+                    'Generate hundreds of additional contextual security fields',
                   default: false,
                 },
                 fieldCount: {
                   type: 'number',
-                  description: 'Number of additional fields to generate (requires multiField)',
+                  description:
+                    'Number of additional fields to generate (requires multiField)',
                   default: 200,
                 },
                 fieldCategories: {
@@ -361,7 +365,8 @@ class SecurityDataMCPServer {
                 },
                 fieldPerformanceMode: {
                   type: 'boolean',
-                  description: 'Optimize multi-field generation for speed (requires multiField)',
+                  description:
+                    'Optimize multi-field generation for speed (requires multiField)',
                   default: false,
                 },
               },
@@ -407,7 +412,8 @@ class SecurityDataMCPServer {
                 },
                 environments: {
                   type: 'number',
-                  description: 'Generate campaigns across multiple environment namespaces',
+                  description:
+                    'Generate campaigns across multiple environment namespaces',
                   default: 1,
                 },
                 useAI: {
@@ -422,17 +428,20 @@ class SecurityDataMCPServer {
                 },
                 subTechniques: {
                   type: 'boolean',
-                  description: 'Include MITRE sub-techniques (requires useMitre)',
+                  description:
+                    'Include MITRE sub-techniques (requires useMitre)',
                   default: false,
                 },
                 attackChains: {
                   type: 'boolean',
-                  description: 'Generate realistic attack chains (requires useMitre)',
+                  description:
+                    'Generate realistic attack chains (requires useMitre)',
                   default: false,
                 },
                 largeScale: {
                   type: 'boolean',
-                  description: 'Enable performance optimizations for large datasets',
+                  description:
+                    'Enable performance optimizations for large datasets',
                   default: false,
                 },
                 realistic: {
@@ -466,12 +475,14 @@ class SecurityDataMCPServer {
                 },
                 multiField: {
                   type: 'boolean',
-                  description: 'Generate hundreds of additional contextual security fields',
+                  description:
+                    'Generate hundreds of additional contextual security fields',
                   default: false,
                 },
                 fieldCount: {
                   type: 'number',
-                  description: 'Number of additional fields to generate (requires multiField)',
+                  description:
+                    'Number of additional fields to generate (requires multiField)',
                   default: 200,
                 },
                 fieldCategories: {
@@ -497,7 +508,8 @@ class SecurityDataMCPServer {
                 },
                 fieldPerformanceMode: {
                   type: 'boolean',
-                  description: 'Optimize multi-field generation for speed (requires multiField)',
+                  description:
+                    'Optimize multi-field generation for speed (requires multiField)',
                   default: false,
                 },
               },
@@ -533,7 +545,8 @@ class SecurityDataMCPServer {
                 },
                 environments: {
                   type: 'number',
-                  description: 'Generate logs across multiple environment namespaces',
+                  description:
+                    'Generate logs across multiple environment namespaces',
                   default: 1,
                 },
                 useAI: {
@@ -565,12 +578,14 @@ class SecurityDataMCPServer {
                 },
                 multiField: {
                   type: 'boolean',
-                  description: 'Generate hundreds of additional contextual security fields',
+                  description:
+                    'Generate hundreds of additional contextual security fields',
                   default: false,
                 },
                 fieldCount: {
                   type: 'number',
-                  description: 'Number of additional fields to generate (requires multiField)',
+                  description:
+                    'Number of additional fields to generate (requires multiField)',
                   default: 200,
                 },
                 fieldCategories: {
@@ -596,12 +611,14 @@ class SecurityDataMCPServer {
                 },
                 fieldPerformanceMode: {
                   type: 'boolean',
-                  description: 'Optimize multi-field generation for speed (requires multiField)',
+                  description:
+                    'Optimize multi-field generation for speed (requires multiField)',
                   default: false,
                 },
                 sessionView: {
                   type: 'boolean',
-                  description: 'Generate Session View compatible data with process hierarchies',
+                  description:
+                    'Generate Session View compatible data with process hierarchies',
                   default: false,
                 },
                 visualAnalyzer: {
@@ -646,7 +663,8 @@ class SecurityDataMCPServer {
                 },
                 environments: {
                   type: 'number',
-                  description: 'Generate correlated data across multiple environment namespaces',
+                  description:
+                    'Generate correlated data across multiple environment namespaces',
                   default: 1,
                 },
                 useAI: {
@@ -752,17 +770,20 @@ class SecurityDataMCPServer {
                 },
                 subTechniques: {
                   type: 'boolean',
-                  description: 'Include MITRE sub-techniques (requires useMitre)',
+                  description:
+                    'Include MITRE sub-techniques (requires useMitre)',
                   default: false,
                 },
                 attackChains: {
                   type: 'boolean',
-                  description: 'Generate realistic attack chains (requires useMitre)',
+                  description:
+                    'Generate realistic attack chains (requires useMitre)',
                   default: false,
                 },
                 largeScale: {
                   type: 'boolean',
-                  description: 'Enable performance optimizations for large datasets',
+                  description:
+                    'Enable performance optimizations for large datasets',
                   default: false,
                 },
                 startDate: {
@@ -833,8 +854,7 @@ class SecurityDataMCPServer {
           },
           {
             name: 'generate_detection_rules',
-            description:
-              'Generate detection rules and test events',
+            description: 'Generate detection rules and test events',
             inputSchema: {
               type: 'object',
               properties: {
@@ -918,9 +938,7 @@ class SecurityDataMCPServer {
             );
 
           case 'generate_graph':
-            return await this.handleGenerateGraph(
-              args as GenerateGraphParams,
-            );
+            return await this.handleGenerateGraph(args as GenerateGraphParams);
 
           case 'test_mitre_integration':
             return await this.handleTestMitreIntegration(
@@ -961,7 +979,7 @@ class SecurityDataMCPServer {
       useMitre = false,
       subTechniques = false,
       attackChains = false,
-      largeScale = false,
+      _largeScale = false,
       focusTactic,
       startDate,
       endDate,
@@ -1025,13 +1043,17 @@ class SecurityDataMCPServer {
 
     // Handle multiple environments
     if (environments > 1) {
-      console.error(`[MCP] Multi-Environment Generation: ${environments} environments`);
-      
+      console.error(
+        `[MCP] Multi-Environment Generation: ${environments} environments`,
+      );
+
       for (let i = 1; i <= environments; i++) {
         const envNamespace = `${namespace}-env-${i.toString().padStart(3, '0')}`;
         const envSpace = `${space}-${envNamespace}`;
 
-        console.error(`[MCP] Generating environment ${i}/${environments}: ${envNamespace}`);
+        console.error(
+          `[MCP] Generating environment ${i}/${environments}: ${envNamespace}`,
+        );
 
         if (envSpace !== 'default') {
           await initializeSpace(envSpace);
@@ -1108,13 +1130,13 @@ ${useAI ? '🤖 AI-powered generation used.' : ''}`,
       targets = 10,
       events = 100,
       space = 'default',
-      namespace = 'default',
-      environments = 1,
+      _namespace = 'default',
+      _environments = 1,
       useAI = true,
       useMitre = true,
       subTechniques = false,
       attackChains = false,
-      largeScale = false,
+      _largeScale = false,
       realistic = false,
       logsPerStage = 8,
       detectionRate = 0.4,
@@ -1148,17 +1170,18 @@ ${useAI ? '🤖 AI-powered generation used.' : ''}`,
     }
 
     // Create timestamp configuration
-    const timestampConfig = startDate || endDate || timePattern
-      ? {
-          startDate,
-          endDate,
-          pattern: timePattern as any,
-        }
-      : {
-          startDate: '2h',
-          endDate: 'now',
-          pattern: 'attack_simulation' as const,
-        };
+    const timestampConfig =
+      startDate || endDate || timePattern
+        ? {
+            startDate,
+            endDate,
+            pattern: timePattern as any,
+          }
+        : {
+            startDate: '2h',
+            endDate: 'now',
+            pattern: 'attack_simulation' as const,
+          };
 
     // Create multi-field configuration
     const multiFieldConfig = multiField
@@ -1398,12 +1421,16 @@ Data indexed to Elasticsearch in space '${space}'.`,
 
     // Handle multiple environments
     if (environments > 1) {
-      console.error(`[MCP] Multi-Environment Log Generation: ${environments} environments`);
-      
+      console.error(
+        `[MCP] Multi-Environment Log Generation: ${environments} environments`,
+      );
+
       for (let i = 1; i <= environments; i++) {
         const envNamespace = `${namespace}-env-${i.toString().padStart(3, '0')}`;
 
-        console.error(`[MCP] Generating environment ${i}/${environments}: ${envNamespace}`);
+        console.error(
+          `[MCP] Generating environment ${i}/${environments}: ${envNamespace}`,
+        );
 
         await generateLogs(
           logCount,
@@ -1500,13 +1527,17 @@ Logs indexed to multiple data streams in Elasticsearch.`,
 
     // Handle multiple environments
     if (environments > 1) {
-      console.error(`[MCP] Multi-Environment Correlated Generation: ${environments} environments`);
-      
+      console.error(
+        `[MCP] Multi-Environment Correlated Generation: ${environments} environments`,
+      );
+
       for (let i = 1; i <= environments; i++) {
         const envNamespace = `${namespace}-env-${i.toString().padStart(3, '0')}`;
         const envSpace = `${space}-${envNamespace}`;
 
-        console.error(`[MCP] Generating environment ${i}/${environments}: ${envNamespace}`);
+        console.error(
+          `[MCP] Generating environment ${i}/${environments}: ${envNamespace}`,
+        );
 
         if (envSpace !== 'default') {
           await initializeSpace(envSpace);
@@ -1693,9 +1724,9 @@ Total: ${tactics.length} tactics available.`,
       subTechniques = false,
       attackChains = false,
       largeScale = false,
-      startDate,
-      endDate,
-      timePattern,
+      _startDate,
+      _endDate,
+      _timePattern,
     } = params;
 
     // Validate parameters
@@ -1727,11 +1758,7 @@ Events indexed to Elasticsearch.`,
   }
 
   private async handleGenerateGraph(params: GenerateGraphParams) {
-    const {
-      users = 100,
-      maxHosts = 3,
-      useAI = true,
-    } = params;
+    const { users = 100, maxHosts = 3, useAI = true } = params;
 
     await generateGraph({
       users,
@@ -1754,13 +1781,11 @@ Graph data indexed to Elasticsearch.`,
   }
 
   private async handleTestMitreIntegration(params: TestMitreParams) {
-    const {
-      alertCount = 5,
-      space = 'default',
-      useAI = true,
-    } = params;
+    const { alertCount = 5, space = 'default', useAI = true } = params;
 
-    console.error(`[MCP] Testing MITRE AI integration with ${alertCount} alerts in space '${space}'...`);
+    console.error(
+      `[MCP] Testing MITRE AI integration with ${alertCount} alerts in space '${space}'...`,
+    );
 
     // Initialize space if not default
     if (space !== 'default') {
@@ -1785,7 +1810,9 @@ Test alerts ready for analysis in Kibana Security app.`,
     };
   }
 
-  private async handleGenerateDetectionRules(params: GenerateDetectionRulesParams) {
+  private async handleGenerateDetectionRules(
+    params: GenerateDetectionRulesParams,
+  ) {
     const {
       ruleCount = 10,
       eventCount = 50,
@@ -1795,7 +1822,9 @@ Test alerts ready for analysis in Kibana Security app.`,
       clean = false,
     } = params;
 
-    console.error(`[MCP] Generating ${ruleCount} rules and ${eventCount} events...`);
+    console.error(
+      `[MCP] Generating ${ruleCount} rules and ${eventCount} events...`,
+    );
     console.error(`[MCP] Using interval: ${interval}`);
     console.error(`[MCP] Generating events from last ${fromHours} hours`);
     console.error(`[MCP] Generating ${gaps} gaps per rule`);

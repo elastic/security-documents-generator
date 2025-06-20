@@ -12,10 +12,10 @@ export type { EndpointLogConfig } from './endpoint_logs';
 
 // Unified log generator that randomly selects from all types
 import { faker } from '@faker-js/faker';
-import createSystemLog, { SystemLogConfig } from './system_logs';
-import createAuthLog, { AuthLogConfig } from './auth_logs';
-import createNetworkLog, { NetworkLogConfig } from './network_logs';
-import createEndpointLog, { EndpointLogConfig } from './endpoint_logs';
+import createSystemLog from './system_logs';
+import createAuthLog from './auth_logs';
+import createNetworkLog from './network_logs';
+import createEndpointLog from './endpoint_logs';
 
 export interface UnifiedLogConfig {
   hostName?: string;

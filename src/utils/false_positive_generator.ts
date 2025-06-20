@@ -98,8 +98,8 @@ export function markAlertAsFalsePositive(
 
   return {
     ...alert,
-    'kibana.alert.status': 'closed' as any,
-    'kibana.alert.workflow_status': 'closed' as any,
+    'kibana.alert.status': 'closed' as const,
+    'kibana.alert.workflow_status': 'closed' as const,
     'kibana.alert.workflow_reason': reason,
     'kibana.alert.workflow_user': resolvedBy,
     'kibana.alert.workflow_updated_at': resolutionTime.toISOString(),
@@ -114,7 +114,7 @@ export function markAlertAsFalsePositive(
     'kibana.alert.rule.false_positives': [
       ...(alert['kibana.alert.rule.false_positives'] as string[]),
       `${selectedCategory}: ${reason}`,
-    ] as any,
+    ] as string[],
     // Update event outcome for query filtering
     'event.outcome': 'false_positive',
   };

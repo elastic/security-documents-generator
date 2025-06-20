@@ -837,6 +837,7 @@ export const generateAIAlertBatch = async (
                     timestampConfig,
                   });
                   generatedAlerts.push(individualAlert);
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 } catch (individualError) {
                   console.warn(
                     `Individual alert generation failed for ${entity.hostName}:${entity.userName}, using template`,
@@ -873,6 +874,7 @@ export const generateAIAlertBatch = async (
                   timestampConfig,
                 });
                 generatedAlerts.push(individualAlert);
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
               } catch (individualError) {
                 console.warn(
                   `Individual alert generation failed for ${entity.hostName}:${entity.userName}, using template`,

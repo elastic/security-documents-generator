@@ -241,7 +241,7 @@ export const generateAlerts = async (
     contextWeightEnabled?: boolean;
     correlationEnabled?: boolean;
   },
-  namespace = 'default',
+  _namespace = 'default',
 ) => {
   if (userCount > alertCount) {
     console.log('User count should be less than alert count');
@@ -375,7 +375,9 @@ export const generateAlerts = async (
       adjustedBatchSize = Math.min(25, batchSize);
     }
 
-    console.log(`Using adjusted batch size of ${adjustedBatchSize} for ${fieldCount} fields per document`);
+    console.log(
+      `Using adjusted batch size of ${adjustedBatchSize} for ${fieldCount} fields per document`,
+    );
 
     // Use the adjusted batch processing for template generation with multi-field enrichment
     const batchedAlertEntities = chunk(alertEntityNames, adjustedBatchSize);
@@ -391,7 +393,7 @@ export const generateAlerts = async (
     // Process in smaller batches to avoid request size limits
     for (const alertBatch of batchedAlertEntities) {
       const operations: unknown[] = [];
-      
+
       for (const alertEntity of alertBatch) {
         const batchOps = batchOpForIndex(alertEntity);
         operations.push(...batchOps);
@@ -648,8 +650,8 @@ export const generateAlerts = async (
 
     // Display false positive statistics if enabled
     if (falsePositiveRate > 0) {
-      // For AI generation, we need to collect stats from the generated alerts
-      // Since we can't easily access them here, we'll show expected stats
+      // TODO: Collect actual alerts from AI generation for real statistics
+      // For now, showing expected statistics
       const expectedFalsePositives = Math.round(alertCount * falsePositiveRate);
       console.log(`\n📊 False Positive Statistics:`);
       console.log(
@@ -668,8 +670,60 @@ export const generateAlerts = async (
 
   // Standard generation (non-AI) continues with the existing code
   console.log('Entity names assigned. Batching...');
+
+  const allGeneratedAlerts: BaseCreateAlertsReturnType[] = []; // Collect all alerts for statistics
+
+  // Modified batchOpForIndex to collect alerts
+  const batchOpForIndexWithCollection = ({
+    userName,
+    hostName,
+  }: {
+    userName: string;
+    hostName: string;
+  }) => {
+    let alert = createAlerts(no_overrides, {
+      userName,
+      hostName,
+      space,
+      timestampConfig,
+    });
+
+    // Apply multi-field generation if enabled
+    if (multiFieldConfig) {
+      const multiFieldGenerator = new MultiFieldGenerator({
+        fieldCount: multiFieldConfig.fieldCount,
+        categories: multiFieldConfig.categories,
+        performanceMode: multiFieldConfig.performanceMode,
+        contextWeightEnabled: multiFieldConfig.contextWeightEnabled,
+        correlationEnabled: multiFieldConfig.correlationEnabled,
+        useExpandedFields: multiFieldConfig.fieldCount > 1000,
+        expandedFieldCount: Math.max(multiFieldConfig.fieldCount * 2, 10000),
+      });
+
+      const result = multiFieldGenerator.generateFields(alert, {
+        logType: 'security',
+        isAttack: true, // Alerts typically represent security incidents
+        severity: 'medium', // Default severity for alerts
+      });
+
+      // Merge multi-fields into the alert
+      alert = { ...alert, ...result.fields };
+    }
+
+    // Apply false positive logic if enabled
+    if (falsePositiveRate > 0) {
+      const alertsArray = applyFalsePositiveLogic([alert], falsePositiveRate);
+      alert = alertsArray[0];
+    }
+
+    // Collect alert for statistics
+    allGeneratedAlerts.push(alert);
+
+    return alertToBatchOps(alert, getAlertIndex(space));
+  };
+
   const operationBatches = chunk(alertEntityNames, batchSize).map((batch) =>
-    batch.flatMap(batchOpForIndex),
+    batch.flatMap(batchOpForIndexWithCollection),
   );
 
   console.log('Batching complete. Sending to ES...');
@@ -696,16 +750,20 @@ export const generateAlerts = async (
   progress.stop();
 
   // Display false positive statistics if enabled
-  if (falsePositiveRate > 0) {
-    const expectedFalsePositives = Math.round(alertCount * falsePositiveRate);
+  if (falsePositiveRate > 0 && allGeneratedAlerts.length > 0) {
+    const stats = generateFalsePositiveStats(allGeneratedAlerts);
     console.log(`\n📊 False Positive Statistics:`);
+    console.log(`  🎯 Total Alerts: ${stats.total}`);
     console.log(
-      `  🎯 Expected False Positives: ~${expectedFalsePositives} (${(falsePositiveRate * 100).toFixed(1)}%)`,
+      `  ❌ False Positives: ${stats.falsePositives} (${stats.rate})`,
     );
-    console.log(`  ✅ Alerts marked as resolved with workflow reasons`);
     console.log(
-      `  📋 Categories: maintenance, authorized_tools, normal_business, false_detection`,
+      `  ⏱️  Avg Resolution Time: ${stats.avgResolutionTimeMinutes} minutes`,
     );
+    console.log(`  📋 Categories:`);
+    Object.entries(stats.categories).forEach(([category, count]) => {
+      console.log(`     • ${category}: ${count}`);
+    });
   }
 
   // Cleanup AI service to allow process to exit cleanly
@@ -719,7 +777,7 @@ export const generateEvents = async (
   n: number,
   useAI = false,
   useMitre = false, // TODO: Implement MITRE support for events
-  namespace = 'default',
+  _namespace = 'default',
 ) => {
   // Note: useMitre parameter is reserved for future MITRE integration
   console.log(useMitre ? 'MITRE mode requested (not yet implemented)' : '');
@@ -845,12 +903,9 @@ export const generateLogs = async (
   }
 
   // Import log generators
-  const {
-    createRealisticLog,
-    getLogIndexForType,
-    detectLogType,
-    getDatasetForLogType,
-  } = await import('../log_generators');
+  const { createRealisticLog, detectLogType } = await import(
+    '../log_generators'
+  );
   const logMappings = await import('../mappings/log_mappings.json', {
     assert: { type: 'json' },
   });
@@ -939,7 +994,7 @@ export const generateLogs = async (
       const indexName = `logs-${dataset}-${logNamespace}`;
 
       // Determine log type for any other operations
-      const logType = detectLogType(log);
+      const _logType = detectLogType(log);
 
       // Ensure index exists with proper mappings (only once per index)
       if (!usedIndices.has(indexName)) {
@@ -1008,7 +1063,7 @@ export const generateCorrelatedCampaign = async (
   useMitre = false,
   logVolumeMultiplier = 6,
   timestampConfig?: TimestampConfig,
-  namespace = 'default',
+  _namespace = 'default',
 ) => {
   console.log(
     `Generating ${alertCount} correlated alerts with supporting logs across ${hostCount} hosts and ${userCount} users${
@@ -1154,7 +1209,7 @@ export const generateGraph = async ({
   users = 100,
   maxHosts = 3,
   useAI = false,
-  namespace = 'default',
+  _namespace = 'default',
 }) => {
   console.log(`Generating alerts graph${useAI ? ' using AI' : ''}...`);
 

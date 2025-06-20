@@ -109,6 +109,7 @@ export const generateMalwareDetectionLog = (config: EndpointLogConfig = {}) => {
     'event.module': 'endpoint',
     'event.outcome': 'success',
     'event.severity': faker.number.int({ min: 1, max: 100 }),
+    'event.severity_label': severity,
     'event.type': ['info'],
     'file.hash.md5': faker.string.hexadecimal({ length: 32, casing: 'lower' }),
     'file.hash.sha1': faker.string.hexadecimal({ length: 40, casing: 'lower' }),
@@ -730,20 +731,6 @@ export default function createEndpointLog(
   override = {},
   config: EndpointLogConfig = {},
 ) {
-  const logGenerators = [
-    generateMalwareDetectionLog,
-    generateProcessInjectionLog,
-    generateBehavioralAnomalyLog,
-    generateEvasionDetectionLog,
-    generateMemoryPatternLog,
-    generateFileSystemReconLog,
-    generateProcessReconLog,
-    generateScheduledTaskLog,
-    generateRegistryRunKeyLog,
-    generateCredentialAccessLog,
-    generateLateralMovementLog,
-  ];
-
   // Weight different log types for realism - add full APT kill chain events
   const weightedGenerators = [
     ...Array(2).fill(generateMemoryPatternLog), // Normal system activity
