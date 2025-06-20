@@ -1,17 +1,26 @@
-# Security Data Generator - MCP Server
+# Security Data Generator - MCP Server (Enterprise Edition)
 
-Transform your existing AI-powered security data generator into a **Model Context Protocol (MCP) server** for seamless integration with Claude Desktop, Cursor, and other AI applications. Generate realistic security scenarios, attack campaigns, and supporting evidence for testing, training, and research.
+Transform your existing AI-powered security data generator into a **Model Context Protocol (MCP) server** with **100% feature parity** with the CLI. Generate realistic security scenarios, multi-environment attack campaigns, and enterprise-scale datasets for testing, training, and research.
+
+## 🌟 **Features**
+
+- **🌍 Multi-Environment Generation**: Scale across 100s-1000s of simulated environments
+- **🔬 Multi-Field Generation**: Up to 50,000 additional security fields per document
+- **⚔️ Advanced MITRE Integration**: Sub-techniques, attack chains, and tactic focusing
+- **📱 Session View Compatibility**: Elastic Security process hierarchy support
+- **🎯 False Positive Testing**: Generate realistic false positives for rule tuning
+- **⚡ Enterprise Performance**: Optimizations for large-scale data generation
 
 ## 🎯 What This Enables
 
 - **Conversational Security Data Generation**: Ask Claude to create specific attack scenarios
-- **Realistic Attack Campaigns**: Generate multi-stage attacks with proper log-to-alert progression
-- **MITRE ATT&CK Integration**: Create data mapped to real-world techniques and tactics
+- **Enterprise-Scale Testing**: Generate data across hundreds of simulated environments
+- **Advanced MITRE ATT&CK Integration**: Create data mapped to real-world techniques with attack chains
 - **Investigation Training**: Generate correlated events perfect for SOC analyst training
-- **SIEM Testing**: Create realistic data for testing detection rules and dashboards
-- **Research & Development**: Generate controlled datasets for security research
+- **SIEM Performance Testing**: Create realistic datasets for testing detection rules and dashboards
+- **Research & Development**: Generate controlled datasets with extensive forensic context
 
-## 🚀 Quick Start with MCP
+## 🚀 Quick Start with Enhanced MCP
 
 ### 1. Install Dependencies
 ```bash
@@ -36,14 +45,19 @@ Create or update your `config.json` with Elasticsearch/Kibana credentials and AI
     "password": "changeme"
   },
   "useAI": true,
-  "useAzureOpenAI": true,
-  "azureOpenAIApiKey": "your-azure-key",
-  "azureOpenAIEndpoint": "https://your-resource.openai.azure.com/",
-  "azureOpenAIDeployment": "gpt-4o",
+  "useClaudeAI": true,
+  "claudeApiKey": "sk-ant-...",
   "mitre": {
     "enabled": true,
     "includeSubTechniques": true,
-    "enableAttackChains": true
+    "enableAttackChains": true,
+    "chainProbability": 0.4
+  },
+  "generation": {
+    "performance": {
+      "enableLargeScale": true,
+      "largeScaleThreshold": 1000
+    }
   }
 }
 ```
@@ -59,32 +73,47 @@ Create or update your `config.json` with Elasticsearch/Kibana credentials and AI
     "security-data-generator": {
       "command": "npx",
       "args": ["tsx", "src/mcp_server.ts"],
-      "cwd": "/absolute/path/to/mcp-document-server"
+      "cwd": "/absolute/path/to/security-documents-generator"
     }
   }
 }
 ```
 
-### 4. Start Using in Claude Desktop
+### 4. Start Using Enterprise Features in Claude Desktop
 
-Restart Claude Desktop, then start generating security data conversationally:
+Restart Claude Desktop, then start generating security data with enterprise capabilities:
 
-**Basic Examples:**
-- "Generate 50 realistic security alerts with MITRE ATT&CK techniques"
-- "Create a ransomware attack campaign with 200 events across 10 hosts"
-- "Generate 1000 Windows authentication logs for the past week"
+**🌍 Multi-Environment Examples:**
+- "Generate 100 security alerts across 25 production environments using namespace 'datacenter'"
+- "Create an APT campaign across 50 environments with 200 events each, including multi-field generation with 3000 additional fields"
 
-**Advanced Examples:**
-- "Generate a realistic APT campaign with sophisticated multi-stage progression, including initial access via spear phishing, lateral movement, credential dumping, and data exfiltration. Include realistic source logs with a 70% detection rate."
-- "Create a supply chain attack scenario with 500 events, focusing on software compromise and downstream effects across 20 targets"
-- "Generate correlated security events perfect for SOC analyst training - 25 alerts with 8 supporting logs each, covering the full MITRE kill chain"
+**🔬 Multi-Field Examples:**
+- "Generate 500 logs with 5000 additional behavioral analytics and threat intelligence fields per log"
+- "Create security alerts with 10000 additional forensics fields optimized for performance mode"
 
-## 🛠️ Available MCP Tools
+**⚔️ Advanced MITRE Examples:**
+- "Generate a ransomware campaign with MITRE sub-techniques and attack chains enabled, focusing on the Defense Evasion tactic"
+- "Create an insider threat scenario using advanced MITRE features with realistic attack progression"
+
+## 🛠️ Enhanced MCP Tools (100% CLI Parity)
 
 ### `generate_security_alerts`
-Generate AI-powered security alerts with optional MITRE ATT&CK integration.
+Generate AI-powered security alerts with enterprise multi-environment and multi-field support.
 
-**Parameters:**
+**🆕 NEW Parameters:**
+- `namespace` (string): Custom namespace for alert indices (default: "default")
+- `environments` (number): Generate across multiple environment namespaces (default: 1)
+- `subTechniques` (boolean): Include MITRE sub-techniques (requires useMitre)
+- `attackChains` (boolean): Generate realistic attack chains (requires useMitre)
+- `largeScale` (boolean): Enable performance optimizations for large datasets
+- `focusTactic` (string): Focus on specific MITRE tactic (e.g., "TA0001")
+- `falsePositiveRate` (number): Percentage of alerts to mark as false positives (0.0-1.0)
+- `multiField` (boolean): Generate hundreds of additional contextual security fields
+- `fieldCount` (number): Number of additional fields to generate (1-50,000)
+- `fieldCategories` (array): Specific field categories to include
+- `fieldPerformanceMode` (boolean): Optimize multi-field generation for speed
+
+**Existing Parameters:**
 - `alertCount` (number): Number of alerts to generate (default: 10)
 - `hostCount` (number): Number of unique hosts (default: 3)
 - `userCount` (number): Number of unique users (default: 2)
@@ -96,9 +125,23 @@ Generate AI-powered security alerts with optional MITRE ATT&CK integration.
 - `timePattern` (string): Time pattern (uniform, business_hours, random, attack_simulation, weekend_heavy)
 
 ### `generate_attack_campaign`
-Generate sophisticated multi-stage attack campaigns with realistic progression.
+Generate sophisticated multi-stage attack campaigns with enterprise-scale capabilities.
 
-**Parameters:**
+**🆕 NEW Parameters:**
+- `namespace` (string): Custom namespace for campaign data indices
+- `environments` (number): Generate campaigns across multiple environment namespaces
+- `subTechniques` (boolean): Include MITRE sub-techniques
+- `attackChains` (boolean): Generate realistic attack chains
+- `largeScale` (boolean): Enable performance optimizations
+- `startDate` (string): Start date for campaign timeline
+- `endDate` (string): End date for campaign timeline
+- `timePattern` (string): Time distribution pattern
+- `multiField` (boolean): Generate additional contextual security fields
+- `fieldCount` (number): Number of additional fields per event
+- `fieldCategories` (array): Specific field categories
+- `fieldPerformanceMode` (boolean): Optimize for speed
+
+**Existing Parameters:**
 - `campaignType` (required): 'apt', 'ransomware', 'insider', or 'supply_chain'
 - `complexity`: 'low', 'medium', 'high', or 'expert' (default: 'high')
 - `targets` (number): Number of target hosts (default: 10)
@@ -106,27 +149,41 @@ Generate sophisticated multi-stage attack campaigns with realistic progression.
 - `space` (string): Kibana space name (default: "default")
 - `useAI` (boolean): Use AI for generation (default: true)
 - `useMitre` (boolean): Include MITRE ATT&CK techniques (default: true)
-- `realistic` (boolean): Generate realistic source logs that trigger alerts (default: false)
+- `realistic` (boolean): Generate realistic source logs that trigger alerts
 - `logsPerStage` (number): Logs per attack stage in realistic mode (default: 8)
 - `detectionRate` (number): Detection rate 0.0-1.0 (default: 0.4)
 
 ### `generate_realistic_logs`
-Generate realistic source logs for security analysis (Windows, Linux, network, etc.).
+Generate realistic source logs with enterprise features and Elastic Security compatibility.
 
-**Parameters:**
+**🆕 NEW Parameters:**
+- `namespace` (string): Custom namespace for log indices
+- `environments` (number): Generate logs across multiple environment namespaces
+- `multiField` (boolean): Generate additional contextual security fields
+- `fieldCount` (number): Number of additional fields to generate
+- `fieldCategories` (array): Specific field categories to include
+- `fieldPerformanceMode` (boolean): Optimize multi-field generation for speed
+- `sessionView` (boolean): Generate Session View compatible data with process hierarchies
+- `visualAnalyzer` (boolean): Generate Visual Event Analyzer compatible data
+
+**Existing Parameters:**
 - `logCount` (number): Number of logs to generate (default: 1000)
 - `hostCount` (number): Number of unique hosts (default: 10)
 - `userCount` (number): Number of unique users (default: 5)
 - `useAI` (boolean): Use AI for generation (default: false)
-- `logTypes` (array): Types of logs ['system', 'auth', 'network', 'endpoint'] (default: all)
+- `logTypes` (array): Types of logs ['system', 'auth', 'network', 'endpoint']
 - `startDate` (string): Start date
 - `endDate` (string): End date
 - `timePattern` (string): Time pattern
 
 ### `generate_correlated_events`
-Generate security alerts with correlated supporting logs for investigation.
+Generate security alerts with correlated supporting logs with multi-environment support.
 
-**Parameters:**
+**🆕 NEW Parameters:**
+- `namespace` (string): Custom namespace for correlated data indices
+- `environments` (number): Generate correlated data across multiple environment namespaces
+
+**Existing Parameters:**
 - `alertCount` (number): Number of alerts to generate (default: 10)
 - `hostCount` (number): Number of unique hosts (default: 3)
 - `userCount` (number): Number of unique users (default: 2)
@@ -138,13 +195,56 @@ Generate security alerts with correlated supporting logs for investigation.
 - `endDate` (string): End date
 - `timePattern` (string): Time pattern
 
-### `cleanup_security_data`
-Clean up generated security data (alerts, events, logs).
+### `generate_events`
+Generate AI-powered security events with optional MITRE ATT&CK scenarios.
 
 **Parameters:**
-- `type` (required): 'alerts', 'events', or 'logs'
-- `space` (string): Kibana space (for alerts/events)
-- `logTypes` (array): Types of logs to delete ['system', 'auth', 'network', 'endpoint'] (default: all)
+- `eventCount` (number): Number of events to generate (default: 50)
+- `useAI` (boolean): Use AI for generation (default: true)
+- `useMitre` (boolean): Include MITRE ATT&CK techniques (default: false)
+- `subTechniques` (boolean): Include MITRE sub-techniques (requires useMitre)
+- `attackChains` (boolean): Generate realistic attack chains (requires useMitre)
+- `largeScale` (boolean): Enable performance optimizations for large datasets
+- `startDate` (string): Start date
+- `endDate` (string): End date
+- `timePattern` (string): Time distribution pattern
+
+### `generate_graph`
+Generate AI-powered entity relationship graph with realistic alerts.
+
+**Parameters:**
+- `users` (number): Number of users to generate (default: 100)
+- `maxHosts` (number): Maximum hosts per user (default: 3)
+- `useAI` (boolean): Use AI for generation (default: true)
+
+### `test_mitre_integration`
+Test MITRE ATT&CK AI integration by generating sample alerts.
+
+**Parameters:**
+- `alertCount` (number): Number of test alerts to generate (default: 5)
+- `space` (string): Kibana space to use (default: "default")
+- `useAI` (boolean): Use AI for generation (default: true)
+
+### `generate_detection_rules`
+Generate detection rules and test events.
+
+**Parameters:**
+- `ruleCount` (number): Number of rules to generate (default: 10)
+- `eventCount` (number): Number of events to generate (default: 50)
+- `interval` (string): Rule execution interval (default: "5m")
+- `fromHours` (number): Generate events from last N hours (default: 24)
+- `gaps` (number): Amount of gaps per rule (default: 0)
+- `clean` (boolean): Clean gap events before generating rules (default: false)
+
+### `cleanup_security_data`
+Clean up generated security data including detection rules.
+
+**🆕 NEW Parameters:**
+- `type` (required): 'alerts', 'events', 'logs', or **'rules'**
+
+**Existing Parameters:**
+- `space` (string): Kibana space (for alerts/events/rules)
+- `logTypes` (array): Types of logs to delete
 
 ### `get_mitre_techniques`
 Query and retrieve MITRE ATT&CK techniques and tactics.
@@ -153,440 +253,291 @@ Query and retrieve MITRE ATT&CK techniques and tactics.
 - `tactic` (string): MITRE tactic ID (e.g., "TA0001") or name
 - `includeSubTechniques` (boolean): Include sub-techniques (default: false)
 
-## 💡 Comprehensive MCP Usage Examples
+## 💡 Enterprise Usage Examples
 
-### 🎯 Basic Security Data Generation
+### 🌍 **Multi-Environment Enterprise Scenarios**
 
-**Generate Security Alerts**
+**Large-Scale Production Testing**
 ```
-"Create 25 AI-powered security alerts with MITRE ATT&CK techniques across 5 hosts and 3 users"
+Generate security alerts across 100 production environments with 50 alerts each, using namespace "datacenter" and include multi-field generation with 2000 additional fields focused on behavioral analytics and forensics analysis
 ```
-*Uses: `generate_security_alerts` with alertCount=25, hostCount=5, userCount=3, useMitre=true*
+*Result: 5,000 alerts across datacenter-env-001 through datacenter-env-100*
 
-**Generate Source Logs**
+**Multi-Region Campaign Simulation**
 ```
-"Generate 2000 realistic Windows and Linux logs for the past 3 days using business hours pattern"
+Create an APT attack campaign across 50 staging environments with 200 events per environment, include realistic mode with 8 logs per stage and 30% detection rate, add 3000 additional security fields in performance mode
 ```
-*Uses: `generate_realistic_logs` with logCount=2000, startDate="3d", timePattern="business_hours"*
+*Result: Coordinated APT campaign across 50 environments with 10,000+ total events*
 
-### ⚔️ Advanced Attack Campaign Generation
+**Geographic Distribution Testing**
+```
+Generate realistic logs across 25 environments using different namespaces: 10 environments with "us-east", 10 with "eu-west", and 5 with "asia-pacific", each with 1000 logs including Session View compatibility
+```
 
-**APT Campaign with Realistic Detection**
-```
-"Generate a sophisticated APT campaign with high complexity, 300 events across 15 targets. Include realistic source logs that trigger security alerts with a 70% detection rate. I want to see the full attack progression from initial compromise to data exfiltration."
-```
-*Uses: `generate_attack_campaign` with campaignType="apt", complexity="high", events=300, targets=15, realistic=true, detectionRate=0.7*
+### 🔬 **Multi-Field Generation Scenarios**
 
-**Ransomware Attack Scenario**
+**Ultra-High Density Forensics**
 ```
-"Create a realistic ransomware campaign targeting 8 hosts with 150 security events. Generate the source logs that would trigger these alerts, and simulate what a SOC team would see during the attack progression."
+Generate 100 security alerts with 10000 additional fields per alert, focusing on forensics analysis, malware analysis, and cloud security categories, optimized for performance mode
 ```
-*Uses: `generate_attack_campaign` with campaignType="ransomware", targets=8, events=150, realistic=true*
+*Result: 1 million+ additional forensic fields across 100 alerts*
 
-**Supply Chain Attack**
+**Behavioral Analytics Dataset**
 ```
-"Generate a supply chain attack scenario with medium complexity, affecting 20 downstream targets. Include 400 events and enable realistic log generation with detection patterns that security teams typically see."
+Create 500 logs with 5000 additional fields focusing on behavioral analytics and threat intelligence, include user behavior anomaly scores and host behavior baselines
 ```
-*Uses: `generate_attack_campaign` with campaignType="supply_chain", complexity="medium", targets=20, events=400, realistic=true*
 
-### 🔍 Investigation Training Scenarios
+**Enterprise Scale Performance Testing**
+```
+Generate 1000 security alerts with 25000 additional fields each using algorithmic expansion for enterprise scale testing across 10 environments
+```
+*Result: 25 million+ additional fields with 99% token reduction*
 
-**Correlated Security Events**
-```
-"Create 15 security alerts with 8 supporting log events each for SOC analyst training. Include MITRE ATT&CK techniques and make sure each alert has enough context for a proper investigation."
-```
-*Uses: `generate_correlated_events` with alertCount=15, logVolume=8, useMitre=true*
+### ⚔️ **Advanced MITRE ATT&CK Scenarios**
 
-**Complete Investigation Package**
+**Focused Tactic Analysis**
 ```
-"Generate a complete investigation scenario: Start with 10 high-severity alerts, include 12 supporting logs per alert, and add 500 background noise logs. Focus on credential theft and lateral movement techniques."
+Generate a sophisticated ransomware campaign focusing on the Defense Evasion tactic (TA0005), include sub-techniques and attack chains, with 300 events across 15 targets
 ```
-*Uses: Multiple tools - `generate_correlated_events` + `generate_realistic_logs` for background noise*
 
-### 🧹 Data Management
+**Attack Chain Progression**
+```
+Create an insider threat scenario with MITRE attack chains enabled, include sub-techniques for Persistence and Privilege Escalation tactics, generate realistic progression across 5 stages
+```
 
-**Targeted Cleanup**
+**Technique Coverage Testing**
 ```
-"Clean up all alerts from the 'training' Kibana space and remove all network logs from the past week"
+Test MITRE ATT&CK integration with 25 alerts covering Initial Access techniques, include sub-techniques and validate attack chain generation
 ```
-*Uses: `cleanup_security_data` with multiple calls for different data types*
 
-**Complete Environment Reset**
-```
-"Clear all test data: remove alerts from default space, delete all events, and clean up system, auth, network, and endpoint logs"
-```
-*Uses: Multiple `cleanup_security_data` calls for comprehensive cleanup*
+### 📱 **Elastic Security Integration**
 
-### 📋 MITRE ATT&CK Intelligence
+**Session View Compatible Dataset**
+```
+Generate 2000 endpoint logs with Session View compatibility, include process hierarchies and terminal output, focus on process injection and lateral movement scenarios
+```
 
-**Technique Research**
+**Visual Event Analyzer Data**
 ```
-"Show me all MITRE ATT&CK techniques for the Initial Access tactic, including sub-techniques"
+Create 1000 system and endpoint logs with Visual Event Analyzer compatibility, include process entity tracking and session leader relationships for threat hunting
 ```
-*Uses: `get_mitre_techniques` with tactic="TA0001", includeSubTechniques=true*
 
-**Attack Chain Analysis**
+**Complete Elastic Security Demo**
 ```
-"List techniques for Persistence and Defense Evasion tactics so I can generate attacks that use these methods"
+Generate a comprehensive dataset: 100 alerts with Session View data, 500 supporting logs with Visual Event Analyzer compatibility, include multi-field generation with 1000 additional fields per event
 ```
-*Uses: Multiple `get_mitre_techniques` calls for different tactics*
 
-### 🏢 Enterprise Testing Scenarios
+### 🎯 **False Positive Testing**
 
-**Large-Scale Environment Testing**
+**Detection Rule Tuning**
 ```
-"Generate a realistic enterprise attack scenario: 1000 security events across 50 hosts and 25 users, spanning 7 days with business hours patterns. Include APT-style attack progression with 60% detection rate."
+Generate 200 security alerts with 25% false positive rate, include resolution metadata and SOC analyst information for testing detection rule accuracy
 ```
-*Uses: `generate_attack_campaign` with large-scale parameters*
 
-**Multi-Space Deployment Testing**
+**Baseline Establishment**
 ```
-"Create security data for three different environments: 'production' space with 100 critical alerts, 'staging' with 200 medium alerts, and 'development' with 50 low-severity alerts"
+Create 1000 alerts with 15% false positive rate across different categories: maintenance, authorized tools, normal business operations, and configuration changes
 ```
-*Uses: Multiple `generate_security_alerts` calls with different space parameters*
 
-### 🔬 Research & Development
+### 🏗️ **Detection Rules & Testing**
 
-**Detection Rule Testing**
+**Complete Rule Development Cycle**
 ```
-"Generate a dataset perfect for testing detection rules: 500 malicious events that should trigger alerts, plus 2000 benign background logs to test for false positives"
+Generate 10 detection rules with 100 test events each, use 2-hour lookback window and include 3 gaps per rule for testing rule effectiveness
 ```
-*Uses: Combination of `generate_attack_campaign` and `generate_realistic_logs`*
 
-**Time-Series Analysis Data**
+**Performance Testing Framework**
 ```
-"Create security data spanning 30 days with varying attack intensities: light activity (10 events/day) for weeks 1-2, moderate activity (50 events/day) for week 3, and heavy attack simulation (200 events/day) for week 4"
+Create 25 detection rules with 200 events each, clean existing rules first, use 1-day lookback for comprehensive performance testing
 ```
-*Uses: Multiple tool calls with different timestamp configurations*
 
-## 🔧 Advanced Configuration
+### 🧹 **Enterprise Data Management**
 
-### AI Providers
-The MCP server supports multiple AI providers:
-- **OpenAI**: Set `openaiApiKey` in config.json
-- **Claude (Anthropic)**: Set `claudeApiKey` and `useClaudeAI: true`
-- **Azure OpenAI**: Configure Azure-specific settings
+**Multi-Environment Cleanup**
+```
+Clean up all security alerts from environments datacenter-env-001 through datacenter-env-050, then remove all detection rules from the production space
+```
 
-### MITRE ATT&CK Integration
-Enable MITRE integration in your config:
+**Comprehensive Reset**
+```
+Delete all security data: remove alerts from all spaces, clean up detection rules, remove all log types (system, auth, network, endpoint)
+```
+
+## 🚀 **Enterprise Architecture & Performance**
+
+### Multi-Environment Index Architecture
+```
+📁 Production Environments (100 environments)
+├── logs-system.system-prod-env-001
+├── logs-system.system-prod-env-002
+├── ...
+├── logs-system.system-prod-env-100
+├── .alerts-security.alerts-prod-env-001
+├── .alerts-security.alerts-prod-env-002
+├── ...
+└── .alerts-security.alerts-prod-env-100
+
+📁 Staging Environments (50 environments)
+├── logs-*-staging-env-001 through staging-env-050
+└── .alerts-security.alerts-staging-env-001 through staging-env-050
+```
+
+### Performance Characteristics
+
+**🌍 Multi-Environment Scaling**
+- **Horizontal Scaling**: 100s-1000s of simulated environments
+- **Index Distribution**: Each environment gets dedicated indices
+- **Namespace Isolation**: Complete data separation
+- **Parallel Generation**: Concurrent environment processing
+
+**🔬 Multi-Field Performance**
+- **99% Token Reduction**: No AI calls for field generation
+- **Enterprise Performance**: <1s for 25,000+ fields per document
+- **Realistic Correlations**: CPU high → memory high correlation
+- **Context Awareness**: Attack scenarios get security fields
+- **Unlimited Scale**: Generate millions of enriched fields
+
+**⚡ Large-Scale Optimizations**
+- **Batch Processing**: Optimized for 1000+ events
+- **Memory Management**: Streaming for enterprise datasets
+- **AI Rate Limiting**: Built-in retry logic
+- **Index Optimization**: Automatic lifecycle management
+
+## 🔧 Advanced Enterprise Configuration
+
+### Multi-Field Categories (50,000+ Fields Support)
+
+```json
+{
+  "multiField": {
+    "defaultFieldCount": 1000,
+    "enableExpandedFields": true,
+    "categories": {
+      "behavioral_analytics": {
+        "weight": 10,
+        "fields": ["user_behavior.*", "host_behavior.*", "entity_behavior.*"]
+      },
+      "threat_intelligence": {
+        "weight": 9,
+        "fields": ["threat.enrichment.*", "threat.actor.*", "threat.ttp.*"]
+      },
+      "forensics_analysis": {
+        "weight": 8,
+        "expandedFieldCount": 2000,
+        "fields": ["forensics.*", "memory.*", "registry.*", "browser.*"]
+      },
+      "cloud_security": {
+        "weight": 7,
+        "expandedFieldCount": 1500,
+        "fields": ["aws.*", "azure.*", "gcp.*", "container.*"]
+      }
+    }
+  }
+}
+```
+
+### Enterprise Performance Tuning
+
+```json
+{
+  "generation": {
+    "performance": {
+      "enableLargeScale": true,
+      "largeScaleThreshold": 1000,
+      "multiEnvironmentOptimization": true,
+      "maxConcurrentEnvironments": 10,
+      "multiFieldOptimization": {
+        "enableAlgorithmicExpansion": true,
+        "expansionThreshold": 1000,
+        "performanceModeDefault": true
+      }
+    }
+  }
+}
+```
+
+### MITRE Enterprise Configuration
+
 ```json
 {
   "mitre": {
     "enabled": true,
-    "includeSubTechniques": false,
+    "includeSubTechniques": true,
     "enableAttackChains": true,
-    "chainProbability": 0.3
-  }
-}
-```
-
-### Performance Tuning
-For large-scale generation:
-```json
-{
-  "generation": {
-    "performance": {
-      "enableLargeScale": true,
-      "largeScaleThreshold": 1000,
-      "requestDelayMs": 100
+    "chainProbability": 0.4,
+    "enterpriseFeatures": {
+      "tacticFocusing": true,
+      "advancedCorrelation": true,
+      "realisticProgression": true
     }
   }
 }
 ```
 
-## 🏗️ Technical Architecture
+## 🔍 **Testing Your Enterprise Setup**
 
-### System Overview
-The MCP server transforms the existing CLI-based security data generator into a conversational AI-driven system:
+### Quick Verification Commands
 
+**Test Multi-Environment**
 ```
-┌─────────────────────┐    MCP Protocol (JSON-RPC)    ┌──────────────────────┐
-│  Claude Desktop     │◄──────────────────────────────►│   MCP Server         │
-│  Cursor IDE         │         STDIO Transport        │   (TypeScript)       │
-│  Other AI Clients   │                                │                      │
-└─────────────────────┘                                └──────────┬───────────┘
-                                                                  │
-                                                                  │ Function Calls
-                                                                  ▼
-                                              ┌──────────────────────────────────────┐
-                                              │     Existing Business Logic          │
-                                              │ ┌──────────────────────────────────┐ │
-                                              │ │  🤖 AI Integration Layer         │ │
-                                              │ │  • AttackSimulationEngine        │ │
-                                              │ │  • RealisticAttackEngine         │ │
-                                              │ │  • CorrelatedAlertGenerator      │ │
-                                              │ │  • LogCorrelationEngine          │ │
-                                              │ └──────────────────────────────────┘ │
-                                              │ ┌──────────────────────────────────┐ │
-                                              │ │  📊 Data Generation Services     │ │
-                                              │ │  • Alert Generation              │ │
-                                              │ │  • Log Generation                │ │
-                                              │ │  • Campaign Generation           │ │
-                                              │ │  • Correlated Events             │ │
-                                              │ └──────────────────────────────────┘ │
-                                              │ ┌──────────────────────────────────┐ │
-                                              │ │  🛡️ MITRE ATT&CK Integration    │ │
-                                              │ │  • Technique Mapping             │ │
-                                              │ │  • Attack Chain Generation       │ │
-                                              │ │  • Tactic-based Scenarios        │ │
-                                              │ └──────────────────────────────────┘ │
-                                              └─────────────────┬────────────────────┘
-                                                                │
-                                                                │ Elasticsearch API
-                                                                ▼
-                                              ┌──────────────────────────────────────┐
-                                              │     Elasticsearch Cluster           │
-                                              │ ┌──────────────────────────────────┐ │
-                                              │ │  📚 Data Streams & Indices       │ │
-                                              │ │  • logs-*-*                     │ │
-                                              │ │  • .internal.alerts-*           │ │
-                                              │ │  • .kibana-event-log-*          │ │
-                                              │ └──────────────────────────────────┘ │
-                                              │ ┌──────────────────────────────────┐ │
-                                              │ │  🔍 Kibana Visualization         │ │
-                                              │ │  • Security App                  │ │
-                                              │ │  • Custom Dashboards             │ │
-                                              │ │  • Investigation Workflows       │ │
-                                              │ └──────────────────────────────────┘ │
-                                              └──────────────────────────────────────┘
+Generate 10 alerts across 3 environments using namespace "test"
 ```
 
-### Key Components
-
-**MCP Server Layer** (`src/mcp_server.ts`)
-- **Transport**: STDIO for seamless desktop integration
-- **Protocol**: JSON-RPC 2.0 following MCP specification
-- **Tools**: 6 main tools exposing existing functionality
-- **Error Handling**: Comprehensive error capture and user-friendly messages
-- **Configuration**: Reuses existing `config.json` system
-
-**Business Logic Layer** (Existing Codebase)
-- **AI Engines**: Multiple AI service integrations (OpenAI, Claude, Azure)
-- **Attack Simulation**: Sophisticated multi-stage attack modeling
-- **Correlation**: Realistic log-to-alert progression simulation
-- **MITRE Integration**: Full ATT&CK framework support with attack chains
-
-**Data Storage Layer** (Elasticsearch/Kibana)
-- **Flexible Indexing**: Automatic index creation and data stream management
-- **Space Management**: Multi-tenant support via Kibana spaces
-- **Real-time Visualization**: Integration with Kibana Security App
-
-### MCP Tool Mapping
-
-| MCP Tool | Core Function | Business Logic | AI Integration |
-|----------|---------------|----------------|----------------|
-| `generate_security_alerts` | `generateAlerts()` | Alert generation with entity correlation | ✅ |
-| `generate_attack_campaign` | `AttackSimulationEngine` | Multi-stage attack modeling | ✅ |
-| `generate_realistic_logs` | `generateLogs()` | Log synthesis across data streams | ✅ |
-| `generate_correlated_events` | `generateCorrelatedCampaign()` | Alert-log correlation | ✅ |
-| `cleanup_security_data` | `deleteAll*()` functions | Data lifecycle management | ❌ |
-| `get_mitre_techniques` | `getMitreService()` | MITRE ATT&CK querying | ❌ |
-
-### Data Flow Architecture
-
-1. **Request Initiation**: AI client sends natural language request via MCP protocol
-2. **Tool Resolution**: MCP server maps request to appropriate tool and parameters
-3. **Business Logic Execution**: Tool calls existing services with AI enhancement
-4. **Data Generation**: Realistic security data created using AI and correlation engines
-5. **Elasticsearch Indexing**: Generated data indexed to appropriate data streams
-6. **Response**: Success confirmation with generated data summary returned to AI client
-
-### Performance Characteristics
-
-- **Concurrent Operations**: Supports parallel data generation across multiple tools
-- **Batch Processing**: Efficient bulk indexing for large datasets (1000+ events)
-- **Memory Management**: Streaming data processing for enterprise-scale generation
-- **AI Rate Limiting**: Built-in rate limiting and retry logic for AI API calls
-- **Index Optimization**: Automatic index lifecycle management and optimization
-
-## 🚨 Security Considerations
-
-- MCP server runs locally and connects to your Elasticsearch cluster
-- AI API keys are stored in local config.json (not shared with Claude)
-- Generated data is realistic but synthetic - safe for testing
-- No data leaves your environment except for AI API calls
-
-## 🐛 Troubleshooting & Debugging
-
-### 🚫 Server Connection Issues
-
-**Problem**: Claude Desktop can't connect to MCP server
-```bash
-# Check server can start manually
-npx tsx src/mcp_server.ts
-
-# Common fixes:
-1. Ensure config.json exists with valid Elasticsearch credentials
-2. Use absolute paths in Claude Desktop config (not relative paths)
-3. Restart Claude Desktop after config changes
-4. Check that npx and tsx are available in your PATH
+**Test Multi-Field Generation**
+```
+Generate 5 logs with 500 additional fields focused on behavioral analytics
 ```
 
-**Problem**: "Configuration file not found" error
-```bash
-# Create config.json from template
-cp config.example.json config.json
-# Edit with your Elasticsearch/AI credentials
+**Test Advanced MITRE**
+```
+Create an APT campaign with sub-techniques and attack chains enabled
 ```
 
-**Problem**: MCP protocol errors with emojis/formatting
-```bash
-# This is handled automatically - output is filtered to stderr
-# If issues persist, check Claude Desktop logs for specific errors
+**Test Session View**
+```
+Generate 100 endpoint logs with Session View compatibility
 ```
 
-### ⚠️ Data Generation Failures
-
-**Problem**: "Failed to index data" errors
-```bash
-# Check Elasticsearch connectivity
-curl -u elastic:changeme http://localhost:9200/_cluster/health
-
-# Verify Kibana space exists (if not using 'default')
-curl -u elastic:changeme http://localhost:5601/api/spaces/space/your-space-name
+**Test All New Tools**
+```
+Test the MITRE ATT&CK integration with 3 alerts, then generate 5 detection rules with 10 events each
 ```
 
-**Problem**: AI generation timeouts or quota errors
-```bash
-# Check AI provider status and quotas
-# OpenAI: Check dashboard.openai.com usage
-# Azure: Check Azure portal for rate limits
-# Claude: Check console.anthropic.com usage
+### Success Indicators
 
-# Reduce batch sizes in config.json:
-{
-  "generation": {
-    "alerts": { "batchSize": 5 },
-    "performance": { "requestDelayMs": 500 }
-  }
-}
-```
+✅ **Multi-Environment Responses:**
+- "🌍 Successfully generated X alerts across Y environments"
+- "📁 Environments: namespace-env-001 through namespace-env-XXX"
 
-**Problem**: MITRE ATT&CK data not loading
-```bash
-# Ensure MITRE data files exist
-ls -la src/data/mitre/
-# If missing, check if git LFS files were downloaded properly
-```
+✅ **Multi-Field Responses:**
+- "🔬 Multi-Field Generation: X additional fields per document"
+- "⚡ Performance Mode: Yes/No"
+- "🎯 Token Reduction: 99%"
 
-### 🔧 Performance Optimization
+✅ **Advanced MITRE Responses:**
+- "🔗 Sub-techniques enabled"
+- "⛓️ Attack chains enabled"
+- "🎯 Focusing on MITRE tactic: TAXXXX"
 
-**Large Dataset Generation** (1000+ events)
-```json
-{
-  "generation": {
-    "performance": {
-      "enableLargeScale": true,
-      "largeScaleThreshold": 1000,
-      "maxConcurrentRequests": 3,
-      "requestDelayMs": 200
-    }
-  }
-}
-```
+✅ **Enterprise Features:**
+- "📱 Session View compatibility enabled"
+- "👁️ Visual Event Analyzer compatibility enabled"
+- "🎭 False positive rate: X%"
 
-**Memory Usage** (Enterprise environments)
-```json
-{
-  "generation": {
-    "alerts": { "batchSize": 25 },
-    "events": { "batchSize": 40 },
-    "performance": { "maxCacheSize": 500 }
-  }
-}
-```
+## 🚨 Security & Compliance
 
-### 📊 Monitoring & Logging
-
-**Enable Debug Logging**
-- MCP server logs appear in Claude Desktop's console/logs
-- Set `NODE_ENV=development` for additional debugging
-- Monitor Elasticsearch logs for indexing issues
-
-**Common Log Messages**
-```bash
-[MCP] Security Data Generator MCP Server ready          # ✅ Server started
-[MCP] Tool call requested: generate_attack_campaign     # 📞 Tool invocation
-[MCP] Indexing realistic campaign data...               # 💾 Data being indexed
-[MCP] Successfully indexed 245 documents                # ✅ Data indexed
-```
-
-## 📚 Repository Structure & Documentation
-
-### 🗂️ Key Files & Directories
-
-```
-mcp-document-server/
-├── src/
-│   ├── mcp-server.ts                 # MCP server implementation
-│   ├── commands/
-│   │   ├── documents.ts              # Core data generation functions
-│   │   └── utils/indices.js          # Elasticsearch utilities
-│   ├── services/
-│   │   ├── attack_simulation_engine.ts    # AI-powered attack modeling
-│   │   ├── realistic_attack_engine.ts     # Realistic attack progression
-│   │   ├── correlated_alert_generator.ts  # Alert-log correlation
-│   │   └── log_correlation_engine.ts      # Log synthesis engine
-│   ├── utils/
-│   │   ├── mcp_wrapper.ts            # MCP protocol helpers
-│   │   ├── ai_service.ts             # Multi-provider AI integration
-│   │   └── mitre_attack_service.ts   # MITRE ATT&CK framework
-│   └── mappings/                     # Elasticsearch mappings
-├── config.json                      # Configuration (create from template)
-├── package.json                     # Dependencies & scripts
-├── README-MCP.md                    # This documentation
-└── claude-desktop-config.json       # Example Claude Desktop config
-```
-
-### 📖 Additional Documentation
-
-**Core Functionality**
-- **Main README.md**: CLI usage and original functionality
-- **src/services/**: AI-powered attack simulation and correlation engines
-- **src/commands/**: Data generation and Elasticsearch integration
-
-**Configuration & Setup**
-- **get_config.ts**: Configuration loading and validation
-- **utils/create_config_on_first_run.ts**: Interactive configuration setup
-- **mappings/**: Elasticsearch index templates and mappings
-
-**MITRE ATT&CK Integration**
-- **utils/mitre_attack_service.ts**: Framework integration and technique mapping
-- **data/mitre/**: MITRE ATT&CK data files (tactics, techniques, mappings)
-
-### 🔗 Integration Patterns
-
-**Multi-Tool Workflows**
-```javascript
-// Example: Generate complete investigation scenario
-1. generate_attack_campaign (realistic=true, detectionRate=0.7)
-2. generate_realistic_logs (background noise)
-3. generate_correlated_events (additional alerts)
-4. get_mitre_techniques (research phase)
-```
-
-**Configuration Inheritance**
-- MCP tools inherit from `config.json` defaults
-- Runtime parameters override configuration settings
-- AI providers configured globally, used across all tools
-
-**Data Stream Management**
-- Automatic index creation with proper mappings
-- Data stream lifecycle management
-- Multi-space support for environment isolation
+- **Data Isolation**: Complete separation between environments via namespaces
+- **Performance Monitoring**: Built-in metrics for enterprise-scale operations
+- **Compliance Ready**: Generate audit trails and compliance datasets
+- **Secure by Design**: All data generation happens locally with your Elasticsearch cluster
 
 ---
 
-## 🚀 Ready to Start?
+## 🌟 **Ready for Enterprise Scale?**
 
-1. **Clone & Configure**: Set up your `config.json` with Elasticsearch and AI credentials
-2. **Connect Claude**: Add MCP server to Claude Desktop configuration
-3. **Generate Data**: Start with simple requests and scale to complex scenarios
-4. **Explore & Learn**: Use generated data for SIEM testing, SOC training, and security research
+The enhanced MCP server now provides **100% feature parity** with the CLI, plus enterprise-scale capabilities for multi-environment simulation and advanced security analytics. Transform your security testing and training with conversational AI-powered data generation at enterprise scale!
 
-**Example First Request:**
+**Start with this enterprise example:**
 ```
-"Generate a small APT attack campaign with 50 events across 3 hosts, include realistic source logs with 60% detection rate, and show me what a security analyst would see in Kibana"
+Generate a sophisticated APT campaign across 25 production environments with 200 events each, include realistic mode with 30% detection rate, add 5000 additional forensics and threat intelligence fields per event, and make it compatible with Elastic Security Session View
 ```
-
-Transform your security testing and training with conversational AI-powered data generation! 🎯

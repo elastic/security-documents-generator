@@ -2,6 +2,17 @@
 
 A powerful tool for generating realistic security scenarios with complete forensic evidence chains. Features AI-powered data generation, MITRE ATT&CK integration, and realistic attack campaign simulation with source logs that trigger alerts.
 
+## 🌟 **MCP Server Edition**
+
+- **🌍 Multi-Environment Generation**: Scale across 100s-1000s of simulated environments
+- **🔬 Multi-Field Generation**: Up to 50,000 additional security fields per document
+- **⚔️ Advanced MITRE Integration**: Sub-techniques, attack chains, and tactic focusing
+- **📱 Session View Compatibility**: Elastic Security process hierarchy support
+- **🎯 False Positive Testing**: Generate realistic false positives for rule tuning
+- **🗣️ Conversational Interface**: Ask Claude to "Generate an APT campaign across 50 environments with 5000 forensic fields each"
+
+**Transform security testing with conversational AI-powered data generation at enterprise scale!**
+
 ## 🚀 Quick Start
 
 1. **Install dependencies:**
@@ -23,14 +34,14 @@ A powerful tool for generating realistic security scenarios with complete forens
 
 ## 🎯 Core Features
 
-### 🌍 **Multi-Environment & Multi-Index Generation** ⭐ NEW
+### 🌍 **Multi-Environment & Multi-Index Generation**
 - **Hundreds of Environments**: Scale to 100s-1000s of simulated environments
 - **Custom Namespaces**: `--namespace prod` creates prod-env-001, prod-env-002, etc.
 - **Environment Isolation**: Complete data separation between environments
 - **Index Distribution**: Each environment gets its own set of indices
 - **Horizontal Scaling**: Perfect for load testing and multi-tenant scenarios
 
-### 🔬 **Enterprise-Scale Multi-Field Generation** ⭐ ENHANCED
+### 🔬 **Enterprise-Scale Multi-Field Generation**
 - **10,000+ Security Fields**: Enterprise-scale field generation with dual-mode architecture
 - **12 Specialized Categories**: Core + enterprise categories (forensics, cloud, malware, geo, incident response)
 - **99% Token Reduction**: Zero AI calls for field generation (algorithmic approach)
@@ -118,7 +129,7 @@ yarn start generate-campaign ransomware --environments 25 --namespace staging --
 
 ### **🏯 Use Cases for Multi-Environment Generation**
 - **Load Testing**: Simulate hundreds of production environments
-- **Multi-Tenant Scenarios**: Separate customer environments  
+- **Multi-Tenant Scenarios**: Separate customer environments
 - **Geographic Distribution**: Different datacenter namespaces
 - **Environment Staging**: dev, staging, prod separation
 - **Compliance Testing**: Isolated audit environments
@@ -143,7 +154,7 @@ yarn start generate-logs -n 5000 --multi-field --field-count 200 --field-perform
 
 ### **📊 Available Field Categories**
 - **`behavioral_analytics`** - User/host behavior, anomaly scores, baseline deviations (80+ fields)
-- **`threat_intelligence`** - IoC matches, reputation scores, malware families (70+ fields)  
+- **`threat_intelligence`** - IoC matches, reputation scores, malware families (70+ fields)
 - **`performance_metrics`** - CPU, memory, disk, network utilization (60+ fields)
 - **`security_scores`** - Risk assessments, vulnerability scores, compliance (50+ fields)
 - **`audit_compliance`** - Audit trails, compliance checks, violations (40+ fields)
@@ -152,7 +163,7 @@ yarn start generate-logs -n 5000 --multi-field --field-count 200 --field-perform
 
 ### **🎯 Key Benefits**
 - **99% Token Reduction**: Zero AI calls for field generation
-- **95% Faster**: <100ms for 500 fields per document  
+- **95% Faster**: <100ms for 500 fields per document
 - **Context-Aware**: Automatically selects relevant fields based on log type
 - **Realistic Correlations**: Fields correlate logically (high CPU → high memory)
 - **Infinite Scale**: Generate millions of enriched documents in minutes
@@ -180,7 +191,7 @@ yarn start generate-logs -n 5000 --multi-field --field-count 200 --field-perform
 # Realistic APT campaign: 18 source logs → 0 detected alerts (stealth attack)
 yarn start generate-campaign apt --realistic --mitre --logs-per-stage 3 --detection-rate 0.3
 
-# Ransomware outbreak: 38 source logs → 12 detected alerts (high visibility)  
+# Ransomware outbreak: 38 source logs → 12 detected alerts (high visibility)
 yarn start generate-campaign ransomware --realistic --mitre --logs-per-stage 2 --detection-rate 0.8
 
 # Insider threat: Gradual privilege abuse with low detection
