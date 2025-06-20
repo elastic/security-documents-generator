@@ -1,10 +1,10 @@
 import { getEsClient, indexCheck, ingest } from '../utils/indices';
 
-const LOGS_LINUX_INDEX = 'logs-linux';
-
-export const createPrivilegedAccessDetectionSourceIndex = async () => {
+export const createPrivilegedAccessDetectionSourceIndex = async (
+  index: string,
+) => {
   try {
-    await indexCheck(LOGS_LINUX_INDEX, {
+    await indexCheck(index, {
       mappings: {
         properties: {
           '@timestamp': {
@@ -98,10 +98,10 @@ export const createPrivilegedAccessDetectionSourceIndex = async () => {
   }
 };
 
-export const deleteSourceIndex = async () => {
+export const deleteSourceIndex = async (index: string) => {
   try {
     await getEsClient().indices.delete({
-      index: [LOGS_LINUX_INDEX],
+      index: [index],
       ignore_unavailable: true,
     });
     console.log('Index deleted');
@@ -113,5 +113,7 @@ export const deleteSourceIndex = async () => {
   }
 };
 
-export const ingestIntoSourceIndex = async (documents: Array<object>) =>
-  await ingest(LOGS_LINUX_INDEX, documents);
+export const ingestIntoSourceIndex = async (
+  index: string,
+  documents: Array<object>,
+) => await ingest(index, documents);

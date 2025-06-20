@@ -18,20 +18,28 @@ import {
   uploadPerfDataFileInterval,
 } from './commands/entity_store_perf';
 import { checkbox, input } from '@inquirer/prompts';
-import { ENTITY_STORE_OPTIONS, generateNewSeed } from './constants';
+import {
+  ENTITY_STORE_OPTIONS,
+  generateNewSeed,
+  PRIVILEGED_USER_MONITORING_OPTIONS,
+} from './constants';
 import { initializeSpace } from './utils';
 import { generateAssetCriticality } from './commands/asset_criticality';
 import { deleteAllRules, generateRulesAndAlerts } from './commands/rules';
 import { createConfigFileOnFirstRun } from './utils/create_config_on_first_run';
-import {
-  generatePrivilegedAccessDetectionData,
-  SUPPORTED_PAD_JOBS,
-} from './commands/privileged_access_detection_ml/privileged_access_detection_ml';
+import { generatePrivilegedAccessDetectionData } from './commands/privileged_access_detection_ml/privileged_access_detection_ml';
 import { promptForFileSelection } from './commands/utils/cli_utils';
+import { UserGenerator } from './commands/privileged_access_detection_ml/event_generator';
+import { generatePrivilegedUserMonitoringData } from './commands/privileged_user_monitoring/privileged_user_monitoring';
+import { generateCSVFile } from './commands/privileged_user_monitoring/generate_csv_file';
+import { dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 await createConfigFileOnFirstRun();
 
 const parseIntBase10 = (input: string) => parseInt(input, 10);
+
+export const srcDirectory = dirname(fileURLToPath(import.meta.url));
 
 program
   .command('generate-alerts')
@@ -295,27 +303,61 @@ program
   });
 
 program
-  .command('privileged_access_detection')
+  .command('privileged-user-monitoring')
   .description(
-    `Generate anomalous source data for the privileged access detection ML jobs. Currently supports the following jobs: [${SUPPORTED_PAD_JOBS.join(',')}]`,
+    `Generate source events and anomalous source data for privileged user monitoring and the privileged access detection ML jobs.`,
   )
-  .option(
-    '-u, --users <users>',
-    'Number of users to generate behavioral events for',
-    '10',
-  )
-  .option(
-    '--event_multiplier <event_multiplier>',
-    'Multiplier to increase number of both baseline and anomalous events',
-    '1',
-  )
-  .action(async (options) => {
-    const numberOfUsers = parseInt(options.users);
-    const eventMultiplier = parseInt(options.event_multiplier);
-    await generatePrivilegedAccessDetectionData({
-      numberOfUsers,
-      eventMultiplier,
+  .action(async () => {
+    const privilegedUserMonitoringAnswers = await checkbox<
+      keyof typeof PRIVILEGED_USER_MONITORING_OPTIONS
+    >({
+      message: 'Select options',
+      choices: [
+        {
+          name: 'Whether to generate basic source events for users',
+          value: PRIVILEGED_USER_MONITORING_OPTIONS.sourceEventData,
+          checked: true,
+        },
+        {
+          name: 'Whether to generate anomalous source events for users, matching the privileged access detection jobs',
+          value: PRIVILEGED_USER_MONITORING_OPTIONS.anomalyData,
+          checked: true,
+        },
+        {
+          name: 'Whether to create a CSV file with the user names, in order to upload during onboarding.',
+          value: PRIVILEGED_USER_MONITORING_OPTIONS.csvFile,
+          checked: true,
+        },
+      ],
     });
+
+    const userCount = Number(
+      await input({
+        message: 'How many users',
+        default: '10',
+      }),
+    );
+
+    const users = UserGenerator.getUsers(userCount);
+
+    if (
+      privilegedUserMonitoringAnswers.includes(
+        PRIVILEGED_USER_MONITORING_OPTIONS.sourceEventData,
+      )
+    )
+      await generatePrivilegedUserMonitoringData({ users });
+    if (
+      privilegedUserMonitoringAnswers.includes(
+        PRIVILEGED_USER_MONITORING_OPTIONS.anomalyData,
+      )
+    )
+      await generatePrivilegedAccessDetectionData({ users });
+    if (
+      privilegedUserMonitoringAnswers.includes(
+        PRIVILEGED_USER_MONITORING_OPTIONS.csvFile,
+      )
+    )
+      await generateCSVFile({ users });
   });
 
 program.parse();

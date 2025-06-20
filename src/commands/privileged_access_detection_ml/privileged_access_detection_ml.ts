@@ -3,15 +3,15 @@ import {
   deleteSourceIndex,
   ingestIntoSourceIndex,
 } from './index_management';
-import { UserEventGenerator, UserGenerator } from './event_generator';
+import { User, UserEventGenerator } from './event_generator';
 
-const getAllPrivilegedAccessDetectionEvents = (
-  numberOfUsers: number,
-  eventMultiplier: number,
-) => {
+const LOGS_LINUX_INDEX = 'logs-linux';
+
+const getAllPrivilegedAccessDetectionEvents = (users: User[]) => {
   const events = [];
+  const eventMultiplier = 1; // We want this value to be consistent for evenly distributed events and anomalous events
 
-  for (const eachUser of UserGenerator.getUsers(numberOfUsers)) {
+  for (const eachUser of users) {
     events.push(
       ...UserEventGenerator.evenlyDistributedEvents(eachUser, eventMultiplier),
     );
@@ -22,22 +22,17 @@ const getAllPrivilegedAccessDetectionEvents = (
   return events;
 };
 
-export const SUPPORTED_PAD_JOBS = [
-  'pad_linux_high_count_privileged_process_events_by_user',
-];
-
 export const generatePrivilegedAccessDetectionData = async ({
-  numberOfUsers,
-  eventMultiplier,
+  users,
 }: {
-  numberOfUsers: number;
-  eventMultiplier: number;
+  users: User[];
 }) => {
   try {
-    await deleteSourceIndex();
-    await createPrivilegedAccessDetectionSourceIndex();
+    await deleteSourceIndex(LOGS_LINUX_INDEX);
+    await createPrivilegedAccessDetectionSourceIndex(LOGS_LINUX_INDEX);
     await ingestIntoSourceIndex(
-      getAllPrivilegedAccessDetectionEvents(numberOfUsers, eventMultiplier),
+      LOGS_LINUX_INDEX,
+      getAllPrivilegedAccessDetectionEvents(users),
     );
   } catch (e) {
     console.log(e);

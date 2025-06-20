@@ -6,6 +6,12 @@ export const ENTITY_STORE_OPTIONS = {
   agent: 'agent',
 } as const;
 
+export const PRIVILEGED_USER_MONITORING_OPTIONS = {
+  anomalyData: 'anomalyData',
+  sourceEventData: 'sourceEventData',
+  csvFile: 'csvFile',
+} as const;
+
 export const generateNewSeed = () => {
   return Math.round(Math.random() * 100000);
 };

@@ -36,7 +36,7 @@ const createPrivilegedLinuxEvent = (timeWindow: TimeWindow, userName: string) =>
     },
   }) as Event;
 
-class User {
+export class User {
   constructor(
     readonly userName: string,
     readonly numberOfAnomalousDays: number,

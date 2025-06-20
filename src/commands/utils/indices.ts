@@ -94,12 +94,17 @@ export const ingest = async (index: string, documents: Array<object>) => {
 
   for (const chunk of chunks) {
     try {
-      const operations = chunk.flatMap((doc) => [
-        { index: { _index: index } },
-        doc,
-      ]);
+      const operations = chunk.flatMap((doc) => [{ create: {} }, doc]);
 
-      await esClient.bulk({ operations, refresh: true });
+      const results = await esClient.bulk({ index, operations, refresh: true });
+      if (results.errors) {
+        console.log(
+          'The errors below occurred when bulk creating documents. Continuing with the potential for partial data.',
+        );
+        results.items.forEach((each) => {
+          console.log(each);
+        });
+      }
       progressBar.increment(chunk.length);
     } catch (err) {
       console.log('Error: ', err);
