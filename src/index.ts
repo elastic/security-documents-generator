@@ -630,13 +630,24 @@ program
       console.log(`  📁 Base Namespace: ${namespace}`);
       console.log(`  📊 Total Logs: ${logCount * environments}`);
       console.log(`  📁 Types: ${logTypes.join(', ')}`);
+      console.log('');
+
+      // Import cli-progress for multi-environment progress tracking
+      const cliProgress = await import('cli-progress');
+      const overallProgress = new cliProgress.SingleBar(
+        {
+          format: `Multi-Environment Generation | {bar} | {percentage}% | {value}/{total} environments`,
+        },
+        cliProgress.Presets.shades_classic,
+      );
+      overallProgress.start(environments, 0);
 
       for (let i = 1; i <= environments; i++) {
         const envNamespace = `${namespace}-env-${i.toString().padStart(3, '0')}`;
 
-        console.log(
-          `\n🔄 Generating environment ${i}/${environments}: ${envNamespace}`,
-        );
+        // Clear previous environment status and show current
+        process.stdout.write('\n');
+        console.log(`🔄 Environment ${i}/${environments}: ${envNamespace}`);
 
         await generateLogs(
           logCount,
@@ -649,8 +660,13 @@ program
           sessionView,
           visualAnalyzer,
           envNamespace,
+          true, // quiet mode for multi-environment
         );
+
+        overallProgress.increment(1);
       }
+
+      overallProgress.stop();
 
       console.log(`\n✅ Multi-Environment Log Generation Complete!`);
       console.log(`  🌍 Generated across ${environments} environments`);
@@ -668,6 +684,7 @@ program
         sessionView,
         visualAnalyzer,
         namespace,
+        false, // normal verbose mode for single environment
       );
     }
   });
@@ -1369,9 +1386,13 @@ program
               log['data_stream.namespace'] = logNamespace;
 
               // Ensure index exists
-              await indexCheck(indexName, {
-                mappings: logMappings.default as any,
-              });
+              await indexCheck(
+                indexName,
+                {
+                  mappings: logMappings.default as any,
+                },
+                false,
+              );
 
               indexOperations.push({
                 create: {

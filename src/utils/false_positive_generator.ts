@@ -96,6 +96,12 @@ export function markAlertAsFalsePositive(
       faker.number.int({ min: 300000, max: 7200000 }), // 5 minutes to 2 hours later
   );
 
+  const existingFalsePositives = Array.isArray(
+    alert['kibana.alert.rule.false_positives'],
+  )
+    ? (alert['kibana.alert.rule.false_positives'] as string[])
+    : [];
+
   return {
     ...alert,
     'kibana.alert.status': 'closed' as const,
@@ -112,12 +118,12 @@ export function markAlertAsFalsePositive(
     ),
     // Add to rule false positives array for pattern analysis
     'kibana.alert.rule.false_positives': [
-      ...(alert['kibana.alert.rule.false_positives'] as string[]),
+      ...existingFalsePositives,
       `${selectedCategory}: ${reason}`,
-    ] as string[],
+    ],
     // Update event outcome for query filtering
     'event.outcome': 'false_positive',
-  };
+  } as any;
 }
 
 /**

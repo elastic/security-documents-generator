@@ -39,6 +39,7 @@ interface SecurityAlertParams {
   subTechniques?: boolean;
   attackChains?: boolean;
   largeScale?: boolean;
+  _largeScale?: boolean;
   focusTactic?: string;
   startDate?: string;
   endDate?: string;
@@ -57,12 +58,15 @@ interface AttackCampaignParams {
   events?: number;
   space?: string;
   namespace?: string;
+  _namespace?: string;
   environments?: number;
+  _environments?: number;
   useAI?: boolean;
   useMitre?: boolean;
   subTechniques?: boolean;
   attackChains?: boolean;
   largeScale?: boolean;
+  _largeScale?: boolean;
   realistic?: boolean;
   logsPerStage?: number;
   detectionRate?: number;
@@ -128,8 +132,11 @@ interface GenerateEventsParams {
   attackChains?: boolean;
   largeScale?: boolean;
   startDate?: string;
+  _startDate?: string;
   endDate?: string;
+  _endDate?: string;
   timePattern?: string;
+  _timePattern?: string;
 }
 
 interface GenerateGraphParams {
@@ -1247,9 +1254,13 @@ ${useAI ? '🤖 AI-powered generation used.' : ''}`,
           const indexName = `logs-${dataset}-${namespace}`;
 
           // Ensure index exists
-          await indexCheck(indexName, {
-            mappings: logMappings.default as any,
-          });
+          await indexCheck(
+            indexName,
+            {
+              mappings: logMappings.default as any,
+            },
+            false,
+          );
 
           indexOperations.push({
             create: {

@@ -799,9 +799,13 @@ export const generateEvents = async (
     process.exit(1);
   }
 
-  await indexCheck(config.eventIndex, {
-    mappings: eventMappings as MappingTypeMapping,
-  });
+  await indexCheck(
+    config.eventIndex,
+    {
+      mappings: eventMappings as MappingTypeMapping,
+    },
+    false,
+  );
 
   console.log(`Generating events${useAI ? ' using AI' : ''}...`);
 
@@ -881,18 +885,21 @@ export const generateLogs = async (
   sessionView = false,
   visualAnalyzer = false,
   namespace = 'default',
+  quiet = false,
 ) => {
-  console.log(
-    `Generating ${logCount} realistic source logs across ${logTypes.join(', ')} with ${hostCount} hosts and ${userCount} users${
-      useAI ? ' using AI' : ''
-    }${
-      multiFieldConfig
-        ? ` with ${multiFieldConfig.fieldCount} additional fields`
-        : ''
-    }${sessionView ? ' (Session View compatible)' : ''}${
-      visualAnalyzer ? ' (Visual Analyzer compatible)' : ''
-    }`,
-  );
+  if (!quiet) {
+    console.log(
+      `Generating ${logCount} realistic source logs across ${logTypes.join(', ')} with ${hostCount} hosts and ${userCount} users${
+        useAI ? ' using AI' : ''
+      }${
+        multiFieldConfig
+          ? ` with ${multiFieldConfig.fieldCount} additional fields`
+          : ''
+      }${sessionView ? ' (Session View compatible)' : ''}${
+        visualAnalyzer ? ' (Visual Analyzer compatible)' : ''
+      }`,
+    );
+  }
 
   const config = getConfig();
   if (useAI && !config.useAI) {
@@ -911,7 +918,7 @@ export const generateLogs = async (
   });
 
   // Generate entity names
-  console.log('Generating entity names...');
+  if (!quiet) console.log('Generating entity names...');
   const userNames = Array.from({ length: userCount }, () =>
     faker.internet.username(),
   );
@@ -919,14 +926,17 @@ export const generateLogs = async (
     faker.internet.domainName(),
   );
 
-  console.log('Generating logs...');
+  if (!quiet) console.log('Generating logs...');
   const operations: unknown[] = [];
-  const progress = new cliProgress.SingleBar(
-    {},
-    cliProgress.Presets.shades_classic,
-  );
+  let progress: any = null;
 
-  progress.start(logCount, 0);
+  if (!quiet) {
+    progress = new cliProgress.SingleBar(
+      {},
+      cliProgress.Presets.shades_classic,
+    );
+    progress.start(logCount, 0);
+  }
 
   // Define log type weights based on requested types
   const logTypeWeights = {
@@ -998,9 +1008,13 @@ export const generateLogs = async (
 
       // Ensure index exists with proper mappings (only once per index)
       if (!usedIndices.has(indexName)) {
-        await indexCheck(indexName, {
-          mappings: logMappings.default as MappingTypeMapping,
-        });
+        await indexCheck(
+          indexName,
+          {
+            mappings: logMappings.default as MappingTypeMapping,
+          },
+          false,
+        );
         usedIndices.add(indexName);
       }
 
@@ -1013,7 +1027,7 @@ export const generateLogs = async (
       });
       operations.push(log);
 
-      progress.increment(1);
+      if (progress) progress.increment(1);
 
       // Send batch when we have enough operations
       if (operations.length >= 1000) {
@@ -1027,7 +1041,7 @@ export const generateLogs = async (
       }
     } catch (error) {
       console.error(`Error generating log at index ${i}:`, error);
-      progress.increment(1);
+      if (progress) progress.increment(1);
     }
   }
 
@@ -1041,11 +1055,14 @@ export const generateLogs = async (
     }
   }
 
-  progress.stop();
-  console.log(
-    `Generated ${logCount} realistic source logs across multiple indices`,
-  );
-  console.log(`Used indices: ${Array.from(usedIndices).join(', ')}`);
+  if (progress) progress.stop();
+
+  if (!quiet) {
+    console.log(
+      `Generated ${logCount} realistic source logs across multiple indices`,
+    );
+    console.log(`Used indices: ${Array.from(usedIndices).join(', ')}`);
+  }
 
   // Cleanup AI service if used
   if (useAI) {
@@ -1156,9 +1173,13 @@ export const generateCorrelatedCampaign = async (
       const indexName = operation.create._index;
 
       if (!usedIndices.has(indexName)) {
-        await indexCheck(indexName, {
-          mappings: logMappings.default as MappingTypeMapping,
-        });
+        await indexCheck(
+          indexName,
+          {
+            mappings: logMappings.default as MappingTypeMapping,
+          },
+          false,
+        );
         usedIndices.add(indexName);
       }
     }

@@ -59,6 +59,7 @@ export const getFileLineCount = async (filePath: string): Promise<number> => {
 export const indexCheck = async (
   index: string,
   body?: Omit<IndicesCreateRequest, 'index'>,
+  quiet = false,
 ) => {
   const client = getEsClient();
   if (!client) {
@@ -79,11 +80,11 @@ export const indexCheck = async (
 
       if (exists) return;
 
-      console.log('Data stream does not exist, creating...');
+      if (!quiet) console.log('Data stream does not exist, creating...');
 
       // Create data stream
       await client.indices.createDataStream({ name: index });
-      console.log('Data stream created', index);
+      if (!quiet) console.log('Data stream created', index);
       return;
     } catch (error) {
       console.log('Data stream creation failed', JSON.stringify(error));
