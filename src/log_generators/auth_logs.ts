@@ -6,6 +6,8 @@ export interface AuthLogConfig {
   userName?: string;
   timestampConfig?: import('../utils/timestamp_utils').TimestampConfig;
   namespace?: string;
+  sessionView?: boolean;
+  visualAnalyzer?: boolean;
 }
 
 const AUTH_METHODS = [

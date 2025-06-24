@@ -1068,6 +1068,16 @@ program
     'generate campaigns across multiple environment namespaces',
     parseIntBase10,
   )
+  .option(
+    '--session-view',
+    'generate Session View compatible data with process hierarchies and terminal output',
+    false,
+  )
+  .option(
+    '--visual-analyzer',
+    'generate Visual Event Analyzer compatible data with process entity tracking',
+    false,
+  )
   .action(async (campaignType, options) => {
     // AI is always enabled now
     const useAI = true;
@@ -1081,6 +1091,8 @@ program
     const fieldPerformanceMode = options.fieldPerformanceMode || false;
     const namespace = options.namespace || 'default';
     const environments = options.environments || 1;
+    const sessionView = options.sessionView || false;
+    const visualAnalyzer = options.visualAnalyzer || false;
 
     // Validate multi-field options
     if (options.fieldCount && !useMultiField) {
@@ -1325,6 +1337,8 @@ program
                   expandedFieldCount: fieldCount,
                 }
               : undefined,
+            sessionView,
+            visualAnalyzer,
           };
 
           const realisticResult =
@@ -1485,6 +1499,8 @@ program
               targetSpace,
               useMitre,
               timestampConfig,
+              sessionView,
+              visualAnalyzer,
             );
 
           console.log(`\n🎊 Sophisticated Correlation Complete!`);

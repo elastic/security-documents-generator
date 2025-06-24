@@ -6,6 +6,8 @@ export interface NetworkLogConfig {
   userName?: string;
   timestampConfig?: import('../utils/timestamp_utils').TimestampConfig;
   namespace?: string;
+  sessionView?: boolean;
+  visualAnalyzer?: boolean;
 }
 
 const COMMON_PORTS = [

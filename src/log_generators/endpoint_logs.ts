@@ -1,11 +1,18 @@
 import { faker } from '@faker-js/faker';
 import { generateTimestamp } from '../utils/timestamp_utils';
+import {
+  SessionViewGenerator,
+  createProcessWithSessionView,
+  SessionViewFields,
+} from '../services/session_view_generator';
 
 export interface EndpointLogConfig {
   hostName?: string;
   userName?: string;
   timestampConfig?: import('../utils/timestamp_utils').TimestampConfig;
   namespace?: string;
+  sessionView?: boolean;
+  visualAnalyzer?: boolean;
 }
 
 const MALWARE_FAMILIES = [
@@ -84,6 +91,8 @@ export const generateMalwareDetectionLog = (config: EndpointLogConfig = {}) => {
     userName = faker.internet.username(),
     timestampConfig,
     namespace = 'default',
+    sessionView = false,
+    visualAnalyzer = false,
   } = config;
 
   const malwareFamily = faker.helpers.arrayElement(MALWARE_FAMILIES);
@@ -94,7 +103,7 @@ export const generateMalwareDetectionLog = (config: EndpointLogConfig = {}) => {
     'critical',
   ]);
 
-  return {
+  let baseLog = {
     '@timestamp': generateTimestamp(timestampConfig),
     'agent.type': 'endpoint',
     'agent.version': '8.15.0',
@@ -143,6 +152,19 @@ export const generateMalwareDetectionLog = (config: EndpointLogConfig = {}) => {
     'related.hash': [faker.string.hexadecimal({ length: 32, casing: 'lower' })],
     'related.user': [userName],
   };
+
+  // Add Session View fields if enabled
+  if (sessionView || visualAnalyzer) {
+    const { sessionViewFields } = createProcessWithSessionView({
+      name: baseLog['process.name'],
+      executable: baseLog['process.executable'],
+      commandLine: baseLog['process.command_line'],
+      hostName,
+    });
+    baseLog = { ...baseLog, ...sessionViewFields };
+  }
+
+  return baseLog;
 };
 
 export const generateProcessInjectionLog = (config: EndpointLogConfig = {}) => {
@@ -727,6 +749,187 @@ export const generateLateralMovementLog = (config: EndpointLogConfig = {}) => {
   };
 };
 
+// Dedicated Session View Process Log Generator
+export const generateSessionViewProcessLog = (
+  config: EndpointLogConfig = {},
+) => {
+  const {
+    hostName = faker.internet.domainName(),
+    userName = faker.internet.username(),
+    timestampConfig,
+    namespace = 'default',
+    sessionView = false,
+    visualAnalyzer = false,
+  } = config;
+
+  // Generate realistic process activities for Session View
+  const processActivities = [
+    {
+      action: 'fork',
+      name: 'bash',
+      executable: '/bin/bash',
+      cmd: '/bin/bash -i',
+    },
+    {
+      action: 'exec',
+      name: 'python3',
+      executable: '/usr/bin/python3',
+      cmd: '/usr/bin/python3 script.py',
+    },
+    {
+      action: 'exec',
+      name: 'curl',
+      executable: '/usr/bin/curl',
+      cmd: '/usr/bin/curl -s https://api.github.com',
+    },
+    {
+      action: 'exec',
+      name: 'vim',
+      executable: '/usr/bin/vim',
+      cmd: '/usr/bin/vim /etc/hosts',
+    },
+    {
+      action: 'exec',
+      name: 'ssh',
+      executable: '/usr/bin/ssh',
+      cmd: '/usr/bin/ssh user@remote-host',
+    },
+    {
+      action: 'exec',
+      name: 'sudo',
+      executable: '/usr/bin/sudo',
+      cmd: '/usr/bin/sudo systemctl restart nginx',
+    },
+    {
+      action: 'exec',
+      name: 'docker',
+      executable: '/usr/bin/docker',
+      cmd: '/usr/bin/docker run -it ubuntu:latest',
+    },
+    {
+      action: 'exec',
+      name: 'git',
+      executable: '/usr/bin/git',
+      cmd: '/usr/bin/git clone https://github.com/user/repo.git',
+    },
+  ];
+
+  const activity = faker.helpers.arrayElement(processActivities);
+  const isInteractive = ['bash', 'vim', 'ssh'].includes(activity.name);
+
+  // Generate process with Session View fields
+  const { process, sessionViewFields } = createProcessWithSessionView({
+    name: activity.name,
+    executable: activity.executable,
+    commandLine: activity.cmd,
+    isInteractive,
+    hostName,
+  });
+
+  const baseLog = {
+    '@timestamp': generateTimestamp(timestampConfig),
+    'agent.type': 'endpoint',
+    'agent.version': '8.15.0',
+    'data_stream.dataset': 'endpoint.events.process',
+    'data_stream.namespace': namespace,
+    'data_stream.type': 'logs',
+    'ecs.version': '8.11.0',
+    'event.action': activity.action,
+    'event.category': ['process'],
+    'event.dataset': 'endpoint.events.process',
+    'event.kind': 'event',
+    'event.module': 'endpoint',
+    'event.type': activity.action === 'fork' ? ['start'] : ['start'],
+    'host.name': hostName,
+    'host.os.family': 'linux',
+    'host.os.name': 'Ubuntu',
+    'host.os.version': '20.04',
+    message: `Process ${activity.action}: ${activity.name}`,
+    'process.command_line': process.command_line,
+    'process.executable': process.executable,
+    'process.name': process.name,
+    'process.pid': process.pid,
+    'process.start': process.start,
+    'process.user.name': process.user.name,
+    'process.user.id': process.user.id,
+    'process.group.name': process.group.name,
+    'process.group.id': process.group.id,
+    'user.domain': faker.internet.domainName(),
+    'user.name': userName,
+    'related.user': [userName, process.user.name],
+  };
+
+  // Always add Session View fields for this generator
+  return {
+    ...baseLog,
+    ...sessionViewFields,
+  };
+};
+
+// Generate Session View Process Tree (for complex scenarios)
+export const generateSessionViewProcessTree = (
+  config: EndpointLogConfig = {},
+) => {
+  const {
+    hostName = faker.internet.domainName(),
+    userName = faker.internet.username(),
+    timestampConfig,
+    namespace = 'default',
+  } = config;
+
+  const sessionGenerator = new SessionViewGenerator(hostName);
+  const processTree = sessionGenerator.generateProcessTree(3);
+  const logs = [];
+
+  // Generate logs for each process in the tree
+  for (let i = 0; i < processTree.length; i++) {
+    const process = processTree[i];
+    const parentProcess = i > 0 ? processTree[Math.floor(i / 2)] : undefined;
+    const sessionViewFields = sessionGenerator.generateSessionViewFields(
+      process,
+      parentProcess,
+    );
+
+    const log = {
+      '@timestamp': generateTimestamp(timestampConfig),
+      'agent.type': 'endpoint',
+      'agent.version': '8.15.0',
+      'data_stream.dataset': 'endpoint.events.process',
+      'data_stream.namespace': namespace,
+      'data_stream.type': 'logs',
+      'ecs.version': '8.11.0',
+      'event.action': i === 0 ? 'session_start' : 'exec',
+      'event.category': ['process'],
+      'event.dataset': 'endpoint.events.process',
+      'event.kind': 'event',
+      'event.module': 'endpoint',
+      'event.type': ['start'],
+      'host.name': hostName,
+      'host.os.family': 'linux',
+      'host.os.name': 'Ubuntu',
+      'host.os.version': '20.04',
+      message: `Process tree: ${process.name} (${i === 0 ? 'session leader' : 'child process'})`,
+      'process.command_line': process.command_line,
+      'process.executable': process.executable,
+      'process.name': process.name,
+      'process.pid': process.pid,
+      'process.start': process.start,
+      'process.user.name': process.user.name,
+      'process.user.id': process.user.id,
+      'process.group.name': process.group.name,
+      'process.group.id': process.group.id,
+      'user.domain': faker.internet.domainName(),
+      'user.name': userName,
+      'related.user': [userName, process.user.name],
+      ...sessionViewFields,
+    };
+
+    logs.push(log);
+  }
+
+  return logs;
+};
+
 export default function createEndpointLog(
   override = {},
   config: EndpointLogConfig = {},
@@ -744,10 +947,36 @@ export default function createEndpointLog(
     generateLateralMovementLog, // APT Lateral Movement (T1021)
     generateScheduledTaskLog, // APT Persistence (T1053)
     generateRegistryRunKeyLog, // APT Persistence (T1547)
+    // Add Session View generators when enabled
+    ...(config.sessionView || config.visualAnalyzer
+      ? [generateSessionViewProcessLog]
+      : []),
   ];
 
   const selectedGenerator = faker.helpers.arrayElement(weightedGenerators);
   const baseLog = selectedGenerator(config);
+
+  // Add Session View fields to existing logs if enabled
+  if (config.sessionView || config.visualAnalyzer) {
+    // Only add Session View fields if this is a process-related log
+    if (
+      baseLog['data_stream.dataset']?.includes('process') &&
+      !baseLog['process.entity_id']
+    ) {
+      const { sessionViewFields } = createProcessWithSessionView({
+        name: baseLog['process.name'],
+        executable: baseLog['process.executable'],
+        commandLine: baseLog['process.command_line'],
+        hostName: config.hostName,
+      });
+
+      return {
+        ...baseLog,
+        ...sessionViewFields,
+        ...override,
+      };
+    }
+  }
 
   return {
     ...baseLog,

@@ -963,6 +963,8 @@ export const generateLogs = async (
           timestampConfig,
           logTypeWeights,
           namespace,
+          sessionView,
+          visualAnalyzer,
         },
       );
 

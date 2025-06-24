@@ -6,6 +6,8 @@ export interface SystemLogConfig {
   userName?: string;
   timestampConfig?: import('../utils/timestamp_utils').TimestampConfig;
   namespace?: string;
+  sessionView?: boolean;
+  visualAnalyzer?: boolean;
 }
 
 // Common system processes and services

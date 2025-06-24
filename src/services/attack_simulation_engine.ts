@@ -171,6 +171,8 @@ export interface AttackSimulationConfig {
   networkComplexity?: 'low' | 'medium' | 'high' | 'expert';
   enableCorrelation?: boolean;
   enablePerformanceOptimization?: boolean;
+  sessionView?: boolean;
+  visualAnalyzer?: boolean;
 }
 
 /**
@@ -255,6 +257,8 @@ export class AttackSimulationEngine {
     space: string = 'default',
     useMitre: boolean = true,
     timestampConfig?: TimestampConfig,
+    sessionView: boolean = false,
+    visualAnalyzer: boolean = false,
   ): Promise<BaseCreateAlertsReturnType[]> {
     const allEvents: BaseCreateAlertsReturnType[] = [];
 
@@ -301,6 +305,8 @@ export class AttackSimulationEngine {
         space,
         correlationContext,
         useMitre,
+        sessionView,
+        visualAnalyzer,
       );
 
       // Add sophisticated correlation metadata
@@ -446,6 +452,8 @@ export class AttackSimulationEngine {
     space: string,
     context: CorrelationContext,
     useMitre: boolean = true,
+    sessionView: boolean = false,
+    visualAnalyzer: boolean = false,
   ): Promise<BaseCreateAlertsReturnType[]> {
     const events: BaseCreateAlertsReturnType[] = [];
 

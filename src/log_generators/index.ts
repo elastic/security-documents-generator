@@ -28,6 +28,8 @@ export interface UnifiedLogConfig {
     endpoint?: number;
   };
   namespace?: string;
+  sessionView?: boolean;
+  visualAnalyzer?: boolean;
 }
 
 export function createRealisticLog(
@@ -45,21 +47,63 @@ export function createRealisticLog(
       endpoint: 15,
     },
     namespace = 'default',
+    sessionView = false,
+    visualAnalyzer = false,
   } = config;
 
   // Create weighted array of generators
   const generators = [
     ...Array(logTypeWeights.system || 30).fill(() =>
-      createSystemLog({}, { hostName, userName, timestampConfig, namespace }),
+      createSystemLog(
+        {},
+        {
+          hostName,
+          userName,
+          timestampConfig,
+          namespace,
+          sessionView,
+          visualAnalyzer,
+        },
+      ),
     ),
     ...Array(logTypeWeights.auth || 20).fill(() =>
-      createAuthLog({}, { hostName, userName, timestampConfig, namespace }),
+      createAuthLog(
+        {},
+        {
+          hostName,
+          userName,
+          timestampConfig,
+          namespace,
+          sessionView,
+          visualAnalyzer,
+        },
+      ),
     ),
     ...Array(logTypeWeights.network || 35).fill(() =>
-      createNetworkLog({}, { hostName, userName, timestampConfig, namespace }),
+      createNetworkLog(
+        {},
+        {
+          hostName,
+          userName,
+          timestampConfig,
+          namespace,
+          sessionView,
+          visualAnalyzer,
+        },
+      ),
     ),
     ...Array(logTypeWeights.endpoint || 15).fill(() =>
-      createEndpointLog({}, { hostName, userName, timestampConfig, namespace }),
+      createEndpointLog(
+        {},
+        {
+          hostName,
+          userName,
+          timestampConfig,
+          namespace,
+          sessionView,
+          visualAnalyzer,
+        },
+      ),
     ),
   ];
 

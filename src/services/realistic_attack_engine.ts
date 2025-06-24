@@ -35,6 +35,10 @@ export interface RealisticCampaignConfig {
     contextWeightEnabled?: boolean;
     correlationEnabled?: boolean;
   };
+
+  // Session View settings
+  sessionView?: boolean;
+  visualAnalyzer?: boolean;
 }
 
 export interface RealisticCampaignResult {
