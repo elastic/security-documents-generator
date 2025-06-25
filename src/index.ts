@@ -4,6 +4,7 @@ import {
   deleteAllAlerts,
   deleteAllEvents,
   deleteAllLogs,
+  deleteAllData,
   generateAlerts,
   generateEvents,
   generateGraph,
@@ -968,6 +969,20 @@ program
       await deleteAllRules(options.space);
     } catch (error) {
       console.error('Error deleting rules:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('delete-all')
+  .description(
+    'Delete ALL generated security data (logs, alerts, events, rules)',
+  )
+  .action(async () => {
+    try {
+      await deleteAllData();
+    } catch (error) {
+      console.error('Error deleting all data:', error);
       process.exit(1);
     }
   });

@@ -30,18 +30,43 @@ const generateDocs = async ({
   amount,
   index,
   useAI = false,
+  multiFieldConfig,
 }: {
   createDocs: DocumentCreator;
   amount: number;
   index: string;
   useAI?: boolean;
+  multiFieldConfig?: { fieldCount: number };
 }) => {
-  const limit = 30000;
+  // Adaptive batch sizing based on multi-field configuration
+  let limit = 30000;
+
+  if (multiFieldConfig?.fieldCount) {
+    const fieldCount = multiFieldConfig.fieldCount;
+    if (fieldCount > 10000) {
+      limit = 1; // One document at a time for very large field counts
+      console.log(
+        `⚠️  Using single-document batching due to high field count (${fieldCount})`,
+      );
+    } else if (fieldCount > 5000) {
+      limit = 2;
+      console.log(
+        `⚠️  Using micro-batching (2 docs) due to high field count (${fieldCount})`,
+      );
+    } else if (fieldCount > 1000) {
+      limit = 10;
+      console.log(
+        `⚠️  Using small batching (10 docs) due to high field count (${fieldCount})`,
+      );
+    }
+  }
+
   let generated = 0;
 
   while (generated < amount) {
+    const batchSize = Math.min(limit, amount - generated);
     const docs = await createDocuments(
-      Math.min(limit, amount),
+      batchSize,
       generated,
       createDocs,
       index,
@@ -51,7 +76,20 @@ const generateDocs = async ({
       const result = await bulkUpsert(docs);
       generated += result.items.length / 2;
     } catch (err) {
-      console.log('Error: ', err);
+      console.log('Error in bulkUpsert: ', err);
+
+      // If it's a payload too large error, try with smaller batches
+      if (
+        (err as any)?.meta?.statusCode === 413 ||
+        (err as any)?.meta?.statusCode === 429
+      ) {
+        console.log(
+          '⚠️  Payload too large, retrying with single document batching...',
+        );
+        limit = 1;
+        continue; // Retry with smaller batch
+      }
+
       process.exit(1);
     }
   }
@@ -899,6 +937,26 @@ export const generateLogs = async (
         visualAnalyzer ? ' (Visual Analyzer compatible)' : ''
       }`,
     );
+
+    // Warn about potential issues with very large field counts
+    if (multiFieldConfig?.fieldCount && multiFieldConfig.fieldCount > 5000) {
+      console.log(
+        '⚠️  WARNING: Field count > 5,000 may exceed Elasticsearch document size limits (~429MB)',
+      );
+      console.log(
+        '   Your cluster appears to have strict limits. Consider using --field-count 1000 for reliability',
+      );
+      console.log(
+        '   or increase cluster settings: indices.breaker.request.limit and http.max_content_length',
+      );
+    } else if (
+      multiFieldConfig?.fieldCount &&
+      multiFieldConfig.fieldCount > 1000
+    ) {
+      console.log(
+        '⚠️  NOTE: High field count detected. Using optimized batching for reliability',
+      );
+    }
   }
 
   const config = getConfig();
@@ -929,6 +987,33 @@ export const generateLogs = async (
   if (!quiet) console.log('Generating logs...');
   const operations: unknown[] = [];
   let progress: any = null;
+
+  // Calculate adaptive batch size based on field count
+  let batchSize = 1000; // Default batch size (500 documents)
+  if (multiFieldConfig?.fieldCount) {
+    const fieldCount = multiFieldConfig.fieldCount;
+    if (fieldCount > 10000) {
+      batchSize = 2; // 1 document at a time
+      if (!quiet)
+        console.log(
+          `⚠️  Using single-document batching due to very high field count (${fieldCount})`,
+        );
+    } else if (fieldCount > 5000) {
+      batchSize = 4; // 2 documents at a time
+      if (!quiet)
+        console.log(
+          `⚠️  Using micro-batching (2 docs) due to high field count (${fieldCount})`,
+        );
+    } else if (fieldCount > 1000) {
+      batchSize = 20; // 10 documents at a time
+      if (!quiet)
+        console.log(
+          `⚠️  Using small batching (10 docs) due to high field count (${fieldCount})`,
+        );
+    } else if (fieldCount > 500) {
+      batchSize = 100; // 50 documents at a time
+    }
+  }
 
   if (!quiet) {
     progress = new cliProgress.SingleBar(
@@ -977,7 +1062,7 @@ export const generateLogs = async (
           contextWeightEnabled: multiFieldConfig.contextWeightEnabled,
           correlationEnabled: multiFieldConfig.correlationEnabled,
           useExpandedFields: multiFieldConfig.fieldCount > 1000,
-          expandedFieldCount: Math.max(multiFieldConfig.fieldCount * 2, 10000),
+          expandedFieldCount: multiFieldConfig.fieldCount, // Use actual requested count, not double
         });
 
         const logType = log['data_stream.dataset']?.includes('auth')
@@ -1032,13 +1117,36 @@ export const generateLogs = async (
       if (progress) progress.increment(1);
 
       // Send batch when we have enough operations
-      if (operations.length >= 1000) {
+      if (operations.length >= batchSize) {
         try {
           await bulkUpsert(operations);
           operations.length = 0; // Clear array
         } catch (error) {
-          console.error('Error sending log batch to Elasticsearch:', error);
-          process.exit(1);
+          // Handle payload too large errors with retry
+          if (
+            (error as any)?.meta?.statusCode === 413 ||
+            (error as any)?.meta?.statusCode === 429
+          ) {
+            if (!quiet)
+              console.log(
+                '\n⚠️  Payload too large, retrying with smaller batch...',
+              );
+            batchSize = Math.max(2, Math.floor(batchSize / 2));
+
+            // Retry with current operations split into smaller batches
+            const smallBatches = [];
+            for (let j = 0; j < operations.length; j += batchSize) {
+              smallBatches.push(operations.slice(j, j + batchSize));
+            }
+
+            for (const smallBatch of smallBatches) {
+              await bulkUpsert(smallBatch);
+            }
+            operations.length = 0; // Clear array
+          } else {
+            console.error('Error sending log batch to Elasticsearch:', error);
+            process.exit(1);
+          }
         }
       }
     } catch (error) {
@@ -1409,6 +1517,18 @@ export const deleteAllEvents = async (space?: string) => {
   try {
     const client = getEsClient();
 
+    // Check if index exists first
+    const indexExists = await client.indices.exists({
+      index: config.eventIndex,
+    });
+
+    if (!indexExists) {
+      console.log(
+        `No events to delete - index '${config.eventIndex}' does not exist`,
+      );
+      return;
+    }
+
     await client.deleteByQuery({
       index: config.eventIndex,
       refresh: true,
@@ -1419,6 +1539,104 @@ export const deleteAllEvents = async (space?: string) => {
     console.log(`Deleted all events${space ? ` from space '${space}'` : ''}`);
   } catch (error) {
     console.log('Failed to delete events');
+    console.log(error);
+  }
+};
+
+export const deleteAllData = async () => {
+  console.log('🗑️  Deleting ALL generated security data...');
+
+  try {
+    const client = getEsClient();
+
+    // Get all indices to see what we're dealing with
+    console.log('\n🔍 Scanning for generated indices...');
+    const indices = await client.cat.indices({ format: 'json' });
+
+    // Filter for generated security data indices
+    const securityIndices = indices.filter((idx: any) => {
+      const indexName = idx.index;
+      return (
+        (indexName.startsWith('.ds-logs-') ||
+          indexName.startsWith('logs-') ||
+          indexName.startsWith('.alerts-security.alerts-') ||
+          indexName.startsWith('metrics-') ||
+          (indexName.startsWith('.ds-') &&
+            (indexName.includes('apache') ||
+              indexName.includes('endpoint') ||
+              indexName.includes('iptables') ||
+              indexName.includes('network') ||
+              indexName.includes('security') ||
+              indexName.includes('system') ||
+              indexName.includes('microsoft')))) &&
+        !indexName.includes('.internal.')
+      );
+    });
+
+    if (securityIndices.length === 0) {
+      console.log('No generated security indices found to delete.');
+      return;
+    }
+
+    console.log(`Found ${securityIndices.length} security indices to delete:`);
+    securityIndices.forEach((idx: any) => console.log(`  - ${idx.index}`));
+
+    // Delete data streams first (for .ds- indices)
+    console.log('\n📋 Deleting data streams...');
+    const dataStreams = securityIndices
+      .filter((idx: any) => idx.index.startsWith('.ds-'))
+      .map((idx: any) =>
+        idx.index
+          .replace('.ds-', '')
+          .replace(/-\d{4}\.\d{2}\.\d{2}-\d{6}$/, ''),
+      );
+
+    const uniqueDataStreams = [...new Set(dataStreams)];
+
+    for (const dataStream of uniqueDataStreams) {
+      try {
+        console.log(`Deleting data stream: ${dataStream}`);
+        await client.indices.deleteDataStream({ name: dataStream });
+        console.log(`✅ Deleted data stream: ${dataStream}`);
+      } catch (error: any) {
+        if (error.meta?.statusCode === 404) {
+          console.log(`Data stream ${dataStream} not found (already deleted)`);
+        } else {
+          console.log(
+            `Failed to delete data stream ${dataStream}:`,
+            error.message,
+          );
+        }
+      }
+    }
+
+    // Delete regular indices
+    console.log('\n🗂️  Deleting regular indices...');
+    const regularIndices = securityIndices
+      .filter((idx: any) => !idx.index.startsWith('.ds-'))
+      .map((idx: any) => idx.index);
+
+    if (regularIndices.length > 0) {
+      try {
+        await client.indices.delete({ index: regularIndices.join(',') });
+        console.log(`✅ Deleted ${regularIndices.length} regular indices`);
+      } catch (error: any) {
+        console.log('Failed to delete some regular indices:', error.message);
+      }
+    }
+
+    // Delete detection rules if function exists
+    try {
+      const { deleteAllRules } = await import('./rules');
+      console.log('\n📜 Deleting detection rules...');
+      await deleteAllRules();
+    } catch (error) {
+      console.log('Note: No detection rules to delete');
+    }
+
+    console.log('\n✅ All generated security data deleted successfully!');
+  } catch (error) {
+    console.log('\n❌ Error during cleanup:');
     console.log(error);
   }
 };

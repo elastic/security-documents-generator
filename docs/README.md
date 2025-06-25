@@ -4,7 +4,15 @@ Welcome to the comprehensive documentation for the Security Documents Generator.
 
 ## 📚 Available Documentation
 
-### 🔬 **[Multi-Field Generation](multi-field-generation.md)** ⭐ NEW
+### 🔗 **[Kibana Cloud Integration](kibana-cloud-integration.md)** ⭐ NEW
+Complete guide for generating security data that appears directly in Kibana Cloud's Security interface:
+- **Direct Security Alerts**: Automatically indexed to `.alerts-security.alerts-default`
+- **MITRE ATT&CK Integration**: Full framework coverage with realistic attack scenarios
+- **Multi-Field Enrichment**: Threat intelligence, behavioral analytics, and security scores
+- **Troubleshooting Guide**: Solutions for common Kibana Cloud integration issues
+- **Quick Start Commands**: Immediate data generation for Security → Alerts interface
+
+### 🔬 **[Multi-Field Generation](multi-field-generation.md)**
 Complete guide to generating 500+ contextual security fields with zero AI overhead:
 - **99% Token Reduction**: Algorithmic field generation
 - **95% Faster**: <100ms for 500 fields per document
@@ -12,25 +20,42 @@ Complete guide to generating 500+ contextual security fields with zero AI overhe
 - **Realistic Correlations**: CPU high → memory high, threat confidence → risk score
 - **Context Awareness**: Automatic field selection based on log type and attack indicators
 
-### 🎭 Attack Campaigns *(Coming Soon)*
+### 📋 **[Use Cases Guide](use-cases-guide.md)**
+Enterprise scenarios and comprehensive workflow examples for security testing and analysis.
+
+### ❌ **[False Positives](false-positives.md)**
+Guide to generating realistic false positive alerts for detection rule testing and SOC training.
+
+### 🎭 **[Attack Campaigns](attack-campaigns.md)**
 Multi-stage attack scenario generation with MITRE ATT&CK integration.
 
-### 🤖 AI Integration *(Coming Soon)*
-Multi-provider AI setup and configuration (OpenAI, Azure OpenAI, Claude).
-
-### ⚔️ MITRE ATT&CK *(Coming Soon)*
+### ⚔️ **[MITRE ATT&CK](mitre-attack.md)**
 Framework integration, technique mapping, and attack chain generation.
 
-### ⚙️ Configuration *(Coming Soon)*
+### 🤖 **[AI Integration](ai-integration.md)**
+Multi-provider AI setup and configuration (OpenAI, Azure OpenAI, Claude).
+
+### ⚙️ **[Configuration](configuration.md)**
 System configuration, performance tuning, and optimization guides.
+
+### 📖 **[API Reference](api-reference.md)**
+Complete API documentation and programmatic usage examples.
 
 ## 🚀 Quick Links
 
 - **[Main README](../README.md)** - Project overview and quick start
 - **[CLAUDE.md](../CLAUDE.md)** - Detailed project instructions for Claude Code
+- **[Kibana Cloud Integration](kibana-cloud-integration.md)** - Direct integration with Kibana Security interface ⭐
 - **[Multi-Field Generation](multi-field-generation.md)** - Comprehensive multi-field guide
 
 ## 🎯 Popular Use Cases
+
+### Kibana Cloud Security Setup ⭐
+```bash
+# Generate security alerts that appear immediately in Kibana Security → Alerts
+yarn start generate-alerts -n 25 --mitre --multi-field --field-count 400
+yarn start generate-campaign apt --mitre --realistic --detection-rate 0.8
+```
 
 ### SOC Training
 ```bash

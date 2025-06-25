@@ -316,11 +316,15 @@ event.category:network AND destination.ip:10.* AND source.ip:external
 
 | Topic | Description |
 |-------|-------------|
+| **[🔗 Kibana Cloud Integration](docs/kibana-cloud-integration.md)** | **Direct Security → Alerts integration** ⭐ |
 | **[Multi-Field Generation](docs/multi-field-generation.md)** | **500+ security fields, zero tokens** |
-| [AI Integration](docs/ai-integration.md) | AI providers and setup |
+| [Use Cases Guide](docs/use-cases-guide.md) | Enterprise scenarios and workflows |
+| [False Positives](docs/false-positives.md) | Detection rule testing and SOC training |
 | [Attack Campaigns](docs/attack-campaigns.md) | Campaign generation guide |
 | [MITRE ATT&CK](docs/mitre-attack.md) | Framework integration |
+| [AI Integration](docs/ai-integration.md) | AI providers and setup |
 | [Configuration](docs/configuration.md) | System configuration |
+| [API Reference](docs/api-reference.md) | Complete API documentation |
 
 ## 🎉 Benefits
 
