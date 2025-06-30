@@ -12,6 +12,14 @@ Complete guide for generating security data that appears directly in Kibana Clou
 - **Troubleshooting Guide**: Solutions for common Kibana Cloud integration issues
 - **Quick Start Commands**: Immediate data generation for Security → Alerts interface
 
+### 🧠 **[Knowledge Base Integration](knowledge-base-integration.md)** ⭐ NEW
+Comprehensive guide for creating AI Assistant Knowledge Base documents:
+- **ELSER v2 Integration**: Semantic text fields optimized for AI Assistant
+- **AI-Optimized Questions**: Category-specific suggested questions for enhanced interactions
+- **10 Security Categories**: From threat intelligence to compliance documentation
+- **MITRE ATT&CK Mapping**: Technique and tactic associations for knowledge documents
+- **Rich Console Output**: Document titles, confidence indicators, and suggested questions
+
 ### 🔬 **[Multi-Field Generation](multi-field-generation.md)**
 Complete guide to generating 500+ contextual security fields with zero AI overhead:
 - **99% Token Reduction**: Algorithmic field generation
@@ -46,6 +54,7 @@ Complete API documentation and programmatic usage examples.
 - **[Main README](../README.md)** - Project overview and quick start
 - **[CLAUDE.md](../CLAUDE.md)** - Detailed project instructions for Claude Code
 - **[Kibana Cloud Integration](kibana-cloud-integration.md)** - Direct integration with Kibana Security interface ⭐
+- **[Knowledge Base Integration](knowledge-base-integration.md)** - AI Assistant Knowledge Base setup ⭐
 - **[Multi-Field Generation](multi-field-generation.md)** - Comprehensive multi-field guide
 
 ## 🎯 Popular Use Cases
@@ -55,6 +64,13 @@ Complete API documentation and programmatic usage examples.
 # Generate security alerts that appear immediately in Kibana Security → Alerts
 yarn start generate-alerts -n 25 --mitre --multi-field --field-count 400
 yarn start generate-campaign apt --mitre --realistic --detection-rate 0.8
+```
+
+### AI Assistant Knowledge Base ⭐
+```bash
+# Generate comprehensive security knowledge base for AI Assistant
+yarn start generate-knowledge-base -n 30 --categories threat_intelligence,incident_response --mitre
+yarn start generate-knowledge-base -n 25 --access-level public --confidence-threshold 0.9
 ```
 
 ### SOC Training

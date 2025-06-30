@@ -97,6 +97,13 @@ A powerful tool for generating realistic security scenarios with complete forens
 | `yarn start generate-campaign apt --multi-field --field-count 300` | APT campaign + 300 enriched fields | <10 seconds |
 | **`yarn start generate-campaign ransomware --environments 25 --multi-field --field-count 5000`** | **🌟 Enterprise ransomware across 25 environments + 5,000 fields** | **<30 seconds** |
 
+### 🧠 Knowledge Base Commands
+| Command | Description | Example |
+|---------|-------------|---------|
+| **`generate-knowledge-base`** | **🧠 AI Assistant Knowledge Base** | `yarn start generate-knowledge-base -n 25 --categories threat_intelligence,incident_response` |
+| `generate-knowledge-base --mitre` | Knowledge docs with MITRE mappings | `yarn start generate-knowledge-base -n 20 --mitre --confidence-threshold 0.8` |
+| `delete-knowledge-base` | Clean up knowledge base | `yarn start delete-knowledge-base --namespace prod` |
+
 ### 🗑️ Cleanup Commands
 | Command | Description |
 |---------|-------------|
@@ -104,6 +111,7 @@ A powerful tool for generating realistic security scenarios with complete forens
 | `delete-events` | Clean up generated events |
 | `delete-logs` | Clean up source logs |
 | `delete-rules` | Clean up detection rules |
+| `delete-knowledge-base` | Clean up knowledge base documents |
 
 ## 🌍 Multi-Environment Generation
 
@@ -183,6 +191,60 @@ yarn start generate-logs -n 5000 --multi-field --field-count 200 --field-perform
 ```
 
 **📚 [Full Multi-Field Documentation →](docs/multi-field-generation.md)**
+
+## 🧠 AI Assistant Knowledge Base
+
+### **🎯 Security Knowledge Documents for AI Assistant**
+Generate comprehensive security knowledge documents optimized for Elastic AI Assistant integration:
+
+```bash
+# Generate comprehensive security knowledge base
+yarn start generate-knowledge-base -n 30 --categories threat_intelligence,incident_response,vulnerability_management
+
+# High-confidence public security documentation  
+yarn start generate-knowledge-base -n 25 --access-level public --confidence-threshold 0.9
+
+# Knowledge base with MITRE ATT&CK framework integration
+yarn start generate-knowledge-base -n 20 --mitre --categories malware_analysis,forensics
+```
+
+### **📚 Knowledge Base Categories**
+- **`threat_intelligence`** - IOC analysis, APT profiles, campaign tracking, attribution
+- **`incident_response`** - Playbooks, procedures, escalation matrices, communication
+- **`vulnerability_management`** - CVE analysis, patch management, assessment reports
+- **`network_security`** - Firewall rules, IDS signatures, traffic analysis, DNS security
+- **`endpoint_security`** - EDR rules, behavioral patterns, process monitoring
+- **`cloud_security`** - AWS/Azure/GCP security, container monitoring, serverless analytics
+- **`compliance`** - PCI DSS, SOX, GDPR, HIPAA, ISO27001 frameworks
+- **`forensics`** - Memory analysis, disk forensics, network forensics, timeline analysis
+- **`malware_analysis`** - Static/dynamic analysis, reverse engineering, sandbox reports
+- **`behavioral_analytics`** - User analytics, entity analytics, anomaly detection
+
+### **🔍 Key Features**
+- **ELSER v2 Integration**: Semantic text fields optimized for AI Assistant
+- **Suggested Questions**: AI-optimized questions for each document category
+- **MITRE ATT&CK Mapping**: Technique and tactic associations
+- **Confidence Scoring**: Quality assessment from 0.6-1.0
+- **Access Control**: Multi-level restrictions (public, team, organization, restricted)
+- **Rich Console Output**: Document titles, confidence indicators, and suggested questions
+
+### **💬 Example Generated Content**
+```
+📋 Generated Knowledge Base Documents:
+  1. 🔥 👥 [threat_intelligence/ioc_analysis] IOC Analysis: MALWARE-7426
+     💬 Suggested AI Assistant Questions:
+        1. What IOCs should we immediately block in our environment?
+        2. How confident are we in the attribution of this threat?
+        3. What detection rules should we create based on these indicators?
+
+  2. ✅ 🏢 [incident_response/playbooks] IR Playbook: Ransomware Incident Response
+     💬 Suggested AI Assistant Questions:
+        1. What are the key decision points in this incident response process?
+        2. How do we customize this playbook for our environment?
+        3. What tools and resources are required for each phase?
+```
+
+**📚 [Full Knowledge Base Documentation →](docs/knowledge-base-integration.md)**
 
 ## 🎪 Realistic Attack Scenarios
 
