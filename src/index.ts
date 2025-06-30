@@ -1696,4 +1696,141 @@ program
     console.log('\n💡 Campaign ready for Kibana AI security testing!');
   });
 
+program
+  .command('generate-knowledge-base')
+  .description('Generate AI Assistant Knowledge Base documents for security content')
+  .option('-n <n>', 'number of knowledge base documents', '20')
+  .option('-s <space>', 'space to generate documents in', 'default')
+  .option(
+    '--namespace <namespace>',
+    'custom namespace for knowledge base indices (default: default)',
+  )
+  .option(
+    '--categories <categories>',
+    'security categories to include (comma-separated): threat_intelligence,incident_response,vulnerability_management,network_security,endpoint_security,cloud_security,compliance,forensics,malware_analysis,behavioral_analytics',
+  )
+  .option(
+    '--access-level <level>',
+    'filter by access level: public,team,organization,restricted',
+  )
+  .option(
+    '--confidence-threshold <threshold>',
+    'minimum confidence threshold (0.0-1.0)',
+    '0.0',
+  )
+  .option(
+    '--mitre',
+    'include MITRE ATT&CK framework mappings in knowledge documents',
+    false,
+  )
+  .action(async (options) => {
+    const count = parseInt(options.n || '20');
+    const space = options.space || 'default';
+    const namespace = options.namespace || 'default';
+    const includeMitre = options.mitre || false;
+    
+    // Parse categories if provided
+    let categories: string[] = [];
+    if (options.categories) {
+      categories = options.categories.split(',').map((c: string) => c.trim());
+      
+      // Validate categories
+      const validCategories = [
+        'threat_intelligence',
+        'incident_response',
+        'vulnerability_management',
+        'network_security',
+        'endpoint_security',
+        'cloud_security',
+        'compliance',
+        'forensics',
+        'malware_analysis',
+        'behavioral_analytics'
+      ];
+      
+      const invalidCategories = categories.filter(
+        (cat: string) => !validCategories.includes(cat),
+      );
+      if (invalidCategories.length > 0) {
+        console.error(
+          `Error: Invalid categories: ${invalidCategories.join(', ')}. Valid categories: ${validCategories.join(', ')}`,
+        );
+        process.exit(1);
+      }
+    }
+
+    // Parse access level if provided
+    let accessLevel: 'public' | 'team' | 'organization' | 'restricted' | undefined;
+    if (options.accessLevel) {
+      const validAccessLevels = ['public', 'team', 'organization', 'restricted'];
+      if (!validAccessLevels.includes(options.accessLevel)) {
+        console.error(
+          `Error: Invalid access level: ${options.accessLevel}. Valid levels: ${validAccessLevels.join(', ')}`,
+        );
+        process.exit(1);
+      }
+      accessLevel = options.accessLevel;
+    }
+
+    // Parse confidence threshold
+    const confidenceThreshold = parseFloat(options.confidenceThreshold || '0.0');
+    if (confidenceThreshold < 0.0 || confidenceThreshold > 1.0) {
+      console.error('Error: --confidence-threshold must be between 0.0 and 1.0');
+      process.exit(1);
+    }
+
+    try {
+      const { createKnowledgeBaseDocuments } = await import('./create_knowledge_base');
+
+      await createKnowledgeBaseDocuments({
+        count,
+        includeMitre,
+        namespace,
+        space,
+        categories,
+        accessLevel,
+        confidenceThreshold,
+      });
+    } catch (error) {
+      console.error('Error generating knowledge base documents:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('delete-knowledge-base')
+  .description('Delete all knowledge base documents')
+  .option('-s <space>', 'space to delete from', 'default')
+  .option(
+    '--namespace <namespace>',
+    'namespace to delete from (default: default)',
+  )
+  .action(async (options) => {
+    const space = options.space || 'default';
+    const namespace = options.namespace || 'default';
+    
+    try {
+      const { getEsClient } = await import('./commands/utils/indices');
+      const client = getEsClient();
+      
+      const indexName = space === 'default' 
+        ? `knowledge-base-security-${namespace}`
+        : `knowledge-base-security-${space}-${namespace}`;
+      
+      console.log(`🗑️  Deleting knowledge base documents from: ${indexName}`);
+      
+      const exists = await client.indices.exists({ index: indexName });
+      if (!exists) {
+        console.log('⚠️  Knowledge base index does not exist');
+        return;
+      }
+      
+      await client.indices.delete({ index: indexName });
+      console.log('✅ Knowledge base documents deleted successfully');
+    } catch (error) {
+      console.error('Error deleting knowledge base documents:', error);
+      process.exit(1);
+    }
+  });
+
 program.parse();

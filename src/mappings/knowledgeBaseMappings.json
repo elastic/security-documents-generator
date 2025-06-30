@@ -1,0 +1,108 @@
+{
+    "properties": {
+        "@timestamp": {
+            "type": "date"
+        },
+        "content": {
+            "type": "semantic_text",
+            "inference_id": ".elser-2-elasticsearch"
+        },
+        "title": {
+            "type": "text",
+            "fields": {
+                "keyword": {
+                    "type": "keyword"
+                }
+            }
+        },
+        "summary": {
+            "type": "text"
+        },
+        "suggested_questions": {
+            "type": "text",
+            "fields": {
+                "keyword": {
+                    "type": "keyword"
+                }
+            }
+        },
+        "category": {
+            "type": "keyword"
+        },
+        "subcategory": {
+            "type": "keyword"
+        },
+        "tags": {
+            "type": "keyword"
+        },
+        "source": {
+            "type": "keyword"
+        },
+        "confidence": {
+            "type": "float"
+        },
+        "language": {
+            "type": "keyword"
+        },
+        "version": {
+            "type": "keyword"
+        },
+        "last_updated": {
+            "type": "date"
+        },
+        "author": {
+            "type": "keyword"
+        },
+        "access_level": {
+            "type": "keyword"
+        },
+        "security": {
+            "properties": {
+                "domain": {
+                    "type": "keyword"
+                },
+                "classification": {
+                    "type": "keyword"
+                },
+                "severity": {
+                    "type": "keyword"
+                },
+                "tlp": {
+                    "type": "keyword"
+                }
+            }
+        },
+        "mitre": {
+            "properties": {
+                "technique_ids": {
+                    "type": "keyword"
+                },
+                "tactic_ids": {
+                    "type": "keyword"
+                },
+                "framework": {
+                    "type": "keyword"
+                }
+            }
+        },
+        "metadata": {
+            "properties": {
+                "format": {
+                    "type": "keyword"
+                },
+                "size_bytes": {
+                    "type": "long"
+                },
+                "checksum": {
+                    "type": "keyword"
+                },
+                "references": {
+                    "type": "text"
+                },
+                "related_documents": {
+                    "type": "keyword"
+                }
+            }
+        }
+    }
+}

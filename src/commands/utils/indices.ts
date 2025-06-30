@@ -68,6 +68,7 @@ export const indexCheck = async (
 
   // Check if this is a logs index that needs to be a data stream
   const isLogsIndex = index.startsWith('logs-');
+  const isKnowledgeBaseIndex = index.includes('knowledge-base');
 
   if (isLogsIndex) {
     // For logs indices, check if data stream exists
@@ -95,17 +96,28 @@ export const indexCheck = async (
     const isExist = await client.indices.exists({ index: index });
     if (isExist) return;
 
-    console.log('Index does not exist, creating...');
+    if (!quiet) console.log('Index does not exist, creating...');
 
     try {
-      await client.indices.create({
+      const indexSettings = {
         index: index,
         settings: {
           'index.mapping.total_fields.limit': 10000,
         },
         ...body,
-      });
-      console.log('Index created', index);
+      };
+
+      // For knowledge base indices, add specific settings for semantic text
+      if (isKnowledgeBaseIndex) {
+        indexSettings.settings = {
+          ...indexSettings.settings,
+          'index.mapping.nested_fields.limit': 1000,
+          'index.mapping.nested_objects.limit': 10000,
+        };
+      }
+
+      await client.indices.create(indexSettings);
+      if (!quiet) console.log('Index created', index);
     } catch (error) {
       console.log('Index creation failed', JSON.stringify(error));
       throw error;
