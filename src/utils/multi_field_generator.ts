@@ -86,6 +86,7 @@ export class MultiFieldGenerator {
     if (this.config.useExpandedFields) {
       this.expandedFieldTemplates = generateExpandedFieldTemplates(
         this.config.expandedFieldCount,
+        this.config.categories, // Pass categories to respect filtering
       );
     }
   }

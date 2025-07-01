@@ -1833,4 +1833,173 @@ program
     }
   });
 
+program
+  .command('generate-fields')
+  .description('Generate security fields on demand with unlimited field counts')
+  .option('-n <count>', 'number of fields to generate', '1000')
+  .option(
+    '--categories <categories>',
+    'field categories (comma-separated): behavioral_analytics,threat_intelligence,performance_metrics,security_scores,audit_compliance,network_analytics,endpoint_analytics,forensics_analysis,cloud_security,malware_analysis,geolocation_intelligence,incident_response',
+  )
+  .option(
+    '--output <format>',
+    'output format: console, file, elasticsearch',
+    'console',
+  )
+  .option(
+    '--filename <name>',
+    'output filename (for file format)',
+    'generated-fields.json',
+  )
+  .option(
+    '--index <name>',
+    'Elasticsearch index name (for elasticsearch format)',
+    'generated-fields-sample',
+  )
+  .option(
+    '--include-metadata',
+    'include generation metadata in output',
+    true,
+  )
+  .option(
+    '--create-mapping',
+    'automatically create Elasticsearch mapping for proper field visualization in Kibana',
+    true,
+  )
+  .option(
+    '--update-template',
+    'update index template to ensure future indices have proper mappings',
+    true,
+  )
+  .action(async (options) => {
+    const fieldCount = parseInt(options.n || '1000');
+    const categories = options.categories
+      ? options.categories.split(',').map((c: string) => c.trim())
+      : undefined;
+    const output = options.output || 'console';
+    const filename = options.filename || 'generated-fields.json';
+    const indexName = options.index || 'generated-fields-sample';
+    const includeMetadata = options.includeMetadata !== false;
+    const createMapping = options.createMapping !== false;
+    const updateTemplate = options.updateTemplate !== false;
+
+    // Validate field count
+    if (fieldCount < 1 || fieldCount > 50000) {
+      console.error('Error: field count must be between 1 and 50,000');
+      process.exit(1);
+    }
+
+    // Validate categories if provided
+    if (categories) {
+      const validCategories = [
+        'behavioral_analytics',
+        'threat_intelligence',
+        'performance_metrics',
+        'security_scores',
+        'audit_compliance',
+        'network_analytics',
+        'endpoint_analytics',
+        'forensics_analysis',
+        'cloud_security',
+        'malware_analysis',
+        'geolocation_intelligence',
+        'incident_response',
+      ];
+      const invalidCategories = categories.filter(
+        (cat: string) => !validCategories.includes(cat),
+      );
+      if (invalidCategories.length > 0) {
+        console.error(
+          `Error: Invalid categories: ${invalidCategories.join(', ')}. Valid: ${validCategories.join(', ')}`,
+        );
+        process.exit(1);
+      }
+    }
+
+    // Validate output format
+    const validOutputs = ['console', 'file', 'elasticsearch'];
+    if (!validOutputs.includes(output)) {
+      console.error(
+        `Error: Invalid output format: ${output}. Valid: ${validOutputs.join(', ')}`,
+      );
+      process.exit(1);
+    }
+
+    try {
+      const { generateFieldsCLI } = await import('./commands/generate_fields');
+
+      await generateFieldsCLI(fieldCount, categories, {
+        output: output as 'console' | 'file' | 'elasticsearch',
+        filename,
+        indexName,
+        includeMetadata,
+        createMapping,
+        updateTemplate,
+      });
+    } catch (error) {
+      console.error('❌ Field generation failed:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('setup-mappings')
+  .description('Setup Elasticsearch mappings for multi-field data to ensure proper visualization in Kibana')
+  .action(async () => {
+    try {
+      const { setupMappingsCLI } = await import('./commands/setup_mappings');
+      await setupMappingsCLI();
+    } catch (error) {
+      console.error('❌ Setup mappings failed:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('update-mapping')
+  .description('Update existing security alerts index with comprehensive behavioral analytics field mappings')
+  .option('--index <name>', 'specific index to update (auto-detects security alerts index if not provided)')
+  .action(async (options) => {
+    try {
+      const { updateMappingCLI } = await import('./commands/update_specific_mapping');
+      await updateMappingCLI(options.index);
+    } catch (error) {
+      console.error('❌ Update mapping failed:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('fix-unmapped-fields')
+  .description('Complete solution for fixing unmapped fields in Kibana - analyzes and provides options')
+  .option('--reindex', 'delete and recreate index with proper mappings (recommended)')
+  .option('--create-new', 'create new index with proper mappings, keep existing data')
+  .option('--suffix <suffix>', 'suffix for new index name (default: -v2)', '-v2')
+  .action(async (options) => {
+    try {
+      const { fixUnmappedFieldsCLI } = await import('./commands/fix_unmapped_fields');
+      await fixUnmappedFieldsCLI({
+        reindex: options.reindex,
+        createNew: options.createNew,
+        indexSuffix: options.suffix,
+      });
+    } catch (error) {
+      console.error('❌ Fix unmapped fields failed:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('fix-logs-mapping')
+  .description('Fix logs data stream mapping to handle unlimited behavioral analytics fields')
+  .action(async () => {
+    try {
+      const { fixLogsMappingCLI } = await import('./commands/fix_logs_mapping');
+      await fixLogsMappingCLI();
+    } catch (error) {
+      console.error('❌ Fix logs mapping failed:', error);
+      process.exit(1);
+    }
+  });
+
 program.parse();

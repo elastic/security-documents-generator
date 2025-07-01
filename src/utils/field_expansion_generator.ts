@@ -173,40 +173,59 @@ const FIELD_PATTERNS = {
 
 /**
  * Generate expanded field templates using algorithmic patterns
+ * 
+ * @param targetCount - Number of fields to generate
+ * @param categories - Optional array of categories to generate (if not provided, generates all categories)
  */
 export function generateExpandedFieldTemplates(
   targetCount: number = 10000,
+  categories?: string[],
 ): Record<string, FieldTemplate> {
   const expandedFields: Record<string, FieldTemplate> = {};
   let generatedCount = 0;
 
-  // Distribute targetCount across 5 categories
-  const fieldsPerCategory = Math.floor(targetCount / 5);
+  // Map category names to generator functions
+  const categoryGenerators = {
+    'performance_metrics': generatePerformanceFields,
+    'security_scores': generateSecurityScoringFields,
+    'behavioral_analytics': generateBehavioralFields,
+    'network_analytics': generateNetworkAnalysisFields,
+    'endpoint_analytics': generateEndpointMonitoringFields,
+  };
 
-  // Generate performance metric fields
-  const perfFields = generatePerformanceFields(fieldsPerCategory);
-  Object.assign(expandedFields, perfFields);
-  generatedCount += Object.keys(perfFields).length;
+  // If no categories specified, use all available categories
+  const categoriesToGenerate = categories?.filter(cat => categoryGenerators[cat as keyof typeof categoryGenerators]) || Object.keys(categoryGenerators);
+  
+  if (categoriesToGenerate.length === 0) {
+    console.warn('⚠️  No valid categories found for expanded field generation. Using all categories.');
+    categoriesToGenerate.push(...Object.keys(categoryGenerators));
+  }
 
-  // Generate security scoring fields
-  const secFields = generateSecurityScoringFields(fieldsPerCategory);
-  Object.assign(expandedFields, secFields);
-  generatedCount += Object.keys(secFields).length;
+  // Distribute targetCount across selected categories
+  const fieldsPerCategory = Math.floor(targetCount / categoriesToGenerate.length);
+  const remainingFields = targetCount % categoriesToGenerate.length;
 
-  // Generate behavioral analysis fields
-  const behavFields = generateBehavioralFields(fieldsPerCategory);
-  Object.assign(expandedFields, behavFields);
-  generatedCount += Object.keys(behavFields).length;
+  console.log(`🔬 Generating expanded fields across ${categoriesToGenerate.length} categories:`);
+  console.log(`  📊 Target: ${targetCount} fields (${fieldsPerCategory} per category)`);
+  console.log(`  📁 Categories: ${categoriesToGenerate.join(', ')}`);
 
-  // Generate network analysis fields
-  const netFields = generateNetworkAnalysisFields(fieldsPerCategory);
-  Object.assign(expandedFields, netFields);
-  generatedCount += Object.keys(netFields).length;
-
-  // Generate endpoint monitoring fields
-  const endpointFields = generateEndpointMonitoringFields(fieldsPerCategory);
-  Object.assign(expandedFields, endpointFields);
-  generatedCount += Object.keys(endpointFields).length;
+  // Generate fields for each selected category
+  for (let i = 0; i < categoriesToGenerate.length; i++) {
+    const category = categoriesToGenerate[i];
+    const generator = categoryGenerators[category as keyof typeof categoryGenerators];
+    
+    if (generator) {
+      // Add extra fields to first categories if there's a remainder
+      const extraFields = i < remainingFields ? 1 : 0;
+      const categoryFieldCount = fieldsPerCategory + extraFields;
+      
+      const categoryFields = generator(categoryFieldCount);
+      Object.assign(expandedFields, categoryFields);
+      generatedCount += Object.keys(categoryFields).length;
+      
+      console.log(`  ✅ ${category}: ${Object.keys(categoryFields).length} fields`);
+    }
+  }
 
   console.log(`Generated ${generatedCount} expanded field templates`);
   return expandedFields;
@@ -292,7 +311,7 @@ function generateSecurityScoringFields(
 }
 
 /**
- * Generate behavioral analysis fields
+ * Generate behavioral analysis fields with unlimited expansion
  */
 function generateBehavioralFields(
   count: number,
@@ -300,6 +319,7 @@ function generateBehavioralFields(
   const fields: Record<string, FieldTemplate> = {};
   let generated = 0;
 
+  // Phase 1: Generate all basic pattern combinations
   for (const entity of FIELD_PATTERNS.behavioral.entities) {
     for (const behavior of FIELD_PATTERNS.behavioral.behaviors) {
       for (const pattern of FIELD_PATTERNS.behavioral.patterns) {
@@ -322,6 +342,61 @@ function generateBehavioralFields(
           };
           generated++;
         }
+      }
+    }
+  }
+
+  // Phase 2: Generate extended fields with numerical suffixes for unlimited expansion
+  if (generated < count) {
+    const extendedBehaviors = [
+      'access_control', 'authentication', 'authorization', 'privilege_escalation',
+      'lateral_movement', 'data_exfiltration', 'persistence', 'evasion',
+      'discovery', 'collection', 'command_control', 'impact', 'reconnaissance'
+    ];
+    
+    const extendedPatterns = [
+      'temporal', 'spatial', 'statistical', 'contextual', 'semantic',
+      'behavioral', 'structural', 'relational', 'hierarchical', 'causal'
+    ];
+    
+    const extendedMetrics = [
+      'entropy', 'variance', 'skewness', 'kurtosis', 'correlation_coefficient',
+      'mutual_information', 'divergence', 'similarity', 'distance', 'density'
+    ];
+
+    let suffix = 1;
+    while (generated < count) {
+      for (const entity of FIELD_PATTERNS.behavioral.entities) {
+        for (const behavior of extendedBehaviors) {
+          for (const pattern of extendedPatterns) {
+            for (const metric of extendedMetrics) {
+              if (generated >= count) break;
+
+              const fieldName = `behavioral.${entity}.${behavior}.${pattern}.${metric}_${suffix}`;
+              fields[fieldName] = {
+                type: faker.helpers.arrayElement(['integer', 'float']),
+                generator: faker.helpers.arrayElement([
+                  () => faker.number.int({ min: 0, max: 10000 }),
+                  () => faker.number.float({ min: 0, max: 100, fractionDigits: 3 }),
+                  () => faker.number.float({ min: -1, max: 1, fractionDigits: 4 }),
+                ]),
+                description: `Advanced ${entity} ${behavior} ${pattern} ${metric} analysis (series ${suffix})`,
+                context_weight: 6,
+              };
+              generated++;
+            }
+            if (generated >= count) break;
+          }
+          if (generated >= count) break;
+        }
+        if (generated >= count) break;
+      }
+      suffix++;
+      
+      // Prevent infinite loop
+      if (suffix > 100) {
+        console.warn(`⚠️  Reached maximum expansion depth. Generated ${generated}/${count} behavioral fields.`);
+        break;
       }
     }
   }

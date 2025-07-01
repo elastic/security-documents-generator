@@ -1,20 +1,42 @@
 # Multi-Field Generation
 
-High-performance, token-free generation of **10,000+ contextually relevant security fields** for enhanced SIEM testing and SOC training at enterprise scale.
+High-performance, token-free generation of **unlimited security fields** on demand for enhanced SIEM testing and SOC training at enterprise scale.
 
 ## 🎯 Overview
 
-The Multi-Field Generation feature adds **10,000+ realistic security fields** to your logs and alerts using hybrid algorithmic generation, delivering:
+The Multi-Field Generation system provides **unlimited realistic security fields** using a hybrid algorithmic approach:
 
+- **✅ Category Filtering Fixed**: Now works correctly for any field count (1-50,000)
+- **🔬 Standalone Generation**: Generate fields without alerts or logs
 - **99% Token Reduction**: Zero AI calls for field generation
-- **Enterprise Scale**: 10,000+ fields per document with sub-second performance
+- **Enterprise Scale**: 50,000+ fields per document with sub-second performance
 - **Dual-Mode Architecture**: Expert templates (1-1,000 fields) + algorithmic expansion (1,000+ fields)
 - **Realistic Correlations**: CPU high → memory high, threat confidence → risk score
 - **Context Awareness**: Attack scenarios get security fields, normal logs get performance fields
-- **Infinite Scalability**: Generate millions of enriched fields in minutes
-- **Auto-Scaling**: Automatically switches to expanded mode for field counts >1,000
+- **Multiple Output Formats**: Console, file, or directly to Elasticsearch
 
 ## 🚀 Quick Start
+
+### 🔬 **NEW: Standalone Field Generation**
+
+Generate security fields on demand without alerts or logs:
+
+```bash
+# Generate 4000 behavioral analytics fields (FIXED: category filtering now works!)
+yarn start generate-fields -n 4000 --categories behavioral_analytics
+
+# Generate 10,000 fields across multiple categories  
+yarn start generate-fields -n 10000 --categories threat_intelligence,security_scores
+
+# Save fields to file for analysis
+yarn start generate-fields -n 2000 --output file --filename security-fields.json
+
+# Index fields directly to Elasticsearch
+yarn start generate-fields -n 5000 --output elasticsearch --index test-fields
+
+# Generate fields with metadata
+yarn start generate-fields -n 1000 --include-metadata
+```
 
 ### Basic Usage
 
@@ -684,6 +706,58 @@ For optimal performance:
 | **Template + Multi-field** | 2s | 250 | 0 tokens | High | 100K alerts |
 | **Enterprise Expansion** | 3s | 10,000 | 0 tokens | Very High | 1M+ alerts |
 | **Max Performance Mode** | 1s | 25,000 | 0 tokens | High | Unlimited |
+
+## ✅ **Recent Improvements & Fixes**
+
+### 🔬 **NEW: Standalone Field Generation Command**
+
+Added dedicated `generate-fields` command for generating fields without alerts or logs:
+
+```bash
+# Generate fields on demand - exactly what you requested!
+yarn start generate-fields -n 4000 --categories behavioral_analytics
+```
+
+**Benefits:**
+- **Clean separation**: Field generation separate from alert/log generation
+- **Simple interface**: No complex multi-step workflows
+- **Multiple outputs**: Console, file, or Elasticsearch
+- **Performance focused**: Optimized for pure field generation
+
+### 🐛 **FIXED: Category Filtering Bug**
+
+**Original Problem:**
+```bash
+# This generated 2,990 fields across ALL categories, ignoring behavioral_analytics filter
+yarn start generate-logs -n 20 --multi-field --field-count 4000 --field-categories behavioral_analytics
+```
+
+**Root Cause:** 
+- Expanded field generator ignored category filtering for field counts >1000
+- Always generated across all 5 categories regardless of `--field-categories` parameter
+
+**✅ Solution Implemented:**
+- Updated `generateExpandedFieldTemplates()` to respect category filtering
+- Fixed `MultiFieldGenerator` to pass categories to expansion engine
+- Category filtering now works correctly for ANY field count (1-50,000)
+
+**Now Works Correctly:**
+```bash
+# Generates exactly 4000 behavioral_analytics fields (not 2,990 across all categories)
+yarn start generate-fields -n 4000 --categories behavioral_analytics
+```
+
+### 🔧 **Code Quality Improvements**
+
+**Removed Code Duplication:**
+- Eliminated 3x duplicated multi-field generation logic in `generateAlerts`
+- Created `applyMultiFieldGeneration()` helper function
+- Cleaner, more maintainable codebase
+
+**Architecture Simplification:**
+- Separated concerns: field generation vs alert/log generation
+- Reduced cognitive complexity in main generation functions
+- Better error handling and performance optimization
 
 ## 🎉 Benefits Summary
 

@@ -23,7 +23,40 @@ import {
   applyFalsePositiveLogic,
   generateFalsePositiveStats,
 } from '../utils/false_positive_generator';
-import { MultiFieldGenerator } from '../utils/multi_field_generator';
+import { generateFields } from './generate_fields';
+
+/**
+ * Helper function to apply multi-field generation to alerts
+ * Now uses the improved standalone field generation system
+ */
+async function applyMultiFieldGeneration<T extends Record<string, any>>(
+  alert: T,
+  multiFieldConfig?: {
+    fieldCount: number;
+    categories?: string[];
+    performanceMode?: boolean;
+    contextWeightEnabled?: boolean;
+    correlationEnabled?: boolean;
+  },
+  useMitre = false,
+): Promise<T> {
+  if (!multiFieldConfig) {
+    return alert;
+  }
+
+  // Use the new improved field generation system
+  const result = await generateFields({
+    fieldCount: multiFieldConfig.fieldCount,
+    categories: multiFieldConfig.categories,
+    outputFormat: 'json',
+    sampleDocument: alert,
+    includeMetadata: false,
+    createMapping: false, // Don't create mapping here - handled at index level
+    updateTemplate: false, // Don't create template here - handled at index level
+  });
+
+  return { ...alert, ...result.fields } as T;
+}
 
 const generateDocs = async ({
   createDocs,
@@ -329,7 +362,7 @@ export const generateAlerts = async (
   const batchSize = 2500; // number of alerts in a batch
   const no_overrides = {};
 
-  const batchOpForIndex = ({
+  const batchOpForIndex = async ({
     userName,
     hostName,
   }: {
@@ -344,26 +377,7 @@ export const generateAlerts = async (
     });
 
     // Apply multi-field generation if enabled
-    if (multiFieldConfig) {
-      const multiFieldGenerator = new MultiFieldGenerator({
-        fieldCount: multiFieldConfig.fieldCount,
-        categories: multiFieldConfig.categories,
-        performanceMode: multiFieldConfig.performanceMode,
-        contextWeightEnabled: multiFieldConfig.contextWeightEnabled,
-        correlationEnabled: multiFieldConfig.correlationEnabled,
-        useExpandedFields: multiFieldConfig.fieldCount > 1000,
-        expandedFieldCount: Math.max(multiFieldConfig.fieldCount * 2, 10000),
-      });
-
-      const result = multiFieldGenerator.generateFields(alert, {
-        logType: 'security',
-        isAttack: true, // Alerts typically represent security incidents
-        severity: 'medium', // Default severity for alerts
-      });
-
-      // Merge multi-fields into the alert
-      alert = { ...alert, ...result.fields };
-    }
+    alert = await applyMultiFieldGeneration(alert, multiFieldConfig, useMitre);
 
     // Apply false positive logic if enabled
     if (falsePositiveRate > 0) {
@@ -433,7 +447,7 @@ export const generateAlerts = async (
       const operations: unknown[] = [];
 
       for (const alertEntity of alertBatch) {
-        const batchOps = batchOpForIndex(alertEntity);
+        const batchOps = await batchOpForIndex(alertEntity);
         operations.push(...batchOps);
         progress.increment();
       }
@@ -556,30 +570,11 @@ export const generateAlerts = async (
 
           // Apply multi-field generation if enabled
           if (multiFieldConfig) {
-            const multiFieldGenerator = new MultiFieldGenerator({
-              fieldCount: multiFieldConfig.fieldCount,
-              categories: multiFieldConfig.categories,
-              performanceMode: multiFieldConfig.performanceMode,
-              contextWeightEnabled: multiFieldConfig.contextWeightEnabled,
-              correlationEnabled: multiFieldConfig.correlationEnabled,
-              useExpandedFields: multiFieldConfig.fieldCount > 1000,
-              expandedFieldCount: Math.max(
-                multiFieldConfig.fieldCount * 2,
-                10000,
-              ),
-            });
-
-            generatedAlerts = generatedAlerts.map((alert) => {
-              const alertRecord = alert as Record<string, any>;
-              const result = multiFieldGenerator.generateFields(alert, {
-                logType: 'security',
-                isAttack:
-                  useMitre || alertRecord['threat.technique.id'] !== undefined,
-                severity: alertRecord['event.severity'] || 'medium',
-              });
-
-              return { ...alert, ...result.fields };
-            });
+            generatedAlerts = await Promise.all(
+              generatedAlerts.map((alert) => 
+                applyMultiFieldGeneration(alert, multiFieldConfig, useMitre)
+              )
+            );
           }
 
           // Apply false positive logic if enabled
@@ -712,7 +707,7 @@ export const generateAlerts = async (
   const allGeneratedAlerts: BaseCreateAlertsReturnType[] = []; // Collect all alerts for statistics
 
   // Modified batchOpForIndex to collect alerts
-  const batchOpForIndexWithCollection = ({
+  const batchOpForIndexWithCollection = async ({
     userName,
     hostName,
   }: {
@@ -727,26 +722,7 @@ export const generateAlerts = async (
     });
 
     // Apply multi-field generation if enabled
-    if (multiFieldConfig) {
-      const multiFieldGenerator = new MultiFieldGenerator({
-        fieldCount: multiFieldConfig.fieldCount,
-        categories: multiFieldConfig.categories,
-        performanceMode: multiFieldConfig.performanceMode,
-        contextWeightEnabled: multiFieldConfig.contextWeightEnabled,
-        correlationEnabled: multiFieldConfig.correlationEnabled,
-        useExpandedFields: multiFieldConfig.fieldCount > 1000,
-        expandedFieldCount: Math.max(multiFieldConfig.fieldCount * 2, 10000),
-      });
-
-      const result = multiFieldGenerator.generateFields(alert, {
-        logType: 'security',
-        isAttack: true, // Alerts typically represent security incidents
-        severity: 'medium', // Default severity for alerts
-      });
-
-      // Merge multi-fields into the alert
-      alert = { ...alert, ...result.fields };
-    }
+    alert = await applyMultiFieldGeneration(alert, multiFieldConfig, useMitre);
 
     // Apply false positive logic if enabled
     if (falsePositiveRate > 0) {
@@ -760,25 +736,27 @@ export const generateAlerts = async (
     return alertToBatchOps(alert, getAlertIndex(space));
   };
 
-  const operationBatches = chunk(alertEntityNames, batchSize).map((batch) =>
-    batch.flatMap(batchOpForIndexWithCollection),
-  );
+  console.log('Batching and generating operations...');
 
-  console.log('Batching complete. Sending to ES...');
-
+  const entityBatches = chunk(alertEntityNames, batchSize);
   console.log(
-    `Sending in ${operationBatches.length} batches of ${batchSize} alerts, with up to ${concurrency} batches in parallel\n\n`,
+    `Sending in ${entityBatches.length} batches of ${batchSize} alerts, with up to ${concurrency} batches in parallel\n\n`,
   );
   const progress = new cliProgress.SingleBar(
     {},
     cliProgress.Presets.shades_classic,
   );
 
-  progress.start(operationBatches.length, 0);
+  progress.start(entityBatches.length, 0);
 
   await pMap(
-    operationBatches,
-    async (operations) => {
+    entityBatches,
+    async (batch) => {
+      const operations = [];
+      for (const entity of batch) {
+        const batchOps = await batchOpForIndexWithCollection(entity);
+        operations.push(...batchOps);
+      }
       await bulkUpsert(operations);
       progress.increment();
     },
@@ -1055,30 +1033,12 @@ export const generateLogs = async (
 
       // Apply multi-field generation if enabled
       if (multiFieldConfig) {
-        const multiFieldGenerator = new MultiFieldGenerator({
+        const result = await generateFields({
           fieldCount: multiFieldConfig.fieldCount,
           categories: multiFieldConfig.categories,
-          performanceMode: multiFieldConfig.performanceMode,
-          contextWeightEnabled: multiFieldConfig.contextWeightEnabled,
-          correlationEnabled: multiFieldConfig.correlationEnabled,
-          useExpandedFields: multiFieldConfig.fieldCount > 1000,
-          expandedFieldCount: multiFieldConfig.fieldCount, // Use actual requested count, not double
-        });
-
-        const logType = log['data_stream.dataset']?.includes('auth')
-          ? 'auth'
-          : log['data_stream.dataset']?.includes('network')
-            ? 'network'
-            : log['data_stream.dataset']?.includes('endpoint')
-              ? 'endpoint'
-              : 'system';
-
-        const result = multiFieldGenerator.generateFields(log, {
-          logType,
-          isAttack:
-            log['threat.technique.id'] !== undefined ||
-            log['event.action']?.includes('suspicious'),
-          severity: log['event.severity'] || log['log.level'] || 'info',
+          outputFormat: 'json',
+          sampleDocument: log,
+          includeMetadata: false,
         });
 
         // Merge multi-fields into the log

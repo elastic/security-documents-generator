@@ -74,6 +74,7 @@ A powerful tool for generating realistic security scenarios with complete forens
 | **`generate-alerts --environments`** | **🌍 Multi-environment alerts** | `yarn start generate-alerts -n 100 --environments 50 --namespace prod` |
 | **`generate-logs --environments`** | **🌍 Multi-environment logs** | `yarn start generate-logs -n 1000 --environments 25 --namespace staging` |
 | **`generate-campaign --realistic`** | **🌟 Complete attack scenarios** | `yarn start generate-campaign apt --realistic --mitre` |
+| **`generate-fields`** | **🔬 Generate fields on demand** | `yarn start generate-fields -n 4000 --categories behavioral_analytics` |
 | **`generate-alerts --multi-field`** | **🔬 Alerts with 10,000+ fields** | `yarn start generate-alerts -n 100 --multi-field --field-count 10000` |
 | `generate-logs --multi-field` | Source logs with enriched fields | `yarn start generate-logs -n 1000 --multi-field --field-count 200` |
 | `generate-campaign` | Multi-stage attack campaigns | `yarn start generate-campaign ransomware --mitre` |
@@ -96,6 +97,41 @@ A powerful tool for generating realistic security scenarios with complete forens
 | `yarn start generate-logs -n 1000 --multi-field --field-count 500` | 1000 logs + 500 fields each | <5 seconds |
 | `yarn start generate-campaign apt --multi-field --field-count 300` | APT campaign + 300 enriched fields | <10 seconds |
 | **`yarn start generate-campaign ransomware --environments 25 --multi-field --field-count 5000`** | **🌟 Enterprise ransomware across 25 environments + 5,000 fields** | **<30 seconds** |
+
+### 🔬 **Standalone Field Generation**
+Generate security fields on demand without alerts or logs:
+
+| Command | Result | Use Case |
+|---------|--------|----------|
+| `yarn start generate-fields -n 1000` | 1000 fields across all categories | Development/testing |
+| `yarn start generate-fields -n 4000 --categories behavioral_analytics` | 4000 behavioral analytics fields | SOC training |
+| `yarn start generate-fields -n 10000 --categories threat_intelligence,security_scores` | 10000 threat + security fields | Detection rule testing |
+| `yarn start generate-fields -n 500 --output file --filename security-fields.json` | Save 500 fields to file | Data analysis |
+| `yarn start generate-fields -n 2000 --output elasticsearch --index test-fields` | Index 2000 fields to Elasticsearch | Integration testing |
+
+**✅ Fixes Original Issue**: Category filtering now works correctly for any field count (1-50,000)
+
+### 🗺️ **Elasticsearch Mapping Setup**
+Ensure multi-field data appears properly in Kibana (not as unmapped fields):
+
+| Command | Result | Use Case |
+|---------|--------|----------|
+| `yarn start setup-mappings` | Creates component templates for future indices | **Run once for new environments** |
+| `yarn start update-mapping` | **Updates existing indices with field mappings** | **Fix existing unmapped fields** |
+| **Benefits:** | **Proper field visualization in Kibana** | **Better query performance and aggregations** |
+
+**🔧 Workflow for Existing Data:**
+```bash
+# 1. Generate multi-field data first
+yarn start generate-alerts -n 10 --multi-field --field-count 4000 --field-categories behavioral_analytics
+
+# 2. Fix unmapped fields in existing indices
+yarn start update-mapping
+
+# 3. Refresh field list in Kibana (Stack Management → Index Patterns → Refresh)
+```
+
+**⚠️ Important**: If you see unmapped fields in Kibana, run `update-mapping` to fix existing indices.
 
 ### 🧠 Knowledge Base Commands
 | Command | Description | Example |
