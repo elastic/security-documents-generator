@@ -140,6 +140,16 @@ program
     'optimize multi-field generation for speed over variety (requires --multi-field)',
     false,
   )
+  .option(
+    '--create-cases',
+    'create security cases and attach alerts to them',
+    false,
+  )
+  .option(
+    '--alerts-per-case <count>',
+    'number of alerts to attach per case (requires --create-cases)',
+    '5',
+  )
   .description(
     'Generate AI-powered security alerts with optional MITRE ATT&CK scenarios',
   )
@@ -160,6 +170,21 @@ program
       ? options.fieldCategories.split(',').map((c: string) => c.trim())
       : undefined;
     const fieldPerformanceMode = options.fieldPerformanceMode || false;
+    const createCases = options.createCases || false;
+    const alertsPerCase = parseInt(options.alertsPerCase || '5');
+
+    // Validate case options - only check if user explicitly provided alerts-per-case
+    const userProvidedAlertsPerCase = process.argv.includes('--alerts-per-case');
+    if (userProvidedAlertsPerCase && !createCases) {
+      console.error(
+        'Error: --alerts-per-case flag requires --create-cases to be enabled',
+      );
+      process.exit(1);
+    }
+    if (alertsPerCase < 1 || alertsPerCase > 100) {
+      console.error('Error: --alerts-per-case must be between 1 and 100');
+      process.exit(1);
+    }
 
     // Validate false positive rate
     if (falsePositiveRate < 0.0 || falsePositiveRate > 1.0) {
@@ -297,6 +322,14 @@ program
       console.log(`  🎯 Token Reduction: 99%`);
     }
 
+    // Show case configuration if enabled
+    if (createCases) {
+      console.log(`\n🔒 Case Generation Enabled:`);
+      console.log(`  📝 Cases: ${Math.ceil(alertsCount / alertsPerCase)}`);
+      console.log(`  📎 Alerts per Case: ${alertsPerCase}`);
+      console.log(`  🔗 Auto-attach Alerts: Yes`);
+    }
+
     // Create multi-field configuration
     const multiFieldConfig = useMultiField
       ? {
@@ -305,6 +338,15 @@ program
           performanceMode: fieldPerformanceMode,
           contextWeightEnabled: true,
           correlationEnabled: true,
+        }
+      : undefined;
+
+    // Create case configuration
+    const caseOptions = createCases
+      ? {
+          createCases: true,
+          alertsPerCase,
+          caseGroupingStrategy: 'by-severity' as const,
         }
       : undefined;
 
@@ -338,6 +380,7 @@ program
           falsePositiveRate,
           multiFieldConfig,
           envNamespace,
+          caseOptions,
         );
       }
 
@@ -359,6 +402,7 @@ program
         falsePositiveRate,
         multiFieldConfig,
         namespace,
+        caseOptions,
       );
     }
   });
@@ -1728,12 +1772,12 @@ program
     const space = options.space || 'default';
     const namespace = options.namespace || 'default';
     const includeMitre = options.mitre || false;
-    
+
     // Parse categories if provided
     let categories: string[] = [];
     if (options.categories) {
       categories = options.categories.split(',').map((c: string) => c.trim());
-      
+
       // Validate categories
       const validCategories = [
         'threat_intelligence',
@@ -1747,7 +1791,7 @@ program
         'malware_analysis',
         'behavioral_analytics'
       ];
-      
+
       const invalidCategories = categories.filter(
         (cat: string) => !validCategories.includes(cat),
       );
@@ -1808,27 +1852,187 @@ program
   .action(async (options) => {
     const space = options.space || 'default';
     const namespace = options.namespace || 'default';
-    
+
     try {
       const { getEsClient } = await import('./commands/utils/indices');
       const client = getEsClient();
-      
-      const indexName = space === 'default' 
+
+      const indexName = space === 'default'
         ? `knowledge-base-security-${namespace}`
         : `knowledge-base-security-${space}-${namespace}`;
-      
+
       console.log(`🗑️  Deleting knowledge base documents from: ${indexName}`);
-      
+
       const exists = await client.indices.exists({ index: indexName });
       if (!exists) {
         console.log('⚠️  Knowledge base index does not exist');
         return;
       }
-      
+
       await client.indices.delete({ index: indexName });
       console.log('✅ Knowledge base documents deleted successfully');
     } catch (error) {
       console.error('Error deleting knowledge base documents:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('generate-cases')
+  .description('Generate security cases for investigation and incident response')
+  .option('-n <count>', 'number of cases to generate', '10')
+  .option('-s <space>', 'space to create cases in', 'default')
+  .option(
+    '--namespace <namespace>',
+    'custom namespace for case data (default: default)',
+    'default',
+  )
+  .option(
+    '--mitre',
+    'include MITRE ATT&CK framework mappings in cases',
+    false,
+  )
+  .option(
+    '--attach-existing-alerts',
+    'attach existing alerts to generated cases',
+    false,
+  )
+  .option(
+    '--alerts-per-case <count>',
+    'number of alerts to attach per case (requires --attach-existing-alerts)',
+    '3',
+  )
+  .option(
+    '--alert-query <query>',
+    'query for selecting alerts to attach (default: all alerts)',
+    '*',
+  )
+  .option(
+    '--environments <count>',
+    'generate cases across multiple environment namespaces',
+    parseIntBase10,
+  )
+  .action(async (options) => {
+    const count = parseInt(options.n || '10');
+    const space = options.space || 'default';
+    const namespace = options.namespace || 'default';
+    const includeMitre = options.mitre || false;
+    const attachExistingAlerts = options.attachExistingAlerts || false;
+    const alertsPerCase = parseInt(options.alertsPerCase || '3');
+    const alertQuery = options.alertQuery || '*';
+    const environments = options.environments || 1;
+
+    // Check if user explicitly set alerts-per-case but not attach-existing-alerts
+    const userProvidedAlertsPerCase = process.argv.includes('--alerts-per-case');
+    if (userProvidedAlertsPerCase && !attachExistingAlerts) {
+      console.error(
+        'Error: --alerts-per-case flag requires --attach-existing-alerts to be enabled',
+      );
+      process.exit(1);
+    }
+    if (alertsPerCase < 1 || alertsPerCase > 50) {
+      console.error('Error: --alerts-per-case must be between 1 and 50');
+      process.exit(1);
+    }
+
+    try {
+      const { createCases } = await import('./create_cases');
+
+      const caseOptions = {
+        count,
+        space,
+        includeMitre,
+        owner: 'securitySolution',
+        attachExistingAlerts,
+        alertsPerCase: attachExistingAlerts ? alertsPerCase : 0,
+        alertQuery,
+        useAI: false,
+        environments,
+        namespace,
+      };
+
+      await createCases(caseOptions);
+    } catch (error) {
+      console.error('Error generating cases:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('generate-cases-from-alerts')
+  .description('Create cases from existing alerts using grouping strategies')
+  .option('-s <space>', 'space to search for alerts and create cases', 'default')
+  .option(
+    '--alert-query <query>',
+    'query for selecting alerts (default: all alerts)',
+    '*',
+  )
+  .option(
+    '--max-alerts-per-case <count>',
+    'maximum alerts to group per case',
+    '5',
+  )
+  .option(
+    '--grouping-strategy <strategy>',
+    'how to group alerts: by-time, by-host, by-rule, by-severity',
+    'by-severity',
+  )
+  .option(
+    '--time-window-hours <hours>',
+    'time window for grouping alerts by time (requires by-time strategy)',
+    '24',
+  )
+  .action(async (options) => {
+    const space = options.space || 'default';
+    const alertQuery = options.alertQuery || '*';
+    const maxAlertsPerCase = parseInt(options.maxAlertsPerCase || '5');
+    const groupingStrategy = options.groupingStrategy || 'by-severity';
+    const timeWindowHours = parseInt(options.timeWindowHours || '24');
+
+    // Validate options
+    const validStrategies = ['by-time', 'by-host', 'by-rule', 'by-severity'];
+    if (!validStrategies.includes(groupingStrategy)) {
+      console.error(
+        `Error: Invalid grouping strategy: ${groupingStrategy}. Valid strategies: ${validStrategies.join(', ')}`,
+      );
+      process.exit(1);
+    }
+    if (maxAlertsPerCase < 1 || maxAlertsPerCase > 100) {
+      console.error('Error: --max-alerts-per-case must be between 1 and 100');
+      process.exit(1);
+    }
+
+    try {
+      const { createCasesFromAlerts } = await import('./create_cases');
+
+      const options_obj = {
+        space,
+        alertQuery,
+        maxAlertsPerCase,
+        groupingStrategy: groupingStrategy as 'by-time' | 'by-host' | 'by-rule' | 'by-severity',
+        owner: 'securitySolution',
+        timeWindowHours,
+      };
+
+      await createCasesFromAlerts(options_obj);
+    } catch (error) {
+      console.error('Error creating cases from alerts:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('delete-cases')
+  .description('Delete all security cases')
+  .option('-s <space>', 'space to delete cases from', 'default')
+  .action(async (options) => {
+    const space = options.space || 'default';
+
+    try {
+      const { deleteAllCases } = await import('./create_cases');
+      await deleteAllCases(space === 'default' ? undefined : space);
+    } catch (error) {
+      console.error('Error deleting cases:', error);
       process.exit(1);
     }
   });

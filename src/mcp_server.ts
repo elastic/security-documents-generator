@@ -25,6 +25,10 @@ import { generateRulesAndAlerts, deleteAllRules } from './commands/rules.js';
 import AttackSimulationEngine from './services/attack_simulation_engine.js';
 import { initializeSpace } from './utils/index.js';
 import { cleanupAIService } from './utils/ai_service.js';
+import { generateFieldsCLI, getAvailableCategories, validateFieldConfig } from './commands/generate_fields.js';
+import { createKnowledgeBaseDocuments } from './create_knowledge_base.js';
+import { setupSecurityMappings } from './commands/setup_mappings.js';
+import { updateSecurityAlertsMapping } from './commands/update_specific_mapping.js';
 
 // Tool interface definitions
 interface SecurityAlertParams {
@@ -114,9 +118,10 @@ interface CorrelatedEventsParams {
 }
 
 interface CleanupParams {
-  type: 'alerts' | 'events' | 'logs' | 'rules';
+  type: 'alerts' | 'events' | 'logs' | 'rules' | 'knowledge_base';
   space?: string;
   logTypes?: string[];
+  namespace?: string;
 }
 
 interface MitreTechniquesParams {
@@ -158,6 +163,40 @@ interface GenerateDetectionRulesParams {
   fromHours?: number;
   gaps?: number;
   clean?: boolean;
+}
+
+interface GenerateFieldsParams {
+  fieldCount?: number;
+  categories?: string[];
+  outputFormat?: 'console' | 'file' | 'elasticsearch';
+  filename?: string;
+  indexName?: string;
+  includeMetadata?: boolean;
+  createMapping?: boolean;
+  updateTemplate?: boolean;
+}
+
+interface GenerateKnowledgeBaseParams {
+  count?: number;
+  includeMitre?: boolean;
+  namespace?: string;
+  space?: string;
+  categories?: string[];
+  accessLevel?: 'public' | 'team' | 'organization' | 'restricted';
+  confidenceThreshold?: number;
+}
+
+interface DeleteKnowledgeBaseParams {
+  space?: string;
+  namespace?: string;
+}
+
+interface SetupMappingsParams {
+  // No parameters needed for setup mappings
+}
+
+interface UpdateMappingParams {
+  indexName?: string;
 }
 
 class SecurityDataMCPServer {
@@ -708,18 +747,23 @@ class SecurityDataMCPServer {
           {
             name: 'cleanup_security_data',
             description:
-              'Clean up generated security data (alerts, events, logs)',
+              'Clean up generated security data (alerts, events, logs, rules, knowledge_base)',
             inputSchema: {
               type: 'object',
               properties: {
                 type: {
                   type: 'string',
-                  enum: ['alerts', 'events', 'logs', 'rules'],
+                  enum: ['alerts', 'events', 'logs', 'rules', 'knowledge_base'],
                   description: 'Type of data to clean up',
                 },
                 space: {
                   type: 'string',
-                  description: 'Kibana space (for alerts/events)',
+                  description: 'Kibana space (for alerts/events/rules/knowledge_base)',
+                },
+                namespace: {
+                  type: 'string',
+                  description: 'Namespace (for knowledge_base)',
+                  default: 'default',
                 },
                 logTypes: {
                   type: 'array',
@@ -898,6 +942,169 @@ class SecurityDataMCPServer {
               },
             },
           },
+          {
+            name: 'generate_fields',
+            description: 'Generate security fields on demand with unlimited field counts and category filtering',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                fieldCount: {
+                  type: 'number',
+                  description: 'Number of fields to generate (1-50,000)',
+                  default: 1000,
+                },
+                categories: {
+                  type: 'array',
+                  items: {
+                    type: 'string',
+                    enum: [
+                      'behavioral_analytics',
+                      'threat_intelligence',
+                      'performance_metrics',
+                      'security_scores',
+                      'audit_compliance',
+                      'network_analytics',
+                      'endpoint_analytics',
+                      'forensics_analysis',
+                      'cloud_security',
+                      'malware_analysis',
+                      'geolocation_intelligence',
+                      'incident_response',
+                    ],
+                  },
+                  description: 'Specific field categories to generate',
+                },
+                outputFormat: {
+                  type: 'string',
+                  enum: ['console', 'file', 'elasticsearch'],
+                  description: 'Output format for generated fields',
+                  default: 'console',
+                },
+                filename: {
+                  type: 'string',
+                  description: 'Filename for file output (requires outputFormat: file)',
+                },
+                indexName: {
+                  type: 'string',
+                  description: 'Index name for Elasticsearch output (requires outputFormat: elasticsearch)',
+                  default: 'generated-fields-sample',
+                },
+                includeMetadata: {
+                  type: 'boolean',
+                  description: 'Include generation metadata in output',
+                  default: true,
+                },
+                createMapping: {
+                  type: 'boolean',
+                  description: 'Create Elasticsearch mapping for generated fields',
+                  default: true,
+                },
+                updateTemplate: {
+                  type: 'boolean',
+                  description: 'Update index template with field mappings',
+                  default: true,
+                },
+              },
+            },
+          },
+          {
+            name: 'generate_knowledge_base',
+            description: 'Generate AI Assistant Knowledge Base documents with ELSER v2 semantic search and suggested questions',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                count: {
+                  type: 'number',
+                  description: 'Number of knowledge base documents to generate',
+                  default: 20,
+                },
+                includeMitre: {
+                  type: 'boolean',
+                  description: 'Include MITRE ATT&CK framework mappings',
+                  default: false,
+                },
+                namespace: {
+                  type: 'string',
+                  description: 'Custom namespace for knowledge base indices',
+                  default: 'default',
+                },
+                space: {
+                  type: 'string',
+                  description: 'Kibana space name',
+                  default: 'default',
+                },
+                categories: {
+                  type: 'array',
+                  items: {
+                    type: 'string',
+                    enum: [
+                      'threat_intelligence',
+                      'incident_response',
+                      'vulnerability_management',
+                      'network_security',
+                      'endpoint_security',
+                      'cloud_security',
+                      'compliance',
+                      'forensics',
+                      'malware_analysis',
+                      'behavioral_analytics',
+                    ],
+                  },
+                  description: 'Specific knowledge base categories to include',
+                },
+                accessLevel: {
+                  type: 'string',
+                  enum: ['public', 'team', 'organization', 'restricted'],
+                  description: 'Access level for generated documents',
+                },
+                confidenceThreshold: {
+                  type: 'number',
+                  description: 'Minimum confidence threshold (0.0-1.0)',
+                  default: 0.0,
+                },
+              },
+            },
+          },
+          {
+            name: 'delete_knowledge_base',
+            description: 'Delete knowledge base documents from specified space and namespace',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                space: {
+                  type: 'string',
+                  description: 'Kibana space to delete from',
+                  default: 'default',
+                },
+                namespace: {
+                  type: 'string',
+                  description: 'Namespace to delete from',
+                  default: 'default',
+                },
+              },
+            },
+          },
+          {
+            name: 'setup_mappings',
+            description: 'Setup Elasticsearch mappings for security indices to ensure proper field visualization in Kibana',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+            },
+          },
+          {
+            name: 'update_mapping',
+            description: 'Update existing indices with comprehensive field mappings to fix unmapped fields in Kibana',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                indexName: {
+                  type: 'string',
+                  description: 'Specific index name to update (optional - will auto-detect security indices if not provided)',
+                },
+              },
+            },
+          },
         ],
       };
     });
@@ -955,6 +1162,31 @@ class SecurityDataMCPServer {
           case 'generate_detection_rules':
             return await this.handleGenerateDetectionRules(
               args as GenerateDetectionRulesParams,
+            );
+
+          case 'generate_fields':
+            return await this.handleGenerateFields(
+              args as GenerateFieldsParams,
+            );
+
+          case 'generate_knowledge_base':
+            return await this.handleGenerateKnowledgeBase(
+              args as GenerateKnowledgeBaseParams,
+            );
+
+          case 'delete_knowledge_base':
+            return await this.handleDeleteKnowledgeBase(
+              args as DeleteKnowledgeBaseParams,
+            );
+
+          case 'setup_mappings':
+            return await this.handleSetupMappings(
+              args as SetupMappingsParams,
+            );
+
+          case 'update_mapping':
+            return await this.handleUpdateMapping(
+              args as UpdateMappingParams,
             );
 
           default:
@@ -1624,6 +1856,7 @@ Perfect for security analyst training and detection rule testing.`,
     const {
       type,
       space,
+      namespace = 'default',
       logTypes = ['system', 'auth', 'network', 'endpoint'],
     } = params;
 
@@ -1671,6 +1904,9 @@ Perfect for security analyst training and detection rule testing.`,
             },
           ],
         };
+
+      case 'knowledge_base':
+        return await this.handleDeleteKnowledgeBase({ space, namespace });
 
       default:
         throw new Error(`Unknown cleanup type: ${type}`);
@@ -1867,6 +2103,291 @@ Rules and events are ready for testing in Kibana Security app.`,
         },
       ],
     };
+  }
+
+  private async handleGenerateFields(params: GenerateFieldsParams) {
+    const {
+      fieldCount = 1000,
+      categories,
+      outputFormat = 'console',
+      filename,
+      indexName = 'generated-fields-sample',
+      includeMetadata = true,
+      createMapping = true,
+      updateTemplate = true,
+    } = params;
+
+    // Validate parameters
+    if (fieldCount < 1 || fieldCount > 50000) {
+      throw new Error('fieldCount must be between 1 and 50,000');
+    }
+
+    if (categories) {
+      const validCategories = getAvailableCategories();
+      const invalidCategories = categories.filter(cat => !validCategories.includes(cat));
+      if (invalidCategories.length > 0) {
+        throw new Error(`Invalid categories: ${invalidCategories.join(', ')}. Valid: ${validCategories.join(', ')}`);
+      }
+    }
+
+    if (outputFormat === 'file' && !filename) {
+      throw new Error('filename is required when outputFormat is "file"');
+    }
+
+    console.error(`[MCP] Generating ${fieldCount} fields...`);
+    if (categories) {
+      console.error(`[MCP] Categories: ${categories.join(', ')}`);
+    }
+
+    try {
+      await generateFieldsCLI(fieldCount, categories, {
+        output: outputFormat,
+        filename,
+        indexName,
+        includeMetadata,
+        createMapping,
+        updateTemplate,
+      });
+
+      const categoryText = categories ? ` focused on ${categories.join(', ')}` : '';
+      const outputText = outputFormat === 'elasticsearch'
+        ? `indexed to ${indexName}`
+        : outputFormat === 'file'
+          ? `saved to ${filename}`
+          : 'displayed in console';
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `🔬 Successfully generated ${fieldCount} security fields${categoryText}!
+
+📊 Fields Generated: ${fieldCount}
+📁 Categories: ${categories ? categories.join(', ') : 'all'}
+📄 Output: ${outputText}
+${outputFormat === 'elasticsearch' ? `🗺️ Mapping created: ${createMapping}` : ''}
+${outputFormat === 'elasticsearch' ? `📋 Template updated: ${updateTemplate}` : ''}
+⚡ Token Reduction: 99% (algorithmic generation)
+
+Perfect for development, testing, and security analytics enhancement.`,
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Field generation failed: ${errorMessage}`);
+    }
+  }
+
+  private async handleGenerateKnowledgeBase(params: GenerateKnowledgeBaseParams) {
+    const {
+      count = 20,
+      includeMitre = false,
+      namespace = 'default',
+      space = 'default',
+      categories = [],
+      accessLevel,
+      confidenceThreshold = 0.0,
+    } = params;
+
+    // Validate parameters
+    if (count < 1 || count > 1000) {
+      throw new Error('count must be between 1 and 1,000');
+    }
+
+    if (confidenceThreshold < 0.0 || confidenceThreshold > 1.0) {
+      throw new Error('confidenceThreshold must be between 0.0 and 1.0');
+    }
+
+    const validCategories = [
+      'threat_intelligence',
+      'incident_response',
+      'vulnerability_management',
+      'network_security',
+      'endpoint_security',
+      'cloud_security',
+      'compliance',
+      'forensics',
+      'malware_analysis',
+      'behavioral_analytics',
+    ];
+
+    if (categories.length > 0) {
+      const invalidCategories = categories.filter(cat => !validCategories.includes(cat));
+      if (invalidCategories.length > 0) {
+        throw new Error(`Invalid categories: ${invalidCategories.join(', ')}. Valid: ${validCategories.join(', ')}`);
+      }
+    }
+
+    console.error(`[MCP] Generating ${count} knowledge base documents...`);
+    console.error(`[MCP] Categories: ${categories.length > 0 ? categories.join(', ') : 'all'}`);
+    console.error(`[MCP] MITRE integration: ${includeMitre}`);
+
+    try {
+      await createKnowledgeBaseDocuments({
+        count,
+        includeMitre,
+        namespace,
+        space,
+        categories,
+        accessLevel,
+        confidenceThreshold,
+      });
+
+      const indexName = space === 'default'
+        ? `knowledge-base-security-${namespace}`
+        : `knowledge-base-security-${space}-${namespace}`;
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `🧠 Successfully generated ${count} Knowledge Base documents!
+
+📚 Documents: ${count}
+📁 Categories: ${categories.length > 0 ? categories.join(', ') : 'all'}
+🔐 Access Level: ${accessLevel || 'mixed'}
+🎯 MITRE Integration: ${includeMitre ? 'enabled' : 'disabled'}
+📊 Confidence Threshold: ${confidenceThreshold}
+📍 Index: ${indexName}
+
+Features:
+✅ ELSER v2 semantic text fields for AI Assistant
+✅ Suggested questions optimized for AI interactions
+✅ Rich security content with proper categorization
+✅ MITRE ATT&CK technique mappings (if enabled)
+
+Ready for Elastic AI Assistant knowledge base integration!`,
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Knowledge base generation failed: ${errorMessage}`);
+    }
+  }
+
+  private async handleDeleteKnowledgeBase(params: DeleteKnowledgeBaseParams) {
+    const { space = 'default', namespace = 'default' } = params;
+
+    try {
+      const { getEsClient } = await import('./commands/utils/indices.js');
+      const client = getEsClient();
+
+      const indexName = space === 'default'
+        ? `knowledge-base-security-${namespace}`
+        : `knowledge-base-security-${space}-${namespace}`;
+
+      console.error(`[MCP] Deleting knowledge base documents from: ${indexName}`);
+
+      const exists = await client.indices.exists({ index: indexName });
+      if (!exists) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `⚠️ Knowledge base index does not exist: ${indexName}
+
+No action needed - the knowledge base is already clean.`,
+            },
+          ],
+        };
+      }
+
+      await client.indices.delete({ index: indexName });
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `✅ Successfully deleted knowledge base documents!
+
+🗑️ Deleted Index: ${indexName}
+📍 Space: ${space}
+📁 Namespace: ${namespace}
+
+All knowledge base documents have been removed from this environment.`,
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Knowledge base deletion failed: ${errorMessage}`);
+    }
+  }
+
+  private async handleSetupMappings(_params: SetupMappingsParams) {
+    console.error('[MCP] Setting up Elasticsearch mappings for security fields...');
+
+    try {
+      await setupSecurityMappings();
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `🔧 Successfully setup Elasticsearch mappings for security fields!
+
+✅ Updated existing security indices with proper field mappings
+✅ Created component template: security-multi-fields-component
+✅ Configured field limits for enterprise-scale generation
+
+Benefits:
+🎯 Multi-field data will be properly typed in Kibana
+🔍 Fields will appear in field browser instead of unmapped
+📊 Proper visualization and aggregation support
+⚡ Better query performance with correct field types
+
+Next steps:
+1. Refresh field list in Kibana (Stack Management → Index Patterns → Refresh)
+2. New multi-field data will automatically use proper mappings
+3. Consider reindexing existing data for best results`,
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Mapping setup failed: ${errorMessage}`);
+    }
+  }
+
+  private async handleUpdateMapping(params: UpdateMappingParams) {
+    const { indexName } = params;
+
+    console.error('[MCP] Updating existing indices with comprehensive field mappings...');
+
+    try {
+      await updateSecurityAlertsMapping(indexName);
+
+      const targetText = indexName ? `index ${indexName}` : 'auto-detected security indices';
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `🗺️ Successfully updated field mappings for ${targetText}!
+
+✅ Applied comprehensive behavioral analytics field mappings
+✅ Updated existing indices to recognize multi-field data
+✅ Fixed unmapped field issues in Kibana
+
+Benefits:
+🔍 Previously unmapped fields now properly recognized
+📊 Enhanced visualization and aggregation capabilities
+⚡ Improved query performance with correct field types
+🎯 Better compatibility with existing multi-field data
+
+Next steps:
+1. Refresh field list in Kibana (Stack Management → Index Patterns → Refresh)
+2. Fields should now appear as mapped instead of unmapped
+3. Consider reindexing for optimal visualization of existing data`,
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Mapping update failed: ${errorMessage}`);
+    }
   }
 
   async run(): Promise<void> {

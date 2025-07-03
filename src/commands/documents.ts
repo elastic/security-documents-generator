@@ -24,6 +24,8 @@ import {
   generateFalsePositiveStats,
 } from '../utils/false_positive_generator';
 import { generateFields } from './generate_fields';
+import { createCases, CaseCreationOptions } from '../create_cases';
+import { generateCaseFromAlert } from '../generators/case_generator';
 
 /**
  * Helper function to apply multi-field generation to alerts
@@ -313,6 +315,11 @@ export const generateAlerts = async (
     correlationEnabled?: boolean;
   },
   _namespace = 'default',
+  caseOptions?: {
+    createCases?: boolean;
+    alertsPerCase?: number;
+    caseGroupingStrategy?: 'by-time' | 'by-host' | 'by-rule' | 'by-severity';
+  },
 ) => {
   if (userCount > alertCount) {
     console.log('User count should be less than alert count');
@@ -780,6 +787,39 @@ export const generateAlerts = async (
     Object.entries(stats.categories).forEach(([category, count]) => {
       console.log(`     • ${category}: ${count}`);
     });
+  }
+
+  // Create cases if requested
+  if (caseOptions?.createCases && caseOptions.alertsPerCase && caseOptions.alertsPerCase > 0) {
+    console.log(`\n🔒 Creating cases for generated alerts...`);
+    
+    const caseCount = Math.ceil(alertCount / caseOptions.alertsPerCase);
+    console.log(`📊 Creating ${caseCount} cases (${caseOptions.alertsPerCase} alerts per case)`);
+    
+    try {
+      // Create cases that will automatically attach existing alerts
+      const caseCreationOptions: CaseCreationOptions = {
+        count: caseCount,
+        space,
+        includeMitre: useMitre,
+        owner: 'securitySolution',
+        attachExistingAlerts: true,
+        alertsPerCase: caseOptions.alertsPerCase,
+        alertQuery: '*', // Attach any alerts in the space
+        useAI,
+        timestampConfig,
+        namespace: _namespace
+      };
+      
+      const createdCases = await createCases(caseCreationOptions);
+      
+      console.log(`✅ Created ${createdCases.length} security cases`);
+      console.log(`🔗 Cases automatically linked to ${alertCount} alerts`);
+      
+    } catch (error) {
+      console.error('❌ Error creating cases:', error);
+      console.log('⚠️ Alert generation completed successfully, but case creation failed');
+    }
   }
 
   // Cleanup AI service to allow process to exit cleanly

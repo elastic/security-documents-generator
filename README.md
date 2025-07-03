@@ -237,7 +237,7 @@ Generate comprehensive security knowledge documents optimized for Elastic AI Ass
 # Generate comprehensive security knowledge base
 yarn start generate-knowledge-base -n 30 --categories threat_intelligence,incident_response,vulnerability_management
 
-# High-confidence public security documentation  
+# High-confidence public security documentation
 yarn start generate-knowledge-base -n 25 --access-level public --confidence-threshold 0.9
 
 # Knowledge base with MITRE ATT&CK framework integration

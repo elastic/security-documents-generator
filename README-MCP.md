@@ -236,14 +236,81 @@ Generate detection rules and test events.
 - `gaps` (number): Amount of gaps per rule (default: 0)
 - `clean` (boolean): Clean gap events before generating rules (default: false)
 
+### `generate_fields`
+Generate security fields on demand with unlimited field counts and category filtering.
+
+**Parameters:**
+- `fieldCount` (number): Number of fields to generate (1-50,000, default: 1000)
+- `categories` (array): Specific field categories to generate from:
+  - `behavioral_analytics` - User/host behavior analysis
+  - `threat_intelligence` - IoC matches, reputation scores 
+  - `performance_metrics` - CPU, memory, network utilization
+  - `security_scores` - Risk assessments, vulnerability scores
+  - `audit_compliance` - Audit trails, compliance checks
+  - `network_analytics` - Connection analysis, DNS queries
+  - `endpoint_analytics` - Process injection, lateral movement
+  - `forensics_analysis` - Digital forensics, timeline reconstruction
+  - `cloud_security` - Cloud provider security monitoring
+  - `malware_analysis` - Malware behavior, infection chains
+  - `geolocation_intelligence` - Geographic threat data
+  - `incident_response` - Response metrics, containment tracking
+- `outputFormat` (string): Output format: "console", "file", "elasticsearch" (default: "console")
+- `filename` (string): Filename for file output (required if outputFormat is "file")
+- `indexName` (string): Index name for Elasticsearch output (default: "generated-fields-sample")
+- `includeMetadata` (boolean): Include generation metadata (default: true)
+- `createMapping` (boolean): Create Elasticsearch mapping (default: true)
+- `updateTemplate` (boolean): Update index template (default: true)
+
+### `generate_knowledge_base`
+Generate AI Assistant Knowledge Base documents with ELSER v2 semantic search and suggested questions.
+
+**Parameters:**
+- `count` (number): Number of knowledge base documents to generate (default: 20)
+- `includeMitre` (boolean): Include MITRE ATT&CK framework mappings (default: false)
+- `namespace` (string): Custom namespace for knowledge base indices (default: "default")
+- `space` (string): Kibana space name (default: "default")
+- `categories` (array): Specific knowledge base categories to include:
+  - `threat_intelligence` - IOC analysis, APT profiles, campaign tracking
+  - `incident_response` - Playbooks, procedures, escalation matrices
+  - `vulnerability_management` - CVE analysis, patch management
+  - `network_security` - Firewall rules, IDS signatures, traffic analysis
+  - `endpoint_security` - EDR rules, behavioral patterns, process monitoring
+  - `cloud_security` - AWS/Azure/GCP security, container monitoring
+  - `compliance` - PCI DSS, SOX, GDPR, HIPAA frameworks
+  - `forensics` - Memory analysis, disk forensics, network forensics
+  - `malware_analysis` - Static/dynamic analysis, reverse engineering
+  - `behavioral_analytics` - User analytics, entity analytics, anomaly detection
+- `accessLevel` (string): Access level: "public", "team", "organization", "restricted"
+- `confidenceThreshold` (number): Minimum confidence threshold (0.0-1.0, default: 0.0)
+
+### `delete_knowledge_base`
+Delete knowledge base documents from specified space and namespace.
+
+**Parameters:**
+- `space` (string): Kibana space to delete from (default: "default")
+- `namespace` (string): Namespace to delete from (default: "default")
+
+### `setup_mappings`
+Setup Elasticsearch mappings for security indices to ensure proper field visualization in Kibana.
+
+**Parameters:**
+- No parameters required
+
+### `update_mapping`
+Update existing indices with comprehensive field mappings to fix unmapped fields in Kibana.
+
+**Parameters:**
+- `indexName` (string): Specific index name to update (optional - will auto-detect security indices if not provided)
+
 ### `cleanup_security_data`
-Clean up generated security data including detection rules.
+Clean up generated security data including detection rules and knowledge base.
 
 **🆕 NEW Parameters:**
-- `type` (required): 'alerts', 'events', 'logs', or **'rules'**
+- `type` (required): 'alerts', 'events', 'logs', 'rules', or **'knowledge_base'**
+- `namespace` (string): Namespace for knowledge base cleanup (default: "default")
 
 **Existing Parameters:**
-- `space` (string): Kibana space (for alerts/events/rules)
+- `space` (string): Kibana space (for alerts/events/rules/knowledge_base)
 - `logTypes` (array): Types of logs to delete
 
 ### `get_mitre_techniques`
@@ -351,6 +418,57 @@ Generate 10 detection rules with 100 test events each, use 2-hour lookback windo
 Create 25 detection rules with 200 events each, clean existing rules first, use 1-day lookback for comprehensive performance testing
 ```
 
+### 🔬 **Standalone Field Generation**
+
+**High-Volume Field Testing**
+```
+Generate 10000 security fields focused on behavioral analytics and threat intelligence categories with elasticsearch output to index "field-test-index"
+```
+
+**Development Dataset Creation**
+```
+Generate 5000 fields across all categories with file output to "security-fields.json" including metadata and mapping creation
+```
+
+**Category-Specific Generation**
+```
+Generate 2000 fields focusing only on forensics analysis and cloud security categories for specialized testing
+```
+
+### 🧠 **AI Assistant Knowledge Base**
+
+**Comprehensive Security Knowledge Base**
+```
+Generate 50 knowledge base documents with MITRE ATT&CK integration covering threat intelligence, incident response, and vulnerability management categories
+```
+
+**High-Confidence Public Documentation**
+```
+Generate 30 knowledge base documents with public access level and confidence threshold of 0.8 for external knowledge sharing
+```
+
+**Specialized Security Domain Knowledge**
+```
+Generate 25 knowledge base documents focused on malware analysis and forensics categories with organization access level
+```
+
+### 🛠️ **Elasticsearch Mapping Management**
+
+**Initial Mapping Setup**
+```
+Setup comprehensive Elasticsearch mappings for all security indices to ensure proper field visualization in Kibana
+```
+
+**Fix Unmapped Fields**
+```
+Update existing security alert indices with comprehensive field mappings to resolve unmapped field issues in Kibana
+```
+
+**Targeted Index Mapping Update**
+```
+Update mapping for specific index ".alerts-security.alerts-default-000001" with behavioral analytics field definitions
+```
+
 ### 🧹 **Enterprise Data Management**
 
 **Multi-Environment Cleanup**
@@ -358,9 +476,14 @@ Create 25 detection rules with 200 events each, clean existing rules first, use 
 Clean up all security alerts from environments datacenter-env-001 through datacenter-env-050, then remove all detection rules from the production space
 ```
 
+**Knowledge Base Management**
+```
+Delete knowledge base documents from production space with staging namespace, then clean up all detection rules from the same environment
+```
+
 **Comprehensive Reset**
 ```
-Delete all security data: remove alerts from all spaces, clean up detection rules, remove all log types (system, auth, network, endpoint)
+Delete all security data: remove alerts from all spaces, clean up detection rules, remove knowledge base documents, remove all log types (system, auth, network, endpoint)
 ```
 
 ## 🚀 **Enterprise Architecture & Performance**
@@ -503,6 +626,21 @@ Generate 100 endpoint logs with Session View compatibility
 Test the MITRE ATT&CK integration with 3 alerts, then generate 5 detection rules with 10 events each
 ```
 
+**Test Field Generation**
+```
+Generate 1000 security fields focused on behavioral analytics category with console output
+```
+
+**Test Knowledge Base**
+```
+Generate 10 knowledge base documents with MITRE integration covering threat intelligence and incident response categories
+```
+
+**Test Mapping Tools**
+```
+Setup Elasticsearch mappings for all security indices, then update existing indices with comprehensive field mappings
+```
+
 ### Success Indicators
 
 ✅ **Multi-Environment Responses:**
@@ -523,6 +661,21 @@ Test the MITRE ATT&CK integration with 3 alerts, then generate 5 detection rules
 - "📱 Session View compatibility enabled"
 - "👁️ Visual Event Analyzer compatibility enabled"
 - "🎭 False positive rate: X%"
+
+✅ **Field Generation Responses:**
+- "🔬 Successfully generated X security fields"
+- "📁 Categories: behavioral_analytics, threat_intelligence"
+- "⚡ Token Reduction: 99% (algorithmic generation)"
+
+✅ **Knowledge Base Responses:**
+- "🧠 Successfully generated X Knowledge Base documents"
+- "✅ ELSER v2 semantic text fields for AI Assistant"
+- "✅ Suggested questions optimized for AI interactions"
+
+✅ **Mapping Management Responses:**
+- "🔧 Successfully setup Elasticsearch mappings"
+- "🗺️ Successfully updated field mappings"
+- "✅ Created component template: security-multi-fields-component"
 
 ## 🚨 Security & Compliance
 
