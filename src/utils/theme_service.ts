@@ -8,25 +8,25 @@ import { safeJsonParse } from './error_handling';
 // Themes without fallback data depend on AI generation and fall back to NBA data if AI fails
 export const SUPPORTED_THEMES = [
   // Themes with complete fallback data
-  'nba',          // ✅ Basketball players and teams
-  'soccer',       // ✅ Soccer players and teams
-  'marvel',       // ✅ Marvel superheroes and universe
-  'starwars',     // ✅ Star Wars characters and universe
+  'nba', // ✅ Basketball players and teams
+  'soccer', // ✅ Soccer players and teams
+  'marvel', // ✅ Marvel superheroes and universe
+  'starwars', // ✅ Star Wars characters and universe
   'tech_companies', // ✅ Tech industry leaders and companies
-  'programming',  // ✅ Programming language creators and tools
+  'programming', // ✅ Programming language creators and tools
 
   // Themes with AI-only generation (fall back to NBA if AI fails)
-  'nfl',          // 🤖 American football
-  'mlb',          // 🤖 Baseball
-  'movies',       // 🤖 Movie characters and titles
-  'tv_shows',     // 🤖 TV show characters and titles
-  'gaming',       // 🤖 Video game characters and terms
-  'mythology',    // 🤖 Mythological figures and terms
-  'literature',   // 🤖 Literary characters and authors
-  'history',      // 🤖 Historical figures and events
-  'anime',        // 🤖 Anime characters and series
-  'music',        // 🤖 Musicians and music terms
-  'food',         // 🤖 Food and culinary terms
+  'nfl', // 🤖 American football
+  'mlb', // 🤖 Baseball
+  'movies', // 🤖 Movie characters and titles
+  'tv_shows', // 🤖 TV show characters and titles
+  'gaming', // 🤖 Video game characters and terms
+  'mythology', // 🤖 Mythological figures and terms
+  'literature', // 🤖 Literary characters and authors
+  'history', // 🤖 Historical figures and events
+  'anime', // 🤖 Anime characters and series
+  'music', // 🤖 Musicians and music terms
+  'food', // 🤖 Food and culinary terms
 ] as const;
 
 // Themes that have complete fallback data implementations
@@ -40,10 +40,30 @@ export const THEMES_WITH_FALLBACK = [
 ] as const;
 
 // Data types grouped by usage frequency in the actual codebase
-export const CORE_DATA_TYPES = ['usernames', 'hostnames', 'domains', 'processNames'] as const;
-export const IMPORTANT_DATA_TYPES = ['fileNames', 'ipAddresses', 'fullNames', 'emails'] as const;
-export const SECONDARY_DATA_TYPES = ['organizations', 'eventDescriptions', 'urls'] as const;
-export const LEGACY_DATA_TYPES = ['companyNames', 'applicationNames', 'serviceNames', 'registryKeys', 'filePaths'] as const;
+export const CORE_DATA_TYPES = [
+  'usernames',
+  'hostnames',
+  'domains',
+  'processNames',
+] as const;
+export const IMPORTANT_DATA_TYPES = [
+  'fileNames',
+  'ipAddresses',
+  'fullNames',
+  'emails',
+] as const;
+export const SECONDARY_DATA_TYPES = [
+  'organizations',
+  'eventDescriptions',
+  'urls',
+] as const;
+export const LEGACY_DATA_TYPES = [
+  'companyNames',
+  'applicationNames',
+  'serviceNames',
+  'registryKeys',
+  'filePaths',
+] as const;
 
 // All data types in priority order
 export const ALL_DATA_TYPES = [
@@ -59,28 +79,28 @@ export type Theme = (typeof SUPPORTED_THEMES)[number];
 // Data types are grouped by usage frequency in the codebase
 export interface ThemeConfig {
   // Core data types (heavily used in all log generators)
-  usernames?: Theme;      // 🔥 Used in all log types for authentication/user tracking
-  hostnames?: Theme;      // 🔥 Essential for all infrastructure logging
-  domains?: Theme;        // 🔥 Critical for network security and DNS
-  processNames?: Theme;   // 🔥 Key for endpoint security and system monitoring
+  usernames?: Theme; // 🔥 Used in all log types for authentication/user tracking
+  hostnames?: Theme; // 🔥 Essential for all infrastructure logging
+  domains?: Theme; // 🔥 Critical for network security and DNS
+  processNames?: Theme; // 🔥 Key for endpoint security and system monitoring
 
   // Important data types (frequently used)
-  fileNames?: Theme;      // 🔴 File system monitoring and endpoint logs
-  ipAddresses?: Theme;    // 🔴 Network security and connection tracking
-  fullNames?: Theme;      // 🔴 User identity management and case data
-  emails?: Theme;         // 🔴 User profiles and organizational data
+  fileNames?: Theme; // 🔴 File system monitoring and endpoint logs
+  ipAddresses?: Theme; // 🔴 Network security and connection tracking
+  fullNames?: Theme; // 🔴 User identity management and case data
+  emails?: Theme; // 🔴 User profiles and organizational data
 
   // Secondary data types (moderate usage)
-  organizations?: Theme;  // 🟡 Knowledge base and company references
+  organizations?: Theme; // 🟡 Knowledge base and company references
   eventDescriptions?: Theme; // 🟡 Process descriptions and system events
-  urls?: Theme;           // 🟡 HTTP logs and network analysis
+  urls?: Theme; // 🟡 HTTP logs and network analysis
 
   // Legacy/Rarely used data types (minimal usage)
-  companyNames?: Theme;      // 🟨 Overlap with organizations
-  applicationNames?: Theme;  // 🟨 Limited application generation
-  serviceNames?: Theme;      // 🟨 Limited service generation
-  registryKeys?: Theme;      // 🟨 Windows-specific, limited usage
-  filePaths?: Theme;         // 🟨 Overlap with fileNames
+  companyNames?: Theme; // 🟨 Overlap with organizations
+  applicationNames?: Theme; // 🟨 Limited application generation
+  serviceNames?: Theme; // 🟨 Limited service generation
+  registryKeys?: Theme; // 🟨 Windows-specific, limited usage
+  filePaths?: Theme; // 🟨 Overlap with fileNames
 }
 
 // Parsed theme configuration
@@ -474,7 +494,10 @@ Return as JSON array.`,
         }
       } catch (jsonError) {
         // Try with safeJsonParse as fallback
-        const parsed = safeJsonParse(cleanResponse, 'Theme generation response');
+        const parsed = safeJsonParse(
+          cleanResponse,
+          'Theme generation response',
+        );
         if (Array.isArray(parsed)) {
           data = parsed.filter((item: any) => typeof item === 'string');
         } else if (
@@ -483,7 +506,9 @@ Return as JSON array.`,
           'data' in parsed &&
           Array.isArray((parsed as any).data)
         ) {
-          data = (parsed as any).data.filter((item: any) => typeof item === 'string');
+          data = (parsed as any).data.filter(
+            (item: any) => typeof item === 'string',
+          );
         }
       }
     } catch (error) {
@@ -1427,7 +1452,9 @@ const generateFallbackData = (
     console.warn(warningMsg);
   }
   if (!themeData[dataType]) {
-    console.warn(`Data type '${dataType}' not found for theme '${theme}', using usernames instead`);
+    console.warn(
+      `Data type '${dataType}' not found for theme '${theme}', using usernames instead`,
+    );
   }
 
   // Repeat and pad the data to reach the requested count
@@ -1502,7 +1529,9 @@ export const batchGenerateThemedData = async (
     try {
       results[dataType] = await getThemedData(theme, dataType, count);
     } catch (error) {
-      console.warn(`Failed to generate ${dataType} for theme ${theme}, using fallback`);
+      console.warn(
+        `Failed to generate ${dataType} for theme ${theme}, using fallback`,
+      );
       results[dataType] = generateFallbackData(theme, dataType, count);
     }
   }
@@ -1528,6 +1557,31 @@ export const clearThemeCache = (): void => {
   Object.keys(themeCache).forEach((key) => {
     delete themeCache[key];
   });
+};
+
+/**
+ * Get theme statistics for debugging/monitoring
+ */
+export const getThemeStats = () => {
+  const cacheKeys = Object.keys(themeCache);
+  const cacheStats = cacheKeys.reduce(
+    (stats, key) => {
+      const [theme, dataType] = key.split('-');
+      if (!stats[theme]) stats[theme] = {};
+      if (!stats[theme][dataType]) stats[theme][dataType] = 0;
+      stats[theme][dataType]++;
+      return stats;
+    },
+    {} as Record<string, Record<string, number>>,
+  );
+
+  return {
+    totalCacheEntries: cacheKeys.length,
+    themesWithFallback: THEMES_WITH_FALLBACK.length,
+    totalSupportedThemes: SUPPORTED_THEMES.length,
+    cacheByTheme: cacheStats,
+    uptime: Date.now(),
+  };
 };
 
 /**
@@ -1557,3 +1611,46 @@ For example:
 Ensure themed data is appropriate for a professional security testing environment.
 `;
 };
+
+/**
+ * Theme Usage Best Practices and Guidelines
+ *
+ * RECOMMENDED THEMES (with fallback data):
+ * - 'nba', 'soccer', 'marvel', 'starwars', 'tech_companies', 'programming'
+ * These themes work reliably even when AI fails.
+ *
+ * AI-ONLY THEMES (require internet/AI):
+ * - 'nfl', 'mlb', 'movies', 'tv_shows', 'gaming', 'mythology', 'literature', 'history', 'anime', 'music', 'food'
+ * These fall back to NBA data if AI generation fails.
+ *
+ * CORE DATA TYPES (most used):
+ * - usernames, hostnames, domains, processNames
+ *
+ * USAGE EXAMPLES:
+ *
+ * Basic theme:
+ * yarn start generate-logs -n 10 --theme soccer
+ *
+ * Mixed themes:
+ * yarn start generate-logs -n 10 --theme "usernames:soccer,hostnames:tech_companies"
+ *
+ * PERFORMANCE TIPS:
+ * - Use themes with fallback data for production/reliable environments
+ * - AI-only themes work best with good internet connectivity
+ * - Mixed themes allow granular control over different data types
+ * - Cache TTL is 30 minutes, so repeated calls are fast
+ *
+ * TROUBLESHOOTING:
+ * - If you see "using NBA theme as fallback" warnings, either:
+ *   1. Check your internet connection for AI themes
+ *   2. Use a theme with fallback data instead
+ *   3. The theme name might be misspelled
+ */
+export const THEME_USAGE_GUIDE = {
+  RECOMMENDED_THEMES: THEMES_WITH_FALLBACK,
+  CORE_DATA_TYPES,
+  IMPORTANT_DATA_TYPES,
+  ALL_THEMES: SUPPORTED_THEMES,
+  CACHE_TTL_MINUTES: 30,
+  AI_TIMEOUT_SECONDS: 8,
+} as const;
