@@ -1,5 +1,11 @@
 import { faker } from '@faker-js/faker';
 import { generateTimestamp } from '../utils/timestamp_utils';
+import { 
+  getThemedUsername, 
+  getThemedHostname, 
+  getThemedDomain,
+  getGlobalThemeGenerator 
+} from '../utils/universal_theme_generator';
 
 export interface NetworkLogConfig {
   hostName?: string;
@@ -28,10 +34,10 @@ const USER_AGENTS = [
   'Wget/1.20.3', // Suspicious
 ];
 
-export const generateNetworkConnectionLog = (config: NetworkLogConfig = {}) => {
+export const generateNetworkConnectionLog = async (config: NetworkLogConfig = {}) => {
   const {
-    hostName = faker.internet.domainName(),
-    userName = faker.internet.username(),
+    hostName = await getThemedHostname(faker.internet.domainName()),
+    userName = await getThemedUsername(faker.internet.username()),
     timestampConfig,
     namespace = 'default',
   } = config;
@@ -77,16 +83,16 @@ export const generateNetworkConnectionLog = (config: NetworkLogConfig = {}) => {
   };
 };
 
-export const generateDNSLog = (config: NetworkLogConfig = {}) => {
+export const generateDNSLog = async (config: NetworkLogConfig = {}) => {
   const {
-    hostName = faker.internet.domainName(),
-    userName = faker.internet.username(),
+    hostName = await getThemedHostname(faker.internet.domainName()),
+    userName = await getThemedUsername(faker.internet.username()),
     timestampConfig,
     namespace = 'default',
   } = config;
 
   const queryType = faker.helpers.arrayElement(DNS_QUERY_TYPES);
-  const domain = faker.internet.domainName();
+  const domain = await getThemedDomain(faker.internet.domainName());
   const responseCode = faker.helpers.arrayElement([
     'NOERROR',
     'NXDOMAIN',
@@ -144,10 +150,10 @@ export const generateDNSLog = (config: NetworkLogConfig = {}) => {
   };
 };
 
-export const generateHTTPLog = (config: NetworkLogConfig = {}) => {
+export const generateHTTPLog = async (config: NetworkLogConfig = {}) => {
   const {
-    hostName = faker.internet.domainName(),
-    userName = faker.internet.username(),
+    hostName = await getThemedHostname(faker.internet.domainName()),
+    userName = await getThemedUsername(faker.internet.username()),
     timestampConfig,
     namespace = 'default',
   } = config;
@@ -155,7 +161,10 @@ export const generateHTTPLog = (config: NetworkLogConfig = {}) => {
   const method = faker.helpers.arrayElement(HTTP_METHODS);
   const statusCode = faker.helpers.arrayElement(HTTP_STATUS_CODES);
   const userAgent = faker.helpers.arrayElement(USER_AGENTS);
-  const url = `https://${faker.internet.domainName()}${faker.internet.url()}`;
+  
+  // Generate themed network resource for proper URL construction
+  const networkResource = await getGlobalThemeGenerator().generateNetworkResource();
+  const url = `https://${networkResource.domain}${networkResource.url}`;
 
   return {
     '@timestamp': generateTimestamp(timestampConfig),
@@ -174,7 +183,10 @@ export const generateHTTPLog = (config: NetworkLogConfig = {}) => {
     'host.name': hostName,
     'http.request.body.bytes': faker.number.int({ min: 0, max: 10240 }),
     'http.request.method': method,
-    'http.request.referrer': faker.helpers.maybe(() => faker.internet.url(), {
+    'http.request.referrer': faker.helpers.maybe(() => {
+      const referrerDomain = faker.internet.domainName();
+      return `https://${referrerDomain}/`;
+    }, {
       probability: 0.6,
     }),
     'http.response.body.bytes': faker.number.int({ min: 200, max: 1048576 }),
@@ -183,9 +195,9 @@ export const generateHTTPLog = (config: NetworkLogConfig = {}) => {
     'log.file.path': '/var/log/apache2/access.log',
     'source.address': faker.internet.ip(),
     'source.ip': faker.internet.ip(),
-    'url.domain': faker.internet.domainName(),
+    'url.domain': networkResource.domain,
     'url.original': url,
-    'url.path': faker.internet.url(),
+    'url.path': networkResource.url,
     'url.query': faker.helpers.maybe(() => `q=${faker.lorem.word()}`, {
       probability: 0.4,
     }),
@@ -203,9 +215,9 @@ export const generateHTTPLog = (config: NetworkLogConfig = {}) => {
   };
 };
 
-export const generateFirewallLog = (config: NetworkLogConfig = {}) => {
+export const generateFirewallLog = async (config: NetworkLogConfig = {}) => {
   const {
-    hostName = faker.internet.domainName(),
+    hostName = await getThemedHostname(faker.internet.domainName()),
     timestampConfig,
     namespace = 'default',
   } = config;
@@ -261,7 +273,7 @@ export const generateFirewallLog = (config: NetworkLogConfig = {}) => {
   };
 };
 
-export default function createNetworkLog(
+export default async function createNetworkLog(
   override = {},
   config: NetworkLogConfig = {},
 ) {
@@ -274,7 +286,7 @@ export default function createNetworkLog(
   ];
 
   const selectedGenerator = faker.helpers.arrayElement(weightedGenerators);
-  const baseLog = selectedGenerator(config);
+  const baseLog = await selectedGenerator(config);
 
   return {
     ...baseLog,
