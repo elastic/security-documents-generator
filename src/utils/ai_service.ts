@@ -56,6 +56,13 @@ import {
   JSON_RESPONSE_INSTRUCTION,
   ESSENTIAL_ALERT_FIELDS,
 } from './prompt_templates';
+import {
+  parseThemeConfig,
+  getThemeContext,
+  isValidTheme,
+  getRandomThemedValue,
+  type ParsedThemeConfig,
+} from './theme_service';
 import { BaseCreateAlertsReturnType } from '../create_alerts';
 import { ChatCompletion } from 'openai/resources/index';
 import type { Message } from '@anthropic-ai/sdk/resources/messages';
@@ -331,6 +338,7 @@ export const generateAIAlert = async (
     timestampConfig,
     mitreEnabled = false,
     attackChain,
+    theme,
   } = params;
 
   return withRetry(
@@ -364,6 +372,13 @@ export const generateAIAlert = async (
       // Process examples for context - optimized
       const examplesContext = processExamples(examples);
 
+      // Parse theme configuration and generate theme context
+      let themeContext = '';
+      if (theme) {
+        const themeConfig = parseThemeConfig(theme);
+        themeContext = getThemeContext(themeConfig);
+      }
+
       // Create system prompt with optional attack chain context
       let systemPrompt: string;
 
@@ -390,6 +405,7 @@ Generate an alert that shows CLEAR CORRELATION to this attack campaign stage. In
           schemaExcerpt: alertMappingSchema.substring(0, 800),
           attackChain: true,
           chainSeverity: 'high',
+          themeContext,
         });
       } else if (mitreEnabled) {
         systemPrompt = generateMitreAlertSystemPrompt({
@@ -397,6 +413,7 @@ Generate an alert that shows CLEAR CORRELATION to this attack campaign stage. In
           userName,
           space,
           schemaExcerpt: alertMappingSchema.substring(0, 800),
+          themeContext,
         });
       } else {
         systemPrompt = generateAlertSystemPrompt({
@@ -405,6 +422,7 @@ Generate an alert that shows CLEAR CORRELATION to this attack campaign stage. In
           space,
           alertType,
           schemaExcerpt: alertMappingSchema.substring(0, 800),
+          themeContext,
         });
       }
 
@@ -653,6 +671,7 @@ export const generateAIAlertBatch = async (
     examples = [],
     batchSize = 5,
     timestampConfig,
+    theme,
   } = params;
 
   if (entities.length === 0) {
@@ -835,6 +854,7 @@ export const generateAIAlertBatch = async (
                     space,
                     examples,
                     timestampConfig,
+                    theme: theme,
                   });
                   generatedAlerts.push(individualAlert);
                   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -872,6 +892,7 @@ export const generateAIAlertBatch = async (
                   space,
                   examples,
                   timestampConfig,
+                  theme: theme,
                 });
                 generatedAlerts.push(individualAlert);
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1000,6 +1021,7 @@ export const generateMITREAlert = async (
     space = 'default',
     examples = [],
     timestampConfig,
+    theme,
   } = params;
 
   return withRetry(
@@ -1025,11 +1047,19 @@ export const generateMITREAlert = async (
           examples,
           alertType: 'general',
           timestampConfig,
+          theme,
         });
       }
 
       const config = getConfig();
       const maxTechniques = config.mitre?.maxTechniquesPerAlert || 2;
+
+      // Parse theme configuration and generate theme context
+      let themeContext = '';
+      if (theme) {
+        const themeConfig = parseThemeConfig(theme);
+        themeContext = getThemeContext(themeConfig);
+      }
 
       // Decide between attack chain or individual techniques
       let selectedTechniques: Array<{
@@ -1092,6 +1122,7 @@ export const generateMITREAlert = async (
         schemaExcerpt: alertMappingSchema.substring(0, 600),
         attackChain: !!attackChain,
         chainSeverity: attackChain?.severity,
+        themeContext,
       });
 
       const userPrompt = generateMitreAlertUserPrompt({
@@ -1210,6 +1241,7 @@ export const generateMITREAlert = async (
           examples,
           alertType: 'mitre-fallback',
           timestampConfig,
+          theme,
         });
       }
     },

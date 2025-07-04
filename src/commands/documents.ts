@@ -26,6 +26,12 @@ import {
 import { generateFields } from './generate_fields';
 import { createCases, CaseCreationOptions } from '../create_cases';
 import { generateCaseFromAlert } from '../generators/case_generator';
+import {
+  parseThemeConfig,
+  getRandomThemedValue,
+  isValidTheme,
+} from '../utils/theme_service';
+import { setGlobalTheme, getThemedUsername, getThemedHostname } from '../utils/universal_theme_generator';
 
 /**
  * Helper function to apply multi-field generation to alerts
@@ -320,7 +326,14 @@ export const generateAlerts = async (
     alertsPerCase?: number;
     caseGroupingStrategy?: 'by-time' | 'by-host' | 'by-rule' | 'by-severity';
   },
+  theme?: string,
 ) => {
+  // Set global theme configuration
+  if (theme) {
+    setGlobalTheme(theme);
+    console.log(`🎨 Theme applied: ${theme}`);
+  }
+
   if (userCount > alertCount) {
     console.log('User count should be less than alert count');
     process.exit(1);
@@ -396,11 +409,17 @@ export const generateAlerts = async (
   };
 
   console.log('Generating entity names...');
-  const userNames = Array.from({ length: userCount }, () =>
-    faker.internet.username(),
+  
+  // Generate themed entity names using universal theme generator
+  if (theme) {
+    console.log(`🎭 Generating themed entity names: ${theme}`);
+  }
+  
+  const userNames = await Promise.all(
+    Array.from({ length: userCount }, () => getThemedUsername(faker.internet.username()))
   );
-  const hostNames = Array.from({ length: hostCount }, () =>
-    faker.internet.domainName(),
+  const hostNames = await Promise.all(
+    Array.from({ length: hostCount }, () => getThemedHostname(faker.internet.domainName()))
   );
 
   console.log('Assigning entity names...');
@@ -561,6 +580,7 @@ export const generateAlerts = async (
                   space,
                   examples: exampleAlerts,
                   timestampConfig,
+                  theme,
                 }),
               ),
             );
@@ -572,6 +592,7 @@ export const generateAlerts = async (
               examples: exampleAlerts,
               batchSize: aiBatchSize,
               timestampConfig,
+              theme,
             });
           }
 
@@ -942,7 +963,16 @@ export const generateLogs = async (
   visualAnalyzer = false,
   namespace = 'default',
   quiet = false,
+  theme?: string,
 ) => {
+  // Set global theme configuration
+  if (theme) {
+    setGlobalTheme(theme);
+    if (!quiet) {
+      console.log(`🎨 Theme applied: ${theme}`);
+    }
+  }
+
   if (!quiet) {
     console.log(
       `Generating ${logCount} realistic source logs across ${logTypes.join(', ')} with ${hostCount} hosts and ${userCount} users${
@@ -995,11 +1025,17 @@ export const generateLogs = async (
 
   // Generate entity names
   if (!quiet) console.log('Generating entity names...');
-  const userNames = Array.from({ length: userCount }, () =>
-    faker.internet.username(),
+  
+  // Generate themed entity names using universal theme generator
+  if (theme && !quiet) {
+    console.log(`🎭 Generating themed entity names: ${theme}`);
+  }
+  
+  const userNames = await Promise.all(
+    Array.from({ length: userCount }, () => getThemedUsername(faker.internet.username()))
   );
-  const hostNames = Array.from({ length: hostCount }, () =>
-    faker.internet.domainName(),
+  const hostNames = await Promise.all(
+    Array.from({ length: hostCount }, () => getThemedHostname(faker.internet.domainName()))
   );
 
   if (!quiet) console.log('Generating logs...');
@@ -1058,7 +1094,7 @@ export const generateLogs = async (
 
     try {
       // Generate realistic log
-      let log = createRealisticLog(
+      let log = await createRealisticLog(
         {},
         {
           hostName,
@@ -1191,7 +1227,14 @@ export const generateCorrelatedCampaign = async (
   logVolumeMultiplier = 6,
   timestampConfig?: TimestampConfig,
   _namespace = 'default',
+  theme?: string,
 ) => {
+  // Set global theme configuration
+  if (theme) {
+    setGlobalTheme(theme);
+    console.log(`🎨 Theme applied: ${theme}`);
+  }
+
   console.log(
     `Generating ${alertCount} correlated alerts with supporting logs across ${hostCount} hosts and ${userCount} users${
       useAI ? ' using AI' : ''
@@ -1216,11 +1259,11 @@ export const generateCorrelatedCampaign = async (
 
   // Generate entity names
   console.log('Generating target entities...');
-  const userNames = Array.from({ length: userCount }, () =>
-    faker.internet.username(),
+  const userNames = await Promise.all(
+    Array.from({ length: userCount }, () => getThemedUsername(faker.internet.username()))
   );
-  const hostNames = Array.from({ length: hostCount }, () =>
-    faker.internet.domainName(),
+  const hostNames = await Promise.all(
+    Array.from({ length: hostCount }, () => getThemedHostname(faker.internet.domainName()))
   );
 
   console.log('Initializing correlation engine...');

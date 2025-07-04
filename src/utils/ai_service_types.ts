@@ -71,6 +71,7 @@ export interface GenerateAIAlertParams {
   timestampConfig?: TimestampConfig;
   mitreEnabled?: boolean;
   attackChain?: AttackChainContext;
+  theme?: string;
 }
 
 export interface GenerateAIAlertBatchParams {
@@ -79,6 +80,7 @@ export interface GenerateAIAlertBatchParams {
   examples?: BaseCreateAlertsReturnType[];
   batchSize?: number;
   timestampConfig?: TimestampConfig;
+  theme?: string;
 }
 
 export interface GenerateMITREAlertParams {
@@ -87,6 +89,7 @@ export interface GenerateMITREAlertParams {
   space?: string;
   examples?: BaseCreateAlertsReturnType[];
   timestampConfig?: TimestampConfig;
+  theme?: string;
 }
 
 export interface GenerateAIEventParams {

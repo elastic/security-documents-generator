@@ -1,5 +1,12 @@
 import { faker } from '@faker-js/faker';
 import { generateTimestamp } from '../utils/timestamp_utils';
+import { 
+  getThemedUsername, 
+  getThemedHostname, 
+  getThemedProcessName,
+  getThemedFilename,
+  getGlobalThemeGenerator 
+} from '../utils/universal_theme_generator';
 
 export interface SystemLogConfig {
   hostName?: string;
@@ -66,15 +73,15 @@ const REGISTRY_KEYS = [
   'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services',
 ];
 
-export const generateProcessLog = (config: SystemLogConfig = {}) => {
+export const generateProcessLog = async (config: SystemLogConfig = {}) => {
   const {
-    hostName = faker.internet.domainName(),
-    userName = faker.internet.username(),
+    hostName = await getThemedHostname(faker.internet.domainName()),
+    userName = await getThemedUsername(faker.internet.username()),
     timestampConfig,
     namespace = 'default',
   } = config;
 
-  const process = faker.helpers.arrayElement(SYSTEM_PROCESSES);
+  const process = await getThemedProcessName(faker.helpers.arrayElement(SYSTEM_PROCESSES));
   const pid = faker.number.int({ min: 100, max: 65535 });
   const ppid = faker.number.int({ min: 1, max: pid - 1 });
 
@@ -111,15 +118,15 @@ export const generateProcessLog = (config: SystemLogConfig = {}) => {
   };
 };
 
-export const generateFileLog = (config: SystemLogConfig = {}) => {
+export const generateFileLog = async (config: SystemLogConfig = {}) => {
   const {
-    hostName = faker.internet.domainName(),
-    userName = faker.internet.username(),
+    hostName = await getThemedHostname(faker.internet.domainName()),
+    userName = await getThemedUsername(faker.internet.username()),
     timestampConfig,
     namespace = 'default',
   } = config;
 
-  const fileName = faker.system.fileName();
+  const fileName = await getThemedFilename(faker.system.fileName());
   const filePath = `${faker.helpers.arrayElement(FILE_PATHS)}${fileName}`;
 
   return {
@@ -159,10 +166,10 @@ export const generateFileLog = (config: SystemLogConfig = {}) => {
   };
 };
 
-export const generateRegistryLog = (config: SystemLogConfig = {}) => {
+export const generateRegistryLog = async (config: SystemLogConfig = {}) => {
   const {
-    hostName = faker.internet.domainName(),
-    userName = faker.internet.username(),
+    hostName = await getThemedHostname(faker.internet.domainName()),
+    userName = await getThemedUsername(faker.internet.username()),
     timestampConfig,
     namespace = 'default',
   } = config;
@@ -206,9 +213,9 @@ export const generateRegistryLog = (config: SystemLogConfig = {}) => {
   };
 };
 
-export const generateServiceLog = (config: SystemLogConfig = {}) => {
+export const generateServiceLog = async (config: SystemLogConfig = {}) => {
   const {
-    hostName = faker.internet.domainName(),
+    hostName = await getThemedHostname(faker.internet.domainName()),
     userName = 'SYSTEM',
     timestampConfig,
     namespace = 'default',
@@ -255,11 +262,11 @@ export const generateServiceLog = (config: SystemLogConfig = {}) => {
   };
 };
 
-export default function createSystemLog(
+export default async function createSystemLog(
   override = {},
   config: SystemLogConfig = {},
 ) {
-  const logTypes: Array<(config: SystemLogConfig) => any> = [
+  const logTypes: Array<(config: SystemLogConfig) => Promise<any>> = [
     generateProcessLog,
     generateFileLog,
     generateServiceLog,
@@ -274,7 +281,7 @@ export default function createSystemLog(
   }
 
   const selectedGenerator = faker.helpers.arrayElement(logTypes);
-  const baseLog = selectedGenerator(config);
+  const baseLog = await selectedGenerator(config);
 
   return {
     ...baseLog,

@@ -18,6 +18,7 @@ import { cleanupAIService } from './utils/ai_service';
 import { initializeSpace } from './utils';
 import { getConfig } from './get_config';
 import { faker } from '@faker-js/faker';
+import { setGlobalTheme } from './utils/universal_theme_generator';
 
 await createConfigFileOnFirstRun();
 
@@ -150,6 +151,10 @@ program
     'number of alerts to attach per case (requires --create-cases)',
     '5',
   )
+  .option(
+    '--theme <theme>',
+    'apply AI-generated themed data (e.g., "nba", "marvel", "usernames:nba,hostnames:marvel")',
+  )
   .description(
     'Generate AI-powered security alerts with optional MITRE ATT&CK scenarios',
   )
@@ -172,6 +177,7 @@ program
     const fieldPerformanceMode = options.fieldPerformanceMode || false;
     const createCases = options.createCases || false;
     const alertsPerCase = parseInt(options.alertsPerCase || '5');
+    const theme = options.theme;
 
     // Validate case options - only check if user explicitly provided alerts-per-case
     const userProvidedAlertsPerCase = process.argv.includes('--alerts-per-case');
@@ -381,6 +387,7 @@ program
           multiFieldConfig,
           envNamespace,
           caseOptions,
+          theme,
         );
       }
 
@@ -403,6 +410,7 @@ program
         multiFieldConfig,
         namespace,
         caseOptions,
+        theme,
       );
     }
   });
@@ -536,6 +544,10 @@ program
     'generate logs across multiple environment namespaces',
     parseIntBase10,
   )
+  .option(
+    '--theme <theme>',
+    'apply AI-generated themed data (e.g., "nba", "marvel", "usernames:nba,hostnames:marvel")',
+  )
   .action(async (options) => {
     const logCount = parseInt(options.n || '1000');
     const hostCount = parseInt(options.h || '10');
@@ -552,6 +564,7 @@ program
     const visualAnalyzer = options.visualAnalyzer || false;
     const namespace = options.namespace || 'default';
     const environments = options.environments || 1;
+    const theme = options.theme;
 
     // Validate log types
     const validTypes = ['system', 'auth', 'network', 'endpoint'];
@@ -706,6 +719,7 @@ program
           visualAnalyzer,
           envNamespace,
           true, // quiet mode for multi-environment
+          theme,
         );
 
         overallProgress.increment(1);
@@ -730,6 +744,7 @@ program
         visualAnalyzer,
         namespace,
         false, // normal verbose mode for single environment
+        theme,
       );
     }
   });
@@ -771,6 +786,10 @@ program
     'generate correlated data across multiple environment namespaces',
     parseIntBase10,
   )
+  .option(
+    '--theme <theme>',
+    'apply AI-generated themed data (e.g., "nba", "marvel", "usernames:nba,hostnames:marvel")',
+  )
   .action(async (options) => {
     const alertCount = parseInt(options.n || '10');
     const hostCount = parseInt(options.h || '3');
@@ -781,6 +800,7 @@ program
     const useMitre = options.mitre || false;
     const namespace = options.namespace || 'default';
     const environments = options.environments || 1;
+    const theme = options.theme;
 
     // Apply Phase 3 configuration overrides if flags are used
     if (options.claude || options.mitre) {
@@ -834,6 +854,7 @@ program
           logVolume,
           timestampConfig,
           envNamespace,
+          theme,
         );
       }
 
@@ -852,6 +873,7 @@ program
         logVolume,
         timestampConfig,
         namespace,
+        theme,
       );
     }
   });
@@ -1137,6 +1159,10 @@ program
     'generate Visual Event Analyzer compatible data with process entity tracking',
     false,
   )
+  .option(
+    '--theme <theme>',
+    'apply AI-generated themed data (e.g., "nba", "marvel", "usernames:nba,hostnames:marvel")',
+  )
   .action(async (campaignType, options) => {
     // AI is always enabled now
     const useAI = true;
@@ -1152,6 +1178,13 @@ program
     const environments = options.environments || 1;
     const sessionView = options.sessionView || false;
     const visualAnalyzer = options.visualAnalyzer || false;
+    const theme = options.theme;
+
+    // Set global theme configuration
+    if (theme) {
+      setGlobalTheme(theme);
+      console.log(`🎨 Theme applied: ${theme}`);
+    }
 
     // Validate multi-field options
     if (options.fieldCount && !useMultiField) {

@@ -9,6 +9,7 @@ export interface PromptContext {
   schemaExcerpt?: string;
   attackChain?: boolean;
   chainSeverity?: string;
+  themeContext?: string;
 }
 
 // Base system prompt for alert generation
@@ -19,6 +20,7 @@ export const generateAlertSystemPrompt = (context: PromptContext): string => {
     space,
     alertType = 'general',
     schemaExcerpt = '',
+    themeContext = '',
   } = context;
 
   return `Security alert generator. Create JSON alert with realistic security data:
@@ -40,6 +42,7 @@ export const generateAlertSystemPrompt = (context: PromptContext): string => {
 - rule.name: Same as kibana.alert.rule.name for compatibility
 IMPORTANT: Do NOT include @timestamp, kibana.alert.start, kibana.alert.last_detected, or any timestamp fields. These will be handled separately.
 ${alertType !== 'general' ? `This is a ${alertType} type alert.` : ''}
+${themeContext}
 ${schemaExcerpt ? `Schema excerpt: ${schemaExcerpt}` : ''}`;
 };
 
@@ -55,6 +58,7 @@ export const generateMitreAlertSystemPrompt = (
     schemaExcerpt = '',
     attackChain = false,
     chainSeverity = 'medium',
+    themeContext = '',
   } = context;
 
   return `Security alert generator with advanced MITRE ATT&CK framework integration. Create JSON alert with realistic security data:
@@ -93,7 +97,8 @@ ${
 }
 
 Include relevant technical fields: process, file, network, registry, user activity based on techniques.
-${schemaExcerpt ? `Schema excerpt: ${schemaExcerpt}` : ''}`;
+${themeContext}
+${schemaExcerpt ? `Schema excerpt: ${schemaExcerpt}` : ''}`
 };
 
 // Event generation system prompt

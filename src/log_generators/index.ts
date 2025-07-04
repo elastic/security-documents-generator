@@ -32,7 +32,7 @@ export interface UnifiedLogConfig {
   visualAnalyzer?: boolean;
 }
 
-export function createRealisticLog(
+export async function createRealisticLog(
   override = {},
   config: UnifiedLogConfig = {},
 ) {
@@ -108,7 +108,7 @@ export function createRealisticLog(
   ];
 
   const selectedGenerator = faker.helpers.arrayElement(generators);
-  const baseLog = selectedGenerator();
+  const baseLog = await selectedGenerator();
 
   return {
     ...baseLog,

@@ -62,6 +62,13 @@ A powerful tool for generating realistic security scenarios with complete forens
 - **Context-Aware Data**: Realistic security scenarios based on real-world patterns
 - **Smart Fallbacks**: Automatic failover between providers
 
+### 🎨 **Theme-Based Data Generation**
+- **17 Supported Themes**: NBA, NFL, soccer, Marvel, Star Wars, tech companies, programming, and more
+- **Comprehensive Data Types**: Usernames, hostnames, emails, process names, file paths, registry keys
+- **AI-Enhanced Themes**: Dynamic theme generation with realistic fallbacks
+- **Consistent Theming**: All generated data follows the selected theme across the entire dataset
+- **Universal Integration**: Works with all generation types (alerts, logs, campaigns, knowledge base)
+
 ### ⚔️ **MITRE ATT&CK Integration**
 - **Complete Framework**: All tactics, techniques, and sub-techniques
 - **Attack Progression**: Multi-stage campaigns with proper technique sequencing
@@ -74,9 +81,11 @@ A powerful tool for generating realistic security scenarios with complete forens
 | **`generate-alerts --environments`** | **🌍 Multi-environment alerts** | `yarn start generate-alerts -n 100 --environments 50 --namespace prod` |
 | **`generate-logs --environments`** | **🌍 Multi-environment logs** | `yarn start generate-logs -n 1000 --environments 25 --namespace staging` |
 | **`generate-campaign --realistic`** | **🌟 Complete attack scenarios** | `yarn start generate-campaign apt --realistic --mitre` |
+| **`--theme <theme>`** | **🎨 Theme-based data generation** | `yarn start generate-alerts -n 100 --theme marvel --mitre` |
 | **`generate-fields`** | **🔬 Generate fields on demand** | `yarn start generate-fields -n 4000 --categories behavioral_analytics` |
 | **`generate-alerts --multi-field`** | **🔬 Alerts with 10,000+ fields** | `yarn start generate-alerts -n 100 --multi-field --field-count 10000` |
 | `generate-logs --multi-field` | Source logs with enriched fields | `yarn start generate-logs -n 1000 --multi-field --field-count 200` |
+| `--theme <theme>` | Themed data generation | `yarn start generate-logs -n 500 --theme starwars --types system,auth` |
 | `generate-campaign` | Multi-stage attack campaigns | `yarn start generate-campaign ransomware --mitre` |
 | `generate-correlated` | Alerts with supporting logs | `yarn start generate-correlated -n 20 --mitre` |
 | `generate-logs` | Realistic source logs | `yarn start generate-logs -n 1000 --types system,auth` |
@@ -227,6 +236,159 @@ yarn start generate-logs -n 5000 --multi-field --field-count 200 --field-perform
 ```
 
 **📚 [Full Multi-Field Documentation →](docs/multi-field-generation.md)**
+
+## 🎨 Theme-Based Data Generation
+
+### **🎭 Generate Consistent Themed Security Data**
+Transform boring test data into engaging, memorable scenarios while maintaining security realism:
+
+```bash
+# Marvel superhero-themed security data
+yarn start generate-campaign apt --theme marvel --realistic --mitre
+# Creates: tony.stark@starkindustries.com, shield-web-01, avengers-sql-02
+
+# Star Wars-themed enterprise deployment
+yarn start generate-alerts -n 100 --theme starwars --mitre --multi-field
+# Creates: luke.skywalker@rebels.org, jedi-api-01, death-star-db-03
+
+# NBA-themed SOC training environment
+yarn start generate-logs -n 1000 --theme nba --types system,auth,network
+# Creates: lebron.james@lakers.com, warriors-mail-01, bulls-app-02
+```
+
+### **🎯 Supported Themes (17 Total)**
+| Category | Themes | Example Data |
+|----------|--------|--------------|
+| **Sports** | `nba`, `nfl`, `soccer`, `mlb` | lebron.james, patriots-web-01, messi.lionel |
+| **Entertainment** | `marvel`, `starwars`, `movies`, `tv_shows`, `anime` | tony.stark, jedi-db-02, naruto.uzumaki |
+| **Technology** | `tech_companies`, `programming` | satya.nadella, google-api-01, python-srv-03 |
+| **Culture** | `mythology`, `literature`, `history`, `music`, `food` | zeus.olympus, shakespeare-web-01, beethoven.ludwig |
+
+### **📊 Themed Data Types**
+Every aspect of your security data follows the selected theme:
+
+| Data Type | Purpose | Example (Marvel Theme) |
+|-----------|---------|------------------------|
+| **Usernames** | User accounts, authentication logs | `tony.stark`, `peter.parker`, `steve.rogers` |
+| **Hostnames** | Server names, network devices | `iron-web-01`, `spider-db-02`, `shield-mail-03` |
+| **Full Names** | Employee records, audit logs | `Tony Stark`, `Peter Parker`, `Steve Rogers` |
+| **Emails** | Communication logs, phishing scenarios | `tony.stark@starkindustries.com` |
+| **Organizations** | Company names, department data | `Stark Industries Security`, `SHIELD Operations` |
+| **Process Names** | Endpoint security, malware analysis | `StarkSecurityService`, `ShieldLogService` |
+| **File Names** | Document analysis, forensics | `arc-reactor-plans.pdf`, `shield-protocols.doc` |
+| **File Paths** | System monitoring, file integrity | `C:\Stark\Designs\mark42.dwg` |
+| **Registry Keys** | Windows forensics, persistence analysis | `HKLM\Software\Stark\Armor` |
+| **URLs** | Web traffic analysis, threat hunting | `/api/stark/inventory`, `/shield/classified` |
+| **IP Addresses** | Network analysis, threat intelligence | `192.168.10.1` (Stark HQ), `172.16.0.7` (SHIELD) |
+| **Application Names** | Software inventory, security tools | `Stark Analyzer`, `Shield Monitor` |
+| **Service Names** | Service monitoring, process analysis | `AvengersNetService`, `GammaMonitorService` |
+| **Event Descriptions** | SIEM alerts, security notifications | `Stark security protocol engaged` |
+
+### **🚀 Theme Integration Examples**
+
+#### **🦸 Marvel APT Campaign**
+```bash
+yarn start generate-campaign apt --theme marvel --realistic --mitre --detection-rate 0.8
+```
+**Result**: Complete APT scenario with Marvel-themed entities:
+- **Initial Access**: `peter.parker@dailybugle.com` receives phishing email
+- **Execution**: Malware executes on `spider-web-01.dailybugle.com`
+- **Persistence**: Registry key `HKLM\Software\WebSlinger\Config` modified
+- **Collection**: Data stolen from `C:\Stark\Classified\reactor-specs.pdf`
+- **Exfiltration**: Data sent to external IP via `GammaMonitorService`
+
+#### **⚽ Soccer SOC Training**
+```bash
+yarn start generate-logs -n 2000 --theme soccer --types system,auth,network,endpoint
+```
+**Result**: Comprehensive logs with soccer theme:
+- **Authentication**: `messi.lionel` failed login on `barcelona-dc-01`
+- **Network**: Suspicious traffic from `real-madrid-web-02` to external IP
+- **Process**: `ChampionsLeagueService` consuming high CPU
+- **File**: Access denied to `\\fifa-share\world-cup-plans.xlsx`
+
+#### **🌟 Star Wars Multi-Environment**
+```bash
+yarn start generate-alerts -n 500 --theme starwars --environments 10 --multi-field --field-count 300
+```
+**Result**: 10 environments with consistent Star Wars theming:
+- **Environments**: `jedi-env-001` through `empire-env-010`
+- **Hosts**: `tatooine-web-01`, `coruscant-db-02`, `death-star-api-03`
+- **Users**: `luke.skywalker@rebels.org`, `vader@empire.gov`
+- **Enhanced Fields**: 300 additional security fields per alert
+
+### **🎯 Theme Benefits**
+
+#### **For Security Training:**
+- **Memorable Scenarios**: "Tony Stark's laptop was compromised" vs "User-47382's device infected"
+- **Engaging Content**: Teams remember Marvel characters better than random hostnames
+- **Realistic Context**: Themed data still follows security best practices
+- **Story Continuity**: All events in a campaign follow the same universe
+
+#### **For Development & Testing:**
+- **Consistent Test Data**: Same theme across development, staging, and testing
+- **Easy Identification**: Quickly spot themed vs real data in mixed environments
+- **Demo-Friendly**: Impressive presentations with recognizable names
+- **Team Alignment**: Shared vocabulary across security and development teams
+
+#### **For SOC Operations:**
+- **Reduced Confusion**: Clear distinction between test and production data
+- **Training Scenarios**: Create memorable attack stories for analyst training
+- **Drill Identification**: Instantly recognize themed data during exercises
+- **Knowledge Retention**: Teams retain information better with familiar themes
+
+### **🔧 Theme Configuration**
+
+#### **Simple Theme Application**
+```bash
+# Apply single theme to all data types
+yarn start generate-alerts -n 100 --theme marvel
+yarn start generate-logs -n 500 --theme nba
+yarn start generate-campaign ransomware --theme starwars
+```
+
+#### **AI-Enhanced vs Fallback Data**
+- **AI-Enhanced**: When AI is properly configured, generates dynamic themed data
+- **Smart Fallbacks**: When AI fails, uses curated themed data collections
+- **Hybrid Approach**: Combines AI creativity with reliable fallback data
+- **No Interruption**: Theme generation never fails, always produces themed results
+
+#### **Performance Characteristics**
+- **First Generation**: May take 10-30 seconds for AI to generate themed data
+- **Cached Results**: Subsequent generations use cached data (instant)
+- **Fallback Speed**: Fallback data is instant for all themes
+- **Batch Optimization**: Generates large batches to populate cache efficiently
+
+### **💡 Theme Usage Tips**
+
+#### **Best Practices:**
+- **Consistent Environments**: Use same theme across related environments
+- **Demo Preparation**: Pre-generate themed data to ensure AI cache is populated
+- **Mixed Themes**: Use different themes for different test scenarios
+- **Documentation**: Document which themes represent which test scenarios
+
+#### **SOC Training Scenarios:**
+```bash
+# "Avengers Under Attack" - Advanced APT scenario
+yarn start generate-campaign apt --theme marvel --realistic --detection-rate 0.3
+
+# "Galactic Empire Infiltration" - Insider threat simulation
+yarn start generate-campaign insider --theme starwars --realistic --detection-rate 0.6
+
+# "Championship Security" - High-volume event monitoring
+yarn start generate-logs -n 5000 --theme soccer --types system,network,endpoint
+```
+
+#### **Enterprise Integration:**
+```bash
+# Production-like environment with consistent theming
+yarn start generate-alerts -n 1000 --theme tech_companies --environments 25 \
+  --multi-field --field-count 500 --namespace production-test
+
+# Compliance audit simulation with themed data
+yarn start generate-knowledge-base -n 50 --theme mythology \
+  --categories compliance,audit_compliance --access-level organization
+```
 
 ## 🧠 AI Assistant Knowledge Base
 
@@ -415,6 +577,7 @@ event.category:network AND destination.ip:10.* AND source.ip:external
 | Topic | Description |
 |-------|-------------|
 | **[🔗 Kibana Cloud Integration](docs/kibana-cloud-integration.md)** | **Direct Security → Alerts integration** ⭐ |
+| **[🎨 Theme-Based Generation](docs/theme-generation.md)** | **Consistent themed security data** |
 | **[Multi-Field Generation](docs/multi-field-generation.md)** | **500+ security fields, zero tokens** |
 | [Use Cases Guide](docs/use-cases-guide.md) | Enterprise scenarios and workflows |
 | [False Positives](docs/false-positives.md) | Detection rule testing and SOC training |
@@ -466,6 +629,9 @@ yarn start generate-campaign ransomware --realistic --mitre
 
 # Enhanced with 300 additional security fields (99% faster, zero tokens)
 yarn start generate-campaign ransomware --realistic --mitre --multi-field --field-count 300
+
+# 🎨 Marvel-themed SOC training with realistic attack progression
+yarn start generate-campaign apt --theme marvel --realistic --mitre --multi-field --field-count 400
 ```
 
 **🔬 Experience the power of multi-field generation!** Generate hundreds of contextual security fields in milliseconds with zero AI overhead.

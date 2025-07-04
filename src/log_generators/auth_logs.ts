@@ -1,5 +1,11 @@
 import { faker } from '@faker-js/faker';
 import { generateTimestamp } from '../utils/timestamp_utils';
+import { 
+  getThemedUsername, 
+  getThemedHostname, 
+  getThemedDomain,
+  getGlobalThemeGenerator 
+} from '../utils/universal_theme_generator';
 
 export interface AuthLogConfig {
   hostName?: string;
@@ -51,10 +57,10 @@ const PRIVILEGE_OPERATIONS = [
   'SeRemoteShutdownPrivilege',
 ];
 
-export const generateLoginSuccessLog = (config: AuthLogConfig = {}) => {
+export const generateLoginSuccessLog = async (config: AuthLogConfig = {}) => {
   const {
-    hostName = faker.internet.domainName(),
-    userName = faker.internet.username(),
+    hostName = await getThemedHostname(faker.internet.domainName()),
+    userName = await getThemedUsername(faker.internet.username()),
     timestampConfig,
     namespace = 'default',
   } = config;
@@ -84,10 +90,10 @@ export const generateLoginSuccessLog = (config: AuthLogConfig = {}) => {
     'source.ip': faker.internet.ip(),
     'source.port': faker.internet.port(),
     'user.name': userName,
-    'user.domain': faker.internet.domainName(),
+    'user.domain': await getThemedDomain(faker.internet.domainName()),
     'user.id': faker.string.uuid(),
     'user.target.name': userName,
-    'user.target.domain': faker.internet.domainName(),
+    'user.target.domain': await getThemedDomain(faker.internet.domainName()),
     'winlog.channel': 'Security',
     'winlog.event_id': 4624,
     'winlog.logon.id': faker.string.hexadecimal({ length: 16, prefix: '0x' }),
@@ -99,10 +105,10 @@ export const generateLoginSuccessLog = (config: AuthLogConfig = {}) => {
   };
 };
 
-export const generateLoginFailureLog = (config: AuthLogConfig = {}) => {
+export const generateLoginFailureLog = async (config: AuthLogConfig = {}) => {
   const {
-    hostName = faker.internet.domainName(),
-    userName = faker.internet.username(),
+    hostName = await getThemedHostname(faker.internet.domainName()),
+    userName = await getThemedUsername(faker.internet.username()),
     timestampConfig,
     namespace = 'default',
   } = config;
@@ -134,9 +140,9 @@ export const generateLoginFailureLog = (config: AuthLogConfig = {}) => {
     'source.ip': faker.internet.ip(),
     'source.port': faker.internet.port(),
     'user.name': userName,
-    'user.domain': faker.internet.domainName(),
+    'user.domain': await getThemedDomain(faker.internet.domainName()),
     'user.target.name': userName,
-    'user.target.domain': faker.internet.domainName(),
+    'user.target.domain': await getThemedDomain(faker.internet.domainName()),
     'winlog.channel': 'Security',
     'winlog.event_id': 4625,
     'winlog.logon.failure.reason': failureReason,
@@ -148,10 +154,10 @@ export const generateLoginFailureLog = (config: AuthLogConfig = {}) => {
   };
 };
 
-export const generatePrivilegeEscalationLog = (config: AuthLogConfig = {}) => {
+export const generatePrivilegeEscalationLog = async (config: AuthLogConfig = {}) => {
   const {
-    hostName = faker.internet.domainName(),
-    userName = faker.internet.username(),
+    hostName = await getThemedHostname(faker.internet.domainName()),
+    userName = await getThemedUsername(faker.internet.username()),
     timestampConfig,
     namespace = 'default',
   } = config;
@@ -180,7 +186,7 @@ export const generatePrivilegeEscalationLog = (config: AuthLogConfig = {}) => {
     'log.level': 'information',
     message: `Special privileges assigned to new logon. Privileges: ${privilege}`,
     'user.name': userName,
-    'user.domain': faker.internet.domainName(),
+    'user.domain': await getThemedDomain(faker.internet.domainName()),
     'user.id': faker.string.uuid(),
     'user.privileges': [privilege],
     'winlog.channel': 'Security',
@@ -192,10 +198,10 @@ export const generatePrivilegeEscalationLog = (config: AuthLogConfig = {}) => {
   };
 };
 
-export const generateAccountLockoutLog = (config: AuthLogConfig = {}) => {
+export const generateAccountLockoutLog = async (config: AuthLogConfig = {}) => {
   const {
-    hostName = faker.internet.domainName(),
-    userName = faker.internet.username(),
+    hostName = await getThemedHostname(faker.internet.domainName()),
+    userName = await getThemedUsername(faker.internet.username()),
     timestampConfig,
     namespace = 'default',
   } = config;
@@ -223,9 +229,9 @@ export const generateAccountLockoutLog = (config: AuthLogConfig = {}) => {
     message: `A user account was locked out.`,
     'source.ip': faker.internet.ip(),
     'user.name': userName,
-    'user.domain': faker.internet.domainName(),
+    'user.domain': await getThemedDomain(faker.internet.domainName()),
     'user.target.name': userName,
-    'user.target.domain': faker.internet.domainName(),
+    'user.target.domain': await getThemedDomain(faker.internet.domainName()),
     'winlog.channel': 'Security',
     'winlog.event_id': 4740,
     'winlog.process.pid': faker.number.int({ min: 100, max: 65535 }),
@@ -235,10 +241,10 @@ export const generateAccountLockoutLog = (config: AuthLogConfig = {}) => {
   };
 };
 
-export const generateLinuxAuthLog = (config: AuthLogConfig = {}) => {
+export const generateLinuxAuthLog = async (config: AuthLogConfig = {}) => {
   const {
-    hostName = faker.internet.domainName(),
-    userName = faker.internet.username(),
+    hostName = await getThemedHostname(faker.internet.domainName()),
+    userName = await getThemedUsername(faker.internet.username()),
     timestampConfig,
     namespace = 'default',
   } = config;
@@ -286,7 +292,7 @@ export const generateLinuxAuthLog = (config: AuthLogConfig = {}) => {
   };
 };
 
-export default function createAuthLog(
+export default async function createAuthLog(
   override = {},
   config: AuthLogConfig = {},
 ) {
@@ -300,7 +306,7 @@ export default function createAuthLog(
   ];
 
   const selectedGenerator = faker.helpers.arrayElement(weightedGenerators);
-  const baseLog = selectedGenerator(config);
+  const baseLog = await selectedGenerator(config);
 
   return {
     ...baseLog,

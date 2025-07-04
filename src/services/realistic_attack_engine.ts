@@ -6,6 +6,11 @@ import { LogCorrelationEngine } from './log_correlation_engine';
 import { CorrelatedAlertGenerator } from './correlated_alert_generator';
 import { faker } from '@faker-js/faker';
 import type { TimestampConfig } from '../utils/timestamp_utils';
+import { 
+  getThemedUsername, 
+  getThemedHostname,
+  getGlobalThemeGenerator 
+} from '../utils/universal_theme_generator';
 
 export interface RealisticCampaignConfig {
   // Campaign settings
@@ -178,11 +183,14 @@ export class RealisticAttackEngine {
       // Generate logs for each technique in the stage
       for (const technique of stage.techniques) {
         try {
-          // Create a mock alert to use correlation engine
+          // Create a mock alert to use correlation engine with themed data
+          const hostName = await getThemedHostname(faker.internet.domainName());
+          const userName = await getThemedUsername(faker.internet.username());
+          
           const mockAlert = {
             '@timestamp': stage.start_time.toISOString(),
-            'host.name': faker.internet.domainName(), // Generate hostname since targets structure is unknown
-            'user.name': faker.internet.username(),
+            'host.name': hostName,
+            'user.name': userName,
             'threat.technique.id': technique,
             'kibana.alert.uuid': faker.string.uuid(),
           } as any;
@@ -190,8 +198,8 @@ export class RealisticAttackEngine {
           // Generate correlated logs for this technique
           const techniqueeLogs =
             await this.correlationEngine.generateCorrelatedLogs(mockAlert, {
-              hostName: mockAlert['host.name'],
-              userName: mockAlert['user.name'],
+              hostName: hostName,
+              userName: userName,
               timestampConfig: {
                 startDate: stage.start_time.toISOString(),
                 endDate: stage.end_time.toISOString(),
