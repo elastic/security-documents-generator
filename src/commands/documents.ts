@@ -32,6 +32,7 @@ import {
   isValidTheme,
 } from '../utils/theme_service';
 import { setGlobalTheme, getThemedUsername, getThemedHostname } from '../utils/universal_theme_generator';
+import { displayGeneratedEntities, GeneratedEntities } from '../utils/entity_display';
 
 /**
  * Helper function to apply multi-field generation to alerts
@@ -495,6 +496,18 @@ export const generateAlerts = async (
       `✅ Successfully indexed ${alertCount} alerts with multi-field enrichment`,
     );
 
+    // Display generated entities for user reference
+    const generatedEntities: GeneratedEntities = {
+      userNames,
+      hostNames
+    };
+    displayGeneratedEntities(generatedEntities, {
+      namespace: _namespace,
+      space,
+      showKQLQueries: true,
+      showSampleQueries: true
+    });
+
     return;
   }
 
@@ -842,6 +855,18 @@ export const generateAlerts = async (
       console.log('⚠️ Alert generation completed successfully, but case creation failed');
     }
   }
+
+  // Display generated entities for user reference
+  const generatedEntities: GeneratedEntities = {
+    userNames,
+    hostNames
+  };
+  displayGeneratedEntities(generatedEntities, {
+    namespace: _namespace,
+    space,
+    showKQLQueries: true,
+    showSampleQueries: true
+  });
 
   // Cleanup AI service to allow process to exit cleanly
   if (useAI) {
@@ -1210,6 +1235,19 @@ export const generateLogs = async (
     console.log(`Used indices: ${Array.from(usedIndices).join(', ')}`);
   }
 
+  // Display generated entities for user reference
+  if (!quiet) {
+    const generatedEntities: GeneratedEntities = {
+      userNames,
+      hostNames
+    };
+    displayGeneratedEntities(generatedEntities, {
+      namespace,
+      showKQLQueries: true,
+      showSampleQueries: true
+    });
+  }
+
   // Cleanup AI service if used
   if (useAI) {
     cleanupAIService();
@@ -1372,6 +1410,18 @@ export const generateCorrelatedCampaign = async (
     console.error('Error generating correlated campaign:', error);
     throw error;
   }
+
+  // Display generated entities for user reference
+  const generatedEntities: GeneratedEntities = {
+    userNames,
+    hostNames
+  };
+  displayGeneratedEntities(generatedEntities, {
+    namespace: _namespace,
+    space,
+    showKQLQueries: true,
+    showSampleQueries: true
+  });
 
   // Cleanup AI service if used
   if (useAI) {

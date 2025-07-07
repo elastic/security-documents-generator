@@ -1546,6 +1546,28 @@ program
           console.log(
             `📈 ${realisticResult.detectedAlerts.length} alerts triggered by ${realisticResult.stageLogs.reduce((sum, stage) => sum + stage.logs.length, 0)} source logs`,
           );
+
+          // Extract and display generated entities from realistic campaign
+          const { displayGeneratedEntities } = await import('./utils/entity_display');
+          const extractedUserNames = new Set<string>();
+          const extractedHostNames = new Set<string>();
+
+          // Extract entities from logs and alerts
+          [...realisticResult.stageLogs.flatMap(stage => stage.logs), ...realisticResult.detectedAlerts].forEach(item => {
+            if (item['user.name']) extractedUserNames.add(item['user.name']);
+            if (item['host.name']) extractedHostNames.add(item['host.name']);
+          });
+
+          displayGeneratedEntities({
+            userNames: Array.from(extractedUserNames),
+            hostNames: Array.from(extractedHostNames)
+          }, {
+            namespace: environments > 1 ? targetSpace : 'default',
+            space: targetSpace,
+            showKQLQueries: true,
+            showSampleQueries: true
+          });
+
           return;
         }
 
