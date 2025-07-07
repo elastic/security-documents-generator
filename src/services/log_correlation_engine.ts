@@ -51,15 +51,26 @@ export class LogCorrelationEngine {
       userName = await getThemedUsername(faker.internet.username()),
       alertTimestamp = new Date().toISOString(),
       logCount = 8,
+      timestampConfig,
     } = config;
 
-    const baseTime = new Date(alertTimestamp);
     const logs: any[] = [];
 
-    // 1. Email delivery log (30 minutes before alert)
-    const emailTime = new Date(baseTime.getTime() - 30 * 60 * 1000);
+    // Generate timestamps within the specified time range if timestampConfig is provided
+    const generateLogTimestamp = () => {
+      if (timestampConfig) {
+        return generateTimestamp(timestampConfig);
+      }
+      // Fallback to relative time calculation
+      const baseTime = new Date(alertTimestamp);
+      const offsetMinutes = faker.number.int({ min: 5, max: 60 });
+      return new Date(baseTime.getTime() - offsetMinutes * 60 * 1000).toISOString();
+    };
+
+    // 1. Email delivery log
+    const emailTime = generateLogTimestamp();
     logs.push({
-      '@timestamp': emailTime.toISOString(),
+      '@timestamp': emailTime,
       'data_stream.dataset': 'microsoft.exchange',
       'data_stream.namespace': 'default',
       'data_stream.type': 'logs',
@@ -84,10 +95,10 @@ export class LogCorrelationEngine {
       'threat.indicator.email.domain': 'suspicious-domain.com',
     });
 
-    // 2. User opened email (25 minutes before alert)
-    const emailOpenTime = new Date(baseTime.getTime() - 25 * 60 * 1000);
+    // 2. User opened email
+    const emailOpenTime = generateLogTimestamp();
     logs.push({
-      '@timestamp': emailOpenTime.toISOString(),
+      '@timestamp': emailOpenTime,
       'data_stream.dataset': 'microsoft.outlook',
       'data_stream.namespace': 'default',
       'data_stream.type': 'logs',
@@ -100,11 +111,11 @@ export class LogCorrelationEngine {
       'related.user': [userName],
     });
 
-    // 3. File download from email (20 minutes before alert)
-    const downloadTime = new Date(baseTime.getTime() - 20 * 60 * 1000);
+    // 3. File download from email
+    const downloadTime = generateLogTimestamp();
     const themedFileName = await getThemedFilename('invoice_2025.pdf.exe');
     logs.push({
-      '@timestamp': downloadTime.toISOString(),
+      '@timestamp': downloadTime,
       'data_stream.dataset': 'endpoint.events.file',
       'data_stream.namespace': 'default',
       'data_stream.type': 'logs',
@@ -131,10 +142,10 @@ export class LogCorrelationEngine {
       ],
     });
 
-    // 4. User executed the malicious file (15 minutes before alert)
-    const executionTime = new Date(baseTime.getTime() - 15 * 60 * 1000);
+    // 4. User executed the malicious file
+    const executionTime = generateLogTimestamp();
     logs.push({
-      '@timestamp': executionTime.toISOString(),
+      '@timestamp': executionTime,
       'data_stream.dataset': 'endpoint.events.process',
       'data_stream.namespace': 'default',
       'data_stream.type': 'logs',
@@ -151,11 +162,11 @@ export class LogCorrelationEngine {
       'related.user': [userName],
     });
 
-    // 5. Malicious network connection (10 minutes before alert)
-    const networkTime = new Date(baseTime.getTime() - 10 * 60 * 1000);
+    // 5. Malicious network connection
+    const networkTime = generateLogTimestamp();
     const maliciousIP = '185.220.101.47'; // Known malicious IP range
     logs.push({
-      '@timestamp': networkTime.toISOString(),
+      '@timestamp': networkTime,
       'data_stream.dataset': 'network.flows',
       'data_stream.namespace': 'default',
       'data_stream.type': 'logs',
@@ -175,10 +186,10 @@ export class LogCorrelationEngine {
       'related.user': [userName],
     });
 
-    // 6. Registry modification (8 minutes before alert)
-    const registryTime = new Date(baseTime.getTime() - 8 * 60 * 1000);
+    // 6. Registry modification
+    const registryTime = generateLogTimestamp();
     logs.push({
-      '@timestamp': registryTime.toISOString(),
+      '@timestamp': registryTime,
       'data_stream.dataset': 'endpoint.events.registry',
       'data_stream.namespace': 'default',
       'data_stream.type': 'logs',
@@ -197,10 +208,10 @@ export class LogCorrelationEngine {
       'related.user': [userName],
     });
 
-    // 7. Credential harvesting attempt (5 minutes before alert)
-    const credTime = new Date(baseTime.getTime() - 5 * 60 * 1000);
+    // 7. Credential harvesting attempt
+    const credTime = generateLogTimestamp();
     logs.push({
-      '@timestamp': credTime.toISOString(),
+      '@timestamp': credTime,
       'data_stream.dataset': 'security.security',
       'data_stream.namespace': 'default',
       'data_stream.type': 'logs',
@@ -219,9 +230,9 @@ export class LogCorrelationEngine {
     });
 
     // 8. Windows Defender detection (triggering the alert)
-    const detectionTime = new Date(baseTime.getTime() - 2 * 60 * 1000);
+    const detectionTime = generateLogTimestamp();
     logs.push({
-      '@timestamp': detectionTime.toISOString(),
+      '@timestamp': detectionTime,
       'data_stream.dataset': 'endpoint.alerts',
       'data_stream.namespace': 'default',
       'data_stream.type': 'logs',
@@ -256,6 +267,8 @@ export class LogCorrelationEngine {
         performanceMode: config.multiFieldConfig.performanceMode,
         contextWeightEnabled: config.multiFieldConfig.contextWeightEnabled,
         correlationEnabled: config.multiFieldConfig.correlationEnabled,
+        useExpandedFields: config.multiFieldConfig.useExpandedFields,
+        expandedFieldCount: config.multiFieldConfig.expandedFieldCount,
       });
 
       return finalLogs.map((log) => {
@@ -282,15 +295,26 @@ export class LogCorrelationEngine {
       userName = await getThemedUsername(faker.internet.username()),
       alertTimestamp = new Date().toISOString(),
       logCount = 6,
+      timestampConfig,
     } = config;
 
-    const baseTime = new Date(alertTimestamp);
     const logs: any[] = [];
 
+    // Generate timestamps within the specified time range if timestampConfig is provided
+    const generateLogTimestamp = () => {
+      if (timestampConfig) {
+        return generateTimestamp(timestampConfig);
+      }
+      // Fallback to relative time calculation
+      const baseTime = new Date(alertTimestamp);
+      const offsetMinutes = faker.number.int({ min: 5, max: 60 });
+      return new Date(baseTime.getTime() - offsetMinutes * 60 * 1000).toISOString();
+    };
+
     // 1. Initial PowerShell execution
-    const psTime = new Date(baseTime.getTime() - 10 * 60 * 1000);
+    const psTime = generateLogTimestamp();
     logs.push({
-      '@timestamp': psTime.toISOString(),
+      '@timestamp': psTime,
       'data_stream.dataset': 'endpoint.events.process',
       'data_stream.namespace': 'default',
       'data_stream.type': 'logs',
@@ -310,9 +334,9 @@ export class LogCorrelationEngine {
     });
 
     // 2. Outbound network connection
-    const networkTime = new Date(baseTime.getTime() - 8 * 60 * 1000);
+    const networkTime = generateLogTimestamp();
     logs.push({
-      '@timestamp': networkTime.toISOString(),
+      '@timestamp': networkTime,
       'data_stream.dataset': 'network.flows',
       'data_stream.namespace': 'default',
       'data_stream.type': 'logs',
@@ -334,9 +358,9 @@ export class LogCorrelationEngine {
     });
 
     // 3. Script downloaded and executed
-    const scriptTime = new Date(baseTime.getTime() - 6 * 60 * 1000);
+    const scriptTime = generateLogTimestamp();
     logs.push({
-      '@timestamp': scriptTime.toISOString(),
+      '@timestamp': scriptTime,
       'data_stream.dataset': 'endpoint.events.file',
       'data_stream.namespace': 'default',
       'data_stream.type': 'logs',
@@ -354,9 +378,9 @@ export class LogCorrelationEngine {
     });
 
     // 4. Credential dumping attempt
-    const dumpTime = new Date(baseTime.getTime() - 4 * 60 * 1000);
+    const dumpTime = generateLogTimestamp();
     logs.push({
-      '@timestamp': dumpTime.toISOString(),
+      '@timestamp': dumpTime,
       'data_stream.dataset': 'security.security',
       'data_stream.namespace': 'default',
       'data_stream.type': 'logs',
@@ -374,9 +398,9 @@ export class LogCorrelationEngine {
     });
 
     // 5. Persistence mechanism
-    const persistTime = new Date(baseTime.getTime() - 2 * 60 * 1000);
+    const persistTime = generateLogTimestamp();
     logs.push({
-      '@timestamp': persistTime.toISOString(),
+      '@timestamp': persistTime,
       'data_stream.dataset': 'endpoint.events.registry',
       'data_stream.namespace': 'default',
       'data_stream.type': 'logs',
@@ -396,9 +420,9 @@ export class LogCorrelationEngine {
     });
 
     // 6. Security alert triggered
-    const alertTriggerTime = new Date(baseTime.getTime() - 1 * 60 * 1000);
+    const alertTriggerTime = generateLogTimestamp();
     logs.push({
-      '@timestamp': alertTriggerTime.toISOString(),
+      '@timestamp': alertTriggerTime,
       'data_stream.dataset': 'endpoint.behavioral',
       'data_stream.namespace': 'default',
       'data_stream.type': 'logs',
@@ -428,9 +452,11 @@ export class LogCorrelationEngine {
         performanceMode: config.multiFieldConfig.performanceMode,
         contextWeightEnabled: config.multiFieldConfig.contextWeightEnabled,
         correlationEnabled: config.multiFieldConfig.correlationEnabled,
+        useExpandedFields: config.multiFieldConfig.useExpandedFields,
+        expandedFieldCount: config.multiFieldConfig.expandedFieldCount,
       });
 
-      return finalLogs.map((log) => {
+      const enhancedLogs = finalLogs.map((log) => {
         const result = multiFieldGenerator.generateFields(log, {
           logType: log['data_stream.dataset'] || 'security',
           isAttack: true,
@@ -438,6 +464,8 @@ export class LogCorrelationEngine {
         });
         return { ...log, ...result.fields };
       });
+      
+      return enhancedLogs;
     }
 
     return finalLogs;
@@ -454,18 +482,29 @@ export class LogCorrelationEngine {
       userName = await getThemedUsername(faker.internet.username()),
       alertTimestamp = new Date().toISOString(),
       logCount = 5,
+      timestampConfig,
     } = config;
 
-    const baseTime = new Date(alertTimestamp);
     const logs: any[] = [];
     const parentPid = faker.number.int({ min: 3000, max: 6000 });
     const maliciousPid = faker.number.int({ min: 6000, max: 9000 });
     const targetPid = faker.number.int({ min: 9000, max: 12000 });
 
+    // Generate timestamps within the specified time range if timestampConfig is provided
+    const generateLogTimestamp = () => {
+      if (timestampConfig) {
+        return generateTimestamp(timestampConfig);
+      }
+      // Fallback to relative time calculation
+      const baseTime = new Date(alertTimestamp);
+      const offsetMinutes = faker.number.int({ min: 5, max: 60 });
+      return new Date(baseTime.getTime() - offsetMinutes * 60 * 1000).toISOString();
+    };
+
     // 1. Malicious process starts
-    const processStart = new Date(baseTime.getTime() - 12 * 60 * 1000);
+    const processStart = generateLogTimestamp();
     logs.push({
-      '@timestamp': processStart.toISOString(),
+      '@timestamp': processStart,
       'data_stream.dataset': 'endpoint.events.process',
       'data_stream.namespace': 'default',
       'data_stream.type': 'logs',
@@ -483,9 +522,9 @@ export class LogCorrelationEngine {
     });
 
     // 2. Target process enumeration
-    const enumTime = new Date(baseTime.getTime() - 8 * 60 * 1000);
+    const enumTime = generateLogTimestamp();
     logs.push({
-      '@timestamp': enumTime.toISOString(),
+      '@timestamp': enumTime,
       'data_stream.dataset': 'endpoint.events.api',
       'data_stream.namespace': 'default',
       'data_stream.type': 'logs',
@@ -501,9 +540,9 @@ export class LogCorrelationEngine {
     });
 
     // 3. Target process opened
-    const openTime = new Date(baseTime.getTime() - 6 * 60 * 1000);
+    const openTime = generateLogTimestamp();
     logs.push({
-      '@timestamp': openTime.toISOString(),
+      '@timestamp': openTime,
       'data_stream.dataset': 'endpoint.events.api',
       'data_stream.namespace': 'default',
       'data_stream.type': 'logs',
@@ -521,9 +560,9 @@ export class LogCorrelationEngine {
     });
 
     // 4. Memory allocation in target
-    const allocTime = new Date(baseTime.getTime() - 4 * 60 * 1000);
+    const allocTime = generateLogTimestamp();
     logs.push({
-      '@timestamp': allocTime.toISOString(),
+      '@timestamp': allocTime,
       'data_stream.dataset': 'endpoint.events.api',
       'data_stream.namespace': 'default',
       'data_stream.type': 'logs',
@@ -543,9 +582,9 @@ export class LogCorrelationEngine {
     });
 
     // 5. Code injection detected
-    const injectionTime = new Date(baseTime.getTime() - 2 * 60 * 1000);
+    const injectionTime = generateLogTimestamp();
     logs.push({
-      '@timestamp': injectionTime.toISOString(),
+      '@timestamp': injectionTime,
       'data_stream.dataset': 'endpoint.events.security',
       'data_stream.namespace': 'default',
       'data_stream.type': 'logs',
@@ -576,6 +615,8 @@ export class LogCorrelationEngine {
         performanceMode: config.multiFieldConfig.performanceMode,
         contextWeightEnabled: config.multiFieldConfig.contextWeightEnabled,
         correlationEnabled: config.multiFieldConfig.correlationEnabled,
+        useExpandedFields: config.multiFieldConfig.useExpandedFields,
+        expandedFieldCount: config.multiFieldConfig.expandedFieldCount,
       });
 
       return finalLogs.map((log) => {

@@ -6,10 +6,10 @@ import { LogCorrelationEngine } from './log_correlation_engine';
 import { CorrelatedAlertGenerator } from './correlated_alert_generator';
 import { faker } from '@faker-js/faker';
 import type { TimestampConfig } from '../utils/timestamp_utils';
-import { 
-  getThemedUsername, 
+import {
+  getThemedUsername,
   getThemedHostname,
-  getGlobalThemeGenerator 
+  getGlobalThemeGenerator,
 } from '../utils/universal_theme_generator';
 
 export interface RealisticCampaignConfig {
@@ -119,6 +119,7 @@ export class RealisticAttackEngine {
     const campaign = await this.attackEngine.generateAttackSimulation(
       config.campaignType,
       config.complexity,
+      config.timestampConfig,
     );
 
     console.log(`📋 Campaign generated: ${campaign.stages.length} stages`);
@@ -186,7 +187,7 @@ export class RealisticAttackEngine {
           // Create a mock alert to use correlation engine with themed data
           const hostName = await getThemedHostname(faker.internet.domainName());
           const userName = await getThemedUsername(faker.internet.username());
-          
+
           const mockAlert = {
             '@timestamp': stage.start_time.toISOString(),
             'host.name': hostName,

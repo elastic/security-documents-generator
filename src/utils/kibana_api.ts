@@ -78,9 +78,17 @@ export const kibanaFetch = async <T>(
   });
   const rawResponse = await result.text();
   // log response status
-  const data = rawResponse ? JSON.parse(rawResponse) : {};
+  let data: any = {};
+  if (rawResponse) {
+    try {
+      data = JSON.parse(rawResponse);
+    } catch (e) {
+      // If parsing fails, treat as plain text error response
+      data = { error: rawResponse };
+    }
+  }
   if (!data || typeof data !== 'object') {
-    throw new Error();
+    throw new Error('Invalid response format');
   }
 
   if (result.status >= 400 && !ignoreStatusesArray.includes(result.status)) {
@@ -307,6 +315,7 @@ export const createSpace = async (space: string) => {
     },
     {
       apiVersion: API_VERSIONS.public.v1,
+      ignoreStatuses: [409], // Ignore conflict if space already exists
     },
   );
 };
@@ -318,13 +327,13 @@ export const doesSpaceExist = async (space: string): Promise<boolean> => {
       {
         method: 'GET',
       },
-      { apiVersion: API_VERSIONS.public.v1 },
+      { apiVersion: API_VERSIONS.public.v1, ignoreStatuses: [404] },
     );
+    return true;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
     return false;
   }
-  return true;
 };
 
 const _initEngine = (engineType: string, space?: string) => {

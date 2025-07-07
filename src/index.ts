@@ -1425,7 +1425,7 @@ program
                   performanceMode: fieldPerformanceMode,
                   contextWeightEnabled: true,
                   correlationEnabled: true,
-                  useExpandedFields: fieldCount > 1000,
+                  useExpandedFields: fieldCount >= 1000,
                   expandedFieldCount: fieldCount,
                 }
               : undefined,
@@ -1511,7 +1511,8 @@ program
           }
 
           // Index detected alerts with environment-specific space
-          const alertIndex = `.internal.alerts-security.alerts-${targetSpace}-000001`;
+          const { getAlertIndex } = await import('./utils/get_alert_index');
+          const alertIndex = getAlertIndex(targetSpace);
           for (const alert of realisticResult.detectedAlerts) {
             // Update alert space IDs for multi-environment
             alert['kibana.space_ids'] = [targetSpace];
@@ -1553,9 +1554,21 @@ program
           console.log('\n🧠 Initializing Sophisticated Attack Simulation...');
 
           // Generate the attack simulation
+          const timestampConfigForSimulation = {
+            startDate: options.startDate,
+            endDate: options.endDate,
+            pattern: (options.timePattern || 'attack_simulation') as
+              | 'uniform'
+              | 'business_hours'
+              | 'random'
+              | 'attack_simulation'
+              | 'weekend_heavy',
+          };
+          
           const simulation = await simulationEngine.generateAttackSimulation(
             campaignType as 'apt' | 'ransomware' | 'insider' | 'supply_chain',
             options.complexity as 'low' | 'medium' | 'high' | 'expert',
+            timestampConfigForSimulation,
           );
 
           console.log(`\n✨ Campaign Generated Successfully:`);
