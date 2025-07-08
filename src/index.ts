@@ -228,6 +228,28 @@ program
   });
 
 program
+  .command('quick-entity-store')
+  .description('Generate quick entity store')
+  .option('--space <space>', 'Space to create entity store in')
+  .action(async (options) => {
+    const space = options.space || 'default';
+
+    generateEntityStore({
+      space,
+      users: 10,
+      hosts: 10,
+      services: 10,
+      genericEntities: 10,
+      seed: generateNewSeed(),
+      options: [
+        ENTITY_STORE_OPTIONS.criticality,
+        ENTITY_STORE_OPTIONS.riskEngine,
+        ENTITY_STORE_OPTIONS.rule,
+      ],
+    });
+  });
+
+program
   .command('clean-entity-store')
   .description('clean entity store')
   .action(cleanEntityStore);
