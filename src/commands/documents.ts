@@ -35,8 +35,20 @@ import { setGlobalTheme, getThemedUsername, getThemedHostname } from '../utils/u
 import { displayGeneratedEntities, GeneratedEntities } from '../utils/entity_display';
 
 /**
+ * Cache for generated field templates to avoid regenerating for each document
+ */
+let fieldTemplateCache: Record<string, any> | null = null;
+
+/**
+ * Clear the field template cache (call this between different generation sessions)
+ */
+function clearFieldTemplateCache() {
+  fieldTemplateCache = null;
+}
+
+/**
  * Helper function to apply multi-field generation to alerts
- * Now uses the improved standalone field generation system
+ * Now uses cached field generation for performance
  */
 async function applyMultiFieldGeneration<T extends Record<string, any>>(
   alert: T,
@@ -53,18 +65,37 @@ async function applyMultiFieldGeneration<T extends Record<string, any>>(
     return alert;
   }
 
-  // Use the new improved field generation system
-  const result = await generateFields({
-    fieldCount: multiFieldConfig.fieldCount,
-    categories: multiFieldConfig.categories,
-    outputFormat: 'json',
-    sampleDocument: alert,
-    includeMetadata: false,
-    createMapping: false, // Don't create mapping here - handled at index level
-    updateTemplate: false, // Don't create template here - handled at index level
-  });
+  // Generate field template once and cache it
+  if (!fieldTemplateCache) {
+    console.log(`🔬 Generating ${multiFieldConfig.fieldCount} field templates (cached for reuse)...`);
+    const result = await generateFields({
+      fieldCount: multiFieldConfig.fieldCount,
+      categories: multiFieldConfig.categories,
+      outputFormat: 'json',
+      sampleDocument: alert,
+      includeMetadata: false,
+      createMapping: false, // Don't create mapping here - handled at index level
+      updateTemplate: false, // Don't create template here - handled at index level
+    });
+    fieldTemplateCache = result.fields;
+    console.log(`✅ Field templates cached: ${Object.keys(fieldTemplateCache).length} fields`);
+  }
 
-  return { ...alert, ...result.fields } as T;
+  // Apply cached fields with some variation
+  const variedFields: Record<string, any> = {};
+  for (const [key, value] of Object.entries(fieldTemplateCache)) {
+    // Add slight variation to numeric fields to make data more realistic
+    if (typeof value === 'number') {
+      variedFields[key] = value + (Math.random() - 0.5) * value * 0.1; // ±5% variation
+    } else if (typeof value === 'string' && !isNaN(Number(value))) {
+      const num = Number(value);
+      variedFields[key] = (num + (Math.random() - 0.5) * num * 0.1).toString();
+    } else {
+      variedFields[key] = value;
+    }
+  }
+
+  return { ...alert, ...variedFields } as T;
 }
 
 const generateDocs = async ({
@@ -329,6 +360,9 @@ export const generateAlerts = async (
   },
   theme?: string,
 ) => {
+  // Clear field template cache for fresh generation
+  clearFieldTemplateCache();
+  
   // Set global theme configuration
   if (theme) {
     setGlobalTheme(theme);
@@ -416,12 +450,21 @@ export const generateAlerts = async (
     console.log(`🎭 Generating themed entity names: ${theme}`);
   }
   
-  const userNames = await Promise.all(
-    Array.from({ length: userCount }, () => getThemedUsername(faker.internet.username()))
-  );
-  const hostNames = await Promise.all(
-    Array.from({ length: hostCount }, () => getThemedHostname(faker.internet.domainName()))
-  );
+  // Generate unique user names
+  const userNamesSet = new Set<string>();
+  while (userNamesSet.size < userCount) {
+    const username = await getThemedUsername(faker.internet.username());
+    userNamesSet.add(username);
+  }
+  const userNames = Array.from(userNamesSet);
+  
+  // Generate unique host names
+  const hostNamesSet = new Set<string>();
+  while (hostNamesSet.size < hostCount) {
+    const hostname = await getThemedHostname(faker.internet.domainName());
+    hostNamesSet.add(hostname);
+  }
+  const hostNames = Array.from(hostNamesSet);
 
   console.log('Assigning entity names...');
   const alertEntityNames = Array.from({ length: alertCount }, (_, i) => ({
@@ -990,6 +1033,9 @@ export const generateLogs = async (
   quiet = false,
   theme?: string,
 ) => {
+  // Clear field template cache for fresh generation
+  clearFieldTemplateCache();
+  
   // Set global theme configuration
   if (theme) {
     setGlobalTheme(theme);
@@ -1056,12 +1102,21 @@ export const generateLogs = async (
     console.log(`🎭 Generating themed entity names: ${theme}`);
   }
   
-  const userNames = await Promise.all(
-    Array.from({ length: userCount }, () => getThemedUsername(faker.internet.username()))
-  );
-  const hostNames = await Promise.all(
-    Array.from({ length: hostCount }, () => getThemedHostname(faker.internet.domainName()))
-  );
+  // Generate unique user names
+  const userNamesSet = new Set<string>();
+  while (userNamesSet.size < userCount) {
+    const username = await getThemedUsername(faker.internet.username());
+    userNamesSet.add(username);
+  }
+  const userNames = Array.from(userNamesSet);
+  
+  // Generate unique host names
+  const hostNamesSet = new Set<string>();
+  while (hostNamesSet.size < hostCount) {
+    const hostname = await getThemedHostname(faker.internet.domainName());
+    hostNamesSet.add(hostname);
+  }
+  const hostNames = Array.from(hostNamesSet);
 
   if (!quiet) console.log('Generating logs...');
   const operations: unknown[] = [];
@@ -1287,9 +1342,9 @@ export const generateCorrelatedCampaign = async (
     process.exit(1);
   }
 
-  // Import the correlated alert generator
-  const { CorrelatedAlertGenerator } = await import(
-    '../services/correlated_alert_generator'
+  // Use the unified alert generation service for correlated campaigns
+  const { unifiedAlertGenerationService } = await import(
+    '../services/unified_alert_generation'
   );
   const logMappings = await import('../mappings/log_mappings.json', {
     assert: { type: 'json' },
@@ -1297,15 +1352,24 @@ export const generateCorrelatedCampaign = async (
 
   // Generate entity names
   console.log('Generating target entities...');
-  const userNames = await Promise.all(
-    Array.from({ length: userCount }, () => getThemedUsername(faker.internet.username()))
-  );
-  const hostNames = await Promise.all(
-    Array.from({ length: hostCount }, () => getThemedHostname(faker.internet.domainName()))
-  );
+  
+  // Generate unique user names
+  const userNamesSet = new Set<string>();
+  while (userNamesSet.size < userCount) {
+    const username = await getThemedUsername(faker.internet.username());
+    userNamesSet.add(username);
+  }
+  const userNames = Array.from(userNamesSet);
+  
+  // Generate unique host names
+  const hostNamesSet = new Set<string>();
+  while (hostNamesSet.size < hostCount) {
+    const hostname = await getThemedHostname(faker.internet.domainName());
+    hostNamesSet.add(hostname);
+  }
+  const hostNames = Array.from(hostNamesSet);
 
-  console.log('Initializing correlation engine...');
-  const generator = new CorrelatedAlertGenerator();
+  console.log('Initializing unified alert generation...');
 
   const progress = new cliProgress.SingleBar(
     {},
@@ -1315,96 +1379,36 @@ export const generateCorrelatedCampaign = async (
   progress.start(alertCount, 0);
 
   try {
-    // Generate the attack campaign
-    const campaign = await generator.generateAttackCampaign(
+    // Generate using the unified alert generation service
+    const config = {
       alertCount,
-      hostNames,
-      userNames,
-      {
-        space,
-        useAI,
-        useMitre,
-        timestampConfig,
-        logVolumeMultiplier,
-      },
-    );
+      hostCount,
+      userCount,
+      space,
+      namespace: _namespace,
+      useAI,
+      useMitre,
+      timestampConfig,
+      falsePositiveRate: 0.1,
+      multiFieldConfig: undefined,
+    };
+
+    const result = await unifiedAlertGenerationService.generateAlerts(config);
 
     progress.stop();
 
     console.log('\n📊 Campaign Summary:');
-    console.log(`  🚨 Total Alerts: ${campaign.campaignSummary.totalAlerts}`);
-    console.log(
-      `  📋 Total Supporting Logs: ${campaign.campaignSummary.totalLogs}`,
-    );
-    console.log(
-      `  🎯 Attack Types: ${campaign.campaignSummary.attackTypes.join(', ')}`,
-    );
-    console.log(
-      `  🏠 Affected Hosts: ${campaign.campaignSummary.affectedHosts.length}`,
-    );
-    console.log(
-      `  👥 Affected Users: ${campaign.campaignSummary.affectedUsers.length}`,
-    );
-    console.log(
-      `  ⏰ Time Span: ${campaign.campaignSummary.timeSpan.start} → ${campaign.campaignSummary.timeSpan.end}`,
-    );
+    console.log(`  🚨 Total Alerts: ${result.alertsGenerated}`);
+    console.log(`  📋 Index: ${result.indexName}`);
+    console.log(`  🎯 Generated Entities: ${result.generatedEntities.userNames?.length || 0} users, ${result.generatedEntities.hostNames?.length || 0} hosts`);
+    console.log(`  ⏰ Performance: ${result.performance.overall.totalTimeMs}ms`);
+    console.log(`  🤖 AI Efficiency: ${result.performance.dataPoolGeneration.aiCalls} calls`);
 
-    // Extract data for indexing
-    console.log('\nPreparing data for Elasticsearch indexing...');
-    const { indexOperations } = generator.extractLogsForIndexing(
-      campaign.scenarios,
-    );
-
-    // Ensure all indices exist with proper mappings
-    console.log('Creating indices and mappings...');
-    const usedIndices = new Set<string>();
-
-    for (let i = 0; i < indexOperations.length; i += 2) {
-      const operation = indexOperations[i] as any;
-      const indexName = operation.create._index;
-
-      if (!usedIndices.has(indexName)) {
-        await indexCheck(
-          indexName,
-          {
-            mappings: logMappings.default as MappingTypeMapping,
-          },
-          false,
-        );
-        usedIndices.add(indexName);
-      }
-    }
-
-    // Bulk index all data
-    console.log(
-      `Indexing ${indexOperations.length / 2} documents to Elasticsearch...`,
-    );
-
-    // Process in batches to avoid overwhelming Elasticsearch
-    const batchSize = 1000;
-    for (let i = 0; i < indexOperations.length; i += batchSize) {
-      const batch = indexOperations.slice(i, i + batchSize);
-      await bulkUpsert(batch);
-
-      if (i + batchSize < indexOperations.length) {
-        process.stdout.write(`.`);
-      }
-    }
-
-    console.log('\n\n✅ Correlated campaign generation completed!');
+    console.log('\n✅ Correlated campaign generation completed successfully!');
+    console.log(`📊 Generated ${result.alertsGenerated} alerts`);
+    console.log(`📁 Index: ${result.indexName}`);
+    console.log(`👥 Entities: ${result.generatedEntities.userNames?.length || 0} users, ${result.generatedEntities.hostNames?.length || 0} hosts`);
     console.log(`📍 View alerts in Kibana space: ${space}`);
-    console.log(`🔍 View supporting logs with filter: logs-*`);
-    console.log(
-      `🎭 Each alert now has ${logVolumeMultiplier} supporting log events`,
-    );
-
-    // Show example attack narratives
-    if (campaign.scenarios.length > 0) {
-      console.log('\n📖 Example Attack Narratives:');
-      campaign.scenarios.slice(0, 3).forEach((scenario, i) => {
-        console.log(`  ${i + 1}. ${scenario.attackNarrative}`);
-      });
-    }
   } catch (error) {
     progress.stop();
     console.error('Error generating correlated campaign:', error);

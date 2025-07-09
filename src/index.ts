@@ -165,7 +165,7 @@ program
     const space = options.s || 'default';
     const namespace = options.namespace || 'default';
     const environments = options.environments || 1;
-    const useAI = true; // AI is always enabled now
+    const useAI = options.claude || options.useAI || false; // Allow disabling AI
     const useClaude = options.claude || false;
     const useMitre = options.mitre || false;
     const falsePositiveRate = parseFloat(options.falsePositiveRate || '0.0');
@@ -2270,6 +2270,222 @@ program
       await fixLogsMappingCLI();
     } catch (error) {
       console.error('❌ Fix logs mapping failed:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('generate-massive-fields')
+  .option('-n <count>', 'total number of fields to generate', '200000')
+  .option(
+    '--strategy <strategy>',
+    'generation strategy: multi-index, document-sharding, field-compression, hybrid',
+    'hybrid',
+  )
+  .option(
+    '--namespace <namespace>',
+    'custom namespace for massive field indices',
+    'massive',
+  )
+  .option(
+    '--categories <categories>',
+    'field categories (comma-separated)',
+    'performance_metrics,security_scores,behavioral_analytics,network_analytics,endpoint_analytics',
+  )
+  .option(
+    '--max-fields-per-index <count>',
+    'maximum fields per index (multi-index strategy)',
+    '50000',
+  )
+  .option(
+    '--max-fields-per-document <count>',
+    'maximum fields per document (document-sharding strategy)',
+    '25000',
+  )
+  .option(
+    '--optimize-elasticsearch',
+    'optimize Elasticsearch settings for massive fields',
+    false,
+  )
+  .description(
+    'Generate massive field counts (200k+) using advanced distribution strategies',
+  )
+  .action(async (options) => {
+    const fieldCount = parseInt(options.n || '200000');
+    const strategy = options.strategy || 'hybrid';
+    const namespace = options.namespace || 'massive';
+    const categories = options.categories
+      ? options.categories.split(',').map((c: string) => c.trim())
+      : undefined;
+    const maxFieldsPerIndex = parseInt(options.maxFieldsPerIndex || '50000');
+    const maxFieldsPerDocument = parseInt(options.maxFieldsPerDocument || '25000');
+    const optimizeES = options.optimizeElasticsearch || false;
+
+    try {
+      const { 
+        generateMassiveFieldsMultiIndex,
+        generateMassiveFieldsDocumentSharding,
+        generateMassiveFieldsCompression,
+        generateMassiveFieldsHybrid,
+        optimizeElasticsearchForMassiveFields
+      } = await import('./utils/massive_field_strategies');
+
+      console.log(`🚀 Massive Field Generation: ${fieldCount} fields using ${strategy} strategy`);
+      
+      // Optimize Elasticsearch if requested
+      if (optimizeES) {
+        await optimizeElasticsearchForMassiveFields();
+      }
+
+      const correlationId = `massive-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      const config = {
+        totalFields: fieldCount,
+        strategy: strategy as any,
+        correlationId,
+        namespace,
+        categories,
+        maxFieldsPerIndex,
+        maxFieldsPerDocument,
+      };
+
+      let result;
+      switch (strategy) {
+        case 'multi-index':
+          result = await generateMassiveFieldsMultiIndex(config);
+          break;
+        case 'document-sharding':
+          result = await generateMassiveFieldsDocumentSharding(config);
+          break;
+        case 'field-compression':
+          result = await generateMassiveFieldsCompression(config);
+          break;
+        case 'hybrid':
+          result = await generateMassiveFieldsHybrid(config);
+          break;
+        default:
+          console.error(`❌ Unknown strategy: ${strategy}`);
+          process.exit(1);
+      }
+
+      console.log('\n🔍 Query Examples:');
+      result.queryPatterns.forEach((pattern, index) => {
+        console.log(`  ${index + 1}. ${pattern}`);
+      });
+
+      console.log('\n📊 Index Patterns:');
+      const uniqueIndices = [...new Set(result.indices)];
+      uniqueIndices.forEach((index) => {
+        console.log(`  - ${index}*`);
+      });
+
+    } catch (error) {
+      console.error('❌ Massive field generation failed:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('query-massive-fields')
+  .option(
+    '--correlation-id <id>',
+    'correlation ID to query massive field data',
+  )
+  .option(
+    '--strategy <strategy>',
+    'strategy used for generation: multi-index, document-sharding, field-compression, hybrid',
+    'hybrid',
+  )
+  .option(
+    '--namespace <namespace>',
+    'namespace used for massive field indices',
+    'massive',
+  )
+  .option(
+    '--field-count-threshold <count>',
+    'filter by minimum field count',
+    '1000',
+  )
+  .description('Query and analyze massive field datasets')
+  .action(async (options) => {
+    const correlationId = options.correlationId;
+    const strategy = options.strategy || 'hybrid';
+    const namespace = options.namespace || 'massive';
+    const threshold = parseInt(options.fieldCountThreshold || '1000');
+
+    if (!correlationId) {
+      console.error('❌ Correlation ID is required. Use --correlation-id <id>');
+      process.exit(1);
+    }
+
+    try {
+      const { getEsClient } = await import('./commands/utils/indices');
+      const client = getEsClient();
+
+      console.log(`🔍 Querying massive fields with correlation ID: ${correlationId}`);
+      
+      // Query based on strategy
+      let indexPattern = `massive-fields-*-${namespace}`;
+      if (strategy === 'document-sharding') {
+        indexPattern = `massive-fields-sharded-${namespace}`;
+      } else if (strategy === 'field-compression') {
+        indexPattern = `massive-fields-compressed-${namespace}`;
+      }
+
+      const searchResult = await client.search({
+        index: indexPattern,
+        body: {
+          query: {
+            match: {
+              'massive_fields.correlation_id': correlationId,
+            },
+          },
+          size: 100,
+          _source: [
+            '@timestamp',
+            'massive_fields.*',
+            'event.id',
+            'host.name',
+            'user.name',
+          ],
+        },
+      });
+
+      const hits = searchResult.hits?.hits || searchResult.body?.hits?.hits || [];
+      console.log(`📊 Found ${hits.length} documents for correlation ID: ${correlationId}`);
+
+      let totalFields = 0;
+      const distribution: Record<string, number> = {};
+
+      hits.forEach((hit: any, index: number) => {
+        const source = hit._source;
+        const fieldCount = source['massive_fields.field_count'] || 
+                          source['massive_fields.logical_field_count'] || 0;
+        
+        totalFields += fieldCount;
+        distribution[hit._index] = (distribution[hit._index] || 0) + fieldCount;
+
+        console.log(`\n📄 Document ${index + 1}:`);
+        console.log(`  📂 Index: ${hit._index}`);
+        console.log(`  🔢 Fields: ${fieldCount}`);
+        console.log(`  🏠 Host: ${source['host.name'] || 'N/A'}`);
+        console.log(`  👤 User: ${source['user.name'] || 'N/A'}`);
+        console.log(`  ⏰ Timestamp: ${source['@timestamp']}`);
+        console.log(`  📊 Index Group: ${source['massive_fields.index_group'] || 'N/A'}`);
+      });
+
+      console.log(`\n📈 Summary:`);
+      console.log(`  🔢 Total fields across all documents: ${totalFields.toLocaleString()}`);
+      console.log(`  📂 Documents found: ${hits.length}`);
+      console.log(`  📊 Average fields per document: ${Math.round(totalFields / hits.length).toLocaleString()}`);
+      
+      console.log(`\n📂 Distribution by index:`);
+      Object.entries(distribution).forEach(([index, count]) => {
+        console.log(`  - ${index}: ${count.toLocaleString()} fields`);
+      });
+
+    } catch (error) {
+      console.error('❌ Query massive fields failed:', error);
       process.exit(1);
     }
   });

@@ -191,13 +191,15 @@ export function generateIndexTemplate(
       settings: {
         number_of_shards: 1,
         number_of_replicas: 1,
-        'index.mapping.total_fields.limit': 50000, // Support large field counts
-        'index.mapping.depth.limit': 20, // Support nested structures
-        'index.mapping.nested_fields.limit': 100,
+        'index.mapping.total_fields.limit': 100000, // Support very large field counts
+        'index.mapping.depth.limit': 50, // Support deeply nested structures
+        'index.mapping.nested_fields.limit': 1000, // Support many nested fields
+        'index.mapping.nested_objects.limit': 10000, // Support nested objects
+        'index.max_docvalue_fields_search': 200, // Support large doc_value searches
       },
       mappings: mapping.mappings,
     },
-    priority: 100, // Lower priority to not conflict with data stream templates
+    priority: 500, // Higher priority to override default data stream templates
     version: 1,
     _meta: {
       description: `Dynamic mapping template for ${templateName}`,
@@ -242,8 +244,11 @@ export async function applyMappingToIndex(
           settings: {
             number_of_shards: 1,
             number_of_replicas: 1,
-            'index.mapping.total_fields.limit': 50000,
-            'index.mapping.depth.limit': 20,
+            'index.mapping.total_fields.limit': 100000,
+            'index.mapping.depth.limit': 50,
+            'index.mapping.nested_fields.limit': 1000,
+            'index.mapping.nested_objects.limit': 10000,
+            'index.max_docvalue_fields_search': 200,
           },
           ...mapping,
         },

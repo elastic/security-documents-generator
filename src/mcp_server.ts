@@ -53,6 +53,7 @@ interface SecurityAlertParams {
   fieldCount?: number;
   fieldCategories?: string[];
   fieldPerformanceMode?: boolean;
+  theme?: string;
 }
 
 interface AttackCampaignParams {
@@ -81,6 +82,7 @@ interface AttackCampaignParams {
   fieldCount?: number;
   fieldCategories?: string[];
   fieldPerformanceMode?: boolean;
+  theme?: string;
 }
 
 interface RealisticLogsParams {
@@ -96,6 +98,7 @@ interface RealisticLogsParams {
   timePattern?: string;
   multiField?: boolean;
   fieldCount?: number;
+  theme?: string;
   fieldCategories?: string[];
   fieldPerformanceMode?: boolean;
   sessionView?: boolean;
@@ -115,6 +118,7 @@ interface CorrelatedEventsParams {
   startDate?: string;
   endDate?: string;
   timePattern?: string;
+  theme?: string;
 }
 
 interface CleanupParams {
@@ -197,6 +201,57 @@ interface SetupMappingsParams {
 
 interface UpdateMappingParams {
   indexName?: string;
+}
+
+interface GenerateMassiveFieldsParams {
+  totalFields?: number;
+  strategy?: 'multi-index' | 'document-sharding' | 'field-compression' | 'hybrid';
+  namespace?: string;
+  categories?: string[];
+  maxFieldsPerIndex?: number;
+  maxFieldsPerDocument?: number;
+  optimizeElasticsearch?: boolean;
+}
+
+interface QueryMassiveFieldsParams {
+  correlationId: string;
+  namespace?: string;
+  limit?: number;
+}
+
+interface GenerateCasesParams {
+  count?: number;
+  space?: string;
+  namespace?: string;
+  includeMitre?: boolean;
+  attachExistingAlerts?: boolean;
+  alertsPerCase?: number;
+  environments?: number;
+}
+
+interface GenerateCasesFromAlertsParams {
+  space?: string;
+  groupingStrategy?: 'by-severity' | 'by-host' | 'by-rule' | 'by-time';
+  maxAlertsPerCase?: number;
+  timeWindowHours?: number;
+  namespace?: string;
+}
+
+interface DeleteCasesParams {
+  space?: string;
+  namespace?: string;
+}
+
+interface FixUnmappedFieldsParams {
+  indexPattern?: string;
+  reindex?: boolean;
+  namespace?: string;
+}
+
+interface FixLogsMappingParams {
+  logTypes?: string[];
+  updateTemplate?: boolean;
+  namespace?: string;
 }
 
 class SecurityDataMCPServer {
@@ -415,6 +470,10 @@ class SecurityDataMCPServer {
                     'Optimize multi-field generation for speed (requires multiField)',
                   default: false,
                 },
+                theme: {
+                  type: 'string',
+                  description: 'Apply themed data generation (e.g., "nba", "marvel", "starwars", "tech_companies")',
+                },
               },
             },
           },
@@ -558,6 +617,10 @@ class SecurityDataMCPServer {
                     'Optimize multi-field generation for speed (requires multiField)',
                   default: false,
                 },
+                theme: {
+                  type: 'string',
+                  description: 'Apply themed data generation (e.g., "nba", "marvel", "starwars", "tech_companies")',
+                },
               },
               required: ['campaignType'],
             },
@@ -672,6 +735,10 @@ class SecurityDataMCPServer {
                   description: 'Generate Visual Event Analyzer compatible data',
                   default: false,
                 },
+                theme: {
+                  type: 'string',
+                  description: 'Apply themed data generation (e.g., "nba", "marvel", "starwars", "tech_companies")',
+                },
               },
             },
           },
@@ -740,6 +807,10 @@ class SecurityDataMCPServer {
                   type: 'string',
                   description:
                     'Time pattern: uniform, business_hours, random, attack_simulation, weekend_heavy',
+                },
+                theme: {
+                  type: 'string',
+                  description: 'Apply themed data generation (e.g., "nba", "marvel", "starwars", "tech_companies")',
                 },
               },
             },
@@ -1105,6 +1176,240 @@ class SecurityDataMCPServer {
               },
             },
           },
+          {
+            name: 'generate_massive_fields',
+            description: 'Generate massive field counts (200k+) using advanced distribution strategies',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                totalFields: {
+                  type: 'number',
+                  description: 'Total number of fields to generate',
+                  default: 200000,
+                },
+                strategy: {
+                  type: 'string',
+                  enum: ['multi-index', 'document-sharding', 'field-compression', 'hybrid'],
+                  description: 'Generation strategy',
+                  default: 'hybrid',
+                },
+                namespace: {
+                  type: 'string',
+                  description: 'Custom namespace for massive field indices',
+                  default: 'massive',
+                },
+                categories: {
+                  type: 'array',
+                  items: {
+                    type: 'string',
+                    enum: [
+                      'behavioral_analytics',
+                      'threat_intelligence',
+                      'performance_metrics',
+                      'security_scores',
+                      'audit_compliance',
+                      'network_analytics',
+                      'endpoint_analytics',
+                      'forensics_analysis',
+                      'cloud_security',
+                      'malware_analysis',
+                      'geolocation_intelligence',
+                      'incident_response',
+                    ],
+                  },
+                  description: 'Field categories to include',
+                },
+                maxFieldsPerIndex: {
+                  type: 'number',
+                  description: 'Maximum fields per index (multi-index strategy)',
+                  default: 50000,
+                },
+                maxFieldsPerDocument: {
+                  type: 'number',
+                  description: 'Maximum fields per document (document-sharding strategy)',
+                  default: 25000,
+                },
+                optimizeElasticsearch: {
+                  type: 'boolean',
+                  description: 'Optimize Elasticsearch settings for massive fields',
+                  default: false,
+                },
+              },
+            },
+          },
+          {
+            name: 'query_massive_fields',
+            description: 'Query massive field data using correlation IDs',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                correlationId: {
+                  type: 'string',
+                  description: 'Correlation ID to query',
+                  required: true,
+                },
+                namespace: {
+                  type: 'string',
+                  description: 'Namespace to query',
+                  default: 'massive',
+                },
+                limit: {
+                  type: 'number',
+                  description: 'Maximum number of results',
+                  default: 100,
+                },
+              },
+              required: ['correlationId'],
+            },
+          },
+          {
+            name: 'generate_cases',
+            description: 'Generate security investigation cases with alert attachments',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                count: {
+                  type: 'number',
+                  description: 'Number of cases to generate',
+                  default: 10,
+                },
+                space: {
+                  type: 'string',
+                  description: 'Kibana space for cases',
+                  default: 'default',
+                },
+                namespace: {
+                  type: 'string',
+                  description: 'Custom namespace',
+                  default: 'default',
+                },
+                includeMitre: {
+                  type: 'boolean',
+                  description: 'Include MITRE ATT&CK mappings',
+                  default: false,
+                },
+                attachExistingAlerts: {
+                  type: 'boolean',
+                  description: 'Attach existing alerts to cases',
+                  default: false,
+                },
+                alertsPerCase: {
+                  type: 'number',
+                  description: 'Number of alerts per case',
+                  default: 5,
+                },
+                environments: {
+                  type: 'number',
+                  description: 'Generate cases across multiple environments',
+                  default: 1,
+                },
+              },
+            },
+          },
+          {
+            name: 'generate_cases_from_alerts',
+            description: 'Create cases from existing alerts using grouping strategies',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                space: {
+                  type: 'string',
+                  description: 'Kibana space to query alerts from',
+                  default: 'default',
+                },
+                groupingStrategy: {
+                  type: 'string',
+                  enum: ['by-severity', 'by-host', 'by-rule', 'by-time'],
+                  description: 'Strategy for grouping alerts into cases',
+                  default: 'by-severity',
+                },
+                maxAlertsPerCase: {
+                  type: 'number',
+                  description: 'Maximum alerts per case',
+                  default: 8,
+                },
+                timeWindowHours: {
+                  type: 'number',
+                  description: 'Time window for grouping (hours)',
+                  default: 24,
+                },
+                namespace: {
+                  type: 'string',
+                  description: 'Custom namespace',
+                  default: 'default',
+                },
+              },
+            },
+          },
+          {
+            name: 'delete_cases',
+            description: 'Delete security cases from specified space',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                space: {
+                  type: 'string',
+                  description: 'Kibana space to delete cases from',
+                  default: 'default',
+                },
+                namespace: {
+                  type: 'string',
+                  description: 'Custom namespace',
+                  default: 'default',
+                },
+              },
+            },
+          },
+          {
+            name: 'fix_unmapped_fields',
+            description: 'Fix unmapped fields in indices by updating mappings',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                indexPattern: {
+                  type: 'string',
+                  description: 'Index pattern to fix (optional)',
+                },
+                reindex: {
+                  type: 'boolean',
+                  description: 'Whether to reindex data after fixing mappings',
+                  default: false,
+                },
+                namespace: {
+                  type: 'string',
+                  description: 'Custom namespace',
+                  default: 'default',
+                },
+              },
+            },
+          },
+          {
+            name: 'fix_logs_mapping',
+            description: 'Fix logs mapping issues by updating templates and mappings',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                logTypes: {
+                  type: 'array',
+                  items: {
+                    type: 'string',
+                    enum: ['system', 'auth', 'network', 'endpoint'],
+                  },
+                  description: 'Log types to fix',
+                },
+                updateTemplate: {
+                  type: 'boolean',
+                  description: 'Whether to update index templates',
+                  default: true,
+                },
+                namespace: {
+                  type: 'string',
+                  description: 'Custom namespace',
+                  default: 'default',
+                },
+              },
+            },
+          },
         ],
       };
     });
@@ -1187,6 +1492,44 @@ class SecurityDataMCPServer {
           case 'update_mapping':
             return await this.handleUpdateMapping(
               args as UpdateMappingParams,
+            );
+
+          case 'generate_massive_fields':
+            return await this.handleGenerateMassiveFields(
+              args as GenerateMassiveFieldsParams,
+            );
+
+          case 'query_massive_fields':
+            if (!args || !('correlationId' in args)) {
+              throw new McpError(ErrorCode.InvalidParams, 'correlationId is required');
+            }
+            return await this.handleQueryMassiveFields(
+              args as QueryMassiveFieldsParams,
+            );
+
+          case 'generate_cases':
+            return await this.handleGenerateCases(
+              args as GenerateCasesParams,
+            );
+
+          case 'generate_cases_from_alerts':
+            return await this.handleGenerateCasesFromAlerts(
+              args as GenerateCasesFromAlertsParams,
+            );
+
+          case 'delete_cases':
+            return await this.handleDeleteCases(
+              args as DeleteCasesParams,
+            );
+
+          case 'fix_unmapped_fields':
+            return await this.handleFixUnmappedFields(
+              args as FixUnmappedFieldsParams,
+            );
+
+          case 'fix_logs_mapping':
+            return await this.handleFixLogsMapping(
+              args as FixLogsMappingParams,
             );
 
           default:
@@ -2387,6 +2730,369 @@ Next steps:
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw new Error(`Mapping update failed: ${errorMessage}`);
+    }
+  }
+
+  private async handleGenerateMassiveFields(params: GenerateMassiveFieldsParams) {
+    const {
+      totalFields = 200000,
+      strategy = 'hybrid',
+      namespace = 'massive',
+      categories,
+      maxFieldsPerIndex = 50000,
+      maxFieldsPerDocument = 25000,
+      optimizeElasticsearch = false,
+    } = params;
+
+    console.error('[MCP] Starting massive field generation...');
+
+    try {
+      const { 
+        generateMassiveFieldsMultiIndex,
+        generateMassiveFieldsDocumentSharding,
+        generateMassiveFieldsCompression,
+        generateMassiveFieldsHybrid,
+        optimizeElasticsearchForMassiveFields
+      } = await import('./utils/massive_field_strategies.js');
+
+      if (optimizeElasticsearch) {
+        await optimizeElasticsearchForMassiveFields();
+      }
+
+      const correlationId = `massive-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      const config = {
+        totalFields,
+        strategy: strategy as any,
+        correlationId,
+        namespace,
+        categories,
+        maxFieldsPerIndex,
+        maxFieldsPerDocument,
+      };
+
+      let result;
+      switch (strategy) {
+        case 'multi-index':
+          result = await generateMassiveFieldsMultiIndex(config);
+          break;
+        case 'document-sharding':
+          result = await generateMassiveFieldsDocumentSharding(config);
+          break;
+        case 'field-compression':
+          result = await generateMassiveFieldsCompression(config);
+          break;
+        case 'hybrid':
+          result = await generateMassiveFieldsHybrid(config);
+          break;
+        default:
+          throw new Error(`Unknown strategy: ${strategy}`);
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `🚀 Successfully generated ${result.totalGenerated} massive fields!
+
+📊 Generation Summary:
+• Strategy: ${result.metadata.strategy}
+• Correlation ID: ${result.correlationId}
+• Total Fields: ${result.totalGenerated}
+• Generation Time: ${result.metadata.generationTimeMs}ms
+• Indices Created: ${result.indices.length}
+• Documents Created: ${result.documents.length}
+
+🔍 Query Patterns:
+${result.queryPatterns.map(pattern => `• ${pattern}`).join('\n')}
+
+Next steps:
+1. Use correlation ID "${result.correlationId}" for querying
+2. Check Kibana for new indices: ${result.indices.join(', ')}
+3. Run query-massive-fields to explore the data`,
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Massive field generation failed: ${errorMessage}`);
+    }
+  }
+
+  private async handleQueryMassiveFields(params: QueryMassiveFieldsParams) {
+    const { correlationId, namespace = 'massive', limit = 100 } = params;
+
+    console.error('[MCP] Querying massive fields...');
+
+    try {
+      const { queryMassiveFieldsData } = await import('./utils/massive_field_strategies.js');
+      
+      const result = await queryMassiveFieldsData({
+        correlationId,
+        namespace,
+        limit,
+      });
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `🔍 Query Results for Correlation ID: ${correlationId}
+
+📊 Found ${result.hits.length} documents across ${result.indices.length} indices
+
+📈 Field Statistics:
+• Total Fields: ${result.totalFields}
+• Average Fields per Document: ${Math.round(result.avgFieldsPerDoc)}
+• Index Distribution: ${result.indexDistribution.map(d => `${d.index}: ${d.count}`).join(', ')}
+
+🎯 Sample Documents:
+${result.hits.slice(0, 3).map((hit, i) => `${i + 1}. ${hit._index} - ${hit._source['massive_fields.field_count']} fields`).join('\n')}
+
+Use this correlation ID to query specific data subsets.`,
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Massive field query failed: ${errorMessage}`);
+    }
+  }
+
+  private async handleGenerateCases(params: GenerateCasesParams) {
+    const {
+      count = 10,
+      space = 'default',
+      namespace = 'default',
+      includeMitre = false,
+      attachExistingAlerts = false,
+      alertsPerCase = 5,
+      environments = 1,
+    } = params;
+
+    console.error('[MCP] Generating security cases...');
+
+    try {
+      const { createCases } = await import('./create_cases.js');
+      
+      const result = await createCases({
+        count,
+        space,
+        namespace,
+        includeMitre,
+        attachExistingAlerts,
+        alertsPerCase,
+        environments,
+      });
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `🔒 Successfully generated ${count} security cases!
+
+📊 Case Generation Summary:
+• Total Cases: ${count}
+• Kibana Space: ${space}
+• Namespace: ${namespace}
+• MITRE Integration: ${includeMitre ? 'Enabled' : 'Disabled'}
+• Alert Attachments: ${attachExistingAlerts ? 'Enabled' : 'Disabled'}
+• Alerts per Case: ${alertsPerCase}
+• Environments: ${environments}
+
+🎯 Case Types Generated:
+• Security Incidents
+• Threat Hunting Investigations
+• Vulnerability Assessments
+• Compliance Violations
+• Insider Threat Cases
+• Malware Analysis Cases
+
+Next steps:
+1. View cases in Kibana Security → Cases
+2. Use cases for SOC training and workflow testing
+3. Attach additional alerts as needed`,
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Case generation failed: ${errorMessage}`);
+    }
+  }
+
+  private async handleGenerateCasesFromAlerts(params: GenerateCasesFromAlertsParams) {
+    const {
+      space = 'default',
+      groupingStrategy = 'by-severity',
+      maxAlertsPerCase = 8,
+      timeWindowHours = 24,
+      namespace = 'default',
+    } = params;
+
+    console.error('[MCP] Generating cases from existing alerts...');
+
+    try {
+      const { createCasesFromAlerts } = await import('./create_cases.js');
+      
+      const result = await createCasesFromAlerts({
+        space,
+        groupingStrategy,
+        maxAlertsPerCase,
+        timeWindowHours,
+      });
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `🔗 Successfully created cases from existing alerts!
+
+📊 Case Creation Summary:
+• Grouping Strategy: ${groupingStrategy}
+• Max Alerts per Case: ${maxAlertsPerCase}
+• Time Window: ${timeWindowHours} hours
+• Kibana Space: ${space}
+
+🎯 Grouping Results:
+• Cases Created: ${result.length}
+• Alert-to-Case Mappings: ${result.map(r => `${r.caseTitle} (${r.alertCount} alerts)`).slice(0, 3).join(', ')}
+
+Next steps:
+1. Review grouped cases in Kibana Security → Cases
+2. Cases are organized by ${groupingStrategy}
+3. Use for investigating related security events`,
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Case creation from alerts failed: ${errorMessage}`);
+    }
+  }
+
+  private async handleDeleteCases(params: DeleteCasesParams) {
+    const { space = 'default', namespace = 'default' } = params;
+
+    console.error('[MCP] Deleting security cases...');
+
+    try {
+      const { deleteAllCases } = await import('./create_cases.js');
+      
+      await deleteAllCases(space === 'default' ? undefined : space);
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `🗑️ Successfully deleted security cases!
+
+📊 Deletion Summary:
+• Kibana Space: ${space}
+• Namespace: ${namespace}
+
+✅ All security cases have been removed
+✅ Case attachments have been cleaned up
+✅ Kibana Cases interface is now clear
+
+Next steps:
+1. Verify deletion in Kibana Security → Cases
+2. Generate new cases as needed for testing
+3. Cases can be recreated with generate_cases command`,
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Case deletion failed: ${errorMessage}`);
+    }
+  }
+
+  private async handleFixUnmappedFields(params: FixUnmappedFieldsParams) {
+    const { indexPattern, reindex = false, namespace = 'default' } = params;
+
+    console.error('[MCP] Fixing unmapped fields...');
+
+    try {
+      const { fixUnmappedFieldsCLI } = await import('./commands/fix_unmapped_fields.js');
+      
+      await fixUnmappedFieldsCLI({
+        reindex,
+        indexSuffix: namespace,
+      });
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `🔧 Successfully fixed unmapped fields!
+
+📊 Fix Summary:
+• Index Pattern: ${indexPattern || 'Auto-detected'}
+• Reindexing: ${reindex ? 'Enabled' : 'Disabled'}
+• Namespace: ${namespace}
+
+✅ Updated field mappings for unmapped fields
+✅ Applied proper field types for better visualization
+✅ Enhanced query performance with correct mappings
+${reindex ? '✅ Reindexed data for immediate effect' : ''}
+
+Next steps:
+1. Refresh field list in Kibana (Index Patterns → Refresh)
+2. Previously unmapped fields should now appear as mapped
+3. Enhanced visualization and aggregation capabilities available`,
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Fix unmapped fields failed: ${errorMessage}`);
+    }
+  }
+
+  private async handleFixLogsMapping(params: FixLogsMappingParams) {
+    const { 
+      logTypes = ['system', 'auth', 'network', 'endpoint'],
+      updateTemplate = true,
+      namespace = 'default',
+    } = params;
+
+    console.error('[MCP] Fixing logs mapping...');
+
+    try {
+      const { fixLogsMappingCLI } = await import('./commands/fix_logs_mapping.js');
+      
+      await fixLogsMappingCLI();
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `🗺️ Successfully fixed logs mapping!
+
+📊 Mapping Fix Summary:
+• Log Types: ${logTypes.join(', ')}
+• Template Update: ${updateTemplate ? 'Enabled' : 'Disabled'}
+• Namespace: ${namespace}
+
+✅ Fixed mapping issues for log indices
+✅ Updated index templates for future logs
+✅ Applied proper field types for log data
+✅ Enhanced compatibility with log visualization
+
+🎯 Log Types Fixed:
+${logTypes.map(type => `• ${type} logs: Enhanced field mappings`).join('\n')}
+
+Next steps:
+1. New log data will use improved mappings
+2. Consider reindexing existing logs for full benefits
+3. Log visualization in Kibana should be improved`,
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Fix logs mapping failed: ${errorMessage}`);
     }
   }
 

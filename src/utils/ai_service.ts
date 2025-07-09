@@ -112,11 +112,14 @@ const initializeAI = (): void => {
     if (config.useAzureOpenAI) {
       openai = new OpenAI({
         apiKey: config.azureOpenAIApiKey,
-        baseURL: `${config.azureOpenAIEndpoint}/openai/deployments/${config.azureOpenAIDeployment}`,
+        baseURL: `${config.azureOpenAIEndpoint.replace(/\/$/, '')}/openai/deployments/${config.azureOpenAIDeployment}`,
         defaultQuery: {
-          'api-version': config.azureOpenAIApiVersion || '2023-05-15',
+          'api-version': config.azureOpenAIApiVersion || '2024-08-01-preview',
         },
-        defaultHeaders: { 'api-key': config.azureOpenAIApiKey },
+        defaultHeaders: { 
+          'api-key': config.azureOpenAIApiKey,
+          'Content-Type': 'application/json'
+        },
       });
     } else {
       // Standard OpenAI
@@ -777,57 +780,73 @@ export const generateAIAlertBatch = async (
               rawContent = response.choices[0].message.content || '[]';
             }
 
-            // Debug logging for AI responses
-            if (process.env.DEBUG_AI_RESPONSES === 'true') {
-              console.log(
-                `AI Raw Response: ${rawContent.substring(0, 500)}...`,
-              );
-            }
+            // Debug logging for AI responses (always enabled for debugging)
+            console.log(`🔍 AI Raw Response (first 500 chars): ${rawContent.substring(0, 500)}...`);
 
             // Clean and validate the JSON content
             const cleanedContent = sanitizeJSONResponse(rawContent);
+            console.log(`🧹 Cleaned Content: ${cleanedContent.substring(0, 300)}...`);
+            
             const content = safeJsonParse(
               cleanedContent,
               'Batch response parsing',
             );
 
             // Debug logging for parsed content
-            if (process.env.DEBUG_AI_RESPONSES === 'true') {
-              console.log(
-                `Parsed Content Type: ${typeof content}, Array: ${Array.isArray(content)}`,
-              );
-              console.log(
-                `Content Keys: ${content && typeof content === 'object' ? Object.keys(content) : 'N/A'}`,
-              );
+            console.log(`📊 Parsed Content Type: ${typeof content}, Array: ${Array.isArray(content)}`);
+            console.log(`🔑 Content Keys: ${content && typeof content === 'object' ? Object.keys(content) : 'N/A'}`);
+            
+            if (content && typeof content === 'object') {
+              console.log('🏗️ Content structure:', JSON.stringify(content, null, 2).substring(0, 1000));
             }
 
-            // Handle different response formats
+            // Enhanced response format handling
             if (Array.isArray(content)) {
+              console.log(`✅ Direct array response found with ${content.length} items`);
               generatedAlerts = content;
             } else if (content && typeof content === 'object') {
-              // Check if the object has an 'alerts', 'alert', or 'data' property
               const contentObj = content as Record<string, unknown>;
-              if (contentObj.alerts && Array.isArray(contentObj.alerts)) {
-                generatedAlerts = contentObj.alerts;
-              } else if (contentObj.alert && Array.isArray(contentObj.alert)) {
-                generatedAlerts = contentObj.alert;
-              } else if (contentObj.data && Array.isArray(contentObj.data)) {
-                generatedAlerts = contentObj.data;
-              } else {
-                // Single object response - replicate it for each entity if we need multiple
-                if (batch.length > 1) {
-                  generatedAlerts = batch.map(() => ({ ...content }));
+              console.log(`🔍 Object response detected, checking for array properties...`);
+              
+              // Priority order for common response patterns
+              const possibleArrayKeys = ['alerts', 'alert', 'data', 'kibana.alerts', 'response', 'results'];
+              let foundArray = false;
+              
+              for (const key of possibleArrayKeys) {
+                if (contentObj[key] && Array.isArray(contentObj[key])) {
+                  console.log(`✅ Found array in property '${key}' with ${(contentObj[key] as unknown[]).length} items`);
+                  generatedAlerts = contentObj[key] as unknown[];
+                  foundArray = true;
+                  break;
+                }
+              }
+              
+              if (!foundArray) {
+                // Check for any array property in the object
+                const arrayKeys = Object.keys(contentObj).filter(key => 
+                  Array.isArray(contentObj[key])
+                );
+                
+                if (arrayKeys.length > 0) {
+                  console.log(`✅ Found array in property '${arrayKeys[0]}' with ${(contentObj[arrayKeys[0]] as unknown[]).length} items`);
+                  generatedAlerts = contentObj[arrayKeys[0]] as unknown[];
                 } else {
-                  generatedAlerts = [content];
+                  console.log(`⚠️ No array found, treating as single object response`);
+                  // Single object response - replicate it for each entity if we need multiple
+                  if (batch.length > 1) {
+                    console.log(`🔄 Replicating single object for ${batch.length} entities`);
+                    generatedAlerts = batch.map(() => ({ ...content }));
+                  } else {
+                    generatedAlerts = [content];
+                  }
                 }
               }
             } else {
-              // If content is not recognized, fall back to individual generation
-              console.warn(
-                'AI response format not recognized, falling back to individual generation',
-              );
+              console.warn(`❌ AI response format not recognized (type: ${typeof content}), falling back to individual generation`);
               generatedAlerts = [];
             }
+            
+            console.log(`📊 Extracted ${generatedAlerts.length} alerts from AI response`);
 
             // Validate batch response
             generatedAlerts = validateBatchResponse(

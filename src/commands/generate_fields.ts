@@ -38,6 +38,27 @@ export interface FieldGenerationResult {
 }
 
 /**
+ * Recursively flatten nested object to dot-notation paths
+ */
+function flattenObjectPaths(obj: any, prefix = ''): Record<string, any> {
+  const flattened: Record<string, any> = {};
+  
+  for (const [key, value] of Object.entries(obj)) {
+    const fullPath = prefix ? `${prefix}.${key}` : key;
+    
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      // Recursively flatten nested objects
+      Object.assign(flattened, flattenObjectPaths(value, fullPath));
+    } else {
+      // Leaf value - add to flattened structure
+      flattened[fullPath] = value;
+    }
+  }
+  
+  return flattened;
+}
+
+/**
  * Generate fields on demand with specified configuration
  */
 export async function generateFields(config: FieldGenerationConfig): Promise<FieldGenerationResult> {
@@ -50,8 +71,8 @@ export async function generateFields(config: FieldGenerationConfig): Promise<Fie
     performanceMode: false, // Always prioritize variety over speed
     contextWeightEnabled: true,
     correlationEnabled: true,
-    useExpandedFields: config.fieldCount > 1000,
-    expandedFieldCount: Math.max(config.fieldCount * 1.5, 10000),
+    useExpandedFields: config.fieldCount > 5000,
+    expandedFieldCount: config.fieldCount,
   });
 
   // Generate base document context if not provided
@@ -83,6 +104,11 @@ export async function generateFields(config: FieldGenerationConfig): Promise<Fie
     },
   };
 
+  // Create mapping/template if requested (regardless of output format)
+  if ((config.createMapping || config.updateTemplate) && config.indexName) {
+    await createFieldMapping(fieldResult, config.indexName, config);
+  }
+
   // Handle output format
   switch (config.outputFormat) {
     case 'elasticsearch':
@@ -100,28 +126,22 @@ export async function generateFields(config: FieldGenerationConfig): Promise<Fie
 }
 
 /**
- * Index generated fields to Elasticsearch with proper mapping
+ * Create field mapping and templates for generated fields
  */
-async function indexToElasticsearch(
-  result: FieldGenerationResult, 
+async function createFieldMapping(
+  result: FieldGenerationResult,
   indexName: string,
   config: FieldGenerationConfig
 ): Promise<void> {
   const client = getEsClient();
   
+  // Extract all field paths from nested objects for mapping
+  const flattenedFields = flattenObjectPaths(result.fields);
+  
   // Create field type information for mapping generation
   const fieldTypes: Record<string, { type: string; description: string }> = {};
   
-  // Get field type information from the MultiFieldGenerator
-  const generator = new MultiFieldGenerator({
-    fieldCount: config.fieldCount,
-    categories: config.categories,
-    useExpandedFields: config.fieldCount > 1000,
-  });
-  
-  // We need to get the field templates to know the types
-  // For now, infer types from the generated values
-  for (const [fieldName, value] of Object.entries(result.fields)) {
+  for (const [fieldPath, value] of Object.entries(flattenedFields)) {
     let type = 'string';
     if (typeof value === 'number') {
       type = Number.isInteger(value) ? 'integer' : 'float';
@@ -129,13 +149,18 @@ async function indexToElasticsearch(
       type = 'boolean';
     } else if (typeof value === 'object' && Array.isArray(value)) {
       type = 'array';
+    } else if (typeof value === 'object' && value !== null) {
+      // Skip nested objects, they're handled by recursion
+      continue;
     }
     
-    fieldTypes[fieldName] = {
+    fieldTypes[fieldPath] = {
       type,
-      description: `Generated ${fieldName.split('.')[0]} field`,
+      description: `Generated ${fieldPath.split('.')[0]} field`,
     };
   }
+
+  console.log(`🗺️  Creating mapping for ${Object.keys(fieldTypes).length} fields...`);
   
   // Create mapping if requested
   if (config.createMapping) {
@@ -151,13 +176,24 @@ async function indexToElasticsearch(
   if (config.updateTemplate) {
     try {
       const templateName = `security-fields-${config.categories?.join('-') || 'all'}`;
-      const indexPattern = `${indexName}*`;
+      const indexPattern = indexName.includes('*') ? indexName : `${indexName}*`;
       const template = generateIndexTemplate(templateName, indexPattern, fieldTypes);
       await applyIndexTemplate(client, templateName, template);
     } catch (error) {
       console.warn(`⚠️  Could not create index template:`, error.message);
     }
   }
+}
+
+/**
+ * Index generated fields to Elasticsearch with proper mapping
+ */
+async function indexToElasticsearch(
+  result: FieldGenerationResult, 
+  indexName: string,
+  config: FieldGenerationConfig
+): Promise<void> {
+  const client = getEsClient();
   
   const document = {
     '@timestamp': new Date().toISOString(),

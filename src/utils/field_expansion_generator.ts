@@ -10,53 +10,40 @@ import { FieldTemplate } from './multi_field_templates';
 
 // Field generation patterns
 const FIELD_PATTERNS = {
-  // Performance metrics patterns
+  // Performance metrics patterns (expanded for higher field counts)
   performance: {
     systems: [
-      'cpu',
-      'memory',
-      'disk',
-      'network',
-      'gpu',
-      'storage',
-      'cache',
-      'bandwidth',
+      'cpu', 'memory', 'disk', 'network', 'gpu', 'storage', 'cache', 'bandwidth',
+      'virtualization', 'container', 'database', 'application', 'os', 'firmware',
+      'kernel', 'scheduler', 'filesystem', 'swap', 'buffer', 'interrupt',
+      'dma', 'pcie', 'usb', 'thermal', 'power', 'clock', 'timer', 'watchdog'
     ],
     metrics: [
-      'usage',
-      'latency',
-      'throughput',
-      'errors',
-      'timeouts',
-      'utilization',
-      'load',
-      'pressure',
+      'usage', 'latency', 'throughput', 'errors', 'timeouts', 'utilization', 'load', 'pressure',
+      'bandwidth', 'iops', 'queue_depth', 'wait_time', 'response_time', 'availability',
+      'saturation', 'contention', 'fragmentation', 'overhead', 'efficiency', 'jitter',
+      'packets', 'connections', 'sessions', 'transactions', 'operations', 'requests'
     ],
-    timeframes: ['1m', '5m', '15m', '1h', '24h', 'peak', 'avg', 'min'],
-    types: ['percentage', 'bytes', 'count', 'score'],
+    timeframes: [
+      '1s', '5s', '10s', '30s', '1m', '5m', '15m', '30m', '1h', '2h', '4h', '8h', '12h', '24h',
+      'peak', 'avg', 'min', 'max', 'p50', 'p90', 'p95', 'p99', 'rolling', 'window'
+    ],
+    types: ['percentage', 'bytes', 'count', 'score', 'ratio', 'rate', 'delta', 'absolute'],
   },
 
-  // Security scoring patterns
+  // Security scoring patterns (expanded)
   security: {
     aspects: [
-      'vulnerability',
-      'threat',
-      'risk',
-      'compliance',
-      'anomaly',
-      'behavior',
-      'reputation',
-      'confidence',
+      'vulnerability', 'threat', 'risk', 'compliance', 'anomaly', 'behavior', 'reputation', 'confidence',
+      'malware', 'phishing', 'ransomware', 'trojan', 'backdoor', 'rootkit', 'exploit', 'injection',
+      'privilege_escalation', 'lateral_movement', 'persistence', 'command_control', 'exfiltration',
+      'impact', 'reconnaissance', 'weaponization', 'delivery', 'installation', 'actions'
     ],
     scopes: [
-      'user',
-      'host',
-      'network',
-      'application',
-      'endpoint',
-      'process',
-      'service',
-      'entity',
+      'user', 'host', 'network', 'application', 'endpoint', 'process', 'service', 'entity',
+      'file', 'registry', 'memory', 'connection', 'session', 'account', 'group', 'domain',
+      'certificate', 'policy', 'rule', 'signature', 'hash', 'url', 'email', 'device',
+      'container', 'vm', 'cloud', 'database', 'api', 'webhook', 'token', 'credential'
     ],
     algorithms: [
       'ml',
@@ -184,6 +171,15 @@ export function generateExpandedFieldTemplates(
   const expandedFields: Record<string, FieldTemplate> = {};
   let generatedCount = 0;
 
+  // Calculate realistic limits
+  const maxCombinatorial = calculateMaxCombinatoralFields();
+  
+  // Warn about document size if too many fields requested
+  if (targetCount > 5000) {
+    console.warn(`⚠️  WARNING: ${targetCount} fields may exceed Elasticsearch document size limits (~${Math.round(targetCount * 0.5 / 1000)}MB)`);
+    console.warn('   Consider using --field-count 1000-5000 for optimal performance');
+  }
+
   // Map category names to generator functions
   const categoryGenerators = {
     'performance_metrics': generatePerformanceFields,
@@ -201,15 +197,15 @@ export function generateExpandedFieldTemplates(
     categoriesToGenerate.push(...Object.keys(categoryGenerators));
   }
 
-  // Distribute targetCount across selected categories
-  const fieldsPerCategory = Math.floor(targetCount / categoriesToGenerate.length);
-  const remainingFields = targetCount % categoriesToGenerate.length;
+  // First, generate combinatorial fields
+  const fieldsPerCategory = Math.floor(Math.min(targetCount, maxCombinatorial) / categoriesToGenerate.length);
+  const remainingFields = Math.min(targetCount, maxCombinatorial) % categoriesToGenerate.length;
 
   console.log(`🔬 Generating expanded fields across ${categoriesToGenerate.length} categories:`);
-  console.log(`  📊 Target: ${targetCount} fields (${fieldsPerCategory} per category)`);
+  console.log(`  📊 Target: ${targetCount} fields (max combinatorial: ${maxCombinatorial})`);
   console.log(`  📁 Categories: ${categoriesToGenerate.join(', ')}`);
 
-  // Generate fields for each selected category
+  // Generate combinatorial fields for each selected category
   for (let i = 0; i < categoriesToGenerate.length; i++) {
     const category = categoriesToGenerate[i];
     const generator = categoryGenerators[category as keyof typeof categoryGenerators];
@@ -227,7 +223,19 @@ export function generateExpandedFieldTemplates(
     }
   }
 
-  console.log(`Generated ${generatedCount} expanded field templates`);
+  // If we need more fields than combinatorial limits allow, generate dynamic fields
+  if (targetCount > generatedCount) {
+    const remainingToGenerate = targetCount - generatedCount;
+    console.log(`  🔄 Generating ${remainingToGenerate} additional dynamic fields...`);
+    
+    const dynamicFields = generateDynamicFields(remainingToGenerate, categoriesToGenerate);
+    Object.assign(expandedFields, dynamicFields);
+    generatedCount += Object.keys(dynamicFields).length;
+    
+    console.log(`  ✅ Dynamic fields: ${Object.keys(dynamicFields).length} fields`);
+  }
+
+  console.log(`📊 Generated ${generatedCount}/${targetCount} expanded field templates`);
   return expandedFields;
 }
 
@@ -480,6 +488,122 @@ function generateEndpointMonitoringFields(
     }
   }
 
+  return fields;
+}
+
+/**
+ * Calculate maximum combinatorial fields possible
+ */
+function calculateMaxCombinatoralFields(): number {
+  let total = 0;
+  
+  try {
+    const performance = FIELD_PATTERNS.performance.systems.length * 
+                       FIELD_PATTERNS.performance.metrics.length * 
+                       FIELD_PATTERNS.performance.timeframes.length;
+    total += performance;
+    
+    const security = FIELD_PATTERNS.security.aspects.length * 
+                     FIELD_PATTERNS.security.scopes.length * 
+                     FIELD_PATTERNS.security.algorithms.length * 2; // score + confidence
+    total += security;
+    
+    const behavioral = FIELD_PATTERNS.behavioral.entities.length * 
+                       FIELD_PATTERNS.behavioral.behaviors.length * 
+                       FIELD_PATTERNS.behavioral.patterns.length * 
+                       FIELD_PATTERNS.behavioral.analysis.length;
+    total += behavioral;
+    
+    const network = FIELD_PATTERNS.network.protocols.length * 
+                    FIELD_PATTERNS.network.metrics.length * 
+                    FIELD_PATTERNS.network.analysis.length;
+    total += network;
+    
+    const endpoint = FIELD_PATTERNS.endpoint.components.length * 
+                     FIELD_PATTERNS.endpoint.activities.length * 
+                     FIELD_PATTERNS.endpoint.detections.length;
+    total += endpoint;
+    
+    console.log(`🔢 Calculated max combinatorial fields: ${total}`);
+    console.log(`  Performance: ${performance}, Security: ${security}, Behavioral: ${behavioral}`);
+    console.log(`  Network: ${network}, Endpoint: ${endpoint}`);
+    
+  } catch (error) {
+    console.warn('Error calculating max fields, using default:', error.message);
+    return 20000; // Safe default
+  }
+  
+  return total;
+}
+
+/**
+ * Generate unlimited dynamic fields using algorithmic patterns
+ */
+function generateDynamicFields(
+  count: number,
+  categories: string[]
+): Record<string, FieldTemplate> {
+  const fields: Record<string, FieldTemplate> = {};
+  
+  // Base field patterns for dynamic generation
+  const dynamicPatterns = {
+    metrics: ['count', 'rate', 'ratio', 'percentage', 'score', 'index', 'factor', 'coefficient'],
+    entities: ['user', 'host', 'process', 'file', 'network', 'service', 'application', 'session'],
+    analysis: ['ml', 'statistical', 'heuristic', 'rule', 'pattern', 'anomaly', 'baseline', 'trend'],
+    timeframes: ['instant', 'short', 'medium', 'long', 'historical', 'realtime', 'batch', 'streaming'],
+    contexts: ['security', 'performance', 'compliance', 'operations', 'business', 'technical', 'behavioral'],
+    operations: ['create', 'read', 'update', 'delete', 'execute', 'monitor', 'analyze', 'report']
+  };
+  
+  for (let i = 0; i < count; i++) {
+    // Generate unique field names using combinations and counters
+    const category = faker.helpers.arrayElement(categories);
+    const metric = faker.helpers.arrayElement(dynamicPatterns.metrics);
+    const entity = faker.helpers.arrayElement(dynamicPatterns.entities);
+    const analysis = faker.helpers.arrayElement(dynamicPatterns.analysis);
+    const context = faker.helpers.arrayElement(dynamicPatterns.contexts);
+    const operation = faker.helpers.arrayElement(dynamicPatterns.operations);
+    
+    // Create varied field name patterns
+    const patterns = [
+      `${context}.${entity}.${metric}_${analysis}_${i}`,
+      `${category}.${operation}.${entity}_${metric}_${i}`,
+      `dynamic.${context}_${entity}_${analysis}_${metric}_${i}`,
+      `extended.${entity}_${operation}_${context}_${i}`,
+      `computed.${analysis}_${metric}_${entity}_${i}`,
+      `enriched.${context}_${operation}_${analysis}_${i}`
+    ];
+    
+    const fieldName = faker.helpers.arrayElement(patterns);
+    
+    // Ensure uniqueness
+    if (!fields[fieldName]) {
+      fields[fieldName] = {
+        type: faker.helpers.arrayElement(['integer', 'float', 'string', 'boolean']),
+        generator: () => {
+          const type = faker.helpers.arrayElement(['integer', 'float', 'string', 'boolean']);
+          switch (type) {
+            case 'integer':
+              return faker.number.int({ min: 0, max: 1000000 });
+            case 'float':
+              return faker.number.float({ min: 0, max: 100, fractionDigits: 3 });
+            case 'boolean':
+              return faker.datatype.boolean();
+            default:
+              return faker.helpers.arrayElement([
+                faker.lorem.word(),
+                faker.system.fileName(),
+                faker.internet.domainName(),
+                faker.company.name()
+              ]);
+          }
+        },
+        description: `Dynamic ${context} ${metric} for ${entity} using ${analysis} analysis`,
+        context_weight: faker.number.int({ min: 1, max: 10 }),
+      };
+    }
+  }
+  
   return fields;
 }
 

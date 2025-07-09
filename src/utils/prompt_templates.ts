@@ -180,11 +180,21 @@ export const generateBatchAlertUserPrompt = (context: {
     entities,
   )}.
 
-IMPORTANT: Return a JSON array with exactly ${batchSize} alert objects. Each alert should be a complete JSON object with Kibana/ECS fields.
+CRITICAL INSTRUCTIONS:
+1. Return ONLY a JSON array with exactly ${batchSize} alert objects
+2. Do NOT wrap the array in any object or add explanatory text
+3. Each alert must be a complete JSON object with Kibana/ECS fields
+4. Start your response with [ and end with ]
 
-Format: [{"host.name": "...", "user.name": "...", "kibana.alert.rule.name": "...", ...}, {...}, ...]
+Required format (return exactly this structure):
+[
+  {"host.name": "entity1_host", "user.name": "entity1_user", "kibana.alert.rule.name": "...", ...},
+  {"host.name": "entity2_host", "user.name": "entity2_user", "kibana.alert.rule.name": "...", ...}
+]
 
-${examples ? `Reference examples: ${examples}` : ''}`;
+${examples ? `Reference examples: ${examples}` : ''}
+
+Remember: Return ONLY the JSON array, nothing else.`;
 };
 
 // Response format instructions
