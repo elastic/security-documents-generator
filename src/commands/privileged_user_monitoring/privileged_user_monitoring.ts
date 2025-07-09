@@ -10,6 +10,11 @@ import {
 } from './sample_documents';
 import { TimeWindows } from '../utils/time_windows';
 import { User } from '../privileged_access_detection_ml/event_generator';
+import {
+  createRule,
+  enablePrivmon,
+  enableRiskScore,
+} from '../../utils/kibana_api';
 
 const endpointLogsDataStreamName = 'logs-endpoint.events.process-default';
 const systemLogsDataStreamName = 'logs-system.security-default';
@@ -81,6 +86,7 @@ export const generatePrivilegedUserMonitoringData = async ({
   users: User[];
 }) => {
   try {
+    await createRule();
     await deleteDataStream(endpointLogsDataStreamName);
     await createDataStream(endpointLogsDataStreamName);
     await ingestIntoSourceIndex(endpointLogsDataStreamName, [
@@ -101,6 +107,9 @@ export const generatePrivilegedUserMonitoringData = async ({
       ...getSampleOktaLogs(users),
       ...getSampleOktaAuthenticationLogs(users),
     ]);
+
+    await enablePrivmon();
+    await enableRiskScore();
   } catch (e) {
     console.log(e);
   }

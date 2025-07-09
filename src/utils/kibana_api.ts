@@ -2,6 +2,8 @@ import urlJoin from 'url-join';
 import fetch, { Headers } from 'node-fetch';
 import { getConfig } from '../get_config';
 import { faker } from '@faker-js/faker';
+import fs from 'fs';
+import FormData from 'form-data';
 import {
   RISK_SCORE_SCORES_URL,
   RISK_SCORE_ENGINE_INIT_URL,
@@ -457,4 +459,62 @@ export const bulkDeleteRules = async (ruleIds: string[], space?: string) => {
     },
     { apiVersion: API_VERSIONS.public.v1, space },
   );
+};
+
+export const uploadPrivmonCsv = async (
+  csvFilePath: string,
+  space?: string,
+): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const formData = new FormData();
+    formData.append('file', fs.createReadStream(csvFilePath));
+    const config = getConfig();
+    const response = await fetch(
+      buildKibanaUrl({
+        path: '/api/entity_analytics/monitoring/users/_csv',
+        space,
+      }),
+      {
+        method: 'POST',
+        headers: {
+          'kbn-xsrf': 'true',
+          'elastic-api-version': API_VERSIONS.public.v1,
+          ...formData.getHeaders(), // Include form-data headers
+          Authorization:
+            'Basic ' +
+            Buffer.from(
+              config.kibana.username + ':' + config.kibana.password,
+            ).toString('base64'),
+        },
+        body: formData,
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to upload CSV: ${errorText}`);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error uploading CSV:', error);
+    return { success: false, message: error.message };
+  }
+};
+
+export const enablePrivmon = async (space?: string) => {
+  try {
+    const response = await kibanaFetch(
+      '/api/entity_analytics/monitoring/engine/init',
+      {
+        method: 'POST',
+        body: JSON.stringify({}),
+      },
+      { apiVersion: API_VERSIONS.public.v1, space },
+    );
+    return response;
+  } catch (error) {
+    console.error('Error enabling Privileged User Monitoring:', error);
+    throw error;
+  }
 };

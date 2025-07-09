@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import { resolve } from 'path';
 import { User } from '../privileged_access_detection_ml/event_generator';
 import { srcDirectory } from '../../index';
+import { uploadPrivmonCsv } from '../../utils/kibana_api';
 
 const CSV_FILE_NAME = 'privileged_users.csv';
 
@@ -12,6 +13,7 @@ export const generateCSVFile = async ({ users }: { users: User[] }) => {
     const csvFilePath = resolve(outputDirectory, `./${CSV_FILE_NAME}`);
     await fs.mkdir(outputDirectory, { recursive: true });
     await fs.writeFile(csvFilePath, csvContent);
+    await uploadPrivmonCsv(csvFilePath);
     console.log(
       `A CSV file containing all of the privileged users was written to ${csvFilePath}`,
     );
