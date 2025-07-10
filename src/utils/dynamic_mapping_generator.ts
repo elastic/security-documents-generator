@@ -191,11 +191,11 @@ export function generateIndexTemplate(
       settings: {
         number_of_shards: 1,
         number_of_replicas: 1,
-        'index.mapping.total_fields.limit': 100000, // Support very large field counts
-        'index.mapping.depth.limit': 50, // Support deeply nested structures
-        'index.mapping.nested_fields.limit': 1000, // Support many nested fields
-        'index.mapping.nested_objects.limit': 10000, // Support nested objects
-        'index.max_docvalue_fields_search': 200, // Support large doc_value searches
+        'index.mapping.total_fields.limit': 200000, // Support massive field counts
+        'index.mapping.depth.limit': 100, // Support deeply nested structures
+        'index.mapping.nested_fields.limit': 10000, // Support many nested fields
+        'index.mapping.nested_objects.limit': 50000, // Support nested objects
+        'index.max_docvalue_fields_search': 1000, // Support large doc_value searches
       },
       mappings: mapping.mappings,
     },
@@ -223,12 +223,42 @@ export function generateIndexTemplate(
 }
 
 /**
+ * Delete conflicting indices to avoid mapping conflicts
+ */
+export async function deleteConflictingIndices(
+  esClient: any,
+  indexPattern: string
+): Promise<void> {
+  try {
+    console.log(`🗑️  Checking for conflicting indices: ${indexPattern}`);
+    
+    const { body: indices } = await esClient.cat.indices({ 
+      index: indexPattern,
+      format: 'json',
+      h: 'index'
+    });
+    
+    if (indices && indices.length > 0) {
+      for (const index of indices) {
+        console.log(`🗑️  Deleting conflicting index: ${index.index}`);
+        await esClient.indices.delete({ index: index.index });
+      }
+      console.log(`✅ Cleaned up ${indices.length} conflicting indices`);
+    }
+  } catch (error) {
+    // Index doesn't exist or other error - this is fine for new generation
+    console.log(`ℹ️  No conflicting indices found for ${indexPattern}`);
+  }
+}
+
+/**
  * Apply mapping to Elasticsearch index
  */
 export async function applyMappingToIndex(
   esClient: any,
   indexName: string,
-  mapping: ElasticsearchMapping
+  mapping: ElasticsearchMapping,
+  forceRecreate: boolean = false
 ): Promise<void> {
   try {
     console.log(`🔧 Applying mapping to index: ${indexName}`);
@@ -236,7 +266,12 @@ export async function applyMappingToIndex(
     // Check if index exists
     const indexExists = await esClient.indices.exists({ index: indexName });
     
-    if (!indexExists) {
+    if (indexExists && forceRecreate) {
+      console.log(`🗑️  Deleting existing index for recreation: ${indexName}`);
+      await esClient.indices.delete({ index: indexName });
+    }
+    
+    if (!indexExists || forceRecreate) {
       // Create index with mapping
       await esClient.indices.create({
         index: indexName,
@@ -244,11 +279,11 @@ export async function applyMappingToIndex(
           settings: {
             number_of_shards: 1,
             number_of_replicas: 1,
-            'index.mapping.total_fields.limit': 100000,
-            'index.mapping.depth.limit': 50,
-            'index.mapping.nested_fields.limit': 1000,
-            'index.mapping.nested_objects.limit': 10000,
-            'index.max_docvalue_fields_search': 200,
+            'index.mapping.total_fields.limit': 200000,
+            'index.mapping.depth.limit': 100,
+            'index.mapping.nested_fields.limit': 10000,
+            'index.mapping.nested_objects.limit': 50000,
+            'index.max_docvalue_fields_search': 1000,
           },
           ...mapping,
         },

@@ -12,7 +12,8 @@ import {
   generateElasticsearchMapping, 
   generateIndexTemplate,
   applyMappingToIndex,
-  applyIndexTemplate 
+  applyIndexTemplate,
+  deleteConflictingIndices
 } from '../utils/dynamic_mapping_generator';
 
 export interface FieldGenerationConfig {
@@ -165,8 +166,11 @@ async function createFieldMapping(
   // Create mapping if requested
   if (config.createMapping) {
     try {
+      // Clean up conflicting indices first
+      await deleteConflictingIndices(client, indexName);
+      
       const mapping = generateElasticsearchMapping(fieldTypes, indexName);
-      await applyMappingToIndex(client, indexName, mapping);
+      await applyMappingToIndex(client, indexName, mapping, true); // Force recreation
     } catch (error) {
       console.warn(`⚠️  Could not create mapping for ${indexName}:`, error.message);
     }

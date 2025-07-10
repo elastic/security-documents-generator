@@ -381,13 +381,16 @@ function generateBehavioralFields(
               if (generated >= count) break;
 
               const fieldName = `behavioral.${entity}.${behavior}.${pattern}.${metric}_${suffix}`;
+              const fieldType = faker.helpers.arrayElement(['integer', 'float']);
+              const generator = fieldType === 'integer' 
+                ? () => faker.number.int({ min: 0, max: 10000 })
+                : faker.helpers.arrayElement([
+                    () => faker.number.float({ min: 0, max: 100, fractionDigits: 3 }),
+                    () => faker.number.float({ min: -1, max: 1, fractionDigits: 4 }),
+                  ]);
               fields[fieldName] = {
-                type: faker.helpers.arrayElement(['integer', 'float']),
-                generator: faker.helpers.arrayElement([
-                  () => faker.number.int({ min: 0, max: 10000 }),
-                  () => faker.number.float({ min: 0, max: 100, fractionDigits: 3 }),
-                  () => faker.number.float({ min: -1, max: 1, fractionDigits: 4 }),
-                ]),
+                type: fieldType,
+                generator: generator,
                 description: `Advanced ${entity} ${behavior} ${pattern} ${metric} analysis (series ${suffix})`,
                 context_weight: 6,
               };
@@ -529,7 +532,7 @@ function calculateMaxCombinatoralFields(): number {
     console.log(`  Network: ${network}, Endpoint: ${endpoint}`);
     
   } catch (error) {
-    console.warn('Error calculating max fields, using default:', error.message);
+    console.warn('Error calculating max fields, using default:', (error as Error).message || 'Unknown error');
     return 20000; // Safe default
   }
   
@@ -578,11 +581,11 @@ function generateDynamicFields(
     
     // Ensure uniqueness
     if (!fields[fieldName]) {
+      const fieldType = faker.helpers.arrayElement(['integer', 'float', 'string', 'boolean']);
       fields[fieldName] = {
-        type: faker.helpers.arrayElement(['integer', 'float', 'string', 'boolean']),
+        type: fieldType,
         generator: () => {
-          const type = faker.helpers.arrayElement(['integer', 'float', 'string', 'boolean']);
-          switch (type) {
+          switch (fieldType) {
             case 'integer':
               return faker.number.int({ min: 0, max: 1000000 });
             case 'float':
