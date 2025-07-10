@@ -26,8 +26,11 @@ A powerful tool for generating realistic security scenarios with complete forens
    ```
    Follow the guided setup to create your `config.json` file.
 
-3. **Generate your first realistic attack scenario:**
+3. **Generate detection rules and attack scenarios:**
    ```bash
+   # Generate detection rules (all types)
+   yarn start rules -r 10 -s default
+   
    # Complete ransomware attack with realistic logs → alerts pipeline
    yarn start generate-campaign ransomware --realistic --mitre --detection-rate 0.6
    ```
@@ -50,6 +53,13 @@ A powerful tool for generating realistic security scenarios with complete forens
 - **Dual-Mode Architecture**: Template mode (1-1,000) + algorithmic expansion (1,000+)
 - **Context-Aware**: Attack scenarios get threat fields, normal logs get performance fields
 - **Realistic Correlations**: CPU high → memory high, threat confidence → risk score
+
+### 🛡️ **Detection Rules Generation**
+- **All 7 Rule Types**: Query, Threshold, EQL, Machine Learning, Threat Match, New Terms, ES|QL
+- **Realistic Configurations**: Type-specific queries, thresholds, and parameters
+- **MITRE Integration**: Automatic ATT&CK technique mapping where applicable
+- **Multi-Space Support**: Generate rules across different Kibana spaces
+- **Triggered Alerts**: Rules generate realistic alerts for complete testing workflows
 
 ### 🎭 **Realistic Attack Scenarios**
 - **Complete Log→Alert Pipeline**: Source logs generate realistic security alerts
@@ -78,6 +88,7 @@ A powerful tool for generating realistic security scenarios with complete forens
 
 | Command | Description | Example |
 |---------|-------------|---------|
+| **`rules --rule-types`** | **🛡️ Detection rules (all types)** | `yarn start rules -r 15 --rule-types query,threshold,eql -s default` |
 | **`generate-alerts --environments`** | **🌍 Multi-environment alerts** | `yarn start generate-alerts -n 100 --environments 50 --namespace prod` |
 | **`generate-logs --environments`** | **🌍 Multi-environment logs** | `yarn start generate-logs -n 1000 --environments 25 --namespace staging` |
 | **`generate-campaign --realistic`** | **🌟 Complete attack scenarios** | `yarn start generate-campaign apt --realistic --mitre` |
@@ -94,6 +105,7 @@ A powerful tool for generating realistic security scenarios with complete forens
 ### 🌍 Multi-Environment Generation Examples
 | Command | Result | Indices Created |
 |---------|--------|----------------|
+| `yarn start rules -r 20 --environments 10 -s default` | 200 detection rules across 10 environments | Security rules in space-specific indices |
 | `yarn start generate-alerts -n 100 --environments 50` | 5,000 alerts across 50 environments | `.alerts-security.alerts-default-env-001` through `050` |
 | `yarn start generate-logs -n 1000 --environments 25 --namespace prod` | 25,000 logs across 25 prod environments | `logs-*-prod-env-001` through `025` |
 | `yarn start generate-campaign apt --environments 10` | APT campaigns across 10 environments | Complete attack data across 10 environment sets |
@@ -576,6 +588,7 @@ event.category:network AND destination.ip:10.* AND source.ip:external
 
 | Topic | Description |
 |-------|-------------|
+| **[🛡️ Detection Rules Generation](docs/detection-rules.md)** | **All 7 rule types with triggered alerts** ⭐ |
 | **[🔗 Kibana Cloud Integration](docs/kibana-cloud-integration.md)** | **Direct Security → Alerts integration** ⭐ |
 | **[🎨 Theme-Based Generation](docs/theme-generation.md)** | **Consistent themed security data** |
 | **[Multi-Field Generation](docs/multi-field-generation.md)** | **500+ security fields, zero tokens** |

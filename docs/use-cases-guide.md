@@ -5,13 +5,14 @@ This comprehensive guide covers the most common use cases for the Security Docum
 ## 📖 Table of Contents
 
 1. [Quick Start Examples](#quick-start-examples)
-2. [Enterprise Multi-Environment Scenarios](#enterprise-multi-environment-scenarios)
-3. [Campaign Generation Use Cases](#campaign-generation-use-cases)
-4. [High-Density Multi-Field Generation](#high-density-multi-field-generation)
-5. [SIEM Testing & Validation](#siem-testing--validation)
-6. [Performance & Load Testing](#performance--load-testing)
-7. [Compliance & Audit Scenarios](#compliance--audit-scenarios)
-8. [SOC Training & Red Team Exercises](#soc-training--red-team-exercises)
+2. [Detection Rules Generation](#detection-rules-generation)
+3. [Enterprise Multi-Environment Scenarios](#enterprise-multi-environment-scenarios)
+4. [Campaign Generation Use Cases](#campaign-generation-use-cases)
+5. [High-Density Multi-Field Generation](#high-density-multi-field-generation)
+6. [SIEM Testing & Validation](#siem-testing--validation)
+7. [Performance & Load Testing](#performance--load-testing)
+8. [Compliance & Audit Scenarios](#compliance--audit-scenarios)
+9. [SOC Training & Red Team Exercises](#soc-training--red-team-exercises)
 
 ---
 
@@ -19,6 +20,9 @@ This comprehensive guide covers the most common use cases for the Security Docum
 
 ### Basic Security Data Generation
 ```bash
+# Generate detection rules (all types)
+yarn start rules -r 10 -s default
+
 # Generate 100 security alerts for basic testing
 yarn start generate-alerts -n 100
 
@@ -36,6 +40,46 @@ yarn start generate-alerts -n 200 --mitre --claude
 
 # Create realistic ransomware campaign with detection simulation
 yarn start generate-campaign ransomware --realistic --detection-rate 0.4
+```
+
+---
+
+## 🛡️ Detection Rules Generation
+
+### All Rule Types Generation
+```bash
+# Generate comprehensive detection rules (all 7 types)
+yarn start rules -r 15 -t query,threshold,eql,machine_learning,threat_match,new_terms,esql -s default
+
+# SOC training with specific rule types
+yarn start rules -r 25 -t query,threshold,eql,new_terms -e 150 -s soc-training
+
+# Machine learning and threat intelligence focus
+yarn start rules -r 10 -t machine_learning,threat_match -s ml-testing
+```
+
+### Multi-Environment Rule Deployment
+```bash
+# Deploy rules across multiple environments
+yarn start rules -r 20 --environments 10 -s production
+
+# Staging environment with specific rule types
+yarn start rules -r 15 -t query,threshold,eql -s staging --environments 5
+
+# Development environment with advanced rules
+yarn start rules -r 20 -t query,eql,esql -s development
+```
+
+### Rule Testing and Validation
+```bash
+# Generate rules with matching events for testing
+yarn start rules -r 15 -t query,threshold -e 200 -s testing
+
+# Load testing with high rule count
+yarn start rules -r 100 -t query,threshold -e 500 -s load-test
+
+# Clean existing rules and generate fresh set
+yarn start rules -r 20 -t query,threshold,eql --clean -s validation
 ```
 
 ---
@@ -265,6 +309,9 @@ yarn start generate-campaign insider --environments 10 --realistic --multi-field
 
 ### SOC Analyst Training
 ```bash
+# Generate detection rules for training
+yarn start rules -r 25 -t query,threshold,eql,new_terms -e 150 -s soc-training
+
 # Generate training scenarios with mixed attack types
 yarn start generate-campaign apt --realistic --detection-rate 0.5 --complexity medium
 yarn start generate-campaign insider --realistic --detection-rate 0.7 --complexity low

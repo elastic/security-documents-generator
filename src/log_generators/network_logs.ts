@@ -1,10 +1,10 @@
 import { faker } from '@faker-js/faker';
 import { generateTimestamp } from '../utils/timestamp_utils';
-import { 
-  getThemedUsername, 
-  getThemedHostname, 
+import {
+  getThemedUsername,
+  getThemedHostname,
   getThemedDomain,
-  getGlobalThemeGenerator 
+  getGlobalThemeGenerator,
 } from '../utils/universal_theme_generator';
 
 export interface NetworkLogConfig {
@@ -34,7 +34,9 @@ const USER_AGENTS = [
   'Wget/1.20.3', // Suspicious
 ];
 
-export const generateNetworkConnectionLog = async (config: NetworkLogConfig = {}) => {
+export const generateNetworkConnectionLog = async (
+  config: NetworkLogConfig = {},
+) => {
   const {
     hostName = await getThemedHostname(faker.internet.domainName()),
     userName = await getThemedUsername(faker.internet.username()),
@@ -161,9 +163,10 @@ export const generateHTTPLog = async (config: NetworkLogConfig = {}) => {
   const method = faker.helpers.arrayElement(HTTP_METHODS);
   const statusCode = faker.helpers.arrayElement(HTTP_STATUS_CODES);
   const userAgent = faker.helpers.arrayElement(USER_AGENTS);
-  
+
   // Generate themed network resource for proper URL construction
-  const networkResource = await getGlobalThemeGenerator().generateNetworkResource();
+  const networkResource =
+    await getGlobalThemeGenerator().generateNetworkResource();
   const url = `https://${networkResource.domain}${networkResource.url}`;
 
   return {
@@ -183,12 +186,15 @@ export const generateHTTPLog = async (config: NetworkLogConfig = {}) => {
     'host.name': hostName,
     'http.request.body.bytes': faker.number.int({ min: 0, max: 10240 }),
     'http.request.method': method,
-    'http.request.referrer': faker.helpers.maybe(() => {
-      const referrerDomain = faker.internet.domainName();
-      return `https://${referrerDomain}/`;
-    }, {
-      probability: 0.6,
-    }),
+    'http.request.referrer': faker.helpers.maybe(
+      () => {
+        const referrerDomain = faker.internet.domainName();
+        return `https://${referrerDomain}/`;
+      },
+      {
+        probability: 0.6,
+      },
+    ),
     'http.response.body.bytes': faker.number.int({ min: 200, max: 1048576 }),
     'http.response.status_code': statusCode,
     'http.version': '1.1',

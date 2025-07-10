@@ -1,15 +1,15 @@
 /**
  * Unified Alert Assembler
- * 
+ *
  * Assembles security alerts from data pools, combining standard fields,
  * extended fields, MITRE data, and theme integration efficiently.
  */
 
 import { faker } from '@faker-js/faker';
-import { 
-  UnifiedDataPool, 
-  AssemblyOptions, 
-  AlertAssemblyResult 
+import {
+  UnifiedDataPool,
+  AssemblyOptions,
+  AlertAssemblyResult,
 } from './unified_data_pool_types';
 import { BaseCreateAlertsReturnType } from '../create_alerts';
 import { generateTimestamp, TimestampConfig } from '../utils/timestamp_utils';
@@ -30,14 +30,14 @@ export class UnifiedAlertAssembler {
     pool: UnifiedDataPool,
     alertIndex: number,
     entityIndex: number,
-    options: AssemblyOptions
+    options: AssemblyOptions,
   ): AlertAssemblyResult {
     const startTime = Date.now();
     const fieldsUsed = {
       standard: [] as string[],
       extended: [] as string[],
       mitre: [] as string[],
-      theme: [] as string[]
+      theme: [] as string[],
     };
 
     // Start with base alert structure
@@ -69,7 +69,10 @@ export class UnifiedAlertAssembler {
 
     // Apply false positive logic if configured
     if (options.falsePositiveRate && options.falsePositiveRate > 0) {
-      const alertsArray = applyFalsePositiveLogic([alert], options.falsePositiveRate);
+      const alertsArray = applyFalsePositiveLogic(
+        [alert],
+        options.falsePositiveRate,
+      );
       Object.assign(alert, alertsArray[0]);
     }
 
@@ -77,7 +80,7 @@ export class UnifiedAlertAssembler {
       alert,
       fieldsUsed,
       correlationsApplied,
-      assemblyTimeMs: Date.now() - startTime
+      assemblyTimeMs: Date.now() - startTime,
     };
   }
 
@@ -87,13 +90,13 @@ export class UnifiedAlertAssembler {
   assembleAlerts(
     pool: UnifiedDataPool,
     count: number,
-    options: AssemblyOptions
+    options: AssemblyOptions,
   ): AlertAssemblyResult[] {
     const results: AlertAssemblyResult[] = [];
-    
+
     // Pre-calculate entity distribution for variety
     const entityCount = Math.min(count, 100); // Limit entities for realism
-    
+
     for (let i = 0; i < count; i++) {
       const entityIndex = i % entityCount;
       const result = this.assembleAlert(pool, i, entityIndex, options);
@@ -109,7 +112,7 @@ export class UnifiedAlertAssembler {
   private createBaseAlert(options: AssemblyOptions): Record<string, any> {
     const timestamp = generateTimestamp(options.timestampConfig);
     const currentTime = new Date().toISOString();
-    
+
     return {
       // Required Kibana fields
       'kibana.alert.start': timestamp,
@@ -120,7 +123,7 @@ export class UnifiedAlertAssembler {
       'kibana.alert.workflow_status': 'open',
       'kibana.alert.depth': 1,
       'kibana.alert.uuid': faker.string.uuid(),
-      
+
       // Rule parameters
       'kibana.alert.rule.parameters': {
         description: 'AI-generated security alert',
@@ -149,7 +152,7 @@ export class UnifiedAlertAssembler {
         query: '*',
         filters: [],
       },
-      
+
       // Rule metadata
       'kibana.alert.rule.category': 'Custom Query Rule',
       'kibana.alert.rule.consumer': 'siem',
@@ -180,7 +183,7 @@ export class UnifiedAlertAssembler {
       'kibana.alert.rule.to': 'now',
       'kibana.alert.rule.type': 'query',
       'kibana.alert.rule.version': 3,
-      
+
       // Event fields
       '@timestamp': timestamp,
       'event.kind': 'signal',
@@ -194,7 +197,7 @@ export class UnifiedAlertAssembler {
         },
       ],
       'kibana.alert.severity': 'low',
-      'kibana.alert.risk_score': 21
+      'kibana.alert.risk_score': 21,
     };
   }
 
@@ -205,13 +208,14 @@ export class UnifiedAlertAssembler {
     alert: Record<string, any>,
     pool: UnifiedDataPool,
     alertIndex: number,
-    fieldsUsed: any
+    fieldsUsed: any,
   ): void {
     const standard = pool.standard;
-    
+
     // Add alert name and description
     if (standard.alertNames.length > 0) {
-      const alertName = standard.alertNames[alertIndex % standard.alertNames.length];
+      const alertName =
+        standard.alertNames[alertIndex % standard.alertNames.length];
       alert['kibana.alert.rule.name'] = alertName;
       alert['kibana.alert.rule.description'] = alertName;
       fieldsUsed.standard.push('kibana.alert.rule.name');
@@ -219,14 +223,18 @@ export class UnifiedAlertAssembler {
 
     // Add alert reason with more detail
     if (standard.alertDescriptions.length > 0) {
-      const description = standard.alertDescriptions[alertIndex % standard.alertDescriptions.length];
+      const description =
+        standard.alertDescriptions[
+          alertIndex % standard.alertDescriptions.length
+        ];
       alert['kibana.alert.reason'] = description;
       fieldsUsed.standard.push('kibana.alert.reason');
     }
 
     // Add threat information
     if (standard.threatNames.length > 0) {
-      const threatName = standard.threatNames[alertIndex % standard.threatNames.length];
+      const threatName =
+        standard.threatNames[alertIndex % standard.threatNames.length];
       alert['threat.indicator.name'] = threatName;
       alert['threat.indicator.type'] = 'malware';
       fieldsUsed.standard.push('threat.indicator.name');
@@ -234,7 +242,8 @@ export class UnifiedAlertAssembler {
 
     // Add process information
     if (standard.processNames.length > 0) {
-      const processName = standard.processNames[alertIndex % standard.processNames.length];
+      const processName =
+        standard.processNames[alertIndex % standard.processNames.length];
       alert['process.name'] = processName;
       alert['process.executable'] = `C:\\Windows\\System32\\${processName}`;
       fieldsUsed.standard.push('process.name');
@@ -242,7 +251,8 @@ export class UnifiedAlertAssembler {
 
     // Add file information
     if (standard.fileNames.length > 0) {
-      const fileName = standard.fileNames[alertIndex % standard.fileNames.length];
+      const fileName =
+        standard.fileNames[alertIndex % standard.fileNames.length];
       alert['file.name'] = fileName;
       alert['file.path'] = `C:\\Users\\Public\\${fileName}`;
       fieldsUsed.standard.push('file.name');
@@ -265,7 +275,8 @@ export class UnifiedAlertAssembler {
 
     // Add registry information
     if (standard.registryKeys.length > 0) {
-      const registryKey = standard.registryKeys[alertIndex % standard.registryKeys.length];
+      const registryKey =
+        standard.registryKeys[alertIndex % standard.registryKeys.length];
       alert['registry.key'] = registryKey;
       alert['registry.value'] = faker.system.fileName();
       fieldsUsed.standard.push('registry.key');
@@ -291,7 +302,10 @@ export class UnifiedAlertAssembler {
 
     // Add event description
     if (standard.eventDescriptions.length > 0) {
-      const eventDescription = standard.eventDescriptions[alertIndex % standard.eventDescriptions.length];
+      const eventDescription =
+        standard.eventDescriptions[
+          alertIndex % standard.eventDescriptions.length
+        ];
       alert['event.action'] = eventDescription;
       alert['event.category'] = ['security'];
       alert['event.type'] = ['indicator'];
@@ -306,10 +320,10 @@ export class UnifiedAlertAssembler {
     alert: Record<string, any>,
     pool: UnifiedDataPool,
     entityIndex: number,
-    fieldsUsed: any
+    fieldsUsed: any,
   ): void {
     const theme = pool.theme!;
-    
+
     // Add themed usernames
     if (theme.usernames.length > 0) {
       const username = theme.usernames[entityIndex % theme.usernames.length];
@@ -328,14 +342,16 @@ export class UnifiedAlertAssembler {
 
     // Add themed organization
     if (theme.organizationNames.length > 0) {
-      const orgName = theme.organizationNames[entityIndex % theme.organizationNames.length];
+      const orgName =
+        theme.organizationNames[entityIndex % theme.organizationNames.length];
       alert['organization.name'] = orgName;
       fieldsUsed.theme.push('organization.name');
     }
 
     // Add themed application
     if (theme.applicationNames.length > 0) {
-      const appName = theme.applicationNames[entityIndex % theme.applicationNames.length];
+      const appName =
+        theme.applicationNames[entityIndex % theme.applicationNames.length];
       alert['service.name'] = appName;
       fieldsUsed.theme.push('service.name');
     }
@@ -348,18 +364,18 @@ export class UnifiedAlertAssembler {
     alert: Record<string, any>,
     pool: UnifiedDataPool,
     alertIndex: number,
-    fieldsUsed: any
+    fieldsUsed: any,
   ): void {
     const mitre = pool.mitre!;
-    
+
     if (mitre.techniques.length > 0) {
       const technique = mitre.techniques[alertIndex % mitre.techniques.length];
-      
+
       // Add MITRE technique information
       alert['threat.technique.id'] = technique.id;
       alert['threat.technique.name'] = technique.name;
       alert['threat.technique.reference'] = technique.reference;
-      
+
       // Add tactic information
       if (technique.tactics && technique.tactics.length > 0) {
         const tactic = technique.tactics[0];
@@ -367,10 +383,10 @@ export class UnifiedAlertAssembler {
         alert['threat.tactic.name'] = tactic.name;
         alert['threat.tactic.reference'] = tactic.reference;
       }
-      
+
       // Add framework information
       alert['threat.framework'] = 'MITRE ATT&CK';
-      
+
       fieldsUsed.mitre.push('threat.technique.id', 'threat.tactic.id');
     }
   }
@@ -382,15 +398,15 @@ export class UnifiedAlertAssembler {
     alert: Record<string, any>,
     pool: UnifiedDataPool,
     alertIndex: number,
-    fieldsUsed: any
+    fieldsUsed: any,
   ): void {
     const extended = pool.extended!;
-    
+
     // Add fields from extended data pool
-    extended.fieldData.forEach(fieldData => {
+    extended.fieldData.forEach((fieldData) => {
       if (fieldData.values.length > 0) {
         const value = fieldData.values[alertIndex % fieldData.values.length];
-        
+
         // Convert value to correct type
         let convertedValue: any = value;
         switch (fieldData.fieldType) {
@@ -409,7 +425,7 @@ export class UnifiedAlertAssembler {
           default:
             convertedValue = String(value);
         }
-        
+
         // Set nested field using dot notation
         this.setNestedField(alert, fieldData.fieldName, convertedValue);
         fieldsUsed.extended.push(fieldData.fieldName);
@@ -423,19 +439,19 @@ export class UnifiedAlertAssembler {
   private applyCorrelations(
     alert: Record<string, any>,
     pool: UnifiedDataPool,
-    alertIndex: number
+    alertIndex: number,
   ): number {
     let correlationsApplied = 0;
 
     // Correlate severity with risk score
     if (alert['kibana.alert.severity']) {
       const severityMap = {
-        'low': 21,
-        'medium': 47,
-        'high': 73,
-        'critical': 99
+        low: 21,
+        medium: 47,
+        high: 73,
+        critical: 99,
       };
-      
+
       const severity = alert['kibana.alert.severity'];
       if (severity in severityMap) {
         alert['kibana.alert.risk_score'] = (severityMap as any)[severity];
@@ -467,10 +483,14 @@ export class UnifiedAlertAssembler {
   /**
    * Set nested field using dot notation
    */
-  private setNestedField(obj: Record<string, any>, path: string, value: any): void {
+  private setNestedField(
+    obj: Record<string, any>,
+    path: string,
+    value: any,
+  ): void {
     const keys = path.split('.');
     let current = obj;
-    
+
     for (let i = 0; i < keys.length - 1; i++) {
       const key = keys[i];
       if (!(key in current) || typeof current[key] !== 'object') {
@@ -478,7 +498,7 @@ export class UnifiedAlertAssembler {
       }
       current = current[key];
     }
-    
+
     current[keys[keys.length - 1]] = value;
   }
 
@@ -488,7 +508,7 @@ export class UnifiedAlertAssembler {
   private getNestedField(obj: Record<string, any>, path: string): any {
     const keys = path.split('.');
     let current = obj;
-    
+
     for (const key of keys) {
       if (current && typeof current === 'object' && key in current) {
         current = current[key];
@@ -496,7 +516,7 @@ export class UnifiedAlertAssembler {
         return undefined;
       }
     }
-    
+
     return current;
   }
 

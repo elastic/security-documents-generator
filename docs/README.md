@@ -4,6 +4,14 @@ Welcome to the comprehensive documentation for the Security Documents Generator.
 
 ## 📚 Available Documentation
 
+### 🛡️ **[Detection Rules Generation](detection-rules.md)** ⭐ NEW
+Complete guide for generating all types of Elastic Security detection rules:
+- **All 7 Rule Types**: Query, Threshold, EQL, Machine Learning, Threat Match, New Terms, ES|QL
+- **Realistic Configurations**: Type-specific queries, parameters, and MITRE mappings
+- **Multi-Space Support**: Generate rules across different Kibana spaces
+- **Triggered Alerts**: Rules generate realistic alerts for complete testing workflows
+- **SOC Training**: Comprehensive detection rule scenarios
+
 ### 🔗 **[Kibana Cloud Integration](kibana-cloud-integration.md)** ⭐ NEW
 Complete guide for generating security data that appears directly in Kibana Cloud's Security interface:
 - **Direct Security Alerts**: Automatically indexed to `.alerts-security.alerts-default`
@@ -53,6 +61,7 @@ Complete API documentation and programmatic usage examples.
 
 - **[Main README](../README.md)** - Project overview and quick start
 - **[CLAUDE.md](../CLAUDE.md)** - Detailed project instructions for Claude Code
+- **[Detection Rules Generation](detection-rules.md)** - All detection rule types and configurations ⭐
 - **[Kibana Cloud Integration](kibana-cloud-integration.md)** - Direct integration with Kibana Security interface ⭐
 - **[Knowledge Base Integration](knowledge-base-integration.md)** - AI Assistant Knowledge Base setup ⭐
 - **[Multi-Field Generation](multi-field-generation.md)** - Comprehensive multi-field guide
@@ -66,6 +75,15 @@ yarn start generate-alerts -n 25 --mitre --multi-field --field-count 400
 yarn start generate-campaign apt --mitre --realistic --detection-rate 0.8
 ```
 
+### Detection Rules Generation ⭐
+```bash
+# Generate all detection rule types
+yarn start rules -r 15 --rule-types query,threshold,eql,machine_learning,threat_match,new_terms,esql -s default
+
+# SOC training with specific rule types
+yarn start rules -r 25 --rule-types query,threshold,eql,new_terms -e 150 -s soc-training
+```
+
 ### AI Assistant Knowledge Base ⭐
 ```bash
 # Generate comprehensive security knowledge base for AI Assistant
@@ -75,12 +93,18 @@ yarn start generate-knowledge-base -n 25 --access-level public --confidence-thre
 
 ### SOC Training
 ```bash
+# Generate detection rules for SOC training
+yarn start rules -r 25 --rule-types query,threshold,eql,new_terms -s soc-training
+
 # Generate realistic insider threat scenario with full telemetry
 yarn start generate-campaign insider --realistic --mitre --multi-field --field-count 400
 ```
 
 ### Detection Rule Testing
 ```bash
+# Generate comprehensive detection rules
+yarn start rules -r 15 --rule-types query,threshold,eql,machine_learning -s testing
+
 # Create alerts with false positives and rich context for rule tuning
 yarn start generate-alerts -n 200 --multi-field --false-positive-rate 0.15
 ```

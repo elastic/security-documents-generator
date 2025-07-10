@@ -1,28 +1,25 @@
 /**
  * Unified Alert Generation Service
- * 
+ *
  * Main service that orchestrates the unified data pool generation and alert assembly
  * to replace the existing complex AI batch generation approach.
  */
 
-import { 
-  unifiedDataPoolGenerator 
-} from './unified_data_pool_generator';
-import { 
-  unifiedAlertAssembler 
-} from './unified_alert_assembler';
-import { 
+import { unifiedDataPoolGenerator } from './unified_data_pool_generator';
+import { unifiedAlertAssembler } from './unified_alert_assembler';
+import {
   DataPoolGenerationConfig,
   AssemblyOptions,
-  UnifiedSystemMetrics
+  UnifiedSystemMetrics,
 } from './unified_data_pool_types';
-import { 
-  generateAIThemedEntities 
-} from './ai_data_pool_service';
+import { generateAIThemedEntities } from './ai_data_pool_service';
 import { TimestampConfig } from '../utils/timestamp_utils';
 import { getEsClient } from '../commands/utils/indices';
 import { getAlertIndex } from '../utils';
-import { displayGeneratedEntities, GeneratedEntities } from '../utils/entity_display';
+import {
+  displayGeneratedEntities,
+  GeneratedEntities,
+} from '../utils/entity_display';
 import cliProgress from 'cli-progress';
 
 /**
@@ -69,12 +66,11 @@ export interface UnifiedGenerationResult {
  * Main unified alert generation service
  */
 export class UnifiedAlertGenerationService {
-  
   /**
    * Generate alerts using the unified approach
    */
   async generateAlerts(
-    config: UnifiedGenerationConfig
+    config: UnifiedGenerationConfig,
   ): Promise<UnifiedGenerationResult> {
     const overallStartTime = Date.now();
     const errors: string[] = [];
@@ -96,11 +92,12 @@ export class UnifiedAlertGenerationService {
         theme: config.theme,
         mitreEnabled: config.useMitre,
         performanceMode: config.multiFieldConfig?.performanceMode || false,
-        cacheEnabled: true
+        cacheEnabled: true,
       };
 
-      const dataPoolResult = await unifiedDataPoolGenerator.generateDataPool(dataPoolConfig);
-      
+      const dataPoolResult =
+        await unifiedDataPoolGenerator.generateDataPool(dataPoolConfig);
+
       if (dataPoolResult.errors.length > 0) {
         errors.push(...dataPoolResult.errors);
       }
@@ -108,8 +105,12 @@ export class UnifiedAlertGenerationService {
         warnings.push(...dataPoolResult.warnings);
       }
 
-      console.log(`✅ Data pool generated in ${dataPoolResult.performance.totalTimeMs}ms`);
-      console.log(`📊 AI calls: ${dataPoolResult.performance.aiCallsUsed}, Tokens: ${dataPoolResult.performance.tokensUsed}`);
+      console.log(
+        `✅ Data pool generated in ${dataPoolResult.performance.totalTimeMs}ms`,
+      );
+      console.log(
+        `📊 AI calls: ${dataPoolResult.performance.aiCallsUsed}, Tokens: ${dataPoolResult.performance.tokensUsed}`,
+      );
 
       // Step 2: Generate entity names for hosts and users
       console.log('🏗️ Generating entity names...');
@@ -123,20 +124,22 @@ export class UnifiedAlertGenerationService {
           const entityResult = await generateAIThemedEntities(
             config.userCount,
             config.hostCount,
-            config.theme
+            config.theme,
           );
           userNames = entityResult.userNames;
           hostNames = entityResult.hostNames;
           entityAICalls = entityResult.aiCalls;
           entityTokens = entityResult.tokens;
-          
-          console.log(`✅ Generated ${userNames.length} themed usernames and ${hostNames.length} themed hostnames`);
+
+          console.log(
+            `✅ Generated ${userNames.length} themed usernames and ${hostNames.length} themed hostnames`,
+          );
         } catch (error) {
           console.warn('AI entity generation failed, using fallback');
           const fallbackResult = await this.generateEntityNames(
             config.userCount,
             config.hostCount,
-            config.theme
+            config.theme,
           );
           userNames = fallbackResult.userNames;
           hostNames = fallbackResult.hostNames;
@@ -144,7 +147,7 @@ export class UnifiedAlertGenerationService {
       } else {
         const result = await this.generateEntityNames(
           config.userCount,
-          config.hostCount
+          config.hostCount,
         );
         userNames = result.userNames;
         hostNames = result.hostNames;
@@ -153,20 +156,20 @@ export class UnifiedAlertGenerationService {
       // Step 3: Assemble alerts from data pool
       console.log('⚡ Assembling alerts...');
       const assemblyStartTime = Date.now();
-      
+
       const assemblyOptions: AssemblyOptions = {
         space: config.space,
         namespace: config.namespace,
         timestampConfig: config.timestampConfig,
         falsePositiveRate: config.falsePositiveRate,
         correlationEnabled: config.multiFieldConfig?.correlationEnabled || true,
-        variationEnabled: true
+        variationEnabled: true,
       };
 
       const assemblyResults = unifiedAlertAssembler.assembleAlerts(
         dataPoolResult.pool,
         config.alertCount,
-        assemblyOptions
+        assemblyOptions,
       );
 
       const assemblyTimeMs = Date.now() - assemblyStartTime;
@@ -176,7 +179,7 @@ export class UnifiedAlertGenerationService {
       console.log('📋 Assigning entity names...');
       const finalAlerts = assemblyResults.map((result, index) => {
         const alert = result.alert;
-        
+
         // Assign user and host names if not already themed
         if (!alert['user.name']) {
           alert['user.name'] = userNames[index % userNames.length];
@@ -187,7 +190,8 @@ export class UnifiedAlertGenerationService {
 
         // Update alert reason with entity names
         if (alert['kibana.alert.reason']) {
-          alert['kibana.alert.reason'] = `${alert['kibana.alert.reason']} on ${alert['host.name']} by ${alert['user.name']}`;
+          alert['kibana.alert.reason'] =
+            `${alert['kibana.alert.reason']} on ${alert['host.name']} by ${alert['user.name']}`;
         }
 
         return alert;
@@ -200,46 +204,56 @@ export class UnifiedAlertGenerationService {
       // Step 6: Display generated entities
       const generatedEntities: GeneratedEntities = {
         userNames,
-        hostNames
+        hostNames,
       };
 
       displayGeneratedEntities(generatedEntities, {
         namespace: config.namespace,
         space: config.space,
         showKQLQueries: true,
-        showSampleQueries: true
+        showSampleQueries: true,
       });
 
       // Calculate performance metrics
       const overallTimeMs = Date.now() - overallStartTime;
-      const totalAICalls = dataPoolResult.performance.aiCallsUsed + entityAICalls;
+      const totalAICalls =
+        dataPoolResult.performance.aiCallsUsed + entityAICalls;
       const totalTokens = dataPoolResult.performance.tokensUsed + entityTokens;
-      
+
       const performance: UnifiedSystemMetrics = {
         dataPoolGeneration: {
           timeMs: dataPoolResult.performance.totalTimeMs,
           aiCalls: dataPoolResult.performance.aiCallsUsed,
           tokensUsed: dataPoolResult.performance.tokensUsed,
-          cacheHitRate: dataPoolResult.performance.cacheHits / Math.max(1, dataPoolResult.performance.aiCallsUsed)
+          cacheHitRate:
+            dataPoolResult.performance.cacheHits /
+            Math.max(1, dataPoolResult.performance.aiCallsUsed),
         },
         alertAssembly: {
           timeMs: assemblyTimeMs,
           alertsPerSecond: config.alertCount / (assemblyTimeMs / 1000),
           memoryUsageMB: process.memoryUsage().heapUsed / 1024 / 1024,
-          correlationsApplied: assemblyResults.reduce((sum, r) => sum + r.correlationsApplied, 0)
+          correlationsApplied: assemblyResults.reduce(
+            (sum, r) => sum + r.correlationsApplied,
+            0,
+          ),
         },
         overall: {
           totalTimeMs: overallTimeMs,
           speedImprovement: 0, // Will be calculated vs old approach
           tokenReduction: 0, // Will be calculated vs old approach
-          reliabilityScore: errors.length === 0 ? 1.0 : 0.5
-        }
+          reliabilityScore: errors.length === 0 ? 1.0 : 0.5,
+        },
       };
 
       console.log(`\n🎉 Generation completed successfully!`);
       console.log(`📊 Total time: ${overallTimeMs}ms`);
-      console.log(`⚡ Speed: ${(config.alertCount / (overallTimeMs / 1000)).toFixed(1)} alerts/sec`);
-      console.log(`🤖 AI efficiency: ${totalAICalls} calls for ${config.alertCount} alerts (${totalTokens} tokens)`);
+      console.log(
+        `⚡ Speed: ${(config.alertCount / (overallTimeMs / 1000)).toFixed(1)} alerts/sec`,
+      );
+      console.log(
+        `🤖 AI efficiency: ${totalAICalls} calls for ${config.alertCount} alerts (${totalTokens} tokens)`,
+      );
 
       return {
         alertsGenerated: config.alertCount,
@@ -247,9 +261,8 @@ export class UnifiedAlertGenerationService {
         performance,
         generatedEntities,
         errors,
-        warnings
+        warnings,
       };
-
     } catch (error) {
       errors.push(`Unified generation failed: ${(error as any).message}`);
       console.error('❌ Unified generation failed:', error);
@@ -273,7 +286,10 @@ export class UnifiedAlertGenerationService {
       throw new Error('False positive rate must be between 0 and 1');
     }
 
-    if (config.multiFieldConfig?.fieldCount && config.multiFieldConfig.fieldCount < 1) {
+    if (
+      config.multiFieldConfig?.fieldCount &&
+      config.multiFieldConfig.fieldCount < 1
+    ) {
       throw new Error('Field count must be at least 1');
     }
   }
@@ -288,22 +304,28 @@ export class UnifiedAlertGenerationService {
     console.log(`  🏠 Space: ${config.space}, Namespace: ${config.namespace}`);
     console.log(`  🤖 AI: ${config.useAI ? 'Enabled' : 'Disabled'}`);
     console.log(`  ⚔️ MITRE: ${config.useMitre ? 'Enabled' : 'Disabled'}`);
-    
+
     if (config.multiFieldConfig) {
-      console.log(`  🔬 Multi-Field: ${config.multiFieldConfig.fieldCount} fields`);
+      console.log(
+        `  🔬 Multi-Field: ${config.multiFieldConfig.fieldCount} fields`,
+      );
       if (config.multiFieldConfig.categories) {
-        console.log(`  📁 Categories: ${config.multiFieldConfig.categories.join(', ')}`);
+        console.log(
+          `  📁 Categories: ${config.multiFieldConfig.categories.join(', ')}`,
+        );
       }
     }
-    
+
     if (config.theme) {
       console.log(`  🎨 Theme: ${config.theme}`);
     }
-    
+
     if (config.falsePositiveRate > 0) {
-      console.log(`  🚫 False Positives: ${(config.falsePositiveRate * 100).toFixed(1)}%`);
+      console.log(
+        `  🚫 False Positives: ${(config.falsePositiveRate * 100).toFixed(1)}%`,
+      );
     }
-    
+
     console.log();
   }
 
@@ -313,10 +335,10 @@ export class UnifiedAlertGenerationService {
   private async generateEntityNames(
     userCount: number,
     hostCount: number,
-    theme?: string
+    theme?: string,
   ): Promise<{ userNames: string[]; hostNames: string[] }> {
     const { faker } = await import('@faker-js/faker');
-    
+
     // Generate user names
     const userNames = Array.from({ length: userCount }, () => {
       const firstName = faker.person.firstName();
@@ -326,12 +348,21 @@ export class UnifiedAlertGenerationService {
 
     // Generate host names
     const hostNames = Array.from({ length: hostCount }, () => {
-      const departments = ['web', 'db', 'app', 'mail', 'dc', 'file', 'print', 'backup'];
+      const departments = [
+        'web',
+        'db',
+        'app',
+        'mail',
+        'dc',
+        'file',
+        'print',
+        'backup',
+      ];
       const environments = ['prod', 'dev', 'test', 'stage'];
       const department = faker.helpers.arrayElement(departments);
       const environment = faker.helpers.arrayElement(environments);
       const number = faker.number.int({ min: 1, max: 99 });
-      
+
       return `${department}-${environment}-${number.toString().padStart(2, '0')}`;
     });
 
@@ -343,15 +374,15 @@ export class UnifiedAlertGenerationService {
    */
   private async bulkInsertAlerts(
     alerts: Record<string, any>[],
-    space: string
+    space: string,
   ): Promise<void> {
     const client = getEsClient();
     const indexName = getAlertIndex(space);
-    
+
     // Create operations array for bulk insert
     const operations: any[] = [];
-    
-    alerts.forEach(alert => {
+
+    alerts.forEach((alert) => {
       operations.push({
         index: {
           _index: indexName,
@@ -381,7 +412,9 @@ export class UnifiedAlertGenerationService {
       await client.indices.refresh({ index: indexName });
       progress.stop();
 
-      console.log(`✅ Successfully indexed ${alerts.length} alerts to ${indexName}`);
+      console.log(
+        `✅ Successfully indexed ${alerts.length} alerts to ${indexName}`,
+      );
     } catch (error) {
       progress.stop();
       console.error('❌ Bulk insert failed:', error);
@@ -391,4 +424,5 @@ export class UnifiedAlertGenerationService {
 }
 
 // Export singleton instance
-export const unifiedAlertGenerationService = new UnifiedAlertGenerationService();
+export const unifiedAlertGenerationService =
+  new UnifiedAlertGenerationService();

@@ -1,15 +1,15 @@
 /**
  * Unified Data Pool Generator
- * 
+ *
  * Core service that generates reusable data pools for alert generation,
  * handling both standard and multi-field scenarios efficiently.
  */
 
 import { faker } from '@faker-js/faker';
 import { getConfig } from '../get_config';
-import { 
-  UnifiedDataPool, 
-  StandardDataPool, 
+import {
+  UnifiedDataPool,
+  StandardDataPool,
   ExtendedDataPool,
   MitreDataPool,
   ThemeDataPool,
@@ -19,36 +19,33 @@ import {
   FieldGenerationBatch,
   ExtendedFieldData,
   UnifiedSystemError,
-  UnifiedSystemErrorType
+  UnifiedSystemErrorType,
 } from './unified_data_pool_types';
-import { 
-  getThemedData, 
+import {
+  getThemedData,
   batchGenerateThemedData,
   Theme,
-  SUPPORTED_THEMES 
+  SUPPORTED_THEMES,
 } from '../utils/theme_service';
-import { 
-  loadMitreData, 
-  selectMitreTechniques
+import {
+  loadMitreData,
+  selectMitreTechniques,
 } from '../utils/mitre_attack_service';
-import { 
-  MitreTechnique,
-  MitreAttackData
-} from '../utils/ai_service_types';
-import { 
+import { MitreTechnique, MitreAttackData } from '../utils/ai_service_types';
+import {
   MultiFieldGenerator,
-  MultiFieldConfig 
+  MultiFieldConfig,
 } from '../utils/multi_field_generator';
-import { 
+import {
   getFieldCategories,
-  MULTI_FIELD_TEMPLATES 
+  MULTI_FIELD_TEMPLATES,
 } from '../utils/multi_field_templates';
-import { 
+import {
   generateAISecurityData,
   generateAIFieldSchema,
   generateAIFieldData,
   calculateBatchingStrategy,
-  processFieldBatches
+  processFieldBatches,
 } from './ai_data_pool_service';
 
 /**
@@ -63,7 +60,7 @@ export class UnifiedDataPoolGenerator {
    * Generate a unified data pool for alert generation
    */
   async generateDataPool(
-    config: DataPoolGenerationConfig
+    config: DataPoolGenerationConfig,
   ): Promise<DataPoolGenerationResult> {
     const startTime = Date.now();
     const errors: string[] = [];
@@ -87,10 +84,10 @@ export class UnifiedDataPoolGenerator {
               aiCallsUsed: 0,
               tokensUsed: 0,
               cacheHits: 1,
-              batchesProcessed: 0
+              batchesProcessed: 0,
             },
             errors: [],
-            warnings: ['Used cached data pool']
+            warnings: ['Used cached data pool'],
           };
         }
       }
@@ -98,7 +95,7 @@ export class UnifiedDataPoolGenerator {
       // Generate standard data pool
       const standardResult = await this.generateStandardDataPool(
         config.alertCount,
-        config.theme
+        config.theme,
       );
       aiCallsUsed += standardResult.aiCalls;
       tokensUsed += standardResult.tokens;
@@ -109,7 +106,7 @@ export class UnifiedDataPoolGenerator {
         const extendedResult = await this.generateExtendedDataPool(
           config.fieldCount,
           config.categories,
-          config.alertCount
+          config.alertCount,
         );
         extendedDataPool = extendedResult.pool;
         aiCallsUsed += extendedResult.aiCalls;
@@ -131,7 +128,7 @@ export class UnifiedDataPoolGenerator {
       if (config.theme) {
         const themeResult = await this.generateThemeDataPool(
           config.theme,
-          config.alertCount
+          config.alertCount,
         );
         themeDataPool = themeResult.pool;
         aiCallsUsed += themeResult.aiCalls;
@@ -153,8 +150,8 @@ export class UnifiedDataPoolGenerator {
           mitreEnabled: config.mitreEnabled || false,
           generationTimeMs: Date.now() - startTime,
           tokensUsed,
-          aiCalls: aiCallsUsed
-        }
+          aiCalls: aiCallsUsed,
+        },
       };
 
       // Cache the result
@@ -169,18 +166,17 @@ export class UnifiedDataPoolGenerator {
           aiCallsUsed,
           tokensUsed,
           cacheHits,
-          batchesProcessed
+          batchesProcessed,
         },
         errors,
-        warnings
+        warnings,
       };
-
     } catch (error) {
       errors.push(`Data pool generation failed: ${error.message}`);
-      
+
       // Return fallback data pool
       const fallbackPool = await this.generateFallbackDataPool(config);
-      
+
       return {
         pool: fallbackPool,
         performance: {
@@ -188,10 +184,10 @@ export class UnifiedDataPoolGenerator {
           aiCallsUsed,
           tokensUsed,
           cacheHits,
-          batchesProcessed
+          batchesProcessed,
         },
         errors,
-        warnings
+        warnings,
       };
     }
   }
@@ -201,7 +197,7 @@ export class UnifiedDataPoolGenerator {
    */
   private async generateStandardDataPool(
     alertCount: number,
-    theme?: string
+    theme?: string,
   ): Promise<{
     pool: StandardDataPool;
     aiCalls: number;
@@ -213,11 +209,12 @@ export class UnifiedDataPoolGenerator {
 
     // Check if AI is properly configured before attempting to use it
     const config = getConfig();
-    const hasValidAIConfig = (
+    const hasValidAIConfig =
       (config.useClaudeAI && config.claudeApiKey) ||
-      (config.useAzureOpenAI && config.azureOpenAIApiKey && config.azureOpenAIEndpoint) ||
-      (config.openaiApiKey)
-    );
+      (config.useAzureOpenAI &&
+        config.azureOpenAIApiKey &&
+        config.azureOpenAIEndpoint) ||
+      config.openaiApiKey;
 
     // Always try AI for theme generation if config indicates AI should be used
     const shouldTryAI = hasValidAIConfig || (theme && config.useAI);
@@ -240,16 +237,18 @@ export class UnifiedDataPoolGenerator {
             ipAddresses: aiResult.data.ipAddresses,
             registryKeys: aiResult.data.registryKeys,
             urls: aiResult.data.urls,
-            eventDescriptions: aiResult.data.eventDescriptions
+            eventDescriptions: aiResult.data.eventDescriptions,
           },
           aiCalls,
-          tokens
+          tokens,
         };
       } catch (error: any) {
-        console.warn('AI standard data generation failed, using high-quality fallback');
+        console.warn(
+          'AI standard data generation failed, using high-quality fallback',
+        );
       }
     }
-    
+
     // Use high-quality algorithmic generation (always reliable)
     return {
       pool: {
@@ -262,10 +261,10 @@ export class UnifiedDataPoolGenerator {
         ipAddresses: this.generateFallbackIpAddresses(dataSize),
         registryKeys: this.generateFallbackRegistryKeys(dataSize),
         urls: this.generateFallbackUrls(dataSize),
-        eventDescriptions: this.generateFallbackEventDescriptions(dataSize)
+        eventDescriptions: this.generateFallbackEventDescriptions(dataSize),
       },
       aiCalls: 0,
-      tokens: 0
+      tokens: 0,
     };
   }
 
@@ -275,7 +274,7 @@ export class UnifiedDataPoolGenerator {
   private async generateExtendedDataPool(
     fieldCount: number,
     categories?: string[],
-    alertCount: number = 100
+    alertCount: number = 100,
   ): Promise<{
     pool: ExtendedDataPool;
     aiCalls: number;
@@ -283,19 +282,22 @@ export class UnifiedDataPoolGenerator {
     batchesProcessed: number;
   }> {
     const startTime = Date.now();
-    
+
     // Use existing MultiFieldGenerator for algorithmic fields
     const multiFieldGenerator = new MultiFieldGenerator({
       fieldCount,
       categories,
-      useExpandedFields: fieldCount > 1000
+      useExpandedFields: fieldCount > 1000,
     });
 
-    const algorithmicResult = multiFieldGenerator.generateFields({}, {
-      logType: 'security',
-      severity: 'medium',
-      isAttack: false
-    });
+    const algorithmicResult = multiFieldGenerator.generateFields(
+      {},
+      {
+        logType: 'security',
+        severity: 'medium',
+        isAttack: false,
+      },
+    );
 
     // For very large field counts, also use AI to generate additional creative fields (if AI is available)
     let aiFieldData: ExtendedFieldData[] = [];
@@ -305,17 +307,19 @@ export class UnifiedDataPoolGenerator {
 
     // Check if AI is properly configured before attempting to use it
     const config = getConfig();
-    const hasValidAIConfig = (
+    const hasValidAIConfig =
       (config.useClaudeAI && config.claudeApiKey) ||
       (config.useAzureOpenAI && config.azureOpenAIApiKey) ||
-      (config.openaiApiKey)
-    );
+      config.openaiApiKey;
 
     if (fieldCount > 500 && hasValidAIConfig) {
       const aiFieldResult = await this.generateAIExtendedFields(
-        Math.min(fieldCount - Object.keys(algorithmicResult.fields).length, 500),
+        Math.min(
+          fieldCount - Object.keys(algorithmicResult.fields).length,
+          500,
+        ),
         categories,
-        alertCount
+        alertCount,
       );
       aiFieldData = aiFieldResult.fields;
       aiCalls += aiFieldResult.aiCalls;
@@ -324,14 +328,15 @@ export class UnifiedDataPoolGenerator {
     }
 
     // Convert algorithmic fields to ExtendedFieldData format
-    const algorithmicFieldData: ExtendedFieldData[] = Object.entries(algorithmicResult.fields)
-      .map(([fieldName, value]) => ({
-        fieldName,
-        fieldType: typeof value === 'number' ? 'float' : 'string',
-        values: [String(value)],
-        category: this.getCategoryForField(fieldName),
-        description: `Generated field: ${fieldName}`
-      }));
+    const algorithmicFieldData: ExtendedFieldData[] = Object.entries(
+      algorithmicResult.fields,
+    ).map(([fieldName, value]) => ({
+      fieldName,
+      fieldType: typeof value === 'number' ? 'float' : 'string',
+      values: [String(value)],
+      category: this.getCategoryForField(fieldName),
+      description: `Generated field: ${fieldName}`,
+    }));
 
     // Combine algorithmic and AI-generated fields
     const allFieldData = [...algorithmicFieldData, ...aiFieldData];
@@ -351,21 +356,19 @@ export class UnifiedDataPoolGenerator {
         batchInfo: {
           totalBatches: batchesProcessed,
           fieldsPerBatch: [], // Will be populated by batching logic
-          processingTime: Date.now() - startTime
-        }
+          processingTime: Date.now() - startTime,
+        },
       },
       aiCalls,
       tokens,
-      batchesProcessed
+      batchesProcessed,
     };
   }
 
   /**
    * Generate MITRE data pool
    */
-  private async generateMitreDataPool(
-    alertCount: number
-  ): Promise<{
+  private async generateMitreDataPool(alertCount: number): Promise<{
     pool: MitreDataPool;
     aiCalls: number;
     tokens: number;
@@ -384,24 +387,29 @@ export class UnifiedDataPoolGenerator {
           tactics: Object.keys(mitreData.tactics),
           procedures: [],
           subtechniques: Object.keys(mitreData.subTechniques || {}),
-          mitigations: []
+          mitigations: [],
         },
         aiCalls: 0,
-        tokens: 0
+        tokens: 0,
       };
     } catch (error: any) {
       console.warn('MITRE data loading failed, using fallback');
-      
+
       return {
         pool: {
           techniques: [],
-          tactics: ['Initial Access', 'Execution', 'Persistence', 'Privilege Escalation'],
+          tactics: [
+            'Initial Access',
+            'Execution',
+            'Persistence',
+            'Privilege Escalation',
+          ],
           procedures: [],
           subtechniques: [],
-          mitigations: []
+          mitigations: [],
         },
         aiCalls: 0,
-        tokens: 0
+        tokens: 0,
       };
     }
   }
@@ -411,7 +419,7 @@ export class UnifiedDataPoolGenerator {
    */
   private async generateThemeDataPool(
     theme: string,
-    alertCount: number
+    alertCount: number,
   ): Promise<{
     pool: ThemeDataPool;
     aiCalls: number;
@@ -422,16 +430,24 @@ export class UnifiedDataPoolGenerator {
     let tokens = 0;
 
     // Check if this is a supported theme with fallback data
-    const themesWithFallback = ['nba', 'soccer', 'marvel', 'starwars', 'tech_companies', 'programming'];
+    const themesWithFallback = [
+      'nba',
+      'soccer',
+      'marvel',
+      'starwars',
+      'tech_companies',
+      'programming',
+    ];
     const hasThemeFallback = themesWithFallback.includes(theme);
 
     // Check if AI is properly configured
     const config = getConfig();
-    const hasValidAIConfig = (
+    const hasValidAIConfig =
       (config.useClaudeAI && config.claudeApiKey) ||
-      (config.useAzureOpenAI && config.azureOpenAIApiKey && config.azureOpenAIEndpoint) ||
-      (config.openaiApiKey)
-    );
+      (config.useAzureOpenAI &&
+        config.azureOpenAIApiKey &&
+        config.azureOpenAIEndpoint) ||
+      config.openaiApiKey;
 
     // For themes, we want to try AI even if config might have issues, then fall back
     const shouldTryTheme = hasValidAIConfig || hasThemeFallback || config.useAI;
@@ -442,7 +458,7 @@ export class UnifiedDataPoolGenerator {
         const themeData = await batchGenerateThemedData(
           theme as Theme,
           ['usernames', 'hostnames', 'organizations', 'applicationNames'],
-          dataSize
+          dataSize,
         );
 
         // Count AI calls and tokens only if AI was likely used
@@ -457,16 +473,16 @@ export class UnifiedDataPoolGenerator {
             hostnames: themeData.hostnames || [],
             organizationNames: themeData.organizations || [],
             applicationNames: themeData.applicationNames || [],
-            customFields: {}
+            customFields: {},
           },
           aiCalls,
-          tokens
+          tokens,
         };
       } catch (error) {
         console.warn('Theme data generation failed, using empty theme pool');
       }
     }
-    
+
     // Return empty theme pool (entity names will be generated separately)
     return {
       pool: {
@@ -474,10 +490,10 @@ export class UnifiedDataPoolGenerator {
         hostnames: [],
         organizationNames: [],
         applicationNames: [],
-        customFields: {}
+        customFields: {},
       },
       aiCalls: 0,
-      tokens: 0
+      tokens: 0,
     };
   }
 
@@ -487,7 +503,7 @@ export class UnifiedDataPoolGenerator {
   private async generateAIExtendedFields(
     fieldCount: number,
     categories?: string[],
-    alertCount: number = 100
+    alertCount: number = 100,
   ): Promise<{
     fields: ExtendedFieldData[];
     aiCalls: number;
@@ -498,18 +514,18 @@ export class UnifiedDataPoolGenerator {
       // Calculate batching strategy for large field sets
       const batchingStrategy = calculateBatchingStrategy(
         fieldCount,
-        categories || getFieldCategories()
+        categories || getFieldCategories(),
       );
 
       // Process field generation in batches
       const batchResults = await processFieldBatches(
         batchingStrategy.batches,
-        undefined // theme will be handled at data pool level
+        undefined, // theme will be handled at data pool level
       );
 
       // Combine results from all batches
       const allFields: ExtendedFieldData[] = [];
-      batchResults.results.forEach(batch => {
+      batchResults.results.forEach((batch) => {
         if (batch.success) {
           allFields.push(...batch.fields);
         }
@@ -519,7 +535,7 @@ export class UnifiedDataPoolGenerator {
         fields: allFields,
         aiCalls: batchResults.totalAICalls,
         tokens: batchResults.totalTokens,
-        batchesProcessed: batchResults.results.length
+        batchesProcessed: batchResults.results.length,
       };
     } catch (error) {
       console.warn('AI extended field generation failed:', error);
@@ -527,7 +543,7 @@ export class UnifiedDataPoolGenerator {
         fields: [],
         aiCalls: 0,
         tokens: 0,
-        batchesProcessed: 0
+        batchesProcessed: 0,
       };
     }
   }
@@ -536,7 +552,7 @@ export class UnifiedDataPoolGenerator {
    * Generate fallback data pool when AI fails
    */
   private async generateFallbackDataPool(
-    config: DataPoolGenerationConfig
+    config: DataPoolGenerationConfig,
   ): Promise<UnifiedDataPool> {
     const dataSize = Math.min(config.alertCount * 2, 100);
 
@@ -551,7 +567,7 @@ export class UnifiedDataPoolGenerator {
         ipAddresses: this.generateFallbackIpAddresses(dataSize),
         registryKeys: this.generateFallbackRegistryKeys(dataSize),
         urls: this.generateFallbackUrls(dataSize),
-        eventDescriptions: this.generateFallbackEventDescriptions(dataSize)
+        eventDescriptions: this.generateFallbackEventDescriptions(dataSize),
       },
       metadata: {
         generatedAt: new Date().toISOString(),
@@ -562,8 +578,8 @@ export class UnifiedDataPoolGenerator {
         mitreEnabled: config.mitreEnabled || false,
         generationTimeMs: 0,
         tokensUsed: 0,
-        aiCalls: 0
-      }
+        aiCalls: 0,
+      },
     };
   }
 
@@ -579,73 +595,78 @@ export class UnifiedDataPoolGenerator {
       'Credential Dumping Activity',
       'Process Injection Detected',
       'Unusual Outbound Network Connection',
-      'Windows Defender Real-time Protection Disabled'
+      'Windows Defender Real-time Protection Disabled',
     ];
-    
-    return Array.from({ length: count }, () => 
-      faker.helpers.arrayElement(templates)
+
+    return Array.from({ length: count }, () =>
+      faker.helpers.arrayElement(templates),
     );
   }
 
   private generateFallbackAlertDescriptions(count: number): string[] {
-    return Array.from({ length: count }, () => 
-      faker.lorem.sentence(10)
-    );
+    return Array.from({ length: count }, () => faker.lorem.sentence(10));
   }
 
   private generateFallbackThreatNames(count: number): string[] {
-    const threats = ['APT29', 'Lazarus', 'Cobalt Strike', 'Emotet', 'Ransomware', 'Trojan'];
-    return Array.from({ length: count }, () => 
-      faker.helpers.arrayElement(threats)
+    const threats = [
+      'APT29',
+      'Lazarus',
+      'Cobalt Strike',
+      'Emotet',
+      'Ransomware',
+      'Trojan',
+    ];
+    return Array.from({ length: count }, () =>
+      faker.helpers.arrayElement(threats),
     );
   }
 
   private generateFallbackProcessNames(count: number): string[] {
-    const processes = ['powershell.exe', 'cmd.exe', 'rundll32.exe', 'svchost.exe', 'explorer.exe'];
-    return Array.from({ length: count }, () => 
-      faker.helpers.arrayElement(processes)
+    const processes = [
+      'powershell.exe',
+      'cmd.exe',
+      'rundll32.exe',
+      'svchost.exe',
+      'explorer.exe',
+    ];
+    return Array.from({ length: count }, () =>
+      faker.helpers.arrayElement(processes),
     );
   }
 
   private generateFallbackFileNames(count: number): string[] {
-    return Array.from({ length: count }, () => 
-      `${faker.system.fileName()}.${faker.helpers.arrayElement(['exe', 'dll', 'bat', 'ps1'])}`
+    return Array.from(
+      { length: count },
+      () =>
+        `${faker.system.fileName()}.${faker.helpers.arrayElement(['exe', 'dll', 'bat', 'ps1'])}`,
     );
   }
 
   private generateFallbackDomains(count: number): string[] {
-    return Array.from({ length: count }, () => 
-      faker.internet.domainName()
-    );
+    return Array.from({ length: count }, () => faker.internet.domainName());
   }
 
   private generateFallbackIpAddresses(count: number): string[] {
-    return Array.from({ length: count }, () => 
-      faker.internet.ip()
-    );
+    return Array.from({ length: count }, () => faker.internet.ip());
   }
 
   private generateFallbackRegistryKeys(count: number): string[] {
     const keys = [
       'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run',
       'HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run',
-      'HKLM\\SYSTEM\\CurrentControlSet\\Services'
+      'HKLM\\SYSTEM\\CurrentControlSet\\Services',
     ];
-    return Array.from({ length: count }, () => 
-      faker.helpers.arrayElement(keys)
+    return Array.from({ length: count }, () =>
+      faker.helpers.arrayElement(keys),
     );
   }
 
   private generateFallbackUrls(count: number): string[] {
-    return Array.from({ length: count }, () => 
-      faker.internet.url()
-    );
+    return Array.from({ length: count }, () => faker.internet.url());
   }
 
   private generateFallbackEventDescriptions(count: number): string[] {
-    return Array.from({ length: count }, () => 
-      faker.lorem.sentence(8)
-    );
+    return Array.from({ length: count }, () => faker.lorem.sentence(8));
   }
 
   // Utility methods
@@ -670,11 +691,11 @@ export class UnifiedDataPoolGenerator {
   private generateMappingsForFields(fields: ExtendedFieldData[]): any {
     // Generate Elasticsearch mappings for the fields
     const mappings: any = { mappings: { properties: {} } };
-    
-    fields.forEach(field => {
+
+    fields.forEach((field) => {
       const fieldPath = field.fieldName.split('.');
       let current = mappings.mappings.properties;
-      
+
       for (let i = 0; i < fieldPath.length - 1; i++) {
         const part = fieldPath[i];
         if (!current[part]) {
@@ -682,24 +703,26 @@ export class UnifiedDataPoolGenerator {
         }
         current = current[part].properties;
       }
-      
+
       const finalField = fieldPath[fieldPath.length - 1];
       current[finalField] = {
         type: field.fieldType === 'float' ? 'double' : 'keyword',
-        index: true
+        index: true,
       };
     });
-    
+
     return mappings;
   }
 
-  private calculateCategoryBreakdown(fields: ExtendedFieldData[]): Record<string, number> {
+  private calculateCategoryBreakdown(
+    fields: ExtendedFieldData[],
+  ): Record<string, number> {
     const breakdown: Record<string, number> = {};
-    
-    fields.forEach(field => {
+
+    fields.forEach((field) => {
       breakdown[field.category] = (breakdown[field.category] || 0) + 1;
     });
-    
+
     return breakdown;
   }
 }

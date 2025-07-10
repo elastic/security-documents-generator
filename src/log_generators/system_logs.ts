@@ -1,11 +1,11 @@
 import { faker } from '@faker-js/faker';
 import { generateTimestamp } from '../utils/timestamp_utils';
-import { 
-  getThemedUsername, 
-  getThemedHostname, 
+import {
+  getThemedUsername,
+  getThemedHostname,
   getThemedProcessName,
   getThemedFilename,
-  getGlobalThemeGenerator 
+  getGlobalThemeGenerator,
 } from '../utils/universal_theme_generator';
 
 export interface SystemLogConfig {
@@ -81,7 +81,9 @@ export const generateProcessLog = async (config: SystemLogConfig = {}) => {
     namespace = 'default',
   } = config;
 
-  const process = await getThemedProcessName(faker.helpers.arrayElement(SYSTEM_PROCESSES));
+  const process = await getThemedProcessName(
+    faker.helpers.arrayElement(SYSTEM_PROCESSES),
+  );
   const pid = faker.number.int({ min: 100, max: 65535 });
   const ppid = faker.number.int({ min: 1, max: pid - 1 });
 

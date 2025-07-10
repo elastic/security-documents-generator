@@ -113,7 +113,14 @@ export async function createKnowledgeBaseDocuments(
   console.log('\n📋 Generated Knowledge Base Documents:');
 
   documents.forEach((doc, index) => {
-    const { title, category, subcategory, confidence, access_level, suggested_questions } = doc;
+    const {
+      title,
+      category,
+      subcategory,
+      confidence,
+      access_level,
+      suggested_questions,
+    } = doc;
     const confidenceIcon =
       confidence >= 0.9
         ? '🔥'
@@ -142,7 +149,9 @@ export async function createKnowledgeBaseDocuments(
         console.log(`        ${qIndex + 1}. ${question}`);
       });
       if (suggested_questions.length > 3) {
-        console.log(`        ... and ${suggested_questions.length - 3} more questions`);
+        console.log(
+          `        ... and ${suggested_questions.length - 3} more questions`,
+        );
       }
     }
   });

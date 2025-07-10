@@ -96,7 +96,7 @@ export const sanitizeJSONResponse = (rawContent: string): string => {
 
     // Remove control characters that cause JSON parsing errors
     cleaned = cleaned.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
-    
+
     // Fix common JSON formatting issues
     cleaned = cleaned
       // Fix unescaped quotes in strings
@@ -178,7 +178,9 @@ export const validateBatchResponse = (
 ): Record<string, unknown>[] => {
   let validatedAlerts = [...generatedAlerts];
 
-  console.log(`🔍 Validating batch response: expected ${expectedCount}, got ${validatedAlerts.length}`);
+  console.log(
+    `🔍 Validating batch response: expected ${expectedCount}, got ${validatedAlerts.length}`,
+  );
 
   // Validate that we have the expected number of alerts
   if (validatedAlerts.length !== expectedCount) {
@@ -194,20 +196,27 @@ export const validateBatchResponse = (
 
     // Truncate if we have too many
     if (validatedAlerts.length > expectedCount) {
-      console.log(`✂️ Truncating from ${validatedAlerts.length} to ${expectedCount} alerts`);
+      console.log(
+        `✂️ Truncating from ${validatedAlerts.length} to ${expectedCount} alerts`,
+      );
       validatedAlerts = validatedAlerts.slice(0, expectedCount);
     }
   } else {
-    console.log(`✅ Batch response validation passed: ${validatedAlerts.length} alerts`);
+    console.log(
+      `✅ Batch response validation passed: ${validatedAlerts.length} alerts`,
+    );
   }
 
   // Check for completely empty alerts
-  const emptyAlerts = validatedAlerts.filter(alert => 
-    !alert || typeof alert !== 'object' || Object.keys(alert).length === 0
+  const emptyAlerts = validatedAlerts.filter(
+    (alert) =>
+      !alert || typeof alert !== 'object' || Object.keys(alert).length === 0,
   );
-  
+
   if (emptyAlerts.length > 0) {
-    console.warn(`⚠️ Found ${emptyAlerts.length} empty/invalid alerts in batch`);
+    console.warn(
+      `⚠️ Found ${emptyAlerts.length} empty/invalid alerts in batch`,
+    );
   }
 
   return validatedAlerts as Record<string, unknown>[];

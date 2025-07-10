@@ -335,6 +335,91 @@ yarn start delete-events
 yarn start delete-events -s my-space
 ```
 
+## 🛡️ rules
+
+Generate realistic detection rules of all types with triggered alerts.
+
+### Syntax
+```bash
+yarn start rules [options]
+```
+
+### Rule Types
+Supports all 7 Elastic Security detection rule types:
+- `query` - KQL/Lucene query-based detection
+- `threshold` - Field aggregation and cardinality detection  
+- `eql` - Event Query Language sequences
+- `machine_learning` - Anomaly detection rules
+- `threat_match` - Threat intelligence IOC matching
+- `new_terms` - New entity detection
+- `esql` - Elasticsearch Query Language analytics
+
+### Options
+
+#### Core Options
+| Flag | Description | Default | Example |
+|------|-------------|---------|-------|
+| `-r, --rules <number>` | Number of rules to generate | `10` | `-r 25` |
+| `-e, --events <number>` | Number of events to generate | `50` | `-e 100` |
+| `-t, --rule-types <types>` | Comma-separated rule types | All types | `-t query,threshold,eql` |
+| `-s, --space <space>` | Kibana space | `jgy` | `-s production` |
+| `-i, --interval <string>` | Rule execution interval | `5m` | `-i 1m` |
+| `-f, --from <number>` | Generate events from last N hours | `24` | `-f 48` |
+| `-g, --gaps <number>` | Amount of gaps per rule | `0` | `-g 2` |
+| `-c, --clean` | Clean existing rules before generating | `false` | `--clean` |
+
+### Examples
+
+#### Basic Usage
+```bash
+# Generate all rule types (default)
+yarn start rules -r 10 -s default
+
+# Specific rule types
+yarn start rules -r 5 -t query,threshold,eql -s production
+
+# With events for testing
+yarn start rules -r 15 -e 100 -s testing
+```
+
+#### Advanced Usage
+```bash
+# SOC training environment
+yarn start rules -r 25 -t query,threshold,eql,new_terms -e 150 -s soc-training
+
+# Machine learning focus
+yarn start rules -r 10 -t machine_learning,threat_match -s ml-testing
+
+# Load testing
+yarn start rules -r 100 -t query,threshold -e 500 -s load-test
+```
+
+#### Multi-Environment
+```bash
+# Generate across multiple environments
+yarn start rules -r 20 --environments 10 -s default
+
+# Production deployment simulation
+yarn start rules -r 50 --environments 25 --namespace prod -s production
+```
+
+### Rule Configuration
+
+Each generated rule includes:
+- **Realistic Names**: Type-specific naming (e.g., "Threshold Rule-abc123")
+- **Appropriate Queries**: Tailored to rule type capabilities
+- **MITRE Mappings**: ATT&CK technique associations where applicable
+- **Severity Levels**: Randomized realistic severities (low, medium, high, critical)
+- **Risk Scores**: 1-100 range based on severity
+- **Proper Languages**: `kuery`, `eql`, `esql` as appropriate
+
+### Integration
+
+- **Kibana Security**: Rules appear in Security → Rules
+- **Alert Generation**: Rules generate realistic alerts when triggered
+- **Space Management**: Multi-space support for environment isolation
+- **API Integration**: Uses official Kibana Detection Engine API
+
 ### delete-rules
 
 Delete generated detection rules and associated gap events.

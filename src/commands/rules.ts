@@ -3,8 +3,9 @@ import { getEsClient } from './utils/indices';
 import moment from 'moment';
 import { chunk } from 'lodash-es';
 import { createRule, getAllRules, bulkDeleteRules } from '../utils/kibana_api';
+import { generateRealisticRuleName, generateRealisticRuleNamesBatch } from '../utils/ai_service';
 
-const EVENTS_INDEX = 'logs-*';
+const EVENTS_INDEX = 'logs-system.system-default';
 
 interface Event {
   '@timestamp': string;
@@ -22,12 +23,39 @@ interface Event {
     type: string[];
     outcome: string;
   };
+  // Optional fields for specific rule types
+  process?: {
+    name?: string;
+    command_line?: string;
+    pid?: number;
+  };
+  file?: {
+    name?: string;
+    extension?: string;
+    path?: string;
+  };
+  destination?: {
+    ip?: string;
+    port?: number;
+  };
+  source?: {
+    ip?: string;
+  };
 }
 
 interface RuleGenerationOptions {
   interval: string;
   from: number;
   gapsPerRule: number;
+  ruleTypes?: (
+    | 'query'
+    | 'threshold'
+    | 'eql'
+    | 'machine_learning'
+    | 'threat_match'
+    | 'new_terms'
+    | 'esql'
+  )[];
 }
 
 interface GapRange {
@@ -112,6 +140,323 @@ const generateEvent = (from: number): Event => ({
     outcome: faker.helpers.arrayElement(['success', 'failure']),
   },
 });
+
+// Generate events that will trigger specific rule types
+const generateMatchingEvents = (ruleType: string, ruleConfig: any, from: number, count: number): Event[] => {
+  const events: Event[] = [];
+  
+  for (let i = 0; i < count; i++) {
+    const timestamp = moment()
+      .subtract(faker.number.int({ min: 1, max: from }), 'h')
+      .toISOString();
+    
+    let event: Event;
+    
+    switch (ruleType) {
+      case 'query':
+        event = generateQueryMatchingEvent(ruleConfig.query, timestamp);
+        break;
+      case 'threshold':
+        event = generateThresholdMatchingEvent(ruleConfig, timestamp);
+        break;
+      case 'eql':
+        event = generateEQLMatchingEvent(ruleConfig.eql_query, timestamp);
+        break;
+      case 'machine_learning':
+        event = generateMLMatchingEvent(timestamp);
+        break;
+      case 'threat_match':
+        event = generateThreatMatchingEvent(timestamp);
+        break;
+      case 'new_terms':
+        event = generateNewTermsMatchingEvent(ruleConfig.new_terms_fields, timestamp);
+        break;
+      case 'esql':
+        event = generateESQLMatchingEvent(ruleConfig.esql_query, timestamp);
+        break;
+      default:
+        event = generateEvent(from);
+    }
+    
+    events.push(event);
+  }
+  
+  return events;
+};
+
+const generateQueryMatchingEvent = (query: string, timestamp: string): Event => {
+  const baseEvent = {
+    '@timestamp': timestamp,
+    message: faker.lorem.sentence(),
+    host: {
+      name: faker.internet.domainName(),
+      ip: faker.internet.ip(),
+    },
+    user: {
+      name: faker.internet.username(),
+      id: faker.string.uuid(),
+    },
+    event: {
+      category: ['process'],
+      type: ['start'],
+      outcome: 'success',
+    },
+  };
+
+  // Parse the query to generate matching events
+  if (query.includes('event.category:"process"') && query.includes('process.name:"cmd.exe"')) {
+    return {
+      ...baseEvent,
+      event: { ...baseEvent.event, category: ['process'] },
+      process: { name: 'cmd.exe', command_line: 'cmd.exe /c whoami' },
+    } as Event;
+  }
+  
+  if (query.includes('event.category:"authentication"') && query.includes('event.outcome:"failure"')) {
+    return {
+      ...baseEvent,
+      event: { ...baseEvent.event, category: ['authentication'], outcome: 'failure' },
+      user: { ...baseEvent.user, name: faker.helpers.arrayElement(['admin', 'administrator', 'root']) },
+    } as Event;
+  }
+  
+  if (query.includes('event.category:"network"') && query.includes('destination.port:22')) {
+    return {
+      ...baseEvent,
+      event: { ...baseEvent.event, category: ['network'] },
+      destination: { port: 22, ip: faker.internet.ip() },
+      source: { ip: faker.internet.ip() },
+    } as Event;
+  }
+  
+  if (query.includes('user.name:"admin"') || query.includes('user.name:"administrator"')) {
+    return {
+      ...baseEvent,
+      user: { ...baseEvent.user, name: faker.helpers.arrayElement(['admin', 'administrator']) },
+    } as Event;
+  }
+  
+  if (query.includes('event.category:"file"') && query.includes('file.extension:"exe"')) {
+    return {
+      ...baseEvent,
+      event: { ...baseEvent.event, category: ['file'] },
+      file: { 
+        name: faker.system.fileName() + '.exe',
+        extension: 'exe',
+        path: `C:\\temp\\${faker.system.fileName()}.exe`
+      },
+    } as Event;
+  }
+  
+  return baseEvent;
+};
+
+const generateThresholdMatchingEvent = (config: any, timestamp: string): Event => {
+  const userName = faker.helpers.arrayElement(['testuser', 'admin', 'guest', 'service']);
+  
+  return {
+    '@timestamp': timestamp,
+    message: 'Authentication failed',
+    host: {
+      name: faker.internet.domainName(),
+      ip: faker.internet.ip(),
+    },
+    user: {
+      name: userName, // Use consistent usernames to trigger threshold
+      id: faker.string.uuid(),
+    },
+    event: {
+      category: ['authentication'],
+      type: ['start'],
+      outcome: 'failure',
+    },
+    source: {
+      ip: faker.internet.ip(),
+    },
+  } as Event;
+};
+
+const generateEQLMatchingEvent = (eqlQuery: string, timestamp: string): Event => {
+  const baseEvent = {
+    '@timestamp': timestamp,
+    message: faker.lorem.sentence(),
+    host: {
+      name: faker.internet.domainName(),
+      ip: faker.internet.ip(),
+    },
+    user: {
+      name: faker.internet.username(),
+      id: faker.string.uuid(),
+    },
+    event: {
+      category: ['process'],
+      type: ['start'],
+      outcome: 'success',
+    },
+  };
+
+  if (eqlQuery.includes('process where process.name == "cmd.exe"')) {
+    return {
+      ...baseEvent,
+      process: { 
+        name: 'cmd.exe',
+        command_line: 'cmd.exe /c dir',
+        pid: faker.number.int({ min: 1000, max: 9999 })
+      },
+    } as Event;
+  }
+  
+  if (eqlQuery.includes('authentication where event.outcome == "failure"')) {
+    return {
+      ...baseEvent,
+      event: { ...baseEvent.event, category: ['authentication'], outcome: 'failure' },
+    } as Event;
+  }
+  
+  if (eqlQuery.includes('network where destination.port == 22')) {
+    return {
+      ...baseEvent,
+      event: { ...baseEvent.event, category: ['network'] },
+      destination: { port: 22, ip: faker.internet.ip() },
+      source: { ip: faker.internet.ip() },
+    } as Event;
+  }
+  
+  if (eqlQuery.includes('file where file.extension == "exe"')) {
+    return {
+      ...baseEvent,
+      event: { ...baseEvent.event, category: ['file'] },
+      file: { 
+        name: faker.system.fileName() + '.exe',
+        extension: 'exe',
+        path: `C:\\temp\\${faker.system.fileName()}.exe`
+      },
+    } as Event;
+  }
+  
+  return baseEvent;
+};
+
+const generateMLMatchingEvent = (timestamp: string): Event => {
+  return {
+    '@timestamp': timestamp,
+    message: 'Unusual authentication activity detected',
+    host: {
+      name: faker.internet.domainName(),
+      ip: faker.internet.ip(),
+    },
+    user: {
+      name: faker.internet.username(),
+      id: faker.string.uuid(),
+    },
+    event: {
+      category: ['authentication'],
+      type: ['start'],
+      outcome: 'success',
+    },
+    // Add fields that ML jobs typically analyze
+    source: {
+      ip: faker.internet.ip(),
+    },
+  } as Event;
+};
+
+const generateThreatMatchingEvent = (timestamp: string): Event => {
+  return {
+    '@timestamp': timestamp,
+    message: 'Suspicious IP activity',
+    host: {
+      name: faker.internet.domainName(),
+      ip: faker.internet.ip(),
+    },
+    user: {
+      name: faker.internet.username(),
+      id: faker.string.uuid(),
+    },
+    event: {
+      category: ['network'],
+      type: ['connection'],
+      outcome: 'success',
+    },
+    source: {
+      ip: faker.helpers.arrayElement([
+        '192.168.1.100', // Known suspicious IP for threat intel matching
+        '10.0.0.50',
+        '172.16.0.100'
+      ]),
+    },
+  } as Event;
+};
+
+const generateNewTermsMatchingEvent = (fields: string[], timestamp: string): Event => {
+  return {
+    '@timestamp': timestamp,
+    message: 'New entity detected',
+    host: {
+      name: fields.includes('host.name') ? `new-host-${faker.string.alphanumeric(8)}` : faker.internet.domainName(),
+      ip: faker.internet.ip(),
+    },
+    user: {
+      name: fields.includes('user.name') ? `new-user-${faker.string.alphanumeric(8)}` : faker.internet.username(),
+      id: faker.string.uuid(),
+    },
+    event: {
+      category: ['process'],
+      type: ['start'],
+      outcome: 'success',
+    },
+    process: {
+      name: fields.includes('process.name') ? `new-process-${faker.string.alphanumeric(8)}.exe` : 'notepad.exe',
+    },
+  } as Event;
+};
+
+const generateESQLMatchingEvent = (esqlQuery: string, timestamp: string): Event => {
+  const baseEvent = {
+    '@timestamp': timestamp,
+    message: faker.lorem.sentence(),
+    host: {
+      name: faker.internet.domainName(),
+      ip: faker.internet.ip(),
+    },
+    user: {
+      name: faker.internet.username(),
+      id: faker.string.uuid(),
+    },
+    event: {
+      category: ['process'],
+      type: ['start'],
+      outcome: 'success',
+    },
+  };
+
+  if (esqlQuery.includes('event.category == "process"')) {
+    return {
+      ...baseEvent,
+      process: { 
+        name: faker.helpers.arrayElement(['cmd.exe', 'powershell.exe', 'notepad.exe']),
+        pid: faker.number.int({ min: 1000, max: 9999 })
+      },
+    } as Event;
+  }
+  
+  if (esqlQuery.includes('event.category == "authentication"')) {
+    return {
+      ...baseEvent,
+      event: { ...baseEvent.event, category: ['authentication'] },
+    } as Event;
+  }
+  
+  if (esqlQuery.includes('event.category == "network"')) {
+    return {
+      ...baseEvent,
+      event: { ...baseEvent.event, category: ['network'] },
+      destination: { ip: faker.internet.ip() },
+    } as Event;
+  }
+  
+  return baseEvent;
+};
 
 const generateNonOverlappingGapEvents = (
   ruleId: string,
@@ -233,19 +578,32 @@ const ingestEvents = async (events: Event[]) => {
   if (!client) throw new Error('Failed to get ES client');
 
   const chunks = chunk(events, 1000);
+  let totalIndexed = 0;
 
   for (const chunk of chunks) {
     try {
       const operations = chunk.flatMap((doc) => [
-        { index: { _index: EVENTS_INDEX } },
+        { create: { _index: EVENTS_INDEX } },
         doc,
       ]);
 
-      await client.bulk({ operations, refresh: true });
+      const result = await client.bulk({ operations, refresh: true });
+      
+      if (result.errors) {
+        console.error('Bulk indexing errors detected');
+        const errors = result.items?.filter(item => item.create?.error || item.index?.error);
+        console.error(`Failed to index ${errors?.length || 0} events`);
+      } else {
+        totalIndexed += chunk.length;
+      }
     } catch (err) {
       console.error('Error ingesting events:', err);
       throw err;
     }
+  }
+  
+  if (totalIndexed > 0) {
+    console.log(`✅ Successfully indexed ${totalIndexed}/${events.length} events to ${EVENTS_INDEX}`);
   }
 };
 
@@ -297,42 +655,194 @@ const deleteGapEvents = async () => {
   }
 };
 
+// Helper function to extract category from query for AI context
+const getQueryCategory = (query: string): string => {
+  if (query.includes('process')) return 'process';
+  if (query.includes('authentication')) return 'authentication';
+  if (query.includes('network')) return 'network';
+  if (query.includes('file')) return 'file';
+  if (query.includes('registry')) return 'registry';
+  if (query.includes('powershell')) return 'powershell';
+  if (query.includes('cmd.exe')) return 'command_line';
+  return 'general';
+};
+
+// Rule type templates with realistic configurations
+const getRuleTypeConfig = (type: string) => {
+  switch (type) {
+    case 'query':
+      return {
+        query: faker.helpers.arrayElement([
+          'event.category:"process" AND process.name:"cmd.exe"',
+          'event.category:"authentication" AND event.outcome:"failure"',
+          'event.category:"network" AND destination.port:22',
+          'user.name:"admin" OR user.name:"administrator"',
+          'event.category:"file" AND file.extension:"exe"',
+        ]),
+      };
+    case 'threshold':
+      return {
+        query: 'event.category:"authentication" AND event.outcome:"failure"',
+        threshold_field: ['user.name'],
+        threshold_value: faker.number.int({ min: 5, max: 50 }),
+      };
+    case 'eql':
+      return {
+        eql_query: faker.helpers.arrayElement([
+          'process where process.name == "cmd.exe"',
+          'sequence [authentication where event.outcome == "failure"] [process where process.name == "powershell.exe"]',
+          'network where destination.port == 22 and source.ip != "127.0.0.1"',
+          'file where file.extension == "exe" and file.path : "C:\\\\temp\\\\*"',
+        ]),
+      };
+    case 'machine_learning':
+      return {
+        anomaly_threshold: faker.number.int({ min: 50, max: 90 }),
+        ml_job_id: [
+          faker.helpers.arrayElement([
+            'auth_rare_hour',
+            'packetbeat_rare_dns',
+            'rare_process_by_host',
+          ]),
+        ],
+      };
+    case 'threat_match':
+      return {
+        threat_index: ['threat-intel-*'],
+        threat_query: '*:*',
+      };
+    case 'new_terms':
+      return {
+        new_terms_fields: faker.helpers.arrayElement([
+          ['user.name'],
+          ['host.name'],
+          ['process.name'],
+          ['user.name', 'host.name'],
+        ]),
+      };
+    case 'esql':
+      return {
+        esql_query: faker.helpers.arrayElement([
+          'FROM logs-* | WHERE event.category == "process" | STATS count = COUNT() BY process.name',
+          'FROM logs-* | WHERE event.category == "authentication" AND event.outcome == "failure" | STATS count = COUNT() BY user.name',
+          'FROM logs-* | WHERE event.category == "network" | STATS count = COUNT() BY destination.ip',
+        ]),
+      };
+    default:
+      return { query: '*:*' };
+  }
+};
+
 export const generateRulesAndAlerts = async (
   ruleCount: number,
   eventCount: number,
   options: RuleGenerationOptions,
+  space?: string,
 ) => {
-  // Create rules through Kibana API
-  const ruleResults = await Promise.all(
-    Array.from({ length: ruleCount }, () => {
-      const ruleName = `Rule-${faker.string.alphanumeric(8)}`;
-      const severity = faker.helpers.arrayElement([
-        'low',
-        'medium',
-        'high',
-        'critical',
-      ]);
-      const riskScore = faker.number.int({ min: 1, max: 100 });
+  // Define available rule types
+  const availableRuleTypes = options.ruleTypes || [
+    'query',
+    'threshold',
+    'eql',
+    'machine_learning',
+    'threat_match',
+    'new_terms',
+    'esql',
+  ];
 
+  // Prepare rule configurations for batch AI processing
+  const ruleConfigs = Array.from({ length: ruleCount }, (_, index) => {
+    const ruleType = availableRuleTypes[index % availableRuleTypes.length];
+    const severity = faker.helpers.arrayElement([
+      'low',
+      'medium',
+      'high',
+      'critical',
+    ]);
+    const riskScore = faker.number.int({ min: 1, max: 100 });
+    const typeConfig = getRuleTypeConfig(ruleType);
+    const ruleQuery = typeConfig.query || typeConfig.eql_query || typeConfig.esql_query || '*:*';
+    
+    return {
+      ruleType,
+      severity,
+      riskScore,
+      typeConfig,
+      ruleQuery,
+      category: getQueryCategory(ruleQuery)
+    };
+  });
+
+  // Process rules in batches for optimal performance
+  const BATCH_SIZE = 20; // AI can handle up to 20 rules efficiently in one call
+  const ruleResults = [];
+  
+  console.log(`🤖 Generating AI rule names in batches of ${BATCH_SIZE}...`);
+  
+  for (let i = 0; i < ruleConfigs.length; i += BATCH_SIZE) {
+    const batch = ruleConfigs.slice(i, i + BATCH_SIZE);
+    
+    // Generate AI rule names for this batch
+    const aiRules = batch.map(config => ({
+      ruleType: config.ruleType,
+      ruleQuery: config.ruleQuery,
+      severity: config.severity,
+      category: config.category
+    }));
+    
+    const batchAIResults = await generateRealisticRuleNamesBatch(aiRules);
+    
+    // Create rules with AI-generated names in parallel
+    const batchPromises = batch.map(async (config, batchIndex) => {
+      const aiResult = batchAIResults[batchIndex];
+      
       return createRule({
-        name: ruleName,
-        description: faker.lorem.sentence(),
+        name: aiResult.name,
+        description: aiResult.description,
         enabled: true,
-        risk_score: riskScore,
-        severity: severity,
+        risk_score: config.riskScore,
+        severity: config.severity,
         index: ['logs-*', 'metrics-*', 'auditbeat-*'],
-        type: 'query',
-        query: '*:*',
+        type: config.ruleType as any,
         from: `now-${options.from}h`,
         interval: options.interval,
+        space: space,
+        ...config.typeConfig,
       });
-    }),
-  );
+    });
+    
+    const batchResults = await Promise.all(batchPromises);
+    ruleResults.push(...batchResults);
+    
+    const progress = Math.min(i + BATCH_SIZE, ruleConfigs.length);
+    console.log(`✅ Generated ${progress}/${ruleConfigs.length} rules`);
+  }
 
-  // Generate events that rules can match against
-  const events = Array.from({ length: eventCount }, () =>
+  // Generate events that match each rule's configuration
+  const allEvents: Event[] = [];
+  const eventsPerRule = Math.max(1, Math.floor(eventCount / ruleCount));
+  
+  for (let i = 0; i < ruleCount; i++) {
+    const ruleType = availableRuleTypes[i % availableRuleTypes.length];
+    const ruleConfig = getRuleTypeConfig(ruleType);
+    
+    // Generate events specifically designed to match this rule type
+    const matchingEvents = generateMatchingEvents(
+      ruleType,
+      ruleConfig,
+      options.from,
+      eventsPerRule
+    );
+    
+    allEvents.push(...matchingEvents);
+  }
+
+  // Generate some additional random events for noise
+  const randomEventCount = Math.floor(eventCount * 0.3); // 30% random events
+  const randomEvents = Array.from({ length: randomEventCount }, () =>
     generateEvent(options.from),
   );
+  allEvents.push(...randomEvents);
 
   let gapEvents: GapEvent[] = [];
   if (options.gapsPerRule > 0) {
@@ -347,13 +857,14 @@ export const generateRulesAndAlerts = async (
     });
   }
 
-  await Promise.all([ingestEvents(events), ingestGapEvents(gapEvents)]);
+  await Promise.all([ingestEvents(allEvents), ingestGapEvents(gapEvents)]);
 
   console.log(`Created ${ruleResults.length} rules`);
-  console.log(`Ingested ${events.length} events`);
+  console.log(`Ingested ${allEvents.length} events (${allEvents.length - randomEventCount} matching events + ${randomEventCount} random events)`);
   console.log(`Generated ${gapEvents.length} gap events`);
+  console.log(`🎯 Rules should now generate alerts from matching source events!`);
 
-  return { rules: ruleResults, events, gapEvents };
+  return { rules: ruleResults, events: allEvents, gapEvents };
 };
 
 export const deleteAllRules = async (space?: string) => {

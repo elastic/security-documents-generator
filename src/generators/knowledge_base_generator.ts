@@ -1,5 +1,8 @@
 import { faker } from '@faker-js/faker';
-import { loadMitreData, selectMitreTechniques } from '../utils/mitre_attack_service';
+import {
+  loadMitreData,
+  selectMitreTechniques,
+} from '../utils/mitre_attack_service';
 
 export interface KnowledgeBaseDocument {
   '@timestamp': string;
@@ -47,33 +50,81 @@ const SECURITY_CATEGORIES = [
   'compliance',
   'forensics',
   'malware_analysis',
-  'behavioral_analytics'
+  'behavioral_analytics',
 ];
 
 const SUBCATEGORIES: Record<string, string[]> = {
-  threat_intelligence: ['ioc_analysis', 'apt_profiles', 'campaign_tracking', 'attribution'],
-  incident_response: ['playbooks', 'procedures', 'escalation_matrix', 'communication'],
-  vulnerability_management: ['cve_analysis', 'patch_management', 'assessment_reports'],
-  network_security: ['firewall_rules', 'ids_signatures', 'traffic_analysis', 'dns_security'],
+  threat_intelligence: [
+    'ioc_analysis',
+    'apt_profiles',
+    'campaign_tracking',
+    'attribution',
+  ],
+  incident_response: [
+    'playbooks',
+    'procedures',
+    'escalation_matrix',
+    'communication',
+  ],
+  vulnerability_management: [
+    'cve_analysis',
+    'patch_management',
+    'assessment_reports',
+  ],
+  network_security: [
+    'firewall_rules',
+    'ids_signatures',
+    'traffic_analysis',
+    'dns_security',
+  ],
   endpoint_security: ['edr_rules', 'behavioral_patterns', 'process_monitoring'],
-  cloud_security: ['aws_security', 'azure_security', 'gcp_security', 'container_security'],
+  cloud_security: [
+    'aws_security',
+    'azure_security',
+    'gcp_security',
+    'container_security',
+  ],
   compliance: ['pci_dss', 'sox', 'gdpr', 'hipaa', 'iso27001'],
-  forensics: ['memory_analysis', 'disk_forensics', 'network_forensics', 'timeline_analysis'],
-  malware_analysis: ['static_analysis', 'dynamic_analysis', 'reverse_engineering', 'sandbox_reports'],
-  behavioral_analytics: ['user_analytics', 'entity_analytics', 'anomaly_detection']
+  forensics: [
+    'memory_analysis',
+    'disk_forensics',
+    'network_forensics',
+    'timeline_analysis',
+  ],
+  malware_analysis: [
+    'static_analysis',
+    'dynamic_analysis',
+    'reverse_engineering',
+    'sandbox_reports',
+  ],
+  behavioral_analytics: [
+    'user_analytics',
+    'entity_analytics',
+    'anomaly_detection',
+  ],
 };
 
 const TLP_LEVELS = ['white', 'green', 'amber', 'red'];
-const SECURITY_DOMAINS = ['cybersecurity', 'threat_hunting', 'incident_response', 'vulnerability_assessment', 'compliance'];
+const SECURITY_DOMAINS = [
+  'cybersecurity',
+  'threat_hunting',
+  'incident_response',
+  'vulnerability_assessment',
+  'compliance',
+];
 const CLASSIFICATIONS = ['public', 'internal', 'confidential', 'restricted'];
 const SEVERITIES = ['low', 'medium', 'high', 'critical'];
 const ACCESS_LEVELS = ['public', 'team', 'organization', 'restricted'];
 
-function generateSuggestedQuestions(category: string, subcategory: string, title: string): string[] {
+function generateSuggestedQuestions(
+  category: string,
+  subcategory: string,
+  title: string,
+): string[] {
   const baseQuestions = [
     `What are the key takeaways from this ${category.replace('_', ' ')} document?`,
     `How does this relate to current security best practices?`,
-    `What are the immediate action items from this analysis?`
+    `What are the immediate action items from this analysis?`,
   ];
 
   const categorySpecificQuestions: Record<string, Record<string, string[]>> = {
@@ -83,27 +134,27 @@ function generateSuggestedQuestions(category: string, subcategory: string, title
         'How confident are we in the attribution of this threat?',
         'What detection rules should we create based on these indicators?',
         'Are there any false positive risks with these IOCs?',
-        'What hunting queries can we run to find related activity?'
+        'What hunting queries can we run to find related activity?',
       ],
       apt_profiles: [
         'What TTPs from this APT group should we prioritize detection for?',
-        'How does this group\'s targeting align with our organization\'s profile?',
+        "How does this group's targeting align with our organization's profile?",
         'What defensive measures are most effective against this threat actor?',
         'Are there any industry-specific insights we should consider?',
-        'What threat hunting activities should we prioritize?'
+        'What threat hunting activities should we prioritize?',
       ],
       campaign_tracking: [
         'How does this campaign relate to previous threat activities?',
         'What infrastructure patterns can we use for detection?',
-        'What are the campaign\'s primary objectives?',
-        'How can we track the evolution of this campaign?'
+        "What are the campaign's primary objectives?",
+        'How can we track the evolution of this campaign?',
       ],
       attribution: [
         'What evidence supports the attribution assessment?',
         'How reliable is the source of this attribution?',
         'What geopolitical context is relevant to this attribution?',
-        'How should this attribution influence our defensive posture?'
-      ]
+        'How should this attribution influence our defensive posture?',
+      ],
     },
     incident_response: {
       playbooks: [
@@ -111,26 +162,26 @@ function generateSuggestedQuestions(category: string, subcategory: string, title
         'How do we customize this playbook for our environment?',
         'What tools and resources are required for each phase?',
         'How do we measure the effectiveness of this response process?',
-        'What training is needed for the IR team to execute this playbook?'
+        'What training is needed for the IR team to execute this playbook?',
       ],
       procedures: [
         'What are the prerequisites for executing these procedures?',
         'How do these procedures integrate with our existing workflows?',
         'What approval processes are required for these procedures?',
-        'How do we validate that these procedures were followed correctly?'
+        'How do we validate that these procedures were followed correctly?',
       ],
       escalation_matrix: [
         'Who should be contacted first in different incident scenarios?',
         'What information is required before escalating an incident?',
         'How do we handle escalations outside business hours?',
-        'What are the communication requirements for each escalation level?'
+        'What are the communication requirements for each escalation level?',
       ],
       communication: [
         'What communication templates should we prepare in advance?',
         'How do we balance transparency with security in communications?',
         'What are the legal and regulatory communication requirements?',
-        'How do we coordinate communications across multiple stakeholders?'
-      ]
+        'How do we coordinate communications across multiple stakeholders?',
+      ],
     },
     vulnerability_management: {
       cve_analysis: [
@@ -138,60 +189,68 @@ function generateSuggestedQuestions(category: string, subcategory: string, title
         'What systems in our infrastructure are affected by this CVE?',
         'What is the recommended patching timeline for this vulnerability?',
         'Are there effective workarounds while patching is in progress?',
-        'How should we prioritize this vulnerability against others?'
+        'How should we prioritize this vulnerability against others?',
       ],
       patch_management: [
         'What is the testing process for these patches?',
         'What are the rollback procedures if patches cause issues?',
         'How do we coordinate patching across different system owners?',
-        'What are the business impact considerations for this patch cycle?'
+        'What are the business impact considerations for this patch cycle?',
       ],
       assessment_reports: [
         'What are the highest priority vulnerabilities from this assessment?',
         'How do these findings compare to previous assessments?',
         'What resource requirements are needed to address these vulnerabilities?',
-        'How do we track remediation progress for these findings?'
-      ]
+        'How do we track remediation progress for these findings?',
+      ],
     },
     network_security: {
       firewall_rules: [
         'How do these firewall rules impact legitimate business traffic?',
         'What logging and monitoring should be enabled for these rules?',
         'How do we test these rules before production deployment?',
-        'What is the review and maintenance schedule for these rules?'
+        'What is the review and maintenance schedule for these rules?',
       ],
       ids_signatures: [
         'What is the false positive rate expected for these signatures?',
         'How do these signatures integrate with our SIEM platform?',
         'What tuning may be required for our specific environment?',
-        'How do we validate the effectiveness of these signatures?'
+        'How do we validate the effectiveness of these signatures?',
       ],
       traffic_analysis: [
         'What patterns in this traffic analysis indicate potential threats?',
         'How can we automate the detection of similar traffic patterns?',
         'What baseline measurements should we establish?',
-        'How does this traffic analysis inform our network security strategy?'
+        'How does this traffic analysis inform our network security strategy?',
       ],
       dns_security: [
         'What DNS queries should we consider suspicious or malicious?',
         'How can we implement DNS filtering based on this analysis?',
         'What DNS monitoring capabilities should we enhance?',
-        'How do we balance security with DNS performance?'
-      ]
-    }
+        'How do we balance security with DNS performance?',
+      ],
+    },
   };
 
-  const categoryQuestions = categorySpecificQuestions[category]?.[subcategory] || [];
-  const selectedQuestions = faker.helpers.arrayElements(categoryQuestions, { min: 2, max: 4 });
+  const categoryQuestions =
+    categorySpecificQuestions[category]?.[subcategory] || [];
+  const selectedQuestions = faker.helpers.arrayElements(categoryQuestions, {
+    min: 2,
+    max: 4,
+  });
 
   return [...baseQuestions, ...selectedQuestions].slice(0, 6);
 }
 
-function generateSecurityKnowledgeContent(category: string, subcategory: string): { title: string; content: string; summary: string } {
+function generateSecurityKnowledgeContent(
+  category: string,
+  subcategory: string,
+): { title: string; content: string; summary: string } {
   const templates = {
     threat_intelligence: {
       ioc_analysis: {
-        title: () => `IOC Analysis: ${faker.hacker.noun().toUpperCase()}-${faker.number.int({ min: 1000, max: 9999 })}`,
+        title: () =>
+          `IOC Analysis: ${faker.hacker.noun().toUpperCase()}-${faker.number.int({ min: 1000, max: 9999 })}`,
         content: () => `
 # Indicator of Compromise Analysis
 
@@ -217,10 +276,12 @@ Network communications indicate C2 infrastructure hosted on ${faker.internet.dom
 ## Attribution
 Likely associated with ${faker.company.name()} APT group based on TTPs and infrastructure overlap.
         `,
-        summary: () => `IOC analysis for ${faker.hacker.noun()} campaign with ${faker.number.int({ min: 5, max: 25 })} indicators identified`
+        summary: () =>
+          `IOC analysis for ${faker.hacker.noun()} campaign with ${faker.number.int({ min: 5, max: 25 })} indicators identified`,
       },
       apt_profiles: {
-        title: () => `APT Profile: ${faker.company.name()} (${faker.string.alpha({ length: { min: 3, max: 6 }, casing: 'upper' })})`,
+        title: () =>
+          `APT Profile: ${faker.company.name()} (${faker.string.alpha({ length: { min: 3, max: 6 }, casing: 'upper' })})`,
         content: () => `
 # Advanced Persistent Threat Profile
 
@@ -261,12 +322,14 @@ Likely associated with ${faker.company.name()} APT group based on TTPs and infra
 3. Deploy endpoint detection capabilities
 4. Regular threat hunting exercises
         `,
-        summary: () => `Comprehensive APT profile covering TTPs, indicators, and defensive recommendations`
-      }
+        summary: () =>
+          `Comprehensive APT profile covering TTPs, indicators, and defensive recommendations`,
+      },
     },
     incident_response: {
       playbooks: {
-        title: () => `IR Playbook: ${faker.hacker.noun().charAt(0).toUpperCase() + faker.hacker.noun().slice(1)} Incident Response`,
+        title: () =>
+          `IR Playbook: ${faker.hacker.noun().charAt(0).toUpperCase() + faker.hacker.noun().slice(1)} Incident Response`,
         content: () => `
 # Incident Response Playbook
 
@@ -332,12 +395,14 @@ Likely associated with ${faker.company.name()} APT group based on TTPs and infra
 - Customer notification template
 - Regulatory reporting template
         `,
-        summary: () => `Comprehensive incident response playbook with 6-phase methodology and escalation procedures`
-      }
+        summary: () =>
+          `Comprehensive incident response playbook with 6-phase methodology and escalation procedures`,
+      },
     },
     vulnerability_management: {
       cve_analysis: {
-        title: () => `CVE Analysis: CVE-${faker.date.recent().getFullYear()}-${faker.number.int({ min: 1000, max: 99999 })}`,
+        title: () =>
+          `CVE Analysis: CVE-${faker.date.recent().getFullYear()}-${faker.number.int({ min: 1000, max: 99999 })}`,
         content: () => `
 # CVE Vulnerability Analysis
 
@@ -401,9 +466,10 @@ Exploit complexity is rated as ${faker.helpers.arrayElement(['Low', 'Medium', 'H
 - [CVE Details](https://cve.mitre.org/cgi-bin/cvename.cgi)
 - [Exploitation Timeline](https://example.com/timeline)
         `,
-        summary: () => `Detailed CVE analysis including technical details, impact assessment, and remediation guidance`
-      }
-    }
+        summary: () =>
+          `Detailed CVE analysis including technical details, impact assessment, and remediation guidance`,
+      },
+    },
   };
 
   const categoryTemplates = templates[category as keyof typeof templates];
@@ -411,36 +477,50 @@ Exploit complexity is rated as ${faker.helpers.arrayElement(['Low', 'Medium', 'H
     return {
       title: `Security Knowledge: ${category}`,
       content: `# Security Knowledge Document\n\nThis document contains security information related to ${category}.`,
-      summary: `Security knowledge document for ${category}`
+      summary: `Security knowledge document for ${category}`,
     };
   }
 
-  const subcategoryTemplate = categoryTemplates[subcategory as keyof typeof categoryTemplates];
+  const subcategoryTemplate =
+    categoryTemplates[subcategory as keyof typeof categoryTemplates];
   if (!subcategoryTemplate) {
     return {
       title: `${category}: ${subcategory}`,
       content: `# ${category.replace('_', ' ').toUpperCase()}\n\nThis document contains information about ${subcategory}.`,
-      summary: `Security information about ${subcategory}`
+      summary: `Security information about ${subcategory}`,
     };
   }
 
   return {
     title: subcategoryTemplate.title(),
     content: subcategoryTemplate.content(),
-    summary: subcategoryTemplate.summary()
+    summary: subcategoryTemplate.summary(),
   };
 }
 
-export function generateKnowledgeBaseDocument(includeMitre: boolean = false, constrainedCategories?: string[]): KnowledgeBaseDocument {
-  const availableCategories = constrainedCategories && constrainedCategories.length > 0
-    ? constrainedCategories.filter(cat => SECURITY_CATEGORIES.includes(cat))
-    : SECURITY_CATEGORIES;
+export function generateKnowledgeBaseDocument(
+  includeMitre: boolean = false,
+  constrainedCategories?: string[],
+): KnowledgeBaseDocument {
+  const availableCategories =
+    constrainedCategories && constrainedCategories.length > 0
+      ? constrainedCategories.filter((cat) => SECURITY_CATEGORIES.includes(cat))
+      : SECURITY_CATEGORIES;
 
   const category = faker.helpers.arrayElement(availableCategories);
-  const subcategory = faker.helpers.arrayElement(SUBCATEGORIES[category] || ['general']);
-  const { title, content, summary } = generateSecurityKnowledgeContent(category, subcategory);
+  const subcategory = faker.helpers.arrayElement(
+    SUBCATEGORIES[category] || ['general'],
+  );
+  const { title, content, summary } = generateSecurityKnowledgeContent(
+    category,
+    subcategory,
+  );
 
-  const suggested_questions = generateSuggestedQuestions(category, subcategory, title);
+  const suggested_questions = generateSuggestedQuestions(
+    category,
+    subcategory,
+    title,
+  );
 
   const doc: KnowledgeBaseDocument = {
     '@timestamp': faker.date.recent().toISOString(),
@@ -450,11 +530,30 @@ export function generateKnowledgeBaseDocument(includeMitre: boolean = false, con
     suggested_questions,
     category,
     subcategory,
-    tags: faker.helpers.arrayElements([
-      'security', 'cybersecurity', 'threat', 'analysis', 'detection', 'response',
-      'vulnerability', 'malware', 'incident', 'forensics', 'compliance', 'risk'
-    ], { min: 3, max: 8 }),
-    source: faker.helpers.arrayElement(['internal', 'external', 'vendor', 'community', 'research']),
+    tags: faker.helpers.arrayElements(
+      [
+        'security',
+        'cybersecurity',
+        'threat',
+        'analysis',
+        'detection',
+        'response',
+        'vulnerability',
+        'malware',
+        'incident',
+        'forensics',
+        'compliance',
+        'risk',
+      ],
+      { min: 3, max: 8 },
+    ),
+    source: faker.helpers.arrayElement([
+      'internal',
+      'external',
+      'vendor',
+      'community',
+      'research',
+    ]),
     confidence: faker.number.float({ min: 0.6, max: 1.0, fractionDigits: 2 }),
     language: 'en',
     version: `${faker.number.int({ min: 1, max: 5 })}.${faker.number.int({ min: 0, max: 9 })}`,
@@ -465,30 +564,32 @@ export function generateKnowledgeBaseDocument(includeMitre: boolean = false, con
       domain: faker.helpers.arrayElement(SECURITY_DOMAINS),
       classification: faker.helpers.arrayElement(CLASSIFICATIONS),
       severity: faker.helpers.arrayElement(SEVERITIES),
-      tlp: faker.helpers.arrayElement(TLP_LEVELS)
+      tlp: faker.helpers.arrayElement(TLP_LEVELS),
     },
     metadata: {
       format: 'markdown',
       size_bytes: content.length,
       checksum: faker.string.alphanumeric(64),
       references: faker.internet.url(),
-      related_documents: faker.helpers.arrayElements([
-        faker.string.uuid(),
-        faker.string.uuid(),
-        faker.string.uuid()
-      ], { min: 0, max: 3 })
-    }
+      related_documents: faker.helpers.arrayElements(
+        [faker.string.uuid(), faker.string.uuid(), faker.string.uuid()],
+        { min: 0, max: 3 },
+      ),
+    },
   };
 
   // Add MITRE ATT&CK information if requested
   if (includeMitre) {
     const mitreData = loadMitreData();
     if (mitreData) {
-      const selectedTechniques = selectMitreTechniques(mitreData, faker.number.int({ min: 1, max: 4 }));
+      const selectedTechniques = selectMitreTechniques(
+        mitreData,
+        faker.number.int({ min: 1, max: 4 }),
+      );
       doc.mitre = {
-        technique_ids: selectedTechniques.map(t => t.technique),
-        tactic_ids: selectedTechniques.map(t => t.tactic),
-        framework: 'MITRE ATT&CK'
+        technique_ids: selectedTechniques.map((t) => t.technique),
+        tactic_ids: selectedTechniques.map((t) => t.tactic),
+        framework: 'MITRE ATT&CK',
       };
     }
   }
@@ -496,6 +597,11 @@ export function generateKnowledgeBaseDocument(includeMitre: boolean = false, con
   return doc;
 }
 
-export function generateMultipleKnowledgeBaseDocuments(count: number, includeMitre: boolean = false): KnowledgeBaseDocument[] {
-  return Array.from({ length: count }, () => generateKnowledgeBaseDocument(includeMitre));
+export function generateMultipleKnowledgeBaseDocuments(
+  count: number,
+  includeMitre: boolean = false,
+): KnowledgeBaseDocument[] {
+  return Array.from({ length: count }, () =>
+    generateKnowledgeBaseDocument(includeMitre),
+  );
 }

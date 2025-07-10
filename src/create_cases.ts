@@ -1,14 +1,14 @@
-import { 
-  generateSecurityCase, 
-  generateMultipleSecurityCases, 
+import {
+  generateSecurityCase,
+  generateMultipleSecurityCases,
   generateCaseFromAlert,
-  SecurityCaseData 
+  SecurityCaseData,
 } from './generators/case_generator';
-import { 
-  getKibanaClient, 
-  KibanaClient, 
-  CaseResponse, 
-  AttachAlertsRequest 
+import {
+  getKibanaClient,
+  KibanaClient,
+  CaseResponse,
+  AttachAlertsRequest,
 } from './utils/kibana_client';
 import { getEsClient } from './commands/utils/indices';
 import { TimestampConfig } from './utils/timestamp_utils';
@@ -49,7 +49,9 @@ export interface AlertToCaseMapping {
 /**
  * Main function to create security cases
  */
-export async function createCases(options: CaseCreationOptions): Promise<CaseResponse[]> {
+export async function createCases(
+  options: CaseCreationOptions,
+): Promise<CaseResponse[]> {
   const {
     count,
     space = 'default',
@@ -60,20 +62,22 @@ export async function createCases(options: CaseCreationOptions): Promise<CaseRes
     alertQuery = '*',
     useAI = false,
     environments = 1,
-    namespace = 'default'
+    namespace = 'default',
   } = options;
 
   console.log(`\n🔒 Generating ${count} security cases...`);
   console.log(`📁 Space: ${space}`);
   console.log(`🎯 MITRE Integration: ${includeMitre ? 'enabled' : 'disabled'}`);
-  console.log(`📎 Attach Alerts: ${attachExistingAlerts ? `${alertsPerCase} per case` : 'no'}`);
-  
+  console.log(
+    `📎 Attach Alerts: ${attachExistingAlerts ? `${alertsPerCase} per case` : 'no'}`,
+  );
+
   if (environments > 1) {
     console.log(`🌍 Multi-Environment: ${environments} environments`);
   }
 
   const kibanaClient = getKibanaClient();
-  
+
   // Test Kibana connection
   const healthCheck = await kibanaClient.healthCheck();
   if (healthCheck.status === 'error') {
@@ -86,30 +90,42 @@ export async function createCases(options: CaseCreationOptions): Promise<CaseRes
     console.error('   1. Verify Kibana is running: curl http://localhost:5601');
     console.error('   2. Check credentials in config.json');
     console.error('   3. Ensure Security solution is enabled in Kibana');
-    console.error('   4. Try: yarn start generate-alerts (without --create-cases)');
+    console.error(
+      '   4. Try: yarn start generate-alerts (without --create-cases)',
+    );
     throw new Error(`Kibana connection failed: ${healthCheck.message}`);
   }
 
   // Helper function to create cases for a single environment
-  const createCasesForEnvironment = async (targetSpace: string, envInfo?: string): Promise<CaseResponse[]> => {
+  const createCasesForEnvironment = async (
+    targetSpace: string,
+    envInfo?: string,
+  ): Promise<CaseResponse[]> => {
     if (envInfo) {
       console.log(`\n🌍 ${envInfo}`);
     }
 
     // Generate case data
-    const caseDataArray = await generateMultipleSecurityCases(count, includeMitre, owner);
-    
+    const caseDataArray = await generateMultipleSecurityCases(
+      count,
+      includeMitre,
+      owner,
+    );
+
     const createdCases: CaseResponse[] = [];
-    const progressBar = new cliProgress.SingleBar({
-      format: `Creating Cases | {bar} | {percentage}% | {value}/{total} cases`,
-    }, cliProgress.Presets.shades_classic);
+    const progressBar = new cliProgress.SingleBar(
+      {
+        format: `Creating Cases | {bar} | {percentage}% | {value}/{total} cases`,
+      },
+      cliProgress.Presets.shades_classic,
+    );
 
     progressBar.start(count, 0);
 
     // Create cases one by one to handle potential API rate limits
     for (let i = 0; i < caseDataArray.length; i++) {
       const caseData = caseDataArray[i];
-      
+
       try {
         // Convert SecurityCaseData to CasePostRequest for API
         const apiCaseData = {
@@ -120,10 +136,13 @@ export async function createCases(options: CaseCreationOptions): Promise<CaseRes
           owner: caseData.owner,
           assignees: caseData.assignees,
           connector: caseData.connector,
-          settings: caseData.settings
+          settings: caseData.settings,
         };
 
-        const createdCase = await kibanaClient.createCase(apiCaseData, targetSpace);
+        const createdCase = await kibanaClient.createCase(
+          apiCaseData,
+          targetSpace,
+        );
         createdCases.push(createdCase);
 
         // Add a comment with additional security context
@@ -143,19 +162,27 @@ export async function createCases(options: CaseCreationOptions): Promise<CaseRes
 - **Discovery:** ${caseData.timeline.discovery_time}
 - **First Occurrence:** ${caseData.timeline.first_occurrence || 'Unknown'}
 
-${caseData.mitre ? `**MITRE ATT&CK:**
+${
+  caseData.mitre
+    ? `**MITRE ATT&CK:**
 - **Techniques:** ${caseData.mitre.technique_ids.join(', ')}
 - **Tactics:** ${caseData.mitre.tactic_ids.join(', ')}
-- **Kill Chain:** ${caseData.mitre.kill_chain_phases.join(', ')}` : ''}
+- **Kill Chain:** ${caseData.mitre.kill_chain_phases.join(', ')}`
+    : ''
+}
 
 *This case was generated by the Security Documents Generator for testing and training purposes.*
         `.trim();
 
-        await kibanaClient.addComment(createdCase.id, {
-          comment: securityComment,
-          type: 'user',
-          owner
-        }, targetSpace);
+        await kibanaClient.addComment(
+          createdCase.id,
+          {
+            comment: securityComment,
+            type: 'user',
+            owner,
+          },
+          targetSpace,
+        );
 
         // Attach existing alerts if requested
         if (attachExistingAlerts && alertsPerCase > 0) {
@@ -165,45 +192,58 @@ ${caseData.mitre ? `**MITRE ATT&CK:**
             targetSpace,
             alertsPerCase,
             alertQuery,
-            owner
+            owner,
           );
         }
 
         progressBar.increment();
-        
+
         // Small delay to prevent overwhelming the API
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
+        await new Promise((resolve) => setTimeout(resolve, 100));
       } catch (error: any) {
         if (error.message?.includes('Cases API not found')) {
           progressBar.stop();
           console.error(`\n❌ Cases API Not Available`);
-          console.error(`📋 This Kibana instance doesn't support the Cases API.`);
+          console.error(
+            `📋 This Kibana instance doesn't support the Cases API.`,
+          );
           console.error(`\n💡 Solutions:`);
           console.error(`   1. Upgrade to Kibana 7.10+ with Security solution`);
           console.error(`   2. Enable the Security solution in Kibana`);
-          console.error(`   3. Use Elastic Cloud with Security features enabled`);
+          console.error(
+            `   3. Use Elastic Cloud with Security features enabled`,
+          );
           console.error(`\n📊 Generated Case Data Preview:`);
-          
+
           // Show a preview of what would have been created
           for (let j = 0; j < Math.min(3, caseDataArray.length); j++) {
             const preview = caseDataArray[j];
             console.error(`\n🔒 Case ${j + 1}: ${preview.title}`);
             console.error(`   📝 Type: ${preview.security.incident_type}`);
             console.error(`   🎯 Severity: ${preview.severity}`);
-            console.error(`   👤 Analyst: ${preview.investigation.lead_analyst}`);
-            console.error(`   🏷️  Tags: ${preview.tags.slice(0, 3).join(', ')}`);
+            console.error(
+              `   👤 Analyst: ${preview.investigation.lead_analyst}`,
+            );
+            console.error(
+              `   🏷️  Tags: ${preview.tags.slice(0, 3).join(', ')}`,
+            );
           }
-          
+
           if (caseDataArray.length > 3) {
-            console.error(`\n   ... and ${caseDataArray.length - 3} more cases`);
+            console.error(
+              `\n   ... and ${caseDataArray.length - 3} more cases`,
+            );
           }
-          
-          console.error(`\n✅ Case data generation successful - Cases API integration requires Kibana Security solution`);
+
+          console.error(
+            `\n✅ Case data generation successful - Cases API integration requires Kibana Security solution`,
+          );
           throw new Error('Cases API not available in this Kibana instance');
         }
-        
-        console.error(`\n❌ Error creating case ${i + 1}: ${error.message || error}`);
+
+        console.error(
+          `\n❌ Error creating case ${i + 1}: ${error.message || error}`,
+        );
         progressBar.increment();
       }
     }
@@ -214,21 +254,25 @@ ${caseData.mitre ? `**MITRE ATT&CK:**
 
   // Handle multi-environment generation
   if (environments > 1) {
-    console.log(`\n🌍 Multi-Environment Case Generation: ${environments} environments`);
+    console.log(
+      `\n🌍 Multi-Environment Case Generation: ${environments} environments`,
+    );
     const allCases: CaseResponse[] = [];
 
     for (let i = 1; i <= environments; i++) {
       const envNamespace = `${namespace}-env-${i.toString().padStart(3, '0')}`;
       const targetSpace = `${space}-${envNamespace}`;
       const envInfo = `Environment ${i}/${environments}: ${envNamespace}`;
-      
+
       const envCases = await createCasesForEnvironment(targetSpace, envInfo);
       allCases.push(...envCases);
     }
 
     console.log(`\n✅ Multi-Environment Case Generation Complete!`);
-    console.log(`🌍 Total Cases: ${allCases.length} across ${environments} environments`);
-    
+    console.log(
+      `🌍 Total Cases: ${allCases.length} across ${environments} environments`,
+    );
+
     return allCases;
   } else {
     // Single environment generation
@@ -239,14 +283,16 @@ ${caseData.mitre ? `**MITRE ATT&CK:**
 /**
  * Create cases from existing alerts with grouping strategies
  */
-export async function createCasesFromAlerts(options: CaseFromAlertsOptions): Promise<AlertToCaseMapping[]> {
+export async function createCasesFromAlerts(
+  options: CaseFromAlertsOptions,
+): Promise<AlertToCaseMapping[]> {
   const {
     space = 'default',
     alertQuery = '*',
     maxAlertsPerCase = 5,
     groupingStrategy = 'by-severity',
     owner = 'securitySolution',
-    timeWindowHours = 24
+    timeWindowHours = 24,
   } = options;
 
   console.log(`\n🚨 Creating cases from existing alerts...`);
@@ -260,7 +306,7 @@ export async function createCasesFromAlerts(options: CaseFromAlertsOptions): Pro
 
   // Query existing alerts
   const alertsResult = await kibanaClient.queryAlerts(alertQuery, space, 1000);
-  
+
   if (alertsResult.total === 0) {
     console.log('⚠️ No alerts found matching the query');
     return [];
@@ -269,14 +315,22 @@ export async function createCasesFromAlerts(options: CaseFromAlertsOptions): Pro
   console.log(`📊 Found ${alertsResult.total} alerts to process`);
 
   // Group alerts based on strategy
-  const alertGroups = groupAlerts(alertsResult.alerts, groupingStrategy, maxAlertsPerCase, timeWindowHours);
-  
+  const alertGroups = groupAlerts(
+    alertsResult.alerts,
+    groupingStrategy,
+    maxAlertsPerCase,
+    timeWindowHours,
+  );
+
   console.log(`🗂️ Created ${alertGroups.length} alert groups`);
 
   const caseMappings: AlertToCaseMapping[] = [];
-  const progressBar = new cliProgress.SingleBar({
-    format: `Creating Cases from Alerts | {bar} | {percentage}% | {value}/{total} groups`,
-  }, cliProgress.Presets.shades_classic);
+  const progressBar = new cliProgress.SingleBar(
+    {
+      format: `Creating Cases from Alerts | {bar} | {percentage}% | {value}/{total} groups`,
+    },
+    cliProgress.Presets.shades_classic,
+  );
 
   progressBar.start(alertGroups.length, 0);
 
@@ -285,9 +339,9 @@ export async function createCasesFromAlerts(options: CaseFromAlertsOptions): Pro
       // Create case based on the first/primary alert in the group
       const primaryAlert = group.alerts[0];
       const alertInfo = extractAlertInfo(primaryAlert);
-      
+
       const caseData = generateCaseFromAlert(alertInfo, owner);
-      
+
       // Modify title to indicate multiple alerts
       if (group.alerts.length > 1) {
         caseData.title = `${caseData.title} (${group.alerts.length} related alerts)`;
@@ -303,14 +357,14 @@ export async function createCasesFromAlerts(options: CaseFromAlertsOptions): Pro
         owner: caseData.owner,
         assignees: caseData.assignees,
         connector: caseData.connector,
-        settings: caseData.settings
+        settings: caseData.settings,
       };
 
       const createdCase = await kibanaClient.createCase(apiCaseData, space);
 
       // Attach all alerts in the group to the case
-      const alertIds = group.alerts.map(alert => alert._id);
-      const alertIndices = group.alerts.map(alert => alert._index);
+      const alertIds = group.alerts.map((alert) => alert._id);
+      const alertIndices = group.alerts.map((alert) => alert._index);
 
       if (alertIds.length > 0) {
         const attachRequest: AttachAlertsRequest = {
@@ -318,27 +372,32 @@ export async function createCasesFromAlerts(options: CaseFromAlertsOptions): Pro
           index: alertIndices,
           type: 'alert',
           owner,
-          rule: alertInfo.rule_name ? {
-            id: faker.string.uuid(),
-            name: alertInfo.rule_name
-          } : undefined
+          rule: alertInfo.rule_name
+            ? {
+                id: faker.string.uuid(),
+                name: alertInfo.rule_name,
+              }
+            : undefined,
         };
 
-        await kibanaClient.attachAlertsToCase(createdCase.id, attachRequest, space);
+        await kibanaClient.attachAlertsToCase(
+          createdCase.id,
+          attachRequest,
+          space,
+        );
       }
 
       caseMappings.push({
         caseId: createdCase.id,
         alertIds,
         alertCount: alertIds.length,
-        caseTitle: createdCase.title
+        caseTitle: createdCase.title,
       });
 
       progressBar.increment();
-      
+
       // Small delay to prevent API overload
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
+      await new Promise((resolve) => setTimeout(resolve, 200));
     } catch (error) {
       console.error(`\nError creating case from alert group: ${error}`);
       progressBar.increment();
@@ -348,7 +407,9 @@ export async function createCasesFromAlerts(options: CaseFromAlertsOptions): Pro
   progressBar.stop();
 
   console.log(`\n✅ Created ${caseMappings.length} cases from alerts`);
-  console.log(`📊 Total alerts attached: ${caseMappings.reduce((sum, mapping) => sum + mapping.alertCount, 0)}`);
+  console.log(
+    `📊 Total alerts attached: ${caseMappings.reduce((sum, mapping) => sum + mapping.alertCount, 0)}`,
+  );
 
   return caseMappings;
 }
@@ -357,36 +418,40 @@ export async function createCasesFromAlerts(options: CaseFromAlertsOptions): Pro
  * Delete all cases in a space
  */
 export async function deleteAllCases(space?: string): Promise<void> {
-  console.log(`\n🗑️ Deleting all cases${space ? ` in space: ${space}` : ''}...`);
-  
+  console.log(
+    `\n🗑️ Deleting all cases${space ? ` in space: ${space}` : ''}...`,
+  );
+
   const kibanaClient = getKibanaClient();
-  
+
   try {
     const allCases = await kibanaClient.getAllCases(space);
-    
+
     if (allCases.length === 0) {
       console.log('ℹ️ No cases found to delete');
       return;
     }
 
     console.log(`📊 Found ${allCases.length} cases to delete`);
-    
-    const caseIds = allCases.map(c => c.id);
-    
+
+    const caseIds = allCases.map((c) => c.id);
+
     // Delete in batches to avoid API limits
     const batchSize = 10;
     for (let i = 0; i < caseIds.length; i += batchSize) {
       const batch = caseIds.slice(i, i + batchSize);
       await kibanaClient.deleteCases(batch, space);
-      
-      console.log(`🗑️ Deleted ${Math.min(i + batchSize, caseIds.length)}/${caseIds.length} cases`);
-      
+
+      console.log(
+        `🗑️ Deleted ${Math.min(i + batchSize, caseIds.length)}/${caseIds.length} cases`,
+      );
+
       // Small delay between batches
       if (i + batchSize < caseIds.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
     }
-    
+
     console.log('✅ All cases deleted successfully');
   } catch (error) {
     console.error('❌ Error deleting cases:', error);
@@ -405,37 +470,42 @@ async function attachRandomAlertsToCase(
   space: string,
   alertCount: number,
   query: string,
-  owner: string
+  owner: string,
 ): Promise<void> {
   try {
-    const alertsResult = await kibanaClient.queryAlerts(query, space, alertCount * 2);
-    
+    const alertsResult = await kibanaClient.queryAlerts(
+      query,
+      space,
+      alertCount * 2,
+    );
+
     if (alertsResult.alerts.length === 0) {
       // Alert API returned no results - likely not available
       return;
     }
 
     // Select random alerts up to the requested count
-    const selectedAlerts = faker.helpers.arrayElements(
-      alertsResult.alerts, 
-      { min: 1, max: Math.min(alertCount, alertsResult.alerts.length) }
-    );
+    const selectedAlerts = faker.helpers.arrayElements(alertsResult.alerts, {
+      min: 1,
+      max: Math.min(alertCount, alertsResult.alerts.length),
+    });
 
-    const alertIds = selectedAlerts.map(alert => alert._id);
-    const alertIndices = selectedAlerts.map(alert => alert._index);
+    const alertIds = selectedAlerts.map((alert) => alert._id);
+    const alertIndices = selectedAlerts.map((alert) => alert._index);
 
     const attachRequest: AttachAlertsRequest = {
       alertId: alertIds,
       index: alertIndices,
       type: 'alert',
-      owner
+      owner,
     };
 
     await kibanaClient.attachAlertsToCase(caseId, attachRequest, space);
-    
   } catch (error) {
     // Silently skip alert attachment if API is not available
-    console.warn(`⚠️ Alert attachment skipped for case ${caseId} (API not available)`);
+    console.warn(
+      `⚠️ Alert attachment skipped for case ${caseId} (API not available)`,
+    );
   }
 }
 
@@ -446,7 +516,7 @@ function groupAlerts(
   alerts: any[],
   strategy: 'by-time' | 'by-host' | 'by-rule' | 'by-severity',
   maxAlertsPerCase: number,
-  timeWindowHours: number
+  timeWindowHours: number,
 ): Array<{ alerts: any[]; groupKey: string }> {
   const groups = new Map<string, any[]>();
 
@@ -456,22 +526,24 @@ function groupAlerts(
     switch (strategy) {
       case 'by-time':
         const alertTime = new Date(alert._source['@timestamp']);
-        const timeSlot = Math.floor(alertTime.getTime() / (timeWindowHours * 60 * 60 * 1000));
+        const timeSlot = Math.floor(
+          alertTime.getTime() / (timeWindowHours * 60 * 60 * 1000),
+        );
         groupKey = `time-${timeSlot}`;
         break;
-        
+
       case 'by-host':
         groupKey = `host-${alert._source['host.name'] || 'unknown'}`;
         break;
-        
+
       case 'by-rule':
         groupKey = `rule-${alert._source['kibana.alert.rule.name'] || 'unknown'}`;
         break;
-        
+
       case 'by-severity':
         groupKey = `severity-${alert._source['kibana.alert.severity'] || 'unknown'}`;
         break;
-        
+
       default:
         groupKey = 'default';
     }
@@ -503,13 +575,17 @@ function extractAlertInfo(alert: any): {
   mitre_tactics?: string[];
 } {
   const source = alert._source || {};
-  
+
   return {
     rule_name: source['kibana.alert.rule.name'] || 'Unknown Rule',
     severity: source['kibana.alert.severity'] || 'medium',
     host_name: source['host.name'] || 'unknown-host',
     user_name: source['user.name'],
-    mitre_techniques: source['threat.technique.id'] ? [source['threat.technique.id']] : undefined,
-    mitre_tactics: source['threat.tactic.id'] ? [source['threat.tactic.id']] : undefined
+    mitre_techniques: source['threat.technique.id']
+      ? [source['threat.technique.id']]
+      : undefined,
+    mitre_tactics: source['threat.tactic.id']
+      ? [source['threat.tactic.id']]
+      : undefined,
   };
 }

@@ -41,7 +41,7 @@ export async function generateHostnameList(count: number): Promise<string[]> {
  */
 export async function generateThemedHostname(): Promise<string> {
   const generator = getGlobalThemeGenerator();
-  
+
   if (generator.hasTheme()) {
     try {
       return await generator.generateHostname();
@@ -49,7 +49,7 @@ export async function generateThemedHostname(): Promise<string> {
       return generateFallbackHostname();
     }
   }
-  
+
   return generateFallbackHostname();
 }
 

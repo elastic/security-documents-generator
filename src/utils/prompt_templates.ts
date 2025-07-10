@@ -98,7 +98,7 @@ ${
 
 Include relevant technical fields: process, file, network, registry, user activity based on techniques.
 ${themeContext}
-${schemaExcerpt ? `Schema excerpt: ${schemaExcerpt}` : ''}`
+${schemaExcerpt ? `Schema excerpt: ${schemaExcerpt}` : ''}`;
 };
 
 // Event generation system prompt

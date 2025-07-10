@@ -180,7 +180,8 @@ program
     const theme = options.theme;
 
     // Validate case options - only check if user explicitly provided alerts-per-case
-    const userProvidedAlertsPerCase = process.argv.includes('--alerts-per-case');
+    const userProvidedAlertsPerCase =
+      process.argv.includes('--alerts-per-case');
     if (userProvidedAlertsPerCase && !createCases) {
       console.error(
         'Error: --alerts-per-case flag requires --create-cases to be enabled',
@@ -996,7 +997,13 @@ program
   .option('-i, --interval <string>', 'Rule execution interval', '5m')
   .option('-f, --from <number>', 'Generate events from last N hours', '24')
   .option('-g, --gaps <number>', 'Amount of gaps per rule', '0')
-  .option('-c, --clean', 'Clean gap events before generating rules', 'false')
+  .option('-c, --clean', 'Clean gap events before generating rules', false)
+  .option(
+    '-t, --rule-types <types>',
+    'Comma-separated list of rule types (query,threshold,eql,machine_learning,threat_match,new_terms,esql)',
+    'query,threshold,eql,machine_learning,threat_match,new_terms,esql',
+  )
+  .option('-s, --space <space>', 'Kibana space to create rules in', 'jgy')
   .action(async (options) => {
     try {
       const ruleCount = parseInt(options.rules);
@@ -1004,12 +1011,46 @@ program
       const fromHours = parseInt(options.from);
       const gaps = parseInt(options.gaps);
 
+      // Parse rule types from comma-separated string
+      const ruleTypes = options.ruleTypes
+        ? options.ruleTypes.split(',').map((type: string) => type.trim())
+        : [
+            'query',
+            'threshold',
+            'eql',
+            'machine_learning',
+            'threat_match',
+            'new_terms',
+            'esql',
+          ];
+
+      // Validate rule types
+      const validRuleTypes = [
+        'query',
+        'threshold',
+        'eql',
+        'machine_learning',
+        'threat_match',
+        'new_terms',
+        'esql',
+      ];
+      const invalidTypes = ruleTypes.filter(
+        (type: string) => !validRuleTypes.includes(type),
+      );
+
+      if (invalidTypes.length > 0) {
+        console.error(`Invalid rule types: ${invalidTypes.join(', ')}`);
+        console.error(`Valid rule types: ${validRuleTypes.join(', ')}`);
+        process.exit(1);
+      }
+
       console.log(`Generating ${ruleCount} rules and ${eventCount} events...`);
       console.log(`Using interval: ${options.interval}`);
       console.log(`Generating events from last ${fromHours} hours`);
       console.log(`Generating ${gaps} gaps per rule`);
+      console.log(`Rule types: ${ruleTypes.join(', ')}`);
 
-      if (options.clean) {
+      if (options.clean === true) {
         await deleteAllRules();
       }
 
@@ -1017,7 +1058,8 @@ program
         interval: options.interval,
         from: fromHours,
         gapsPerRule: gaps,
-      });
+        ruleTypes: ruleTypes as any,
+      }, options.space);
 
       console.log('Successfully generated rules and events');
     } catch (error) {
@@ -1548,25 +1590,33 @@ program
           );
 
           // Extract and display generated entities from realistic campaign
-          const { displayGeneratedEntities } = await import('./utils/entity_display');
+          const { displayGeneratedEntities } = await import(
+            './utils/entity_display'
+          );
           const extractedUserNames = new Set<string>();
           const extractedHostNames = new Set<string>();
 
           // Extract entities from logs and alerts
-          [...realisticResult.stageLogs.flatMap(stage => stage.logs), ...realisticResult.detectedAlerts].forEach(item => {
+          [
+            ...realisticResult.stageLogs.flatMap((stage) => stage.logs),
+            ...realisticResult.detectedAlerts,
+          ].forEach((item) => {
             if (item['user.name']) extractedUserNames.add(item['user.name']);
             if (item['host.name']) extractedHostNames.add(item['host.name']);
           });
 
-          displayGeneratedEntities({
-            userNames: Array.from(extractedUserNames),
-            hostNames: Array.from(extractedHostNames)
-          }, {
-            namespace: environments > 1 ? targetSpace : 'default',
-            space: targetSpace,
-            showKQLQueries: true,
-            showSampleQueries: true
-          });
+          displayGeneratedEntities(
+            {
+              userNames: Array.from(extractedUserNames),
+              hostNames: Array.from(extractedHostNames),
+            },
+            {
+              namespace: environments > 1 ? targetSpace : 'default',
+              space: targetSpace,
+              showKQLQueries: true,
+              showSampleQueries: true,
+            },
+          );
 
           return;
         }
@@ -1586,7 +1636,7 @@ program
               | 'attack_simulation'
               | 'weekend_heavy',
           };
-          
+
           const simulation = await simulationEngine.generateAttackSimulation(
             campaignType as 'apt' | 'ransomware' | 'insider' | 'supply_chain',
             options.complexity as 'low' | 'medium' | 'high' | 'expert',
@@ -1810,7 +1860,9 @@ program
 
 program
   .command('generate-knowledge-base')
-  .description('Generate AI Assistant Knowledge Base documents for security content')
+  .description(
+    'Generate AI Assistant Knowledge Base documents for security content',
+  )
   .option('-n <n>', 'number of knowledge base documents', '20')
   .option('-s <space>', 'space to generate documents in', 'default')
   .option(
@@ -1857,7 +1909,7 @@ program
         'compliance',
         'forensics',
         'malware_analysis',
-        'behavioral_analytics'
+        'behavioral_analytics',
       ];
 
       const invalidCategories = categories.filter(
@@ -1872,9 +1924,19 @@ program
     }
 
     // Parse access level if provided
-    let accessLevel: 'public' | 'team' | 'organization' | 'restricted' | undefined;
+    let accessLevel:
+      | 'public'
+      | 'team'
+      | 'organization'
+      | 'restricted'
+      | undefined;
     if (options.accessLevel) {
-      const validAccessLevels = ['public', 'team', 'organization', 'restricted'];
+      const validAccessLevels = [
+        'public',
+        'team',
+        'organization',
+        'restricted',
+      ];
       if (!validAccessLevels.includes(options.accessLevel)) {
         console.error(
           `Error: Invalid access level: ${options.accessLevel}. Valid levels: ${validAccessLevels.join(', ')}`,
@@ -1885,14 +1947,20 @@ program
     }
 
     // Parse confidence threshold
-    const confidenceThreshold = parseFloat(options.confidenceThreshold || '0.0');
+    const confidenceThreshold = parseFloat(
+      options.confidenceThreshold || '0.0',
+    );
     if (confidenceThreshold < 0.0 || confidenceThreshold > 1.0) {
-      console.error('Error: --confidence-threshold must be between 0.0 and 1.0');
+      console.error(
+        'Error: --confidence-threshold must be between 0.0 and 1.0',
+      );
       process.exit(1);
     }
 
     try {
-      const { createKnowledgeBaseDocuments } = await import('./create_knowledge_base');
+      const { createKnowledgeBaseDocuments } = await import(
+        './create_knowledge_base'
+      );
 
       await createKnowledgeBaseDocuments({
         count,
@@ -1925,9 +1993,10 @@ program
       const { getEsClient } = await import('./commands/utils/indices');
       const client = getEsClient();
 
-      const indexName = space === 'default'
-        ? `knowledge-base-security-${namespace}`
-        : `knowledge-base-security-${space}-${namespace}`;
+      const indexName =
+        space === 'default'
+          ? `knowledge-base-security-${namespace}`
+          : `knowledge-base-security-${space}-${namespace}`;
 
       console.log(`🗑️  Deleting knowledge base documents from: ${indexName}`);
 
@@ -1947,7 +2016,9 @@ program
 
 program
   .command('generate-cases')
-  .description('Generate security cases for investigation and incident response')
+  .description(
+    'Generate security cases for investigation and incident response',
+  )
   .option('-n <count>', 'number of cases to generate', '10')
   .option('-s <space>', 'space to create cases in', 'default')
   .option(
@@ -1955,11 +2026,7 @@ program
     'custom namespace for case data (default: default)',
     'default',
   )
-  .option(
-    '--mitre',
-    'include MITRE ATT&CK framework mappings in cases',
-    false,
-  )
+  .option('--mitre', 'include MITRE ATT&CK framework mappings in cases', false)
   .option(
     '--attach-existing-alerts',
     'attach existing alerts to generated cases',
@@ -1991,7 +2058,8 @@ program
     const environments = options.environments || 1;
 
     // Check if user explicitly set alerts-per-case but not attach-existing-alerts
-    const userProvidedAlertsPerCase = process.argv.includes('--alerts-per-case');
+    const userProvidedAlertsPerCase =
+      process.argv.includes('--alerts-per-case');
     if (userProvidedAlertsPerCase && !attachExistingAlerts) {
       console.error(
         'Error: --alerts-per-case flag requires --attach-existing-alerts to be enabled',
@@ -2029,7 +2097,11 @@ program
 program
   .command('generate-cases-from-alerts')
   .description('Create cases from existing alerts using grouping strategies')
-  .option('-s <space>', 'space to search for alerts and create cases', 'default')
+  .option(
+    '-s <space>',
+    'space to search for alerts and create cases',
+    'default',
+  )
   .option(
     '--alert-query <query>',
     'query for selecting alerts (default: all alerts)',
@@ -2077,7 +2149,11 @@ program
         space,
         alertQuery,
         maxAlertsPerCase,
-        groupingStrategy: groupingStrategy as 'by-time' | 'by-host' | 'by-rule' | 'by-severity',
+        groupingStrategy: groupingStrategy as
+          | 'by-time'
+          | 'by-host'
+          | 'by-rule'
+          | 'by-severity',
         owner: 'securitySolution',
         timeWindowHours,
       };
@@ -2128,11 +2204,7 @@ program
     'Elasticsearch index name (for elasticsearch format)',
     'generated-fields-sample',
   )
-  .option(
-    '--include-metadata',
-    'include generation metadata in output',
-    true,
-  )
+  .option('--include-metadata', 'include generation metadata in output', true)
   .option(
     '--create-mapping',
     'automatically create Elasticsearch mapping for proper field visualization in Kibana',
@@ -2216,7 +2288,9 @@ program
 
 program
   .command('setup-mappings')
-  .description('Setup Elasticsearch mappings for multi-field data to ensure proper visualization in Kibana')
+  .description(
+    'Setup Elasticsearch mappings for multi-field data to ensure proper visualization in Kibana',
+  )
   .action(async () => {
     try {
       const { setupMappingsCLI } = await import('./commands/setup_mappings');
@@ -2229,11 +2303,18 @@ program
 
 program
   .command('update-mapping')
-  .description('Update existing security alerts index with comprehensive behavioral analytics field mappings')
-  .option('--index <name>', 'specific index to update (auto-detects security alerts index if not provided)')
+  .description(
+    'Update existing security alerts index with comprehensive behavioral analytics field mappings',
+  )
+  .option(
+    '--index <name>',
+    'specific index to update (auto-detects security alerts index if not provided)',
+  )
   .action(async (options) => {
     try {
-      const { updateMappingCLI } = await import('./commands/update_specific_mapping');
+      const { updateMappingCLI } = await import(
+        './commands/update_specific_mapping'
+      );
       await updateMappingCLI(options.index);
     } catch (error) {
       console.error('❌ Update mapping failed:', error);
@@ -2243,13 +2324,27 @@ program
 
 program
   .command('fix-unmapped-fields')
-  .description('Complete solution for fixing unmapped fields in Kibana - analyzes and provides options')
-  .option('--reindex', 'delete and recreate index with proper mappings (recommended)')
-  .option('--create-new', 'create new index with proper mappings, keep existing data')
-  .option('--suffix <suffix>', 'suffix for new index name (default: -v2)', '-v2')
+  .description(
+    'Complete solution for fixing unmapped fields in Kibana - analyzes and provides options',
+  )
+  .option(
+    '--reindex',
+    'delete and recreate index with proper mappings (recommended)',
+  )
+  .option(
+    '--create-new',
+    'create new index with proper mappings, keep existing data',
+  )
+  .option(
+    '--suffix <suffix>',
+    'suffix for new index name (default: -v2)',
+    '-v2',
+  )
   .action(async (options) => {
     try {
-      const { fixUnmappedFieldsCLI } = await import('./commands/fix_unmapped_fields');
+      const { fixUnmappedFieldsCLI } = await import(
+        './commands/fix_unmapped_fields'
+      );
       await fixUnmappedFieldsCLI({
         reindex: options.reindex,
         createNew: options.createNew,
@@ -2263,7 +2358,9 @@ program
 
 program
   .command('fix-logs-mapping')
-  .description('Fix logs data stream mapping to handle unlimited behavioral analytics fields')
+  .description(
+    'Fix logs data stream mapping to handle unlimited behavioral analytics fields',
+  )
   .action(async () => {
     try {
       const { fixLogsMappingCLI } = await import('./commands/fix_logs_mapping');
@@ -2318,27 +2415,31 @@ program
       ? options.categories.split(',').map((c: string) => c.trim())
       : undefined;
     const maxFieldsPerIndex = parseInt(options.maxFieldsPerIndex || '50000');
-    const maxFieldsPerDocument = parseInt(options.maxFieldsPerDocument || '25000');
+    const maxFieldsPerDocument = parseInt(
+      options.maxFieldsPerDocument || '25000',
+    );
     const optimizeES = options.optimizeElasticsearch || false;
 
     try {
-      const { 
+      const {
         generateMassiveFieldsMultiIndex,
         generateMassiveFieldsDocumentSharding,
         generateMassiveFieldsCompression,
         generateMassiveFieldsHybrid,
-        optimizeElasticsearchForMassiveFields
+        optimizeElasticsearchForMassiveFields,
       } = await import('./utils/massive_field_strategies');
 
-      console.log(`🚀 Massive Field Generation: ${fieldCount} fields using ${strategy} strategy`);
-      
+      console.log(
+        `🚀 Massive Field Generation: ${fieldCount} fields using ${strategy} strategy`,
+      );
+
       // Optimize Elasticsearch if requested
       if (optimizeES) {
         await optimizeElasticsearchForMassiveFields();
       }
 
       const correlationId = `massive-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
+
       const config = {
         totalFields: fieldCount,
         strategy: strategy as any,
@@ -2378,7 +2479,6 @@ program
       uniqueIndices.forEach((index) => {
         console.log(`  - ${index}*`);
       });
-
     } catch (error) {
       console.error('❌ Massive field generation failed:', error);
       process.exit(1);
@@ -2387,10 +2487,7 @@ program
 
 program
   .command('query-massive-fields')
-  .option(
-    '--correlation-id <id>',
-    'correlation ID to query massive field data',
-  )
+  .option('--correlation-id <id>', 'correlation ID to query massive field data')
   .option(
     '--strategy <strategy>',
     'strategy used for generation: multi-index, document-sharding, field-compression, hybrid',
@@ -2422,8 +2519,10 @@ program
       const { getEsClient } = await import('./commands/utils/indices');
       const client = getEsClient();
 
-      console.log(`🔍 Querying massive fields with correlation ID: ${correlationId}`);
-      
+      console.log(
+        `🔍 Querying massive fields with correlation ID: ${correlationId}`,
+      );
+
       // Query based on strategy
       let indexPattern = `massive-fields-*-${namespace}`;
       if (strategy === 'document-sharding') {
@@ -2451,17 +2550,22 @@ program
         },
       });
 
-      const hits = searchResult.hits?.hits || searchResult.body?.hits?.hits || [];
-      console.log(`📊 Found ${hits.length} documents for correlation ID: ${correlationId}`);
+      const hits =
+        searchResult.hits?.hits || searchResult.body?.hits?.hits || [];
+      console.log(
+        `📊 Found ${hits.length} documents for correlation ID: ${correlationId}`,
+      );
 
       let totalFields = 0;
       const distribution: Record<string, number> = {};
 
       hits.forEach((hit: any, index: number) => {
         const source = hit._source;
-        const fieldCount = source['massive_fields.field_count'] || 
-                          source['massive_fields.logical_field_count'] || 0;
-        
+        const fieldCount =
+          source['massive_fields.field_count'] ||
+          source['massive_fields.logical_field_count'] ||
+          0;
+
         totalFields += fieldCount;
         distribution[hit._index] = (distribution[hit._index] || 0) + fieldCount;
 
@@ -2471,19 +2575,24 @@ program
         console.log(`  🏠 Host: ${source['host.name'] || 'N/A'}`);
         console.log(`  👤 User: ${source['user.name'] || 'N/A'}`);
         console.log(`  ⏰ Timestamp: ${source['@timestamp']}`);
-        console.log(`  📊 Index Group: ${source['massive_fields.index_group'] || 'N/A'}`);
+        console.log(
+          `  📊 Index Group: ${source['massive_fields.index_group'] || 'N/A'}`,
+        );
       });
 
       console.log(`\n📈 Summary:`);
-      console.log(`  🔢 Total fields across all documents: ${totalFields.toLocaleString()}`);
+      console.log(
+        `  🔢 Total fields across all documents: ${totalFields.toLocaleString()}`,
+      );
       console.log(`  📂 Documents found: ${hits.length}`);
-      console.log(`  📊 Average fields per document: ${Math.round(totalFields / hits.length).toLocaleString()}`);
-      
+      console.log(
+        `  📊 Average fields per document: ${Math.round(totalFields / hits.length).toLocaleString()}`,
+      );
+
       console.log(`\n📂 Distribution by index:`);
       Object.entries(distribution).forEach(([index, count]) => {
         console.log(`  - ${index}: ${count.toLocaleString()} fields`);
       });
-
     } catch (error) {
       console.error('❌ Query massive fields failed:', error);
       process.exit(1);

@@ -1,9 +1,9 @@
 /**
  * Massive Field Generation Strategies
- * 
+ *
  * Handles 200k+ field generation using multiple approaches:
  * 1. Multi-index distribution
- * 2. Document sharding  
+ * 2. Document sharding
  * 3. Field compression
  * 4. Elasticsearch optimization
  */
@@ -14,7 +14,11 @@ import { generateFields } from '../commands/generate_fields';
 
 export interface MassiveFieldConfig {
   totalFields: number;
-  strategy: 'multi-index' | 'document-sharding' | 'field-compression' | 'hybrid';
+  strategy:
+    | 'multi-index'
+    | 'document-sharding'
+    | 'field-compression'
+    | 'hybrid';
   correlationId: string;
   namespace: string;
   categories?: string[];
@@ -40,20 +44,24 @@ export interface MassiveFieldResult {
  * Split fields across multiple indices with correlation IDs
  */
 export async function generateMassiveFieldsMultiIndex(
-  config: MassiveFieldConfig
+  config: MassiveFieldConfig,
 ): Promise<MassiveFieldResult> {
   const startTime = Date.now();
   const maxFieldsPerIndex = config.maxFieldsPerIndex || 50000;
   const correlationId = config.correlationId;
-  
+
   // Calculate distribution across indices
   const numIndices = Math.ceil(config.totalFields / maxFieldsPerIndex);
   const fieldsPerIndex = Math.floor(config.totalFields / numIndices);
   const remainder = config.totalFields % numIndices;
-  
-  console.log(`🏗️  Multi-Index Strategy: ${config.totalFields} fields across ${numIndices} indices`);
-  console.log(`📊 Base fields per index: ${fieldsPerIndex}, Remainder: ${remainder}`);
-  
+
+  console.log(
+    `🏗️  Multi-Index Strategy: ${config.totalFields} fields across ${numIndices} indices`,
+  );
+  console.log(
+    `📊 Base fields per index: ${fieldsPerIndex}, Remainder: ${remainder}`,
+  );
+
   const results: MassiveFieldResult = {
     totalGenerated: 0,
     indices: [],
@@ -70,19 +78,29 @@ export async function generateMassiveFieldsMultiIndex(
   // Field category distribution strategies
   const categoryGroups = [
     { name: 'performance', categories: ['performance_metrics'], weight: 0.3 },
-    { name: 'security', categories: ['security_scores', 'threat_intelligence'], weight: 0.25 },
+    {
+      name: 'security',
+      categories: ['security_scores', 'threat_intelligence'],
+      weight: 0.25,
+    },
     { name: 'behavioral', categories: ['behavioral_analytics'], weight: 0.2 },
     { name: 'network', categories: ['network_analytics'], weight: 0.15 },
-    { name: 'endpoint', categories: ['endpoint_analytics', 'forensics_analysis'], weight: 0.1 },
+    {
+      name: 'endpoint',
+      categories: ['endpoint_analytics', 'forensics_analysis'],
+      weight: 0.1,
+    },
   ];
 
   for (let i = 0; i < numIndices; i++) {
     const categoryGroup = categoryGroups[i % categoryGroups.length];
     const indexFieldCount = fieldsPerIndex + (i < remainder ? 1 : 0);
     const indexName = `massive-fields-${categoryGroup.name}-${config.namespace}`;
-    
-    console.log(`📂 Index ${i + 1}/${numIndices}: ${indexName} (${indexFieldCount} fields)`);
-    
+
+    console.log(
+      `📂 Index ${i + 1}/${numIndices}: ${indexName} (${indexFieldCount} fields)`,
+    );
+
     // Generate base document with correlation fields
     const baseDocument = {
       '@timestamp': new Date().toISOString(),
@@ -117,7 +135,7 @@ export async function generateMassiveFieldsMultiIndex(
       const finalDocument = {
         ...baseDocument,
         ...fieldResult.fields,
-        '_metadata': fieldResult.metadata,
+        _metadata: fieldResult.metadata,
       };
 
       await client.index({
@@ -128,12 +146,17 @@ export async function generateMassiveFieldsMultiIndex(
 
       results.totalGenerated += fieldResult.metadata.actualCount;
       results.indices.push(indexName);
-      results.metadata.distribution[indexName] = fieldResult.metadata.actualCount;
-      
-      console.log(`✅ ${indexName}: ${fieldResult.metadata.actualCount} fields generated`);
-      
+      results.metadata.distribution[indexName] =
+        fieldResult.metadata.actualCount;
+
+      console.log(
+        `✅ ${indexName}: ${fieldResult.metadata.actualCount} fields generated`,
+      );
     } catch (error: any) {
-      console.error(`❌ Failed to generate fields for ${indexName}:`, error.message);
+      console.error(
+        `❌ Failed to generate fields for ${indexName}:`,
+        error.message,
+      );
     }
   }
 
@@ -146,13 +169,15 @@ export async function generateMassiveFieldsMultiIndex(
   ];
 
   results.metadata.generationTimeMs = Date.now() - startTime;
-  
+
   console.log(`🎉 Multi-Index Generation Complete:`);
-  console.log(`  📊 Total fields: ${results.totalGenerated}/${config.totalFields}`);
+  console.log(
+    `  📊 Total fields: ${results.totalGenerated}/${config.totalFields}`,
+  );
   console.log(`  📂 Indices: ${results.indices.length}`);
   console.log(`  ⏱️  Time: ${results.metadata.generationTimeMs}ms`);
   console.log(`  🔍 Correlation ID: ${correlationId}`);
-  
+
   return results;
 }
 
@@ -161,21 +186,23 @@ export async function generateMassiveFieldsMultiIndex(
  * Split fields across multiple documents in the same index
  */
 export async function generateMassiveFieldsDocumentSharding(
-  config: MassiveFieldConfig
+  config: MassiveFieldConfig,
 ): Promise<MassiveFieldResult> {
   const startTime = Date.now();
   const maxFieldsPerDoc = config.maxFieldsPerDocument || 25000;
   const correlationId = config.correlationId;
-  
+
   const numDocuments = Math.ceil(config.totalFields / maxFieldsPerDoc);
   const fieldsPerDoc = Math.floor(config.totalFields / numDocuments);
   const remainder = config.totalFields % numDocuments;
-  
-  console.log(`📄 Document Sharding Strategy: ${config.totalFields} fields across ${numDocuments} documents`);
-  
+
+  console.log(
+    `📄 Document Sharding Strategy: ${config.totalFields} fields across ${numDocuments} documents`,
+  );
+
   const indexName = `massive-fields-sharded-${config.namespace}`;
   const client = getEsClient();
-  
+
   const results: MassiveFieldResult = {
     totalGenerated: 0,
     indices: [indexName],
@@ -192,9 +219,11 @@ export async function generateMassiveFieldsDocumentSharding(
   for (let i = 0; i < numDocuments; i++) {
     const docFieldCount = fieldsPerDoc + (i < remainder ? 1 : 0);
     const documentId = `${correlationId}-shard-${i + 1}`;
-    
-    console.log(`📄 Document ${i + 1}/${numDocuments}: ${documentId} (${docFieldCount} fields)`);
-    
+
+    console.log(
+      `📄 Document ${i + 1}/${numDocuments}: ${documentId} (${docFieldCount} fields)`,
+    );
+
     // Generate field shard for this document
     const fieldResult = await generateFields({
       fieldCount: docFieldCount,
@@ -233,12 +262,18 @@ export async function generateMassiveFieldsDocumentSharding(
 
       results.totalGenerated += Object.keys(fieldResult.fields).length;
       results.documents.push(documentId);
-      results.metadata.distribution[documentId] = Object.keys(fieldResult.fields).length;
-      
-      console.log(`✅ ${documentId}: ${Object.keys(fieldResult.fields).length} fields indexed`);
-      
+      results.metadata.distribution[documentId] = Object.keys(
+        fieldResult.fields,
+      ).length;
+
+      console.log(
+        `✅ ${documentId}: ${Object.keys(fieldResult.fields).length} fields indexed`,
+      );
     } catch (error: any) {
-      console.error(`❌ Failed to index document ${documentId}:`, error.message);
+      console.error(
+        `❌ Failed to index document ${documentId}:`,
+        error.message,
+      );
     }
   }
 
@@ -251,12 +286,14 @@ export async function generateMassiveFieldsDocumentSharding(
   ];
 
   results.metadata.generationTimeMs = Date.now() - startTime;
-  
+
   console.log(`🎉 Document Sharding Complete:`);
-  console.log(`  📊 Total fields: ${results.totalGenerated}/${config.totalFields}`);
+  console.log(
+    `  📊 Total fields: ${results.totalGenerated}/${config.totalFields}`,
+  );
   console.log(`  📄 Documents: ${results.documents.length}`);
   console.log(`  ⏱️  Time: ${results.metadata.generationTimeMs}ms`);
-  
+
   return results;
 }
 
@@ -265,25 +302,27 @@ export async function generateMassiveFieldsDocumentSharding(
  * Store multiple logical fields in single Elasticsearch fields
  */
 export async function generateMassiveFieldsCompression(
-  config: MassiveFieldConfig
+  config: MassiveFieldConfig,
 ): Promise<MassiveFieldResult> {
   const startTime = Date.now();
   const compressionRatio = 10; // 10 logical fields per ES field
   const esFieldCount = Math.ceil(config.totalFields / compressionRatio);
-  
-  console.log(`🗜️  Field Compression Strategy: ${config.totalFields} logical fields → ${esFieldCount} ES fields`);
-  
+
+  console.log(
+    `🗜️  Field Compression Strategy: ${config.totalFields} logical fields → ${esFieldCount} ES fields`,
+  );
+
   const indexName = `massive-fields-compressed-${config.namespace}`;
   const client = getEsClient();
   const correlationId = config.correlationId;
-  
+
   // Generate compressed field structure
   const compressedFields: Record<string, any> = {};
-  
+
   for (let i = 0; i < esFieldCount; i++) {
     const fieldGroup = `compressed_group_${Math.floor(i / 1000)}`;
     const fieldName = `massive_fields.${fieldGroup}.field_bundle_${i}`;
-    
+
     // Create a bundle of logical fields in a single ES field
     const bundle: Record<string, any> = {};
     for (let j = 0; j < compressionRatio; j++) {
@@ -291,13 +330,22 @@ export async function generateMassiveFieldsCompression(
       if (logicalFieldId < config.totalFields) {
         bundle[`field_${logicalFieldId}`] = {
           value: faker.number.float({ min: 0, max: 100, fractionDigits: 2 }),
-          type: faker.helpers.arrayElement(['metric', 'score', 'count', 'percentage']),
-          category: faker.helpers.arrayElement(['performance', 'security', 'behavioral']),
+          type: faker.helpers.arrayElement([
+            'metric',
+            'score',
+            'count',
+            'percentage',
+          ]),
+          category: faker.helpers.arrayElement([
+            'performance',
+            'security',
+            'behavioral',
+          ]),
           timestamp: new Date().toISOString(),
         };
       }
     }
-    
+
     compressedFields[fieldName] = bundle;
   }
 
@@ -345,13 +393,12 @@ export async function generateMassiveFieldsCompression(
     ];
 
     results.metadata.generationTimeMs = Date.now() - startTime;
-    
+
     console.log(`🎉 Field Compression Complete:`);
     console.log(`  📊 Logical fields: ${config.totalFields}`);
     console.log(`  🗜️  ES fields: ${esFieldCount}`);
     console.log(`  📊 Compression ratio: ${compressionRatio}:1`);
     console.log(`  ⏱️  Time: ${results.metadata.generationTimeMs}ms`);
-    
   } catch (error: any) {
     console.error(`❌ Failed to index compressed document:`, error.message);
   }
@@ -364,10 +411,12 @@ export async function generateMassiveFieldsCompression(
  * Combines multiple strategies for maximum field capacity
  */
 export async function generateMassiveFieldsHybrid(
-  config: MassiveFieldConfig
+  config: MassiveFieldConfig,
 ): Promise<MassiveFieldResult> {
-  console.log(`🚀 Hybrid Strategy: ${config.totalFields} fields using combined approaches`);
-  
+  console.log(
+    `🚀 Hybrid Strategy: ${config.totalFields} fields using combined approaches`,
+  );
+
   const strategies = [
     { name: 'multi-index', allocation: 0.6 },
     { name: 'document-sharding', allocation: 0.3 },
@@ -405,7 +454,8 @@ export async function generateMassiveFieldsHybrid(
         strategyResult = await generateMassiveFieldsMultiIndex(strategyConfig);
         break;
       case 'document-sharding':
-        strategyResult = await generateMassiveFieldsDocumentSharding(strategyConfig);
+        strategyResult =
+          await generateMassiveFieldsDocumentSharding(strategyConfig);
         break;
       case 'field-compression':
         strategyResult = await generateMassiveFieldsCompression(strategyConfig);
@@ -419,13 +469,18 @@ export async function generateMassiveFieldsHybrid(
     results.indices.push(...strategyResult.indices);
     results.documents.push(...strategyResult.documents);
     results.queryPatterns.push(...strategyResult.queryPatterns);
-    Object.assign(results.metadata.distribution, strategyResult.metadata.distribution);
+    Object.assign(
+      results.metadata.distribution,
+      strategyResult.metadata.distribution,
+    );
   }
 
   results.metadata.generationTimeMs = Date.now() - startTime;
-  
+
   console.log(`🎉 Hybrid Strategy Complete:`);
-  console.log(`  📊 Total fields: ${results.totalGenerated}/${config.totalFields}`);
+  console.log(
+    `  📊 Total fields: ${results.totalGenerated}/${config.totalFields}`,
+  );
   console.log(`  📂 Total indices: ${results.indices.length}`);
   console.log(`  📄 Total documents: ${results.documents.length}`);
   console.log(`  ⏱️  Time: ${results.metadata.generationTimeMs}ms`);
@@ -438,7 +493,7 @@ export async function generateMassiveFieldsHybrid(
  */
 export async function optimizeElasticsearchForMassiveFields(): Promise<void> {
   const client = getEsClient();
-  
+
   const optimizedSettings = {
     'index.mapping.total_fields.limit': 200000, // Max out field limit
     'index.mapping.depth.limit': 100, // Support deep nesting
@@ -460,11 +515,12 @@ export async function optimizeElasticsearchForMassiveFields(): Promise<void> {
       },
     });
 
-    console.log(`⚙️  Optimized Elasticsearch cluster settings for massive fields`);
+    console.log(
+      `⚙️  Optimized Elasticsearch cluster settings for massive fields`,
+    );
     console.log(`   📊 Max fields per index: 200,000`);
     console.log(`   🏗️  Max nesting depth: 100`);
     console.log(`   🔍 Max query clauses: 10,000`);
-    
   } catch (error: any) {
     console.warn(`⚠️  Could not optimize cluster settings:`, error.message);
   }
@@ -486,10 +542,10 @@ export async function queryMassiveFieldsData(params: {
 }> {
   const client = getEsClient();
   const { correlationId, namespace, limit } = params;
-  
+
   // Query across all possible massive field indices
   const indexPattern = `massive-fields-*-${namespace}`;
-  
+
   const response = await client.search({
     index: indexPattern,
     body: {
@@ -510,18 +566,20 @@ export async function queryMassiveFieldsData(params: {
     return sum + (hit._source['massive_fields.field_count'] || 0);
   }, 0);
   const avgFieldsPerDoc = hits.length > 0 ? totalFields / hits.length : 0;
-  
+
   // Index distribution
   const indexCounts: Record<string, number> = {};
   hits.forEach((hit: any) => {
     const index = hit._index;
     indexCounts[index] = (indexCounts[index] || 0) + 1;
   });
-  
-  const indexDistribution = Object.entries(indexCounts).map(([index, count]) => ({
-    index,
-    count,
-  }));
+
+  const indexDistribution = Object.entries(indexCounts).map(
+    ([index, count]) => ({
+      index,
+      count,
+    }),
+  );
 
   return {
     hits,

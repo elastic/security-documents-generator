@@ -1,10 +1,10 @@
 import { faker } from '@faker-js/faker';
 import { generateTimestamp } from '../utils/timestamp_utils';
-import { 
-  getThemedUsername, 
-  getThemedHostname, 
+import {
+  getThemedUsername,
+  getThemedHostname,
   getThemedDomain,
-  getGlobalThemeGenerator 
+  getGlobalThemeGenerator,
 } from '../utils/universal_theme_generator';
 
 export interface AuthLogConfig {
@@ -154,7 +154,9 @@ export const generateLoginFailureLog = async (config: AuthLogConfig = {}) => {
   };
 };
 
-export const generatePrivilegeEscalationLog = async (config: AuthLogConfig = {}) => {
+export const generatePrivilegeEscalationLog = async (
+  config: AuthLogConfig = {},
+) => {
   const {
     hostName = await getThemedHostname(faker.internet.domainName()),
     userName = await getThemedUsername(faker.internet.username()),

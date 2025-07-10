@@ -1,6 +1,6 @@
 /**
  * Fix Unmapped Fields - Complete Solution
- * 
+ *
  * This command handles the unmapped fields issue by:
  * 1. Analyzing current data structure
  * 2. Creating proper mappings for actual field patterns
@@ -25,24 +25,24 @@ async function analyzeCurrentFields(indexName: string): Promise<{
   sampleFields: string[];
 }> {
   const client = getEsClient();
-  
+
   console.log(`🔍 Analyzing field patterns in ${indexName}...`);
-  
+
   // Get a sample document to analyze field patterns
   const response = await client.search({
     index: indexName,
     size: 1,
     sort: [{ '@timestamp': { order: 'desc' } }],
   });
-  
+
   if (response.hits.hits.length === 0) {
     return { totalFields: 0, fieldPatterns: {}, sampleFields: [] };
   }
-  
+
   const source = response.hits.hits[0]._source as Record<string, any>;
   const allFields = flattenObject(source);
   const fieldNames = Object.keys(allFields);
-  
+
   // Analyze patterns
   const patterns: Record<string, number> = {};
   for (const field of fieldNames) {
@@ -52,12 +52,12 @@ async function analyzeCurrentFields(indexName: string): Promise<{
       patterns[pattern] = (patterns[pattern] || 0) + 1;
     }
   }
-  
+
   // Get sample behavioral fields
   const behavioralFields = fieldNames
-    .filter(f => f.startsWith('behavioral.'))
+    .filter((f) => f.startsWith('behavioral.'))
     .slice(0, 10);
-  
+
   return {
     totalFields: fieldNames.length,
     fieldPatterns: patterns,
@@ -70,19 +70,23 @@ async function analyzeCurrentFields(indexName: string): Promise<{
  */
 function flattenObject(obj: any, prefix = ''): Record<string, any> {
   const flattened: Record<string, any> = {};
-  
+
   for (const key in obj) {
     if (obj.hasOwnProperty(key)) {
       const newKey = prefix ? `${prefix}.${key}` : key;
-      
-      if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
+
+      if (
+        typeof obj[key] === 'object' &&
+        obj[key] !== null &&
+        !Array.isArray(obj[key])
+      ) {
         Object.assign(flattened, flattenObject(obj[key], newKey));
       } else {
         flattened[newKey] = obj[key];
       }
     }
   }
-  
+
   return flattened;
 }
 
@@ -94,45 +98,45 @@ function createDynamicMapping(): any {
     properties: {
       // Standard ECS fields
       '@timestamp': { type: 'date' },
-      'event': {
+      event: {
         properties: {
-          'action': { type: 'keyword' },
-          'category': { type: 'keyword' },
-          'type': { type: 'keyword' },
-          'severity': { type: 'keyword' },
-        }
+          action: { type: 'keyword' },
+          category: { type: 'keyword' },
+          type: { type: 'keyword' },
+          severity: { type: 'keyword' },
+        },
       },
-      'host': {
+      host: {
         properties: {
-          'name': { type: 'keyword' }
-        }
+          name: { type: 'keyword' },
+        },
       },
-      'user': {
+      user: {
         properties: {
-          'name': { type: 'keyword' }
-        }
+          name: { type: 'keyword' },
+        },
       },
       // Dynamic behavioral fields
-      'behavioral': {
+      behavioral: {
         type: 'object',
         dynamic: true,
-        properties: {} // Will be populated dynamically
+        properties: {}, // Will be populated dynamically
       },
-      'user_behavior': {
+      user_behavior: {
         type: 'object',
         dynamic: true,
-        properties: {}
+        properties: {},
       },
-      'host_behavior': {
-        type: 'object', 
-        dynamic: true,
-        properties: {}
-      },
-      'entity_behavior': {
+      host_behavior: {
         type: 'object',
         dynamic: true,
-        properties: {}
-      }
+        properties: {},
+      },
+      entity_behavior: {
+        type: 'object',
+        dynamic: true,
+        properties: {},
+      },
     },
     // Enable dynamic mapping for new field patterns
     dynamic_templates: [
@@ -143,20 +147,20 @@ function createDynamicMapping(): any {
           mapping: {
             type: 'long',
             index: true,
-            doc_values: true
-          }
-        }
+            doc_values: true,
+          },
+        },
       },
       {
         behavioral_floats: {
           path_match: 'behavioral.*',
           match_mapping_type: 'double',
           mapping: {
-            type: 'double', 
+            type: 'double',
             index: true,
-            doc_values: true
-          }
-        }
+            doc_values: true,
+          },
+        },
       },
       {
         behavioral_keywords: {
@@ -165,9 +169,9 @@ function createDynamicMapping(): any {
           mapping: {
             type: 'keyword',
             index: true,
-            doc_values: true
-          }
-        }
+            doc_values: true,
+          },
+        },
       },
       {
         user_behavior_numbers: {
@@ -176,20 +180,20 @@ function createDynamicMapping(): any {
           mapping: {
             type: 'long',
             index: true,
-            doc_values: true
-          }
-        }
+            doc_values: true,
+          },
+        },
       },
       {
         user_behavior_floats: {
-          path_match: 'user_behavior.*', 
+          path_match: 'user_behavior.*',
           match_mapping_type: 'double',
           mapping: {
             type: 'double',
             index: true,
-            doc_values: true
-          }
-        }
+            doc_values: true,
+          },
+        },
       },
       {
         all_numbers: {
@@ -197,53 +201,58 @@ function createDynamicMapping(): any {
           mapping: {
             type: 'long',
             index: true,
-            doc_values: true
-          }
-        }
+            doc_values: true,
+          },
+        },
       },
       {
         all_floats: {
-          match_mapping_type: 'double', 
+          match_mapping_type: 'double',
           mapping: {
             type: 'double',
             index: true,
-            doc_values: true
-          }
-        }
-      }
-    ]
+            doc_values: true,
+          },
+        },
+      },
+    ],
   };
 }
 
 /**
  * Fix unmapped fields in security alerts index
  */
-export async function fixUnmappedFields(options: FixOptions = {}): Promise<void> {
+export async function fixUnmappedFields(
+  options: FixOptions = {},
+): Promise<void> {
   const client = getEsClient();
-  
+
   console.log('🔧 Fixing unmapped fields in security alerts index...');
-  
+
   // Find the security alerts index
   const indices = await client.cat.indices({ format: 'json' });
-  const securityIndex = indices.find((idx: any) => 
-    idx.index && idx.index.includes('alerts-security.alerts-')
+  const securityIndex = indices.find(
+    (idx: any) => idx.index && idx.index.includes('alerts-security.alerts-'),
   );
-  
+
   if (!securityIndex) {
     console.error('❌ Could not find security alerts index');
     return;
   }
-  
+
   const currentIndex = securityIndex.index;
   console.log(`🎯 Found index: ${currentIndex}`);
-  
+
   // Analyze current data
   const analysis = await analyzeCurrentFields(currentIndex);
   console.log(`📊 Analysis results:`);
   console.log(`  Total fields: ${analysis.totalFields}`);
-  console.log(`  Field patterns:`, Object.keys(analysis.fieldPatterns).slice(0, 5));
+  console.log(
+    `  Field patterns:`,
+    Object.keys(analysis.fieldPatterns).slice(0, 5),
+  );
   console.log(`  Sample behavioral fields:`, analysis.sampleFields.slice(0, 3));
-  
+
   if (options.reindex) {
     console.log('🔄 Reindexing with proper mappings...');
     await reindexWithProperMappings(currentIndex, options.indexSuffix);
@@ -262,7 +271,9 @@ export async function fixUnmappedFields(options: FixOptions = {}): Promise<void>
     console.log('   • Regenerates all data with correct field types');
     console.log('');
     console.log('2️⃣  **Create New Index**:');
-    console.log('   yarn start fix-unmapped-fields --create-new --suffix "-v2"');
+    console.log(
+      '   yarn start fix-unmapped-fields --create-new --suffix "-v2"',
+    );
     console.log('   • Keeps existing data');
     console.log('   • Creates new index with proper mappings');
     console.log('   • Future data goes to new index');
@@ -277,19 +288,24 @@ export async function fixUnmappedFields(options: FixOptions = {}): Promise<void>
 /**
  * Reindex with proper mappings
  */
-async function reindexWithProperMappings(currentIndex: string, suffix?: string): Promise<void> {
+async function reindexWithProperMappings(
+  currentIndex: string,
+  suffix?: string,
+): Promise<void> {
   const client = getEsClient();
-  
+
   const newIndex = suffix ? `${currentIndex}${suffix}` : currentIndex;
   const tempIndex = `${currentIndex}-backup-${Date.now()}`;
-  
+
   try {
     console.log(`📋 Step 1: Creating backup as ${tempIndex}`);
-    
+
     // Create backup index with current mapping
-    const currentMapping = await client.indices.getMapping({ index: currentIndex });
+    const currentMapping = await client.indices.getMapping({
+      index: currentIndex,
+    });
     const mapping = currentMapping[currentIndex];
-    
+
     await client.indices.create({
       index: tempIndex,
       body: {
@@ -300,7 +316,7 @@ async function reindexWithProperMappings(currentIndex: string, suffix?: string):
         mappings: mapping.mappings,
       },
     });
-    
+
     // Copy data to backup
     await client.reindex({
       body: {
@@ -309,15 +325,15 @@ async function reindexWithProperMappings(currentIndex: string, suffix?: string):
       },
       wait_for_completion: true,
     });
-    
+
     console.log(`✅ Backup created: ${tempIndex}`);
-    
+
     console.log(`🗑️  Step 2: Deleting current index ${currentIndex}`);
     await client.indices.delete({ index: currentIndex });
-    
+
     console.log(`🏗️  Step 3: Creating new index with proper mappings`);
     const dynamicMapping = createDynamicMapping();
-    
+
     await client.indices.create({
       index: newIndex,
       body: {
@@ -330,19 +346,22 @@ async function reindexWithProperMappings(currentIndex: string, suffix?: string):
         mappings: dynamicMapping,
       },
     });
-    
+
     console.log(`✅ New index created: ${newIndex}`);
     console.log(`📋 Backup available at: ${tempIndex}`);
     console.log('');
     console.log('🎯 Next steps:');
-    console.log('1. Generate new data with: yarn start generate-alerts -n 10 --multi-field --field-count 4000 --field-categories behavioral_analytics');
+    console.log(
+      '1. Generate new data with: yarn start generate-alerts -n 10 --multi-field --field-count 4000 --field-categories behavioral_analytics',
+    );
     console.log('2. Check Kibana - fields should now be properly mapped');
-    console.log(`3. If everything works, delete backup: curl -X DELETE "${client.connectionPool.connections[0].url}/${tempIndex}"`);
-    
+    console.log(
+      `3. If everything works, delete backup: curl -X DELETE "${client.connectionPool.connections[0].url}/${tempIndex}"`,
+    );
   } catch (error) {
     console.error('❌ Reindex failed:', error);
     console.log(`🔄 Attempting to restore from backup if it exists...`);
-    
+
     try {
       const backupExists = await client.indices.exists({ index: tempIndex });
       if (backupExists) {
@@ -360,7 +379,7 @@ async function reindexWithProperMappings(currentIndex: string, suffix?: string):
     } catch (restoreError) {
       console.error('❌ Restore also failed:', restoreError);
     }
-    
+
     throw error;
   }
 }
@@ -368,15 +387,18 @@ async function reindexWithProperMappings(currentIndex: string, suffix?: string):
 /**
  * Create new index with proper mappings
  */
-async function createNewIndexWithMappings(currentIndex: string, suffix: string = '-v2'): Promise<void> {
+async function createNewIndexWithMappings(
+  currentIndex: string,
+  suffix: string = '-v2',
+): Promise<void> {
   const client = getEsClient();
-  
+
   const newIndex = `${currentIndex}${suffix}`;
-  
+
   console.log(`🏗️  Creating new index: ${newIndex}`);
-  
+
   const dynamicMapping = createDynamicMapping();
-  
+
   await client.indices.create({
     index: newIndex,
     body: {
@@ -389,7 +411,7 @@ async function createNewIndexWithMappings(currentIndex: string, suffix: string =
       mappings: dynamicMapping,
     },
   });
-  
+
   console.log(`✅ New index created: ${newIndex}`);
   console.log('');
   console.log('🎯 Next steps:');
@@ -401,7 +423,9 @@ async function createNewIndexWithMappings(currentIndex: string, suffix: string =
 /**
  * CLI command
  */
-export async function fixUnmappedFieldsCLI(options: FixOptions = {}): Promise<void> {
+export async function fixUnmappedFieldsCLI(
+  options: FixOptions = {},
+): Promise<void> {
   try {
     await fixUnmappedFields(options);
   } catch (error) {

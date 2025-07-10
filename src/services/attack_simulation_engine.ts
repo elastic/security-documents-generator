@@ -427,21 +427,28 @@ export class AttackSimulationEngine {
     // Calculate total campaign duration and divide among stages
     const totalDurationMs = timeRange.end.getTime() - timeRange.start.getTime();
     const averageStageDuration = totalDurationMs / scenarioStages.length;
-    
+
     // Ensure stages fit within the time range with small gaps
-    const maxStageDuration = Math.max(averageStageDuration * 0.8, 10 * 60 * 1000); // At least 10 minutes
+    const maxStageDuration = Math.max(
+      averageStageDuration * 0.8,
+      10 * 60 * 1000,
+    ); // At least 10 minutes
     const maxGap = Math.min(averageStageDuration * 0.2, 60 * 60 * 1000); // Max 1 hour gap
 
     let currentTime = new Date(timeRange.start);
 
     for (const [index, stageData] of scenarioStages.entries()) {
-      const stageDuration = this.calculateStageDuration(stageData, maxStageDuration);
+      const stageDuration = this.calculateStageDuration(
+        stageData,
+        maxStageDuration,
+      );
       const stageEnd = new Date(currentTime.getTime() + stageDuration);
-      
+
       // Ensure we don't exceed the end time
-      const adjustedStageEnd = stageEnd.getTime() > timeRange.end.getTime() 
-        ? new Date(timeRange.end) 
-        : stageEnd;
+      const adjustedStageEnd =
+        stageEnd.getTime() > timeRange.end.getTime()
+          ? new Date(timeRange.end)
+          : stageEnd;
 
       const stage: SimulationStage = {
         id: faker.string.uuid(),
@@ -456,15 +463,15 @@ export class AttackSimulationEngine {
       };
 
       stages.push(stage);
-      
+
       // Add small gap between stages, but ensure we don't exceed campaign end time
       const gapDuration = Math.min(
         faker.number.int({ min: 5, max: 30 }) * 60 * 1000, // 5-30 minutes gap
-        maxGap
+        maxGap,
       );
-      
+
       currentTime = new Date(adjustedStageEnd.getTime() + gapDuration);
-      
+
       // If we're approaching the end time, stop creating stages
       if (currentTime.getTime() >= timeRange.end.getTime()) {
         break;
@@ -474,22 +481,26 @@ export class AttackSimulationEngine {
     return stages;
   }
 
-  private calculateStageDuration(stageData: any, maxDurationMs?: number): number {
+  private calculateStageDuration(
+    stageData: any,
+    maxDurationMs?: number,
+  ): number {
     let durationMs: number;
-    
+
     if (stageData.duration) {
       const minHours = stageData.duration.min || 1;
       const maxHours = stageData.duration.max || 24;
-      durationMs = faker.number.int({ min: minHours, max: maxHours }) * 60 * 60 * 1000;
+      durationMs =
+        faker.number.int({ min: minHours, max: maxHours }) * 60 * 60 * 1000;
     } else {
       durationMs = faker.number.int({ min: 2, max: 48 }) * 60 * 60 * 1000; // Default 2-48 hours
     }
-    
+
     // If maxDurationMs is provided, ensure we don't exceed it
     if (maxDurationMs && durationMs > maxDurationMs) {
       durationMs = Math.max(maxDurationMs, 10 * 60 * 1000); // At least 10 minutes
     }
-    
+
     return durationMs;
   }
 

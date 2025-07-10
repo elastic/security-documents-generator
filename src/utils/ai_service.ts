@@ -116,9 +116,9 @@ const initializeAI = (): void => {
         defaultQuery: {
           'api-version': config.azureOpenAIApiVersion || '2024-08-01-preview',
         },
-        defaultHeaders: { 
+        defaultHeaders: {
           'api-key': config.azureOpenAIApiKey,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
       });
     } else {
@@ -781,60 +781,90 @@ export const generateAIAlertBatch = async (
             }
 
             // Debug logging for AI responses (always enabled for debugging)
-            console.log(`🔍 AI Raw Response (first 500 chars): ${rawContent.substring(0, 500)}...`);
+            console.log(
+              `🔍 AI Raw Response (first 500 chars): ${rawContent.substring(0, 500)}...`,
+            );
 
             // Clean and validate the JSON content
             const cleanedContent = sanitizeJSONResponse(rawContent);
-            console.log(`🧹 Cleaned Content: ${cleanedContent.substring(0, 300)}...`);
-            
+            console.log(
+              `🧹 Cleaned Content: ${cleanedContent.substring(0, 300)}...`,
+            );
+
             const content = safeJsonParse(
               cleanedContent,
               'Batch response parsing',
             );
 
             // Debug logging for parsed content
-            console.log(`📊 Parsed Content Type: ${typeof content}, Array: ${Array.isArray(content)}`);
-            console.log(`🔑 Content Keys: ${content && typeof content === 'object' ? Object.keys(content) : 'N/A'}`);
-            
+            console.log(
+              `📊 Parsed Content Type: ${typeof content}, Array: ${Array.isArray(content)}`,
+            );
+            console.log(
+              `🔑 Content Keys: ${content && typeof content === 'object' ? Object.keys(content) : 'N/A'}`,
+            );
+
             if (content && typeof content === 'object') {
-              console.log('🏗️ Content structure:', JSON.stringify(content, null, 2).substring(0, 1000));
+              console.log(
+                '🏗️ Content structure:',
+                JSON.stringify(content, null, 2).substring(0, 1000),
+              );
             }
 
             // Enhanced response format handling
             if (Array.isArray(content)) {
-              console.log(`✅ Direct array response found with ${content.length} items`);
+              console.log(
+                `✅ Direct array response found with ${content.length} items`,
+              );
               generatedAlerts = content;
             } else if (content && typeof content === 'object') {
               const contentObj = content as Record<string, unknown>;
-              console.log(`🔍 Object response detected, checking for array properties...`);
-              
+              console.log(
+                `🔍 Object response detected, checking for array properties...`,
+              );
+
               // Priority order for common response patterns
-              const possibleArrayKeys = ['alerts', 'alert', 'data', 'kibana.alerts', 'response', 'results'];
+              const possibleArrayKeys = [
+                'alerts',
+                'alert',
+                'data',
+                'kibana.alerts',
+                'response',
+                'results',
+              ];
               let foundArray = false;
-              
+
               for (const key of possibleArrayKeys) {
                 if (contentObj[key] && Array.isArray(contentObj[key])) {
-                  console.log(`✅ Found array in property '${key}' with ${(contentObj[key] as unknown[]).length} items`);
+                  console.log(
+                    `✅ Found array in property '${key}' with ${(contentObj[key] as unknown[]).length} items`,
+                  );
                   generatedAlerts = contentObj[key] as unknown[];
                   foundArray = true;
                   break;
                 }
               }
-              
+
               if (!foundArray) {
                 // Check for any array property in the object
-                const arrayKeys = Object.keys(contentObj).filter(key => 
-                  Array.isArray(contentObj[key])
+                const arrayKeys = Object.keys(contentObj).filter((key) =>
+                  Array.isArray(contentObj[key]),
                 );
-                
+
                 if (arrayKeys.length > 0) {
-                  console.log(`✅ Found array in property '${arrayKeys[0]}' with ${(contentObj[arrayKeys[0]] as unknown[]).length} items`);
+                  console.log(
+                    `✅ Found array in property '${arrayKeys[0]}' with ${(contentObj[arrayKeys[0]] as unknown[]).length} items`,
+                  );
                   generatedAlerts = contentObj[arrayKeys[0]] as unknown[];
                 } else {
-                  console.log(`⚠️ No array found, treating as single object response`);
+                  console.log(
+                    `⚠️ No array found, treating as single object response`,
+                  );
                   // Single object response - replicate it for each entity if we need multiple
                   if (batch.length > 1) {
-                    console.log(`🔄 Replicating single object for ${batch.length} entities`);
+                    console.log(
+                      `🔄 Replicating single object for ${batch.length} entities`,
+                    );
                     generatedAlerts = batch.map(() => ({ ...content }));
                   } else {
                     generatedAlerts = [content];
@@ -842,11 +872,15 @@ export const generateAIAlertBatch = async (
                 }
               }
             } else {
-              console.warn(`❌ AI response format not recognized (type: ${typeof content}), falling back to individual generation`);
+              console.warn(
+                `❌ AI response format not recognized (type: ${typeof content}), falling back to individual generation`,
+              );
               generatedAlerts = [];
             }
-            
-            console.log(`📊 Extracted ${generatedAlerts.length} alerts from AI response`);
+
+            console.log(
+              `📊 Extracted ${generatedAlerts.length} alerts from AI response`,
+            );
 
             // Validate batch response
             generatedAlerts = validateBatchResponse(
@@ -1310,6 +1344,340 @@ export const extractSchemaFromMapping = (
     console.error('Error extracting schema from mapping:', error);
     return {};
   }
+};
+
+// Generate multiple realistic detection rule names in a single AI call
+export const generateRealisticRuleNamesBatch = async (
+  rules: Array<{
+    ruleType: string;
+    ruleQuery: string;
+    severity: string;
+    category: string;
+  }>
+): Promise<Array<{ name: string; description: string }>> => {
+  const config = getConfig();
+  
+  // Create fallback function for when AI is not available
+  const generateFallbackRuleNames = () => {
+    const ruleTypeNames = {
+      query: 'Suspicious Activity Detection',
+      threshold: 'Multiple Failed Attempts',
+      eql: 'Attack Sequence Detection',
+      machine_learning: 'Anomaly Detection',
+      threat_match: 'Threat Intelligence Match',
+      new_terms: 'New Entity Detection',
+      esql: 'Advanced Analytics Rule'
+    };
+    
+    return rules.map((rule, index) => {
+      const baseName = ruleTypeNames[rule.ruleType as keyof typeof ruleTypeNames] || 'Security Detection';
+      const identifier = faker.string.alphanumeric(6);
+      
+      return {
+        name: `${baseName} - ${identifier}`,
+        description: `${rule.ruleType} rule that detects ${faker.helpers.arrayElement(['suspicious', 'malicious', 'anomalous', 'unusual'])} activity`
+      };
+    });
+  };
+
+  // If AI is not configured, return fallback
+  if (!config.useAI) {
+    return generateFallbackRuleNames();
+  }
+
+  try {
+    const rulesContext = rules.map((rule, index) => 
+      `${index + 1}. Type: ${rule.ruleType}, Query: ${rule.ruleQuery}, Severity: ${rule.severity}, Category: ${rule.category}`
+    ).join('\n');
+
+    const prompt = `Generate realistic detection rule names and descriptions for ${rules.length} cybersecurity SIEM rules.
+
+Rules to generate:
+${rulesContext}
+
+Requirements:
+1. Each rule name should be professional and descriptive (max 80 characters)
+2. Each description should explain what the rule detects (max 200 characters)
+3. Use standard cybersecurity terminology
+4. Make them sound like real SOC detection rules
+5. Include relevant technical details based on each query
+
+Examples of good rule names:
+- "Windows Command Shell Execution with Suspicious Arguments"
+- "Multiple Authentication Failures from Single Source"
+- "Lateral Movement via WMI Command Execution"
+- "Suspicious PowerShell Script Block Logging"
+
+Return ONLY a JSON array with objects containing 'name' and 'description' fields, in the same order as the input rules:`;
+
+    if (config.useClaudeAI && config.claudeApiKey) {
+      const anthropic = new Anthropic({ apiKey: config.claudeApiKey });
+      
+      const response = await anthropic.messages.create({
+        model: config.claudeModel || 'claude-3-5-sonnet-20241022',
+        max_tokens: Math.min(4000, rules.length * 150),
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+      });
+
+      const content = response.content[0];
+      if (content.type === 'text') {
+        const rawText = content.text.trim();
+        
+        // Try to extract JSON array from the response
+        let jsonStr = rawText;
+        
+        // Look for JSON array in the response
+        const jsonMatch = rawText.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          jsonStr = jsonMatch[0];
+        }
+        
+        // Clean up common AI response issues
+        jsonStr = jsonStr
+          .replace(/```json\n?/, '')
+          .replace(/\n?```/, '')
+          .replace(/^\s*\[/, '[')
+          .replace(/\]\s*$/, ']');
+        
+        const result = safeJsonParse(jsonStr, 'Batch rule name generation');
+        if (Array.isArray(result) && result.length === rules.length) {
+          return result.map(item => ({
+            name: (item.name || '').substring(0, 80),
+            description: (item.description || '').substring(0, 200)
+          }));
+        }
+      }
+    } else if (config.openaiApiKey || (config.useAzureOpenAI && config.azureOpenAIApiKey)) {
+      const openai = new OpenAI(
+        config.useAzureOpenAI
+          ? {
+              apiKey: config.azureOpenAIApiKey,
+              baseURL: `${config.azureOpenAIEndpoint}/openai/deployments/${config.azureOpenAIDeployment}`,
+              defaultQuery: { 'api-version': config.azureOpenAIApiVersion },
+              defaultHeaders: { 'api-key': config.azureOpenAIApiKey },
+            }
+          : { apiKey: config.openaiApiKey }
+      );
+
+      const response = await openai.chat.completions.create({
+        model: config.useAzureOpenAI ? config.azureOpenAIDeployment || 'gpt-4' : 'gpt-4',
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        max_tokens: Math.min(4000, rules.length * 150),
+        temperature: 0.7,
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (content) {
+        const rawText = content.trim();
+        
+        // Try to extract JSON array from the response
+        let jsonStr = rawText;
+        
+        // Look for JSON array in the response
+        const jsonMatch = rawText.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          jsonStr = jsonMatch[0];
+        }
+        
+        // Clean up common AI response issues
+        jsonStr = jsonStr
+          .replace(/```json\n?/, '')
+          .replace(/\n?```/, '')
+          .replace(/^\s*\[/, '[')
+          .replace(/\]\s*$/, ']');
+        
+        const result = safeJsonParse(jsonStr, 'Batch rule name generation');
+        if (Array.isArray(result) && result.length === rules.length) {
+          return result.map(item => ({
+            name: (item.name || '').substring(0, 80),
+            description: (item.description || '').substring(0, 200)
+          }));
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to generate batch AI rule names, using fallbacks:', error instanceof Error ? error.message : 'Unknown error');
+  }
+
+  // Fallback if AI fails
+  return generateFallbackRuleNames();
+};
+
+// Generate realistic detection rule names and descriptions using AI
+export const generateRealisticRuleName = async (
+  ruleType: string,
+  ruleQuery: string,
+  options: {
+    severity?: string;
+    category?: string;
+    technique?: string;
+  } = {}
+): Promise<{ name: string; description: string }> => {
+  const config = getConfig();
+  
+  // Create a fallback function for when AI is not available
+  const generateFallbackRuleName = () => {
+    const ruleTypeNames = {
+      query: 'Suspicious Activity Detection',
+      threshold: 'Multiple Failed Attempts',
+      eql: 'Attack Sequence Detection',
+      machine_learning: 'Anomaly Detection',
+      threat_match: 'Threat Intelligence Match',
+      new_terms: 'New Entity Detection',
+      esql: 'Advanced Analytics Rule'
+    };
+    
+    const baseName = ruleTypeNames[ruleType as keyof typeof ruleTypeNames] || 'Security Detection';
+    const identifier = faker.string.alphanumeric(6);
+    
+    return {
+      name: `${baseName} - ${identifier}`,
+      description: `${ruleType} rule that detects ${faker.helpers.arrayElement(['suspicious', 'malicious', 'anomalous', 'unusual'])} activity`
+    };
+  };
+
+  // If AI is not configured, return fallback
+  if (!config.useAI) {
+    return generateFallbackRuleName();
+  }
+
+  try {
+    const prompt = `Generate a realistic detection rule name and description for a cybersecurity SIEM system.
+
+Rule Details:
+- Type: ${ruleType}
+- Query: ${ruleQuery}
+- Severity: ${options.severity || 'medium'}
+${options.technique ? `- MITRE Technique: ${options.technique}` : ''}
+${options.category ? `- Category: ${options.category}` : ''}
+
+Requirements:
+1. Rule name should be professional and descriptive (max 80 characters)
+2. Description should explain what the rule detects (max 200 characters)
+3. Use standard cybersecurity terminology
+4. Make it sound like real SOC detection rules
+5. Include relevant technical details based on the query
+
+Examples of good rule names:
+- "Windows Command Shell Execution with Suspicious Arguments"
+- "Multiple Authentication Failures from Single Source"
+- "Lateral Movement via WMI Command Execution"
+- "Suspicious PowerShell Script Block Logging"
+- "Potential Data Exfiltration via DNS Tunneling"
+
+Return ONLY a JSON object with 'name' and 'description' fields:`;
+
+    if (config.useClaudeAI && config.claudeApiKey) {
+      const anthropic = new Anthropic({ apiKey: config.claudeApiKey });
+      
+      const response = await anthropic.messages.create({
+        model: config.claudeModel || 'claude-3-5-sonnet-20241022',
+        max_tokens: 300,
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+      });
+
+      const content = response.content[0];
+      if (content.type === 'text') {
+        const rawText = content.text.trim();
+        
+        // Try to extract JSON from the response
+        let jsonStr = rawText;
+        
+        // Look for JSON object in the response
+        const jsonMatch = rawText.match(/\{[^{}]*"name"[^{}]*\}/);
+        if (jsonMatch) {
+          jsonStr = jsonMatch[0];
+        }
+        
+        // Clean up common AI response issues
+        jsonStr = jsonStr
+          .replace(/```json\n?/, '')
+          .replace(/\n?```/, '')
+          .replace(/^\s*{/, '{')
+          .replace(/}\s*$/, '}');
+        
+        const result = safeJsonParse(jsonStr, 'Rule name generation');
+        if (result && result.name && result.description) {
+          return {
+            name: result.name.substring(0, 80),
+            description: result.description.substring(0, 200)
+          };
+        }
+      }
+    } else if (config.openaiApiKey || (config.useAzureOpenAI && config.azureOpenAIApiKey)) {
+      const openai = new OpenAI(
+        config.useAzureOpenAI
+          ? {
+              apiKey: config.azureOpenAIApiKey,
+              baseURL: `${config.azureOpenAIEndpoint}/openai/deployments/${config.azureOpenAIDeployment}`,
+              defaultQuery: { 'api-version': config.azureOpenAIApiVersion },
+              defaultHeaders: { 'api-key': config.azureOpenAIApiKey },
+            }
+          : { apiKey: config.openaiApiKey }
+      );
+
+      const response = await openai.chat.completions.create({
+        model: config.useAzureOpenAI ? config.azureOpenAIDeployment || 'gpt-4' : 'gpt-4',
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        max_tokens: 300,
+        temperature: 0.7,
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (content) {
+        const rawText = content.trim();
+        
+        // Try to extract JSON from the response
+        let jsonStr = rawText;
+        
+        // Look for JSON object in the response
+        const jsonMatch = rawText.match(/\{[^{}]*"name"[^{}]*\}/);
+        if (jsonMatch) {
+          jsonStr = jsonMatch[0];
+        }
+        
+        // Clean up common AI response issues
+        jsonStr = jsonStr
+          .replace(/```json\n?/, '')
+          .replace(/\n?```/, '')
+          .replace(/^\s*{/, '{')
+          .replace(/}\s*$/, '}');
+        
+        const result = safeJsonParse(jsonStr, 'Rule name generation');
+        if (result && result.name && result.description) {
+          return {
+            name: result.name.substring(0, 80),
+            description: result.description.substring(0, 200)
+          };
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to generate AI rule name, using fallback:', error instanceof Error ? error.message : 'Unknown error');
+  }
+
+  // Fallback if AI fails
+  return generateFallbackRuleName();
 };
 
 // Cleanup function to stop cache maintenance and allow process to exit

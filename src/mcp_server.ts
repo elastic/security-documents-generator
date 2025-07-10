@@ -25,7 +25,11 @@ import { generateRulesAndAlerts, deleteAllRules } from './commands/rules.js';
 import AttackSimulationEngine from './services/attack_simulation_engine.js';
 import { initializeSpace } from './utils/index.js';
 import { cleanupAIService } from './utils/ai_service.js';
-import { generateFieldsCLI, getAvailableCategories, validateFieldConfig } from './commands/generate_fields.js';
+import {
+  generateFieldsCLI,
+  getAvailableCategories,
+  validateFieldConfig,
+} from './commands/generate_fields.js';
 import { createKnowledgeBaseDocuments } from './create_knowledge_base.js';
 import { setupSecurityMappings } from './commands/setup_mappings.js';
 import { updateSecurityAlertsMapping } from './commands/update_specific_mapping.js';
@@ -205,7 +209,11 @@ interface UpdateMappingParams {
 
 interface GenerateMassiveFieldsParams {
   totalFields?: number;
-  strategy?: 'multi-index' | 'document-sharding' | 'field-compression' | 'hybrid';
+  strategy?:
+    | 'multi-index'
+    | 'document-sharding'
+    | 'field-compression'
+    | 'hybrid';
   namespace?: string;
   categories?: string[];
   maxFieldsPerIndex?: number;
@@ -472,7 +480,8 @@ class SecurityDataMCPServer {
                 },
                 theme: {
                   type: 'string',
-                  description: 'Apply themed data generation (e.g., "nba", "marvel", "starwars", "tech_companies")',
+                  description:
+                    'Apply themed data generation (e.g., "nba", "marvel", "starwars", "tech_companies")',
                 },
               },
             },
@@ -619,7 +628,8 @@ class SecurityDataMCPServer {
                 },
                 theme: {
                   type: 'string',
-                  description: 'Apply themed data generation (e.g., "nba", "marvel", "starwars", "tech_companies")',
+                  description:
+                    'Apply themed data generation (e.g., "nba", "marvel", "starwars", "tech_companies")',
                 },
               },
               required: ['campaignType'],
@@ -737,7 +747,8 @@ class SecurityDataMCPServer {
                 },
                 theme: {
                   type: 'string',
-                  description: 'Apply themed data generation (e.g., "nba", "marvel", "starwars", "tech_companies")',
+                  description:
+                    'Apply themed data generation (e.g., "nba", "marvel", "starwars", "tech_companies")',
                 },
               },
             },
@@ -810,7 +821,8 @@ class SecurityDataMCPServer {
                 },
                 theme: {
                   type: 'string',
-                  description: 'Apply themed data generation (e.g., "nba", "marvel", "starwars", "tech_companies")',
+                  description:
+                    'Apply themed data generation (e.g., "nba", "marvel", "starwars", "tech_companies")',
                 },
               },
             },
@@ -829,7 +841,8 @@ class SecurityDataMCPServer {
                 },
                 space: {
                   type: 'string',
-                  description: 'Kibana space (for alerts/events/rules/knowledge_base)',
+                  description:
+                    'Kibana space (for alerts/events/rules/knowledge_base)',
                 },
                 namespace: {
                   type: 'string',
@@ -1015,7 +1028,8 @@ class SecurityDataMCPServer {
           },
           {
             name: 'generate_fields',
-            description: 'Generate security fields on demand with unlimited field counts and category filtering',
+            description:
+              'Generate security fields on demand with unlimited field counts and category filtering',
             inputSchema: {
               type: 'object',
               properties: {
@@ -1053,11 +1067,13 @@ class SecurityDataMCPServer {
                 },
                 filename: {
                   type: 'string',
-                  description: 'Filename for file output (requires outputFormat: file)',
+                  description:
+                    'Filename for file output (requires outputFormat: file)',
                 },
                 indexName: {
                   type: 'string',
-                  description: 'Index name for Elasticsearch output (requires outputFormat: elasticsearch)',
+                  description:
+                    'Index name for Elasticsearch output (requires outputFormat: elasticsearch)',
                   default: 'generated-fields-sample',
                 },
                 includeMetadata: {
@@ -1067,7 +1083,8 @@ class SecurityDataMCPServer {
                 },
                 createMapping: {
                   type: 'boolean',
-                  description: 'Create Elasticsearch mapping for generated fields',
+                  description:
+                    'Create Elasticsearch mapping for generated fields',
                   default: true,
                 },
                 updateTemplate: {
@@ -1080,7 +1097,8 @@ class SecurityDataMCPServer {
           },
           {
             name: 'generate_knowledge_base',
-            description: 'Generate AI Assistant Knowledge Base documents with ELSER v2 semantic search and suggested questions',
+            description:
+              'Generate AI Assistant Knowledge Base documents with ELSER v2 semantic search and suggested questions',
             inputSchema: {
               type: 'object',
               properties: {
@@ -1138,7 +1156,8 @@ class SecurityDataMCPServer {
           },
           {
             name: 'delete_knowledge_base',
-            description: 'Delete knowledge base documents from specified space and namespace',
+            description:
+              'Delete knowledge base documents from specified space and namespace',
             inputSchema: {
               type: 'object',
               properties: {
@@ -1157,7 +1176,8 @@ class SecurityDataMCPServer {
           },
           {
             name: 'setup_mappings',
-            description: 'Setup Elasticsearch mappings for security indices to ensure proper field visualization in Kibana',
+            description:
+              'Setup Elasticsearch mappings for security indices to ensure proper field visualization in Kibana',
             inputSchema: {
               type: 'object',
               properties: {},
@@ -1165,20 +1185,23 @@ class SecurityDataMCPServer {
           },
           {
             name: 'update_mapping',
-            description: 'Update existing indices with comprehensive field mappings to fix unmapped fields in Kibana',
+            description:
+              'Update existing indices with comprehensive field mappings to fix unmapped fields in Kibana',
             inputSchema: {
               type: 'object',
               properties: {
                 indexName: {
                   type: 'string',
-                  description: 'Specific index name to update (optional - will auto-detect security indices if not provided)',
+                  description:
+                    'Specific index name to update (optional - will auto-detect security indices if not provided)',
                 },
               },
             },
           },
           {
             name: 'generate_massive_fields',
-            description: 'Generate massive field counts (200k+) using advanced distribution strategies',
+            description:
+              'Generate massive field counts (200k+) using advanced distribution strategies',
             inputSchema: {
               type: 'object',
               properties: {
@@ -1189,7 +1212,12 @@ class SecurityDataMCPServer {
                 },
                 strategy: {
                   type: 'string',
-                  enum: ['multi-index', 'document-sharding', 'field-compression', 'hybrid'],
+                  enum: [
+                    'multi-index',
+                    'document-sharding',
+                    'field-compression',
+                    'hybrid',
+                  ],
                   description: 'Generation strategy',
                   default: 'hybrid',
                 },
@@ -1221,17 +1249,20 @@ class SecurityDataMCPServer {
                 },
                 maxFieldsPerIndex: {
                   type: 'number',
-                  description: 'Maximum fields per index (multi-index strategy)',
+                  description:
+                    'Maximum fields per index (multi-index strategy)',
                   default: 50000,
                 },
                 maxFieldsPerDocument: {
                   type: 'number',
-                  description: 'Maximum fields per document (document-sharding strategy)',
+                  description:
+                    'Maximum fields per document (document-sharding strategy)',
                   default: 25000,
                 },
                 optimizeElasticsearch: {
                   type: 'boolean',
-                  description: 'Optimize Elasticsearch settings for massive fields',
+                  description:
+                    'Optimize Elasticsearch settings for massive fields',
                   default: false,
                 },
               },
@@ -1264,7 +1295,8 @@ class SecurityDataMCPServer {
           },
           {
             name: 'generate_cases',
-            description: 'Generate security investigation cases with alert attachments',
+            description:
+              'Generate security investigation cases with alert attachments',
             inputSchema: {
               type: 'object',
               properties: {
@@ -1308,7 +1340,8 @@ class SecurityDataMCPServer {
           },
           {
             name: 'generate_cases_from_alerts',
-            description: 'Create cases from existing alerts using grouping strategies',
+            description:
+              'Create cases from existing alerts using grouping strategies',
             inputSchema: {
               type: 'object',
               properties: {
@@ -1385,7 +1418,8 @@ class SecurityDataMCPServer {
           },
           {
             name: 'fix_logs_mapping',
-            description: 'Fix logs mapping issues by updating templates and mappings',
+            description:
+              'Fix logs mapping issues by updating templates and mappings',
             inputSchema: {
               type: 'object',
               properties: {
@@ -1485,14 +1519,10 @@ class SecurityDataMCPServer {
             );
 
           case 'setup_mappings':
-            return await this.handleSetupMappings(
-              args as SetupMappingsParams,
-            );
+            return await this.handleSetupMappings(args as SetupMappingsParams);
 
           case 'update_mapping':
-            return await this.handleUpdateMapping(
-              args as UpdateMappingParams,
-            );
+            return await this.handleUpdateMapping(args as UpdateMappingParams);
 
           case 'generate_massive_fields':
             return await this.handleGenerateMassiveFields(
@@ -1501,16 +1531,17 @@ class SecurityDataMCPServer {
 
           case 'query_massive_fields':
             if (!args || !('correlationId' in args)) {
-              throw new McpError(ErrorCode.InvalidParams, 'correlationId is required');
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                'correlationId is required',
+              );
             }
             return await this.handleQueryMassiveFields(
               args as QueryMassiveFieldsParams,
             );
 
           case 'generate_cases':
-            return await this.handleGenerateCases(
-              args as GenerateCasesParams,
-            );
+            return await this.handleGenerateCases(args as GenerateCasesParams);
 
           case 'generate_cases_from_alerts':
             return await this.handleGenerateCasesFromAlerts(
@@ -1518,9 +1549,7 @@ class SecurityDataMCPServer {
             );
 
           case 'delete_cases':
-            return await this.handleDeleteCases(
-              args as DeleteCasesParams,
-            );
+            return await this.handleDeleteCases(args as DeleteCasesParams);
 
           case 'fix_unmapped_fields':
             return await this.handleFixUnmappedFields(
@@ -2467,9 +2496,13 @@ Rules and events are ready for testing in Kibana Security app.`,
 
     if (categories) {
       const validCategories = getAvailableCategories();
-      const invalidCategories = categories.filter(cat => !validCategories.includes(cat));
+      const invalidCategories = categories.filter(
+        (cat) => !validCategories.includes(cat),
+      );
       if (invalidCategories.length > 0) {
-        throw new Error(`Invalid categories: ${invalidCategories.join(', ')}. Valid: ${validCategories.join(', ')}`);
+        throw new Error(
+          `Invalid categories: ${invalidCategories.join(', ')}. Valid: ${validCategories.join(', ')}`,
+        );
       }
     }
 
@@ -2492,12 +2525,15 @@ Rules and events are ready for testing in Kibana Security app.`,
         updateTemplate,
       });
 
-      const categoryText = categories ? ` focused on ${categories.join(', ')}` : '';
-      const outputText = outputFormat === 'elasticsearch'
-        ? `indexed to ${indexName}`
-        : outputFormat === 'file'
-          ? `saved to ${filename}`
-          : 'displayed in console';
+      const categoryText = categories
+        ? ` focused on ${categories.join(', ')}`
+        : '';
+      const outputText =
+        outputFormat === 'elasticsearch'
+          ? `indexed to ${indexName}`
+          : outputFormat === 'file'
+            ? `saved to ${filename}`
+            : 'displayed in console';
 
       return {
         content: [
@@ -2517,12 +2553,15 @@ Perfect for development, testing, and security analytics enhancement.`,
         ],
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(`Field generation failed: ${errorMessage}`);
     }
   }
 
-  private async handleGenerateKnowledgeBase(params: GenerateKnowledgeBaseParams) {
+  private async handleGenerateKnowledgeBase(
+    params: GenerateKnowledgeBaseParams,
+  ) {
     const {
       count = 20,
       includeMitre = false,
@@ -2556,14 +2595,20 @@ Perfect for development, testing, and security analytics enhancement.`,
     ];
 
     if (categories.length > 0) {
-      const invalidCategories = categories.filter(cat => !validCategories.includes(cat));
+      const invalidCategories = categories.filter(
+        (cat) => !validCategories.includes(cat),
+      );
       if (invalidCategories.length > 0) {
-        throw new Error(`Invalid categories: ${invalidCategories.join(', ')}. Valid: ${validCategories.join(', ')}`);
+        throw new Error(
+          `Invalid categories: ${invalidCategories.join(', ')}. Valid: ${validCategories.join(', ')}`,
+        );
       }
     }
 
     console.error(`[MCP] Generating ${count} knowledge base documents...`);
-    console.error(`[MCP] Categories: ${categories.length > 0 ? categories.join(', ') : 'all'}`);
+    console.error(
+      `[MCP] Categories: ${categories.length > 0 ? categories.join(', ') : 'all'}`,
+    );
     console.error(`[MCP] MITRE integration: ${includeMitre}`);
 
     try {
@@ -2577,9 +2622,10 @@ Perfect for development, testing, and security analytics enhancement.`,
         confidenceThreshold,
       });
 
-      const indexName = space === 'default'
-        ? `knowledge-base-security-${namespace}`
-        : `knowledge-base-security-${space}-${namespace}`;
+      const indexName =
+        space === 'default'
+          ? `knowledge-base-security-${namespace}`
+          : `knowledge-base-security-${space}-${namespace}`;
 
       return {
         content: [
@@ -2605,7 +2651,8 @@ Ready for Elastic AI Assistant knowledge base integration!`,
         ],
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(`Knowledge base generation failed: ${errorMessage}`);
     }
   }
@@ -2617,11 +2664,14 @@ Ready for Elastic AI Assistant knowledge base integration!`,
       const { getEsClient } = await import('./commands/utils/indices.js');
       const client = getEsClient();
 
-      const indexName = space === 'default'
-        ? `knowledge-base-security-${namespace}`
-        : `knowledge-base-security-${space}-${namespace}`;
+      const indexName =
+        space === 'default'
+          ? `knowledge-base-security-${namespace}`
+          : `knowledge-base-security-${space}-${namespace}`;
 
-      console.error(`[MCP] Deleting knowledge base documents from: ${indexName}`);
+      console.error(
+        `[MCP] Deleting knowledge base documents from: ${indexName}`,
+      );
 
       const exists = await client.indices.exists({ index: indexName });
       if (!exists) {
@@ -2654,13 +2704,16 @@ All knowledge base documents have been removed from this environment.`,
         ],
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(`Knowledge base deletion failed: ${errorMessage}`);
     }
   }
 
   private async handleSetupMappings(_params: SetupMappingsParams) {
-    console.error('[MCP] Setting up Elasticsearch mappings for security fields...');
+    console.error(
+      '[MCP] Setting up Elasticsearch mappings for security fields...',
+    );
 
     try {
       await setupSecurityMappings();
@@ -2689,7 +2742,8 @@ Next steps:
         ],
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(`Mapping setup failed: ${errorMessage}`);
     }
   }
@@ -2697,12 +2751,16 @@ Next steps:
   private async handleUpdateMapping(params: UpdateMappingParams) {
     const { indexName } = params;
 
-    console.error('[MCP] Updating existing indices with comprehensive field mappings...');
+    console.error(
+      '[MCP] Updating existing indices with comprehensive field mappings...',
+    );
 
     try {
       await updateSecurityAlertsMapping(indexName);
 
-      const targetText = indexName ? `index ${indexName}` : 'auto-detected security indices';
+      const targetText = indexName
+        ? `index ${indexName}`
+        : 'auto-detected security indices';
 
       return {
         content: [
@@ -2728,12 +2786,15 @@ Next steps:
         ],
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(`Mapping update failed: ${errorMessage}`);
     }
   }
 
-  private async handleGenerateMassiveFields(params: GenerateMassiveFieldsParams) {
+  private async handleGenerateMassiveFields(
+    params: GenerateMassiveFieldsParams,
+  ) {
     const {
       totalFields = 200000,
       strategy = 'hybrid',
@@ -2747,12 +2808,12 @@ Next steps:
     console.error('[MCP] Starting massive field generation...');
 
     try {
-      const { 
+      const {
         generateMassiveFieldsMultiIndex,
         generateMassiveFieldsDocumentSharding,
         generateMassiveFieldsCompression,
         generateMassiveFieldsHybrid,
-        optimizeElasticsearchForMassiveFields
+        optimizeElasticsearchForMassiveFields,
       } = await import('./utils/massive_field_strategies.js');
 
       if (optimizeElasticsearch) {
@@ -2760,7 +2821,7 @@ Next steps:
       }
 
       const correlationId = `massive-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
+
       const config = {
         totalFields,
         strategy: strategy as any,
@@ -2804,7 +2865,7 @@ Next steps:
 • Documents Created: ${result.documents.length}
 
 🔍 Query Patterns:
-${result.queryPatterns.map(pattern => `• ${pattern}`).join('\n')}
+${result.queryPatterns.map((pattern) => `• ${pattern}`).join('\n')}
 
 Next steps:
 1. Use correlation ID "${result.correlationId}" for querying
@@ -2814,7 +2875,8 @@ Next steps:
         ],
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(`Massive field generation failed: ${errorMessage}`);
     }
   }
@@ -2825,8 +2887,10 @@ Next steps:
     console.error('[MCP] Querying massive fields...');
 
     try {
-      const { queryMassiveFieldsData } = await import('./utils/massive_field_strategies.js');
-      
+      const { queryMassiveFieldsData } = await import(
+        './utils/massive_field_strategies.js'
+      );
+
       const result = await queryMassiveFieldsData({
         correlationId,
         namespace,
@@ -2844,17 +2908,24 @@ Next steps:
 📈 Field Statistics:
 • Total Fields: ${result.totalFields}
 • Average Fields per Document: ${Math.round(result.avgFieldsPerDoc)}
-• Index Distribution: ${result.indexDistribution.map(d => `${d.index}: ${d.count}`).join(', ')}
+• Index Distribution: ${result.indexDistribution.map((d) => `${d.index}: ${d.count}`).join(', ')}
 
 🎯 Sample Documents:
-${result.hits.slice(0, 3).map((hit, i) => `${i + 1}. ${hit._index} - ${hit._source['massive_fields.field_count']} fields`).join('\n')}
+${result.hits
+  .slice(0, 3)
+  .map(
+    (hit, i) =>
+      `${i + 1}. ${hit._index} - ${hit._source['massive_fields.field_count']} fields`,
+  )
+  .join('\n')}
 
 Use this correlation ID to query specific data subsets.`,
           },
         ],
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(`Massive field query failed: ${errorMessage}`);
     }
   }
@@ -2874,7 +2945,7 @@ Use this correlation ID to query specific data subsets.`,
 
     try {
       const { createCases } = await import('./create_cases.js');
-      
+
       const result = await createCases({
         count,
         space,
@@ -2916,12 +2987,15 @@ Next steps:
         ],
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(`Case generation failed: ${errorMessage}`);
     }
   }
 
-  private async handleGenerateCasesFromAlerts(params: GenerateCasesFromAlertsParams) {
+  private async handleGenerateCasesFromAlerts(
+    params: GenerateCasesFromAlertsParams,
+  ) {
     const {
       space = 'default',
       groupingStrategy = 'by-severity',
@@ -2934,7 +3008,7 @@ Next steps:
 
     try {
       const { createCasesFromAlerts } = await import('./create_cases.js');
-      
+
       const result = await createCasesFromAlerts({
         space,
         groupingStrategy,
@@ -2956,7 +3030,10 @@ Next steps:
 
 🎯 Grouping Results:
 • Cases Created: ${result.length}
-• Alert-to-Case Mappings: ${result.map(r => `${r.caseTitle} (${r.alertCount} alerts)`).slice(0, 3).join(', ')}
+• Alert-to-Case Mappings: ${result
+              .map((r) => `${r.caseTitle} (${r.alertCount} alerts)`)
+              .slice(0, 3)
+              .join(', ')}
 
 Next steps:
 1. Review grouped cases in Kibana Security → Cases
@@ -2966,7 +3043,8 @@ Next steps:
         ],
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(`Case creation from alerts failed: ${errorMessage}`);
     }
   }
@@ -2978,7 +3056,7 @@ Next steps:
 
     try {
       const { deleteAllCases } = await import('./create_cases.js');
-      
+
       await deleteAllCases(space === 'default' ? undefined : space);
 
       return {
@@ -3003,7 +3081,8 @@ Next steps:
         ],
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(`Case deletion failed: ${errorMessage}`);
     }
   }
@@ -3014,8 +3093,10 @@ Next steps:
     console.error('[MCP] Fixing unmapped fields...');
 
     try {
-      const { fixUnmappedFieldsCLI } = await import('./commands/fix_unmapped_fields.js');
-      
+      const { fixUnmappedFieldsCLI } = await import(
+        './commands/fix_unmapped_fields.js'
+      );
+
       await fixUnmappedFieldsCLI({
         reindex,
         indexSuffix: namespace,
@@ -3045,13 +3126,14 @@ Next steps:
         ],
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(`Fix unmapped fields failed: ${errorMessage}`);
     }
   }
 
   private async handleFixLogsMapping(params: FixLogsMappingParams) {
-    const { 
+    const {
       logTypes = ['system', 'auth', 'network', 'endpoint'],
       updateTemplate = true,
       namespace = 'default',
@@ -3060,8 +3142,10 @@ Next steps:
     console.error('[MCP] Fixing logs mapping...');
 
     try {
-      const { fixLogsMappingCLI } = await import('./commands/fix_logs_mapping.js');
-      
+      const { fixLogsMappingCLI } = await import(
+        './commands/fix_logs_mapping.js'
+      );
+
       await fixLogsMappingCLI();
 
       return {
@@ -3081,7 +3165,7 @@ Next steps:
 ✅ Enhanced compatibility with log visualization
 
 🎯 Log Types Fixed:
-${logTypes.map(type => `• ${type} logs: Enhanced field mappings`).join('\n')}
+${logTypes.map((type) => `• ${type} logs: Enhanced field mappings`).join('\n')}
 
 Next steps:
 1. New log data will use improved mappings
@@ -3091,7 +3175,8 @@ Next steps:
         ],
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(`Fix logs mapping failed: ${errorMessage}`);
     }
   }

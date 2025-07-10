@@ -1,6 +1,6 @@
 /**
  * Universal Theme Generator
- * 
+ *
  * Centralized service for generating themed data throughout the security documents generator.
  * Provides a unified interface that chooses between AI-generated themes, fallback data, or faker.
  */
@@ -137,7 +137,7 @@ export class UniversalThemeGenerator {
    */
   async generateHostname(): Promise<string> {
     const theme = this.themeConfig?.hostnames;
-    
+
     if (theme) {
       try {
         return await getRandomThemedValue(theme, 'hostnames');
@@ -145,14 +145,23 @@ export class UniversalThemeGenerator {
         // Fallback to faker
       }
     }
-    
+
     // Default faker generation
-    const departments = ['web', 'db', 'app', 'mail', 'dc', 'file', 'print', 'backup'];
+    const departments = [
+      'web',
+      'db',
+      'app',
+      'mail',
+      'dc',
+      'file',
+      'print',
+      'backup',
+    ];
     const environments = ['prod', 'dev', 'test', 'stage'];
     const department = faker.helpers.arrayElement(departments);
     const environment = faker.helpers.arrayElement(environments);
     const number = faker.number.int({ min: 1, max: 99 });
-    
+
     return `${department}-${environment}-${number.toString().padStart(2, '0')}`;
   }
 
@@ -161,10 +170,10 @@ export class UniversalThemeGenerator {
    */
   async generateHost(): Promise<ThemedHost> {
     const hostname = await this.generateHostname();
-    
+
     let ipAddress: string;
     const ipTheme = this.themeConfig?.ipAddresses;
-    
+
     if (ipTheme) {
       try {
         ipAddress = await getRandomThemedValue(ipTheme, 'ipAddresses');
@@ -237,7 +246,10 @@ export class UniversalThemeGenerator {
     // Generate description
     if (descriptionTheme) {
       try {
-        description = await getRandomThemedValue(descriptionTheme, 'eventDescriptions');
+        description = await getRandomThemedValue(
+          descriptionTheme,
+          'eventDescriptions',
+        );
       } catch {
         description = faker.hacker.phrase();
       }
@@ -390,7 +402,10 @@ export class UniversalThemeGenerator {
     // Generate event description
     if (eventTheme) {
       try {
-        eventDescription = await getRandomThemedValue(eventTheme, 'eventDescriptions');
+        eventDescription = await getRandomThemedValue(
+          eventTheme,
+          'eventDescriptions',
+        );
       } catch {
         eventDescription = faker.hacker.phrase();
       }
@@ -405,7 +420,10 @@ export class UniversalThemeGenerator {
    * Check if any theme is configured
    */
   hasTheme(): boolean {
-    return this.themeConfig !== null && Object.values(this.themeConfig).some(theme => theme !== null);
+    return (
+      this.themeConfig !== null &&
+      Object.values(this.themeConfig).some((theme) => theme !== null)
+    );
   }
 
   /**
@@ -456,7 +474,10 @@ export async function getThemedUsername(fallback?: string): Promise<string> {
       // Fall through to fallback
     }
   }
-  return fallback || `${faker.person.firstName().toLowerCase()}.${faker.person.lastName().toLowerCase()}`;
+  return (
+    fallback ||
+    `${faker.person.firstName().toLowerCase()}.${faker.person.lastName().toLowerCase()}`
+  );
 }
 
 export async function getThemedHostname(fallback?: string): Promise<string> {
@@ -468,7 +489,10 @@ export async function getThemedHostname(fallback?: string): Promise<string> {
       // Fall through to fallback
     }
   }
-  return fallback || `web-prod-${faker.number.int({ min: 1, max: 99 }).toString().padStart(2, '0')}`;
+  return (
+    fallback ||
+    `web-prod-${faker.number.int({ min: 1, max: 99 }).toString().padStart(2, '0')}`
+  );
 }
 
 export async function getThemedProcessName(fallback?: string): Promise<string> {
@@ -481,7 +505,9 @@ export async function getThemedProcessName(fallback?: string): Promise<string> {
       // Fall through to fallback
     }
   }
-  return fallback || `${faker.hacker.noun().replace(/\s+/g, '-').toLowerCase()}.exe`;
+  return (
+    fallback || `${faker.hacker.noun().replace(/\s+/g, '-').toLowerCase()}.exe`
+  );
 }
 
 export async function getThemedFilename(fallback?: string): Promise<string> {

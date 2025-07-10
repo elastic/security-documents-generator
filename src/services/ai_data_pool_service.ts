@@ -1,6 +1,6 @@
 /**
  * AI Data Pool Service
- * 
+ *
  * Handles AI-powered generation of security data pools using simple,
  * reliable string array generation instead of complex JSON structures.
  */
@@ -9,15 +9,15 @@ import { OpenAI } from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { faker } from '@faker-js/faker';
 import { getConfig } from '../get_config';
-import { 
-  ExtendedFieldData, 
+import {
+  ExtendedFieldData,
   BatchingStrategy,
-  FieldGenerationBatch 
+  FieldGenerationBatch,
 } from './unified_data_pool_types';
-import { 
-  withRetry, 
-  safeJsonParse, 
-  handleAIError 
+import {
+  withRetry,
+  safeJsonParse,
+  handleAIError,
 } from '../utils/error_handling';
 import { sanitizeJSONResponse } from '../utils/validation_service';
 
@@ -28,7 +28,7 @@ let claude: Anthropic | null = null;
 const initializeAI = (): void => {
   try {
     const config = getConfig();
-    
+
     if (config.useClaudeAI && config.claudeApiKey) {
       claude = new Anthropic({
         apiKey: config.claudeApiKey,
@@ -40,9 +40,9 @@ const initializeAI = (): void => {
         defaultQuery: {
           'api-version': config.azureOpenAIApiVersion || '2024-08-01-preview',
         },
-        defaultHeaders: { 
+        defaultHeaders: {
           'api-key': config.azureOpenAIApiKey,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
       });
     } else if (config.openaiApiKey) {
@@ -60,7 +60,7 @@ const initializeAI = (): void => {
  */
 export async function generateAISecurityData(
   count: number,
-  theme?: string
+  theme?: string,
 ): Promise<{
   data: {
     alertNames: string[];
@@ -91,14 +91,16 @@ export async function generateAISecurityData(
   const results: any = {};
 
   if (theme) {
-    console.log(`🎨 Generating comprehensive ${theme}-themed security dataset...`);
-    
+    console.log(
+      `🎨 Generating comprehensive ${theme}-themed security dataset...`,
+    );
+
     // Generate each type individually with fallbacks for robustness
     const dataTypes = [
       { key: 'alertNames', type: 'security alert names' },
       { key: 'threatNames', type: 'cybersecurity threat names' },
       { key: 'fileNames', type: 'suspicious file names' },
-      { key: 'alertDescriptions', type: 'security alert descriptions' }
+      { key: 'alertDescriptions', type: 'security alert descriptions' },
     ];
 
     // Generate domains programmatically (avoiding AI refusal issues)
@@ -108,14 +110,22 @@ export async function generateAISecurityData(
     // Generate other data with AI, falling back individually
     for (const dataType of dataTypes) {
       try {
-        const result = await generateThemedAIList(dataType.type, dataSize, theme);
+        const result = await generateThemedAIList(
+          dataType.type,
+          dataSize,
+          theme,
+        );
         results[dataType.key] = result.data;
         totalAICalls += result.aiCalls;
         totalTokens += result.tokens;
         console.log(`✅ AI generated ${dataType.key}`);
       } catch (error) {
         console.warn(`AI failed for ${dataType.key}, using themed fallback`);
-        results[dataType.key] = generateThemedFallbackData(dataType.key, dataSize, theme);
+        results[dataType.key] = generateThemedFallbackData(
+          dataType.key,
+          dataSize,
+          theme,
+        );
       }
     }
   } else {
@@ -124,7 +134,10 @@ export async function generateAISecurityData(
     results.threatNames = generateFallbackData('threatNames', dataSize);
     results.fileNames = generateFallbackData('fileNames', dataSize);
     results.domains = generateFallbackData('domains', dataSize);
-    results.alertDescriptions = generateFallbackData('alertDescriptions', dataSize);
+    results.alertDescriptions = generateFallbackData(
+      'alertDescriptions',
+      dataSize,
+    );
   }
 
   // Technical fields are better algorithmic (consistent and fast)
@@ -132,12 +145,16 @@ export async function generateAISecurityData(
   results.ipAddresses = generateFallbackData('ipAddresses', dataSize, theme);
   results.registryKeys = generateFallbackData('registryKeys', dataSize, theme);
   results.urls = generateFallbackData('urls', dataSize, theme);
-  results.eventDescriptions = generateFallbackData('eventDescriptions', dataSize, theme);
+  results.eventDescriptions = generateFallbackData(
+    'eventDescriptions',
+    dataSize,
+    theme,
+  );
 
   return {
     data: results,
     aiCalls: totalAICalls,
-    tokens: totalTokens
+    tokens: totalTokens,
   };
 }
 
@@ -147,7 +164,7 @@ export async function generateAISecurityData(
 export async function generateAIThemedEntities(
   userCount: number,
   hostCount: number,
-  theme: string
+  theme: string,
 ): Promise<{
   userNames: string[];
   hostNames: string[];
@@ -168,25 +185,26 @@ export async function generateAIThemedEntities(
     // Generate themed usernames and hostnames in parallel
     const [usernamesResult, hostnamesResult] = await Promise.all([
       generateThemedAIList('computer usernames', userCount, theme),
-      generateThemedAIList('computer hostnames', hostCount, theme)
+      generateThemedAIList('computer hostnames', hostCount, theme),
     ]);
 
-    console.log(`✅ Generated ${usernamesResult.data.length} themed usernames and ${hostnamesResult.data.length} themed hostnames`);
+    console.log(
+      `✅ Generated ${usernamesResult.data.length} themed usernames and ${hostnamesResult.data.length} themed hostnames`,
+    );
 
     return {
       userNames: usernamesResult.data,
       hostNames: hostnamesResult.data,
       aiCalls: 2,
-      tokens: usernamesResult.tokens + hostnamesResult.tokens
+      tokens: usernamesResult.tokens + hostnamesResult.tokens,
     };
-
   } catch (error) {
     console.warn('Themed entity generation failed, using fallbacks');
     return {
       userNames: generateThemedFallbackData('userNames', userCount, theme),
       hostNames: generateThemedFallbackData('hostNames', hostCount, theme),
       aiCalls: 0,
-      tokens: 0
+      tokens: 0,
     };
   }
 }
@@ -197,14 +215,14 @@ export async function generateAIThemedEntities(
 async function generateThemedAIList(
   dataType: string,
   count: number,
-  theme: string
+  theme: string,
 ): Promise<{
   data: string[];
   aiCalls: number;
   tokens: number;
 }> {
   let prompt = '';
-  
+
   // Create specific prompts for different data types and themes
   switch (dataType) {
     case 'computer usernames':
@@ -218,7 +236,7 @@ For ${theme} theme, create usernames like:
 Format: firstname.lastname (lowercase)
 One per line, no numbering:`;
       break;
-      
+
     case 'computer hostnames':
       prompt = `Generate ${count} ${theme}-themed computer hostnames for a company network.
 
@@ -230,7 +248,7 @@ For ${theme} theme, create hostnames like:
 Format: theme-function-number
 One per line, no numbering:`;
       break;
-      
+
     case 'security alert names':
       prompt = `Generate ${count} ${theme}-themed cybersecurity alert names.
 
@@ -242,7 +260,7 @@ For ${theme} theme, create alerts like:
 Keep cybersecurity relevance but use ${theme} terminology.
 One per line, no numbering:`;
       break;
-      
+
     case 'cybersecurity threat names':
       prompt = `Generate ${count} ${theme}-themed fictional threat names for cybersecurity training and simulation.
 
@@ -253,7 +271,7 @@ For ${theme} theme, create creative fictional threat names like:
 
 These are fictional names for security training. One per line, no numbering:`;
       break;
-      
+
     case 'suspicious file names':
       prompt = `Generate ${count} ${theme}-themed file names for cybersecurity training scenarios.
 
@@ -264,7 +282,7 @@ For ${theme} theme, create realistic but fictional file names like:
 
 These are for security simulation purposes. One per line, no numbering:`;
       break;
-      
+
     case 'suspicious domain names':
       prompt = `Generate ${count} ${theme}-themed domain names for cybersecurity testing simulations.
 
@@ -276,7 +294,7 @@ Create educational domain examples by combining ${theme} words with common patte
 Format: [theme-word]-[common-pattern].[tld]
 These are fictional examples for training only. One per line:`;
       break;
-      
+
     case 'security alert descriptions':
       prompt = `Generate ${count} ${theme}-themed security alert descriptions.
 
@@ -287,7 +305,7 @@ For ${theme} theme, create descriptions like:
 
 One per line, no numbering:`;
       break;
-      
+
     default:
       prompt = `Generate ${count} ${theme}-themed ${dataType}.
 One per line, no numbering:`;
@@ -305,9 +323,10 @@ One per line, no numbering:`;
         temperature: 0.8,
       });
     } else if (openai) {
-      const modelName = config.useAzureOpenAI && config.azureOpenAIDeployment
-        ? config.azureOpenAIDeployment
-        : 'gpt-4o';
+      const modelName =
+        config.useAzureOpenAI && config.azureOpenAIDeployment
+          ? config.azureOpenAIDeployment
+          : 'gpt-4o';
 
       response = await openai.chat.completions.create({
         model: modelName,
@@ -328,8 +347,11 @@ One per line, no numbering:`;
     // Parse simple text list
     const items = rawContent
       .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 2 && !line.match(/^\d+\./) && !line.includes(':'))
+      .map((line) => line.trim())
+      .filter(
+        (line) =>
+          line.length > 2 && !line.match(/^\d+\./) && !line.includes(':'),
+      )
       .slice(0, count);
 
     if (items.length === 0) {
@@ -339,9 +361,8 @@ One per line, no numbering:`;
     return {
       data: items,
       aiCalls: 1,
-      tokens: estimateTokens(rawContent)
+      tokens: estimateTokens(rawContent),
     };
-
   } catch (error) {
     throw error;
   }
@@ -353,7 +374,7 @@ One per line, no numbering:`;
 export async function generateAIFieldSchema(
   fieldCount: number,
   categories: string[],
-  theme?: string
+  theme?: string,
 ): Promise<{
   fields: Array<{
     name: string;
@@ -374,7 +395,7 @@ export async function generateAIFieldSchema(
 
   const categoryList = categories.join(', ');
   const themeContext = theme ? `themed around ${theme}` : 'cybersecurity';
-  
+
   const prompt = `Generate ${fieldCount} unique, realistic security field schemas ${themeContext}.
 
 Categories to focus on: ${categoryList}
@@ -414,9 +435,10 @@ Return only valid JSON.`;
         temperature: 0.7,
       });
     } else if (openai) {
-      const modelName = config.useAzureOpenAI && config.azureOpenAIDeployment
-        ? config.azureOpenAIDeployment
-        : 'gpt-4o';
+      const modelName =
+        config.useAzureOpenAI && config.azureOpenAIDeployment
+          ? config.azureOpenAIDeployment
+          : 'gpt-4o';
 
       response = await openai.chat.completions.create({
         model: modelName,
@@ -436,17 +458,19 @@ Return only valid JSON.`;
 
     // Clean and parse JSON
     const cleanedContent = sanitizeJSONResponse(rawContent);
-    const data = safeJsonParse(cleanedContent, 'Field schema generation') as any;
+    const data = safeJsonParse(
+      cleanedContent,
+      'Field schema generation',
+    ) as any;
 
     // Validate and return
     const fields = Array.isArray(data.fields) ? data.fields : [];
-    
+
     return {
       fields: fields.slice(0, fieldCount), // Ensure correct count
       aiCalls: 1,
-      tokens: estimateTokens(rawContent)
+      tokens: estimateTokens(rawContent),
     };
-
   } catch (error) {
     console.error('AI field schema generation failed:', error);
     throw error;
@@ -464,7 +488,7 @@ export async function generateAIFieldData(
     description: string;
   }>,
   valueCount: number,
-  theme?: string
+  theme?: string,
 ): Promise<{
   fieldData: ExtendedFieldData[];
   aiCalls: number;
@@ -479,11 +503,11 @@ export async function generateAIFieldData(
   }
 
   const themeContext = theme ? `themed around ${theme}` : 'realistic';
-  
+
   const prompt = `Generate ${valueCount} realistic values for each of these security fields ${themeContext}:
 
 Fields:
-${fieldSchema.map(f => `- ${f.name} (${f.type}): ${f.description}`).join('\n')}
+${fieldSchema.map((f) => `- ${f.name} (${f.type}): ${f.description}`).join('\n')}
 
 Return a JSON object with field names as keys and arrays of values:
 {
@@ -507,9 +531,10 @@ Return only valid JSON.`;
         temperature: 0.7,
       });
     } else if (openai) {
-      const modelName = config.useAzureOpenAI && config.azureOpenAIDeployment
-        ? config.azureOpenAIDeployment
-        : 'gpt-4o';
+      const modelName =
+        config.useAzureOpenAI && config.azureOpenAIDeployment
+          ? config.azureOpenAIDeployment
+          : 'gpt-4o';
 
       response = await openai.chat.completions.create({
         model: modelName,
@@ -532,26 +557,25 @@ Return only valid JSON.`;
     const data = safeJsonParse(cleanedContent, 'Field data generation') as any;
 
     // Convert to ExtendedFieldData format
-    const fieldData: ExtendedFieldData[] = fieldSchema.map(schema => {
-      const values = Array.isArray(data[schema.name]) 
-        ? data[schema.name].map(String) 
+    const fieldData: ExtendedFieldData[] = fieldSchema.map((schema) => {
+      const values = Array.isArray(data[schema.name])
+        ? data[schema.name].map(String)
         : [`fallback_${schema.name}_${Date.now()}`];
-      
+
       return {
         fieldName: schema.name,
         fieldType: schema.type,
         values: values.slice(0, valueCount),
         category: schema.category,
-        description: schema.description
+        description: schema.description,
       };
     });
 
     return {
       fieldData,
       aiCalls: 1,
-      tokens: estimateTokens(rawContent)
+      tokens: estimateTokens(rawContent),
     };
-
   } catch (error) {
     console.error('AI field data generation failed:', error);
     throw error;
@@ -563,38 +587,39 @@ Return only valid JSON.`;
  */
 export function calculateBatchingStrategy(
   fieldCount: number,
-  categories: string[]
+  categories: string[],
 ): BatchingStrategy {
   const maxFieldsPerBatch = 50; // Conservative limit
   const maxTokensPerBatch = 4000;
-  
+
   const totalBatches = Math.ceil(fieldCount / maxFieldsPerBatch);
   const fieldsPerBatch = Math.floor(fieldCount / totalBatches);
-  
+
   const batches = [];
   let remainingFields = fieldCount;
-  
+
   for (let i = 0; i < totalBatches; i++) {
     const batchSize = Math.min(fieldsPerBatch, remainingFields);
     const category = categories[i % categories.length];
-    
+
     batches.push({
-      fields: Array.from({ length: batchSize }, (_, j) => 
-        `field_${i}_${j}`
-      ),
+      fields: Array.from({ length: batchSize }, (_, j) => `field_${i}_${j}`),
       estimatedTokens: batchSize * 50, // Rough estimate
       category,
-      priority: i
+      priority: i,
     });
-    
+
     remainingFields -= batchSize;
   }
-  
+
   return {
     batches,
     totalBatches,
-    estimatedTotalTokens: batches.reduce((sum, batch) => sum + batch.estimatedTokens, 0),
-    processingOrder: batches.map((_, i) => i)
+    estimatedTotalTokens: batches.reduce(
+      (sum, batch) => sum + batch.estimatedTokens,
+      0,
+    ),
+    processingOrder: batches.map((_, i) => i),
   };
 }
 
@@ -611,7 +636,7 @@ function estimateTokens(content: string): number {
  */
 export async function processFieldBatches(
   batches: BatchingStrategy['batches'],
-  theme?: string
+  theme?: string,
 ): Promise<{
   results: FieldGenerationBatch[];
   totalAICalls: number;
@@ -620,36 +645,35 @@ export async function processFieldBatches(
   const results: FieldGenerationBatch[] = [];
   let totalAICalls = 0;
   let totalTokens = 0;
-  
+
   for (const batch of batches) {
     const startTime = Date.now();
-    
+
     try {
       // Generate field schema for this batch
       const schemaResult = await generateAIFieldSchema(
         batch.fields.length,
         [batch.category],
-        theme
+        theme,
       );
-      
+
       // Generate field data for this batch
       const dataResult = await generateAIFieldData(
         schemaResult.fields,
         20, // Generate 20 values per field
-        theme
+        theme,
       );
-      
+
       results.push({
         batchId: `batch_${batches.indexOf(batch)}`,
         fields: dataResult.fieldData,
         processingTimeMs: Date.now() - startTime,
         tokensUsed: schemaResult.tokens + dataResult.tokens,
-        success: true
+        success: true,
       });
-      
+
       totalAICalls += schemaResult.aiCalls + dataResult.aiCalls;
       totalTokens += schemaResult.tokens + dataResult.tokens;
-      
     } catch (error) {
       results.push({
         batchId: `batch_${batches.indexOf(batch)}`,
@@ -657,66 +681,98 @@ export async function processFieldBatches(
         processingTimeMs: Date.now() - startTime,
         tokensUsed: 0,
         success: false,
-        error: (error as any).message
+        error: (error as any).message,
       });
     }
   }
-  
+
   return {
     results,
     totalAICalls,
-    totalTokens
+    totalTokens,
   };
 }
 
 /**
  * Generate realistic fallback data when AI fails
  */
-function generateFallbackData(key: string, count: number, theme?: string): string[] {
+function generateFallbackData(
+  key: string,
+  count: number,
+  theme?: string,
+): string[] {
   const result: string[] = [];
-  
+
   for (let i = 0; i < count; i++) {
     switch (key) {
       case 'alertNames':
-        result.push(faker.helpers.arrayElement([
-          'Suspicious PowerShell Activity Detected',
-          'Malware Detection - Endpoint Security',
-          'Failed Login Attempts from Multiple IPs',
-          'Privilege Escalation Attempt',
-          'Suspicious Network Traffic to External Domain'
-        ]));
+        result.push(
+          faker.helpers.arrayElement([
+            'Suspicious PowerShell Activity Detected',
+            'Malware Detection - Endpoint Security',
+            'Failed Login Attempts from Multiple IPs',
+            'Privilege Escalation Attempt',
+            'Suspicious Network Traffic to External Domain',
+          ]),
+        );
         break;
-        
+
       case 'alertDescriptions':
         result.push(faker.lorem.sentence(10));
         break;
-        
+
       case 'threatNames':
-        result.push(faker.helpers.arrayElement([
-          'APT29', 'Lazarus', 'Cobalt Strike', 'Emotet', 'Ransomware', 'Trojan'
-        ]));
+        result.push(
+          faker.helpers.arrayElement([
+            'APT29',
+            'Lazarus',
+            'Cobalt Strike',
+            'Emotet',
+            'Ransomware',
+            'Trojan',
+          ]),
+        );
         break;
-        
+
       case 'processNames':
-        result.push(faker.helpers.arrayElement([
-          'powershell.exe', 'cmd.exe', 'rundll32.exe', 'svchost.exe', 'explorer.exe'
-        ]));
+        result.push(
+          faker.helpers.arrayElement([
+            'powershell.exe',
+            'cmd.exe',
+            'rundll32.exe',
+            'svchost.exe',
+            'explorer.exe',
+          ]),
+        );
         break;
-        
+
       case 'fileNames':
-        result.push(`${faker.system.fileName()}.${faker.helpers.arrayElement(['exe', 'dll', 'bat', 'ps1'])}`);
+        result.push(
+          `${faker.system.fileName()}.${faker.helpers.arrayElement(['exe', 'dll', 'bat', 'ps1'])}`,
+        );
         break;
-        
+
       case 'domains':
         if (theme) {
           // Generate themed domains programmatically
-          const themeWords = theme === 'anime' ? ['naruto', 'sasuke', 'akatsuki', 'ninja', 'konoha'] :
-                           theme === 'soccer' ? ['messi', 'ronaldo', 'fifa', 'worldcup', 'goal'] :
-                           theme === 'marvel' ? ['avengers', 'stark', 'shield', 'spiderman', 'hulk'] :
-                           ['cyber', 'secure', 'network', 'tech', 'digital'];
-          const patterns = ['downloads', 'updates', 'portal', 'secure', 'official', 'pro'];
+          const themeWords =
+            theme === 'anime'
+              ? ['naruto', 'sasuke', 'akatsuki', 'ninja', 'konoha']
+              : theme === 'soccer'
+                ? ['messi', 'ronaldo', 'fifa', 'worldcup', 'goal']
+                : theme === 'marvel'
+                  ? ['avengers', 'stark', 'shield', 'spiderman', 'hulk']
+                  : ['cyber', 'secure', 'network', 'tech', 'digital'];
+          const patterns = [
+            'downloads',
+            'updates',
+            'portal',
+            'secure',
+            'official',
+            'pro',
+          ];
           const tlds = ['com', 'net', 'org', 'info'];
-          
+
           const word = faker.helpers.arrayElement(themeWords);
           const pattern = faker.helpers.arrayElement(patterns);
           const tld = faker.helpers.arrayElement(tlds);
@@ -725,62 +781,70 @@ function generateFallbackData(key: string, count: number, theme?: string): strin
           result.push(faker.internet.domainName());
         }
         break;
-        
+
       case 'ipAddresses':
         result.push(faker.internet.ip());
         break;
-        
+
       case 'registryKeys':
-        result.push(faker.helpers.arrayElement([
-          'HKLM\\\\SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run',
-          'HKCU\\\\SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run',
-          'HKLM\\\\SYSTEM\\\\CurrentControlSet\\\\Services'
-        ]));
+        result.push(
+          faker.helpers.arrayElement([
+            'HKLM\\\\SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run',
+            'HKCU\\\\SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run',
+            'HKLM\\\\SYSTEM\\\\CurrentControlSet\\\\Services',
+          ]),
+        );
         break;
-        
+
       case 'urls':
-        result.push(`https://malicious-${faker.string.alphanumeric(8)}.com/${faker.string.alphanumeric(6)}`);
+        result.push(
+          `https://malicious-${faker.string.alphanumeric(8)}.com/${faker.string.alphanumeric(6)}`,
+        );
         break;
-        
+
       case 'eventDescriptions':
         result.push(faker.lorem.sentence(8));
         break;
-        
+
       default:
         result.push(`fallback_${key}_${i}`);
     }
   }
-  
+
   return result;
 }
 
 /**
  * Generate themed fallback data when AI fails but theme is specified
  */
-function generateThemedFallbackData(key: string, count: number, theme: string): string[] {
+function generateThemedFallbackData(
+  key: string,
+  count: number,
+  theme: string,
+): string[] {
   const result: string[] = [];
-  
+
   // Create simple themed variations of standard data
   const themeMap: Record<string, any> = {
     anime: {
       prefixes: ['naruto', 'sasuke', 'sakura', 'kakashi', 'akatsuki', 'konoha'],
       hostPrefixes: ['konoha', 'akatsuki', 'chunin', 'ninja', 'hokage'],
-      threatTerms: ['shadow', 'chakra', 'jutsu', 'sharingan', 'kyuubi']
+      threatTerms: ['shadow', 'chakra', 'jutsu', 'sharingan', 'kyuubi'],
     },
     soccer: {
       prefixes: ['messi', 'ronaldo', 'neymar', 'mbappe', 'benzema', 'haaland'],
       hostPrefixes: ['barcelona', 'madrid', 'arsenal', 'chelsea', 'united'],
-      threatTerms: ['offside', 'penalty', 'redcard', 'goal', 'striker']
+      threatTerms: ['offside', 'penalty', 'redcard', 'goal', 'striker'],
     },
     marvel: {
       prefixes: ['tony', 'steve', 'peter', 'bruce', 'natasha', 'thor'],
       hostPrefixes: ['avengers', 'shield', 'stark', 'hydra', 'wakanda'],
-      threatTerms: ['infinity', 'vibranium', 'mjolnir', 'arc', 'web']
-    }
+      threatTerms: ['infinity', 'vibranium', 'mjolnir', 'arc', 'web'],
+    },
   };
-  
+
   const themeData = themeMap[theme] || themeMap.anime;
-  
+
   for (let i = 0; i < count; i++) {
     switch (key) {
       case 'userNames':
@@ -788,38 +852,53 @@ function generateThemedFallbackData(key: string, count: number, theme: string): 
         const lastName = faker.person.lastName().toLowerCase();
         result.push(`${firstName}.${lastName}`);
         break;
-        
+
       case 'hostNames':
         const hostPrefix = faker.helpers.arrayElement(themeData.hostPrefixes);
-        const function_name = faker.helpers.arrayElement(['web', 'db', 'app', 'mail']);
+        const function_name = faker.helpers.arrayElement([
+          'web',
+          'db',
+          'app',
+          'mail',
+        ]);
         const env = faker.helpers.arrayElement(['prod', 'dev', 'test']);
-        const num = faker.number.int({ min: 1, max: 99 }).toString().padStart(2, '0');
+        const num = faker.number
+          .int({ min: 1, max: 99 })
+          .toString()
+          .padStart(2, '0');
         result.push(`${hostPrefix}-${function_name}-${env}-${num}`);
         break;
-        
+
       case 'alertNames':
         const threatTerm = faker.helpers.arrayElement(themeData.threatTerms);
-        result.push(`${threatTerm.charAt(0).toUpperCase() + threatTerm.slice(1)} Security Alert`);
+        result.push(
+          `${threatTerm.charAt(0).toUpperCase() + threatTerm.slice(1)} Security Alert`,
+        );
         break;
-        
+
       case 'fileNames':
         const fileTerm = faker.helpers.arrayElement(themeData.threatTerms);
         const ext = faker.helpers.arrayElement(['exe', 'dll', 'bat']);
         result.push(`${fileTerm}_payload.${ext}`);
         break;
-        
+
       case 'domains':
         const domainWord = faker.helpers.arrayElement(themeData.prefixes);
-        const pattern = faker.helpers.arrayElement(['downloads', 'updates', 'portal', 'secure']);
+        const pattern = faker.helpers.arrayElement([
+          'downloads',
+          'updates',
+          'portal',
+          'secure',
+        ]);
         const tld = faker.helpers.arrayElement(['com', 'net', 'org']);
         result.push(`${domainWord}-${pattern}.${tld}`);
         break;
-        
+
       default:
         result.push(generateFallbackData(key, 1, theme)[0]);
     }
   }
-  
+
   return result;
 }
 
@@ -828,28 +907,94 @@ function generateThemedFallbackData(key: string, count: number, theme: string): 
  */
 function generateThemedDomains(count: number, theme: string): string[] {
   const result: string[] = [];
-  
+
   // Define theme-specific word lists
   const themeWords: Record<string, string[]> = {
-    anime: ['naruto', 'sasuke', 'goku', 'luffy', 'ichigo', 'natsu', 'edward', 'light', 'saitama', 'tanjiro'],
-    soccer: ['messi', 'ronaldo', 'neymar', 'mbappe', 'benzema', 'salah', 'kane', 'haaland', 'modric', 'fifa'],
-    marvel: ['spiderman', 'ironman', 'hulk', 'thor', 'captain', 'avengers', 'stark', 'parker', 'banner', 'rogers'],
-    nba: ['lebron', 'curry', 'durant', 'giannis', 'luka', 'tatum', 'booker', 'embiid', 'jokic', 'warriors'],
-    starwars: ['luke', 'vader', 'yoda', 'han', 'leia', 'obiwan', 'anakin', 'r2d2', 'c3po', 'chewbacca']
+    anime: [
+      'naruto',
+      'sasuke',
+      'goku',
+      'luffy',
+      'ichigo',
+      'natsu',
+      'edward',
+      'light',
+      'saitama',
+      'tanjiro',
+    ],
+    soccer: [
+      'messi',
+      'ronaldo',
+      'neymar',
+      'mbappe',
+      'benzema',
+      'salah',
+      'kane',
+      'haaland',
+      'modric',
+      'fifa',
+    ],
+    marvel: [
+      'spiderman',
+      'ironman',
+      'hulk',
+      'thor',
+      'captain',
+      'avengers',
+      'stark',
+      'parker',
+      'banner',
+      'rogers',
+    ],
+    nba: [
+      'lebron',
+      'curry',
+      'durant',
+      'giannis',
+      'luka',
+      'tatum',
+      'booker',
+      'embiid',
+      'jokic',
+      'warriors',
+    ],
+    starwars: [
+      'luke',
+      'vader',
+      'yoda',
+      'han',
+      'leia',
+      'obiwan',
+      'anakin',
+      'r2d2',
+      'c3po',
+      'chewbacca',
+    ],
   };
-  
+
   // Common suspicious domain patterns for security training
-  const patterns = ['downloads', 'updates', 'secure', 'portal', 'official', 'pro', 'network', 'systems', 'data', 'cloud'];
+  const patterns = [
+    'downloads',
+    'updates',
+    'secure',
+    'portal',
+    'official',
+    'pro',
+    'network',
+    'systems',
+    'data',
+    'cloud',
+  ];
   const tlds = ['com', 'net', 'org', 'info', 'biz'];
-  
+
   const words = themeWords[theme] || themeWords.anime;
-  
+
   for (let i = 0; i < count; i++) {
     const word = faker.helpers.arrayElement(words);
     const pattern = faker.helpers.arrayElement(patterns);
     const tld = faker.helpers.arrayElement(tlds);
     result.push(`${word}-${pattern}.${tld}`);
   }
-  
+
   return result;
 }

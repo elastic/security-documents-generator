@@ -23,7 +23,8 @@ import {
 export const buildKibanaUrl = (opts: { path: string; space?: string }) => {
   const config = getConfig();
   const { path, space } = opts;
-  const pathWithSpace = space ? urlJoin(`/s/${space}`, path) : path;
+  // Handle both standard (/s/{space}) and direct (/{space}) space formats
+  const pathWithSpace = space ? urlJoin(`/${space}`, path) : path;
   return urlJoin(config.kibana.node, pathWithSpace);
 };
 
@@ -143,6 +144,46 @@ export const assignAssetCriticality = async (
   );
 };
 
+// Rule type specific configurations
+interface RuleTypeConfig {
+  query?: {
+    query: string;
+    language?: string;
+  };
+  threshold?: {
+    field: string[];
+    value: number;
+    cardinality?: Array<{ field: string; value: number }>;
+  };
+  eql?: {
+    query: string;
+    language: 'eql';
+  };
+  machine_learning?: {
+    anomaly_threshold: number;
+    machine_learning_job_id: string[];
+  };
+  threat_match?: {
+    threat_index: string[];
+    threat_query: string;
+    threat_mapping: Array<{
+      entries: Array<{
+        field: string;
+        type: string;
+        value: string;
+      }>;
+    }>;
+  };
+  new_terms?: {
+    new_terms_fields: string[];
+    history_window_start: string;
+  };
+  esql?: {
+    query: string;
+    language: 'esql';
+  };
+}
+
 export const createRule = ({
   space,
   id,
@@ -156,6 +197,16 @@ export const createRule = ({
   query,
   from,
   interval,
+  // Rule type specific parameters
+  threshold_field,
+  threshold_value,
+  eql_query,
+  anomaly_threshold,
+  ml_job_id,
+  threat_index,
+  threat_query,
+  new_terms_fields,
+  esql_query,
 }: {
   space?: string;
   id?: string;
@@ -165,28 +216,138 @@ export const createRule = ({
   risk_score?: number;
   severity?: string;
   index?: string[];
-  type?: string;
+  type?:
+    | 'query'
+    | 'threshold'
+    | 'eql'
+    | 'machine_learning'
+    | 'threat_match'
+    | 'new_terms'
+    | 'esql';
   query?: string;
   from?: string;
   interval?: string;
+  // Type-specific parameters
+  threshold_field?: string[];
+  threshold_value?: number;
+  eql_query?: string;
+  anomaly_threshold?: number;
+  ml_job_id?: string[];
+  threat_index?: string[];
+  threat_query?: string;
+  new_terms_fields?: string[];
+  esql_query?: string;
 } = {}): Promise<{ id: string; name: string }> => {
+  const ruleType = type || 'query';
+
+  // Base rule configuration following Detection Engine API spec
+  const baseConfig = {
+    name:
+      name || `${ruleType.charAt(0).toUpperCase() + ruleType.slice(1)} Rule`,
+    description: description || `Tests a ${ruleType} rule`,
+    enabled: enabled ?? true,
+    risk_score: risk_score || 70,
+    rule_id: id || faker.string.uuid(),
+    severity: severity || 'high',
+    index: index || ['logs-*', 'metrics-*', 'auditbeat-*'],
+    type: ruleType,
+    from: from || 'now-1h',
+    interval: interval || '1m',
+    tags: [],
+    filters: [],
+    required_fields: [],
+    related_integrations: [],
+  };
+
+  // Type-specific configurations
+  let typeSpecificConfig = {};
+
+  switch (ruleType) {
+    case 'query':
+      typeSpecificConfig = {
+        query: query || 'event.category:"process"',
+        language: 'kuery',
+      };
+      break;
+
+    case 'threshold':
+      typeSpecificConfig = {
+        query: query || 'event.category:"authentication" AND event.outcome:"failure"',
+        language: 'kuery',
+        threshold: {
+          field: threshold_field || ['user.name'],
+          value: threshold_value || 100,
+          cardinality: [
+            {
+              field: 'source.ip',
+              value: 5,
+            },
+          ],
+        },
+      };
+      break;
+
+    case 'eql':
+      typeSpecificConfig = {
+        query: eql_query || 'process where process.name == "cmd.exe"',
+        language: 'eql',
+      };
+      break;
+
+    case 'machine_learning':
+      typeSpecificConfig = {
+        anomaly_threshold: anomaly_threshold || 75,
+        machine_learning_job_id: ml_job_id || ['auth_rare_hour'],
+      };
+      break;
+
+    case 'threat_match':
+      typeSpecificConfig = {
+        query: query || '*:*',
+        language: 'kuery',
+        threat_index: threat_index || ['threat-intel-*'],
+        threat_query: threat_query || '*:*',
+        threat_mapping: [
+          {
+            entries: [
+              {
+                field: 'source.ip',
+                type: 'mapping',
+                value: 'threat.indicator.ip',
+              },
+            ],
+          },
+        ],
+      };
+      break;
+
+    case 'new_terms':
+      typeSpecificConfig = {
+        query: query || '*:*',
+        language: 'kuery',
+        new_terms_fields: new_terms_fields || ['user.name', 'host.name'],
+        history_window_start: 'now-30d',
+      };
+      break;
+
+    case 'esql':
+      typeSpecificConfig = {
+        query: esql_query || 'FROM logs-* | WHERE event.category == "process"',
+        language: 'esql',
+      };
+      break;
+  }
+
+  const finalConfig = {
+    ...baseConfig,
+    ...typeSpecificConfig,
+  };
+
   return kibanaFetch<{ id: string; name: string }>(
     DETECTION_ENGINE_RULES_URL,
     {
       method: 'POST',
-      body: JSON.stringify({
-        name: name || 'Match All',
-        description: description || 'Tests a simple query',
-        enabled: enabled ?? true,
-        risk_score: risk_score || 70,
-        rule_id: id || faker.string.uuid(),
-        severity: severity || 'high',
-        index: index || ['logs-*', 'metrics-*', 'auditbeat-*'],
-        type: type || 'query',
-        query: query || '*:*',
-        from: from || 'now-40d',
-        interval: interval || '1m',
-      }),
+      body: JSON.stringify(finalConfig),
     },
     { apiVersion: API_VERSIONS.public.v1, space },
   );

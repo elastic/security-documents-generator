@@ -1,6 +1,6 @@
 /**
  * Standalone Field Generation Command
- * 
+ *
  * Simple, focused command for generating security fields on demand.
  * Supports unlimited field counts with proper category filtering.
  */
@@ -8,12 +8,12 @@
 import { faker } from '@faker-js/faker';
 import { getEsClient } from './utils/indices';
 import { MultiFieldGenerator } from '../utils/multi_field_generator';
-import { 
-  generateElasticsearchMapping, 
+import {
+  generateElasticsearchMapping,
   generateIndexTemplate,
   applyMappingToIndex,
   applyIndexTemplate,
-  deleteConflictingIndices
+  deleteConflictingIndices,
 } from '../utils/dynamic_mapping_generator';
 
 export interface FieldGenerationConfig {
@@ -43,10 +43,10 @@ export interface FieldGenerationResult {
  */
 function flattenObjectPaths(obj: any, prefix = ''): Record<string, any> {
   const flattened: Record<string, any> = {};
-  
+
   for (const [key, value] of Object.entries(obj)) {
     const fullPath = prefix ? `${prefix}.${key}` : key;
-    
+
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
       // Recursively flatten nested objects
       Object.assign(flattened, flattenObjectPaths(value, fullPath));
@@ -55,16 +55,18 @@ function flattenObjectPaths(obj: any, prefix = ''): Record<string, any> {
       flattened[fullPath] = value;
     }
   }
-  
+
   return flattened;
 }
 
 /**
  * Generate fields on demand with specified configuration
  */
-export async function generateFields(config: FieldGenerationConfig): Promise<FieldGenerationResult> {
+export async function generateFields(
+  config: FieldGenerationConfig,
+): Promise<FieldGenerationResult> {
   const startTime = Date.now();
-  
+
   // Initialize field generator with clean configuration
   const generator = new MultiFieldGenerator({
     fieldCount: config.fieldCount,
@@ -132,16 +134,16 @@ export async function generateFields(config: FieldGenerationConfig): Promise<Fie
 async function createFieldMapping(
   result: FieldGenerationResult,
   indexName: string,
-  config: FieldGenerationConfig
+  config: FieldGenerationConfig,
 ): Promise<void> {
   const client = getEsClient();
-  
+
   // Extract all field paths from nested objects for mapping
   const flattenedFields = flattenObjectPaths(result.fields);
-  
+
   // Create field type information for mapping generation
   const fieldTypes: Record<string, { type: string; description: string }> = {};
-  
+
   for (const [fieldPath, value] of Object.entries(flattenedFields)) {
     let type = 'string';
     if (typeof value === 'number') {
@@ -154,34 +156,45 @@ async function createFieldMapping(
       // Skip nested objects, they're handled by recursion
       continue;
     }
-    
+
     fieldTypes[fieldPath] = {
       type,
       description: `Generated ${fieldPath.split('.')[0]} field`,
     };
   }
 
-  console.log(`🗺️  Creating mapping for ${Object.keys(fieldTypes).length} fields...`);
-  
+  console.log(
+    `🗺️  Creating mapping for ${Object.keys(fieldTypes).length} fields...`,
+  );
+
   // Create mapping if requested
   if (config.createMapping) {
     try {
       // Clean up conflicting indices first
       await deleteConflictingIndices(client, indexName);
-      
+
       const mapping = generateElasticsearchMapping(fieldTypes, indexName);
       await applyMappingToIndex(client, indexName, mapping, true); // Force recreation
     } catch (error) {
-      console.warn(`⚠️  Could not create mapping for ${indexName}:`, error.message);
+      console.warn(
+        `⚠️  Could not create mapping for ${indexName}:`,
+        error.message,
+      );
     }
   }
-  
+
   // Create index template if requested
   if (config.updateTemplate) {
     try {
       const templateName = `security-fields-${config.categories?.join('-') || 'all'}`;
-      const indexPattern = indexName.includes('*') ? indexName : `${indexName}*`;
-      const template = generateIndexTemplate(templateName, indexPattern, fieldTypes);
+      const indexPattern = indexName.includes('*')
+        ? indexName
+        : `${indexName}*`;
+      const template = generateIndexTemplate(
+        templateName,
+        indexPattern,
+        fieldTypes,
+      );
       await applyIndexTemplate(client, templateName, template);
     } catch (error) {
       console.warn(`⚠️  Could not create index template:`, error.message);
@@ -193,19 +206,19 @@ async function createFieldMapping(
  * Index generated fields to Elasticsearch with proper mapping
  */
 async function indexToElasticsearch(
-  result: FieldGenerationResult, 
+  result: FieldGenerationResult,
   indexName: string,
-  config: FieldGenerationConfig
+  config: FieldGenerationConfig,
 ): Promise<void> {
   const client = getEsClient();
-  
+
   const document = {
     '@timestamp': new Date().toISOString(),
     'event.category': ['field_generation'],
     'event.type': ['info'],
     'event.action': 'field_generation_sample',
     ...result.fields,
-    '_metadata': result.metadata,
+    _metadata: result.metadata,
   };
 
   try {
@@ -214,7 +227,9 @@ async function indexToElasticsearch(
       body: document,
       refresh: true,
     });
-    console.log(`✅ Indexed sample document with ${result.metadata.totalFieldsGenerated} fields to ${indexName}`);
+    console.log(
+      `✅ Indexed sample document with ${result.metadata.totalFieldsGenerated} fields to ${indexName}`,
+    );
   } catch (error) {
     console.error('❌ Failed to index to Elasticsearch:', error);
     throw error;
@@ -235,7 +250,7 @@ export async function generateFieldsCLI(
     sampleDocument?: Record<string, any>;
     createMapping?: boolean;
     updateTemplate?: boolean;
-  } = {}
+  } = {},
 ): Promise<void> {
   console.log(`🔬 Generating ${fieldCount} fields...`);
   if (categories) {
@@ -255,12 +270,16 @@ export async function generateFieldsCLI(
 
   try {
     const result = await generateFields(config);
-    
+
     // Display results
-    console.log(`✅ Generated ${result.metadata.actualCount}/${result.metadata.requestedCount} fields in ${result.metadata.generationTimeMs}ms`);
-    
+    console.log(
+      `✅ Generated ${result.metadata.actualCount}/${result.metadata.requestedCount} fields in ${result.metadata.generationTimeMs}ms`,
+    );
+
     if (result.metadata.actualCount < result.metadata.requestedCount) {
-      console.log(`⚠️  Generated fewer fields than requested due to category limitations`);
+      console.log(
+        `⚠️  Generated fewer fields than requested due to category limitations`,
+      );
     }
 
     // Handle output
@@ -284,7 +303,9 @@ export async function generateFieldsCLI(
           console.log(`  ${key}: ${JSON.stringify(value)}`);
         });
         if (Object.keys(result.fields).length > 10) {
-          console.log(`  ... and ${Object.keys(result.fields).length - 10} more fields`);
+          console.log(
+            `  ... and ${Object.keys(result.fields).length - 10} more fields`,
+          );
         }
         break;
     }
@@ -294,9 +315,10 @@ export async function generateFieldsCLI(
       console.log(`  Requested: ${result.metadata.requestedCount} fields`);
       console.log(`  Generated: ${result.metadata.actualCount} fields`);
       console.log(`  Generation time: ${result.metadata.generationTimeMs}ms`);
-      console.log(`  Categories: ${result.metadata.categoriesUsed.join(', ') || 'all'}`);
+      console.log(
+        `  Categories: ${result.metadata.categoriesUsed.join(', ') || 'all'}`,
+      );
     }
-
   } catch (error) {
     console.error('❌ Field generation failed:', error);
     throw error;
@@ -309,7 +331,7 @@ export async function generateFieldsCLI(
 export function getAvailableCategories(): string[] {
   return [
     'behavioral_analytics',
-    'threat_intelligence', 
+    'threat_intelligence',
     'performance_metrics',
     'security_scores',
     'audit_compliance',
@@ -335,9 +357,13 @@ export function validateFieldConfig(config: FieldGenerationConfig): string[] {
 
   if (config.categories) {
     const validCategories = getAvailableCategories();
-    const invalidCategories = config.categories.filter(cat => !validCategories.includes(cat));
+    const invalidCategories = config.categories.filter(
+      (cat) => !validCategories.includes(cat),
+    );
     if (invalidCategories.length > 0) {
-      errors.push(`Invalid categories: ${invalidCategories.join(', ')}. Valid: ${validCategories.join(', ')}`);
+      errors.push(
+        `Invalid categories: ${invalidCategories.join(', ')}. Valid: ${validCategories.join(', ')}`,
+      );
     }
   }
 

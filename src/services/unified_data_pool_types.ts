@@ -1,6 +1,6 @@
 /**
  * Unified Data Pool Types
- * 
+ *
  * Type definitions for the unified data pool generation system that handles
  * both standard and multi-field generation scenarios efficiently.
  */
@@ -79,16 +79,16 @@ export interface ThemeDataPool {
 export interface UnifiedDataPool {
   // Core data (always present)
   standard: StandardDataPool;
-  
+
   // Extended fields (present if multi-field enabled)
   extended?: ExtendedDataPool;
-  
+
   // MITRE data (present if --mitre flag used)
   mitre?: MitreDataPool;
-  
+
   // Theme data (present if --theme flag used)
   theme?: ThemeDataPool;
-  
+
   // Metadata
   metadata: {
     generatedAt: string;
@@ -230,7 +230,7 @@ export enum UnifiedSystemErrorType {
   ALERT_ASSEMBLY_FAILED = 'ALERT_ASSEMBLY_FAILED',
   AI_SERVICE_ERROR = 'AI_SERVICE_ERROR',
   VALIDATION_ERROR = 'VALIDATION_ERROR',
-  MEMORY_LIMIT_EXCEEDED = 'MEMORY_LIMIT_EXCEEDED'
+  MEMORY_LIMIT_EXCEEDED = 'MEMORY_LIMIT_EXCEEDED',
 }
 
 /**

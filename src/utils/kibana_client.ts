@@ -77,11 +77,11 @@ export class KibanaClient {
 
   constructor() {
     this.config = getConfig();
-    
+
     // Extract base path from node URL if present (e.g., http://localhost:5601/xey)
     const nodeUrl = new URL(this.config.kibana.node);
     const baseURL = this.config.kibana.node;
-    
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'kbn-xsrf': 'true',
@@ -91,12 +91,19 @@ export class KibanaClient {
     if ('apiKey' in this.config.kibana && this.config.kibana.apiKey) {
       // Use API key authentication - as per Kibana docs
       headers['Authorization'] = `ApiKey ${this.config.kibana.apiKey}`;
-    } else if ('username' in this.config.kibana && this.config.kibana.username) {
+    } else if (
+      'username' in this.config.kibana &&
+      this.config.kibana.username
+    ) {
       // Use basic authentication - encode username:password in base64 as per Kibana docs
-      const credentials = Buffer.from(`${this.config.kibana.username}:${this.config.kibana.password}`).toString('base64');
+      const credentials = Buffer.from(
+        `${this.config.kibana.username}:${this.config.kibana.password}`,
+      ).toString('base64');
       headers['Authorization'] = `Basic ${credentials}`;
     } else {
-      throw new Error('No valid Kibana authentication configured. Please set either username/password or apiKey in config.json');
+      throw new Error(
+        'No valid Kibana authentication configured. Please set either username/password or apiKey in config.json',
+      );
     }
 
     this.client = axios.create({
@@ -111,18 +118,19 @@ export class KibanaClient {
    */
   async createCase(
     caseData: CasePostRequest,
-    space?: string
+    space?: string,
   ): Promise<CaseResponse> {
-    const url = space && space !== 'default' 
-      ? `/s/${space}/api/cases`
-      : '/api/cases';
+    const url =
+      space && space !== 'default' ? `/s/${space}/api/cases` : '/api/cases';
 
     try {
       const response = await this.client.post(url, caseData);
       return response.data;
     } catch (error: any) {
       if (error.response?.status === 404) {
-        throw new Error(`Cases API not found. This Kibana instance may not have the Security solution enabled or may be using an older version. Cases API requires Kibana 7.10+ with Security solution.`);
+        throw new Error(
+          `Cases API not found. This Kibana instance may not have the Security solution enabled or may be using an older version. Cases API requires Kibana 7.10+ with Security solution.`,
+        );
       }
       console.error('Error creating case:', error);
       throw new Error(`Failed to create case: ${error}`);
@@ -133,9 +141,10 @@ export class KibanaClient {
    * Get case by ID
    */
   async getCase(caseId: string, space?: string): Promise<CaseResponse> {
-    const url = space && space !== 'default'
-      ? `/s/${space}/api/cases/${caseId}`
-      : `/api/cases/${caseId}`;
+    const url =
+      space && space !== 'default'
+        ? `/s/${space}/api/cases/${caseId}`
+        : `/api/cases/${caseId}`;
 
     try {
       const response = await this.client.get(url);
@@ -162,11 +171,17 @@ export class KibanaClient {
       tags?: string[];
       owner?: string[];
     } = {},
-    space?: string
-  ): Promise<{ cases: CaseResponse[]; total: number; page: number; per_page: number }> {
-    const url = space && space !== 'default'
-      ? `/s/${space}/api/cases/_find`
-      : '/api/cases/_find';
+    space?: string,
+  ): Promise<{
+    cases: CaseResponse[];
+    total: number;
+    page: number;
+    per_page: number;
+  }> {
+    const url =
+      space && space !== 'default'
+        ? `/s/${space}/api/cases/_find`
+        : '/api/cases/_find';
 
     try {
       const response = await this.client.get(url, { params });
@@ -181,9 +196,10 @@ export class KibanaClient {
    * Delete a case
    */
   async deleteCase(caseId: string, space?: string): Promise<void> {
-    const url = space && space !== 'default'
-      ? `/s/${space}/api/cases?ids=["${caseId}"]`
-      : `/api/cases?ids=["${caseId}"]`;
+    const url =
+      space && space !== 'default'
+        ? `/s/${space}/api/cases?ids=["${caseId}"]`
+        : `/api/cases?ids=["${caseId}"]`;
 
     try {
       await this.client.delete(url);
@@ -197,15 +213,14 @@ export class KibanaClient {
    * Delete multiple cases
    */
   async deleteCases(caseIds: string[], space?: string): Promise<void> {
-    const url = space && space !== 'default'
-      ? `/s/${space}/api/cases`
-      : '/api/cases';
+    const url =
+      space && space !== 'default' ? `/s/${space}/api/cases` : '/api/cases';
 
     try {
       await this.client.delete(url, {
         params: {
-          ids: JSON.stringify(caseIds)
-        }
+          ids: JSON.stringify(caseIds),
+        },
       });
     } catch (error) {
       console.error('Error deleting cases:', error);
@@ -219,11 +234,12 @@ export class KibanaClient {
   async attachAlertsToCase(
     caseId: string,
     alertsData: AttachAlertsRequest,
-    space?: string
+    space?: string,
   ): Promise<any> {
-    const url = space && space !== 'default'
-      ? `/s/${space}/api/cases/${caseId}/comments`
-      : `/api/cases/${caseId}/comments`;
+    const url =
+      space && space !== 'default'
+        ? `/s/${space}/api/cases/${caseId}/comments`
+        : `/api/cases/${caseId}/comments`;
 
     try {
       const response = await this.client.post(url, alertsData);
@@ -244,11 +260,12 @@ export class KibanaClient {
       type: 'user';
       owner: string;
     },
-    space?: string
+    space?: string,
   ): Promise<any> {
-    const url = space && space !== 'default'
-      ? `/s/${space}/api/cases/${caseId}/comments`
-      : `/api/cases/${caseId}/comments`;
+    const url =
+      space && space !== 'default'
+        ? `/s/${space}/api/cases/${caseId}/comments`
+        : `/api/cases/${caseId}/comments`;
 
     try {
       const response = await this.client.post(url, comment);
@@ -265,23 +282,24 @@ export class KibanaClient {
   async updateCaseStatus(
     caseId: string,
     status: 'open' | 'in-progress' | 'closed',
-    space?: string
+    space?: string,
   ): Promise<CaseResponse> {
-    const url = space && space !== 'default'
-      ? `/s/${space}/api/cases`
-      : '/api/cases';
+    const url =
+      space && space !== 'default' ? `/s/${space}/api/cases` : '/api/cases';
 
     try {
       const caseData = await this.getCase(caseId, space);
-      
+
       const response = await this.client.patch(url, {
-        cases: [{
-          id: caseId,
-          version: caseData.version,
-          status,
-        }]
+        cases: [
+          {
+            id: caseId,
+            version: caseData.version,
+            status,
+          },
+        ],
       });
-      
+
       return response.data.cases[0];
     } catch (error) {
       console.error('Error updating case status:', error);
@@ -295,11 +313,12 @@ export class KibanaClient {
   async queryAlerts(
     query: string,
     space?: string,
-    size: number = 100
+    size: number = 100,
   ): Promise<{ alerts: any[]; total: number }> {
-    const alertsUrl = space && space !== 'default'
-      ? `/s/${space}/internal/rac/alerts`
-      : '/internal/rac/alerts';
+    const alertsUrl =
+      space && space !== 'default'
+        ? `/s/${space}/internal/rac/alerts`
+        : '/internal/rac/alerts';
 
     try {
       const response = await this.client.post(alertsUrl, {
@@ -309,25 +328,25 @@ export class KibanaClient {
               {
                 query_string: {
                   query: query || '*',
-                  default_field: 'kibana.alert.rule.name'
-                }
-              }
-            ]
-          }
+                  default_field: 'kibana.alert.rule.name',
+                },
+              },
+            ],
+          },
         },
         size,
         sort: [
           {
             '@timestamp': {
-              order: 'desc'
-            }
-          }
-        ]
+              order: 'desc',
+            },
+          },
+        ],
       });
 
       return {
         alerts: response.data.hits?.hits || [],
-        total: response.data.hits?.total?.value || 0
+        total: response.data.hits?.total?.value || 0,
       };
     } catch (error) {
       console.warn('RAC Alerts API not available - alert attachment disabled');
@@ -347,7 +366,7 @@ export class KibanaClient {
     while (true) {
       const result = await this.findCases(
         { page, perPage, sortField: 'createdAt', sortOrder: 'desc' },
-        space
+        space,
       );
 
       allCases.push(...result.cases);
@@ -368,20 +387,17 @@ export class KibanaClient {
   async healthCheck(): Promise<{ status: 'ok' | 'error'; message: string }> {
     try {
       // Try multiple endpoints to check connectivity
-      const endpoints = [
-        '/api/status',
-        '/api',
-        '/app/management',
-        '/'
-      ];
+      const endpoints = ['/api/status', '/api', '/app/management', '/'];
 
       let lastError: any;
-      
+
       for (const endpoint of endpoints) {
         try {
           const response = await this.client.get(endpoint);
           if (response.status === 200) {
-            console.log(`✅ Kibana connection successful via ${endpoint} (${response.status})`);
+            console.log(
+              `✅ Kibana connection successful via ${endpoint} (${response.status})`,
+            );
             return { status: 'ok', message: 'Kibana connection successful' };
           }
         } catch (error: any) {
@@ -392,25 +408,30 @@ export class KibanaClient {
 
       // If we get here, all endpoints failed
       throw lastError;
-
     } catch (error: any) {
-      const errorMessage = error.response 
+      const errorMessage = error.response
         ? `HTTP ${error.response.status}: ${error.response.statusText}`
         : error.message || 'Unknown error';
-      
+
       console.error(`❌ Kibana connection failed: ${errorMessage}`);
       console.error(`🔧 Kibana URL: ${this.config.kibana.node}`);
-      console.error(`🔧 Auth method: ${'apiKey' in this.config.kibana ? 'API Key' : 'Username/Password'}`);
-      
+      console.error(
+        `🔧 Auth method: ${'apiKey' in this.config.kibana ? 'API Key' : 'Username/Password'}`,
+      );
+
       // Check if this is a Cases API compatibility issue
       if (error.response?.status === 404) {
-        console.warn(`⚠️  Note: This Kibana instance may not support the Cases API`);
-        console.warn(`⚠️  Cases API requires Kibana 7.10+ with Security solution enabled`);
+        console.warn(
+          `⚠️  Note: This Kibana instance may not support the Cases API`,
+        );
+        console.warn(
+          `⚠️  Cases API requires Kibana 7.10+ with Security solution enabled`,
+        );
       }
-      
-      return { 
-        status: 'error', 
-        message: `Kibana connection failed: ${errorMessage}` 
+
+      return {
+        status: 'error',
+        message: `Kibana connection failed: ${errorMessage}`,
       };
     }
   }

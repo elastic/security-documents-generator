@@ -31,8 +31,15 @@ import {
   getRandomThemedValue,
   isValidTheme,
 } from '../utils/theme_service';
-import { setGlobalTheme, getThemedUsername, getThemedHostname } from '../utils/universal_theme_generator';
-import { displayGeneratedEntities, GeneratedEntities } from '../utils/entity_display';
+import {
+  setGlobalTheme,
+  getThemedUsername,
+  getThemedHostname,
+} from '../utils/universal_theme_generator';
+import {
+  displayGeneratedEntities,
+  GeneratedEntities,
+} from '../utils/entity_display';
 
 /**
  * Cache for generated field templates to avoid regenerating for each document
@@ -67,7 +74,9 @@ async function applyMultiFieldGeneration<T extends Record<string, any>>(
 
   // Generate field template once and cache it
   if (!fieldTemplateCache) {
-    console.log(`🔬 Generating ${multiFieldConfig.fieldCount} field templates (cached for reuse)...`);
+    console.log(
+      `🔬 Generating ${multiFieldConfig.fieldCount} field templates (cached for reuse)...`,
+    );
     const result = await generateFields({
       fieldCount: multiFieldConfig.fieldCount,
       categories: multiFieldConfig.categories,
@@ -78,7 +87,9 @@ async function applyMultiFieldGeneration<T extends Record<string, any>>(
       updateTemplate: false, // Don't create template here - handled at index level
     });
     fieldTemplateCache = result.fields;
-    console.log(`✅ Field templates cached: ${Object.keys(fieldTemplateCache).length} fields`);
+    console.log(
+      `✅ Field templates cached: ${Object.keys(fieldTemplateCache).length} fields`,
+    );
   }
 
   // Apply cached fields with some variation
@@ -362,7 +373,7 @@ export const generateAlerts = async (
 ) => {
   // Clear field template cache for fresh generation
   clearFieldTemplateCache();
-  
+
   // Set global theme configuration
   if (theme) {
     setGlobalTheme(theme);
@@ -444,12 +455,12 @@ export const generateAlerts = async (
   };
 
   console.log('Generating entity names...');
-  
+
   // Generate themed entity names using universal theme generator
   if (theme) {
     console.log(`🎭 Generating themed entity names: ${theme}`);
   }
-  
+
   // Generate unique user names
   const userNamesSet = new Set<string>();
   while (userNamesSet.size < userCount) {
@@ -457,7 +468,7 @@ export const generateAlerts = async (
     userNamesSet.add(username);
   }
   const userNames = Array.from(userNamesSet);
-  
+
   // Generate unique host names
   const hostNamesSet = new Set<string>();
   while (hostNamesSet.size < hostCount) {
@@ -542,13 +553,13 @@ export const generateAlerts = async (
     // Display generated entities for user reference
     const generatedEntities: GeneratedEntities = {
       userNames,
-      hostNames
+      hostNames,
     };
     displayGeneratedEntities(generatedEntities, {
       namespace: _namespace,
       space,
       showKQLQueries: true,
-      showSampleQueries: true
+      showSampleQueries: true,
     });
 
     return;
@@ -655,9 +666,9 @@ export const generateAlerts = async (
           // Apply multi-field generation if enabled
           if (multiFieldConfig) {
             generatedAlerts = await Promise.all(
-              generatedAlerts.map((alert) => 
-                applyMultiFieldGeneration(alert, multiFieldConfig, useMitre)
-              )
+              generatedAlerts.map((alert) =>
+                applyMultiFieldGeneration(alert, multiFieldConfig, useMitre),
+              ),
             );
           }
 
@@ -867,12 +878,18 @@ export const generateAlerts = async (
   }
 
   // Create cases if requested
-  if (caseOptions?.createCases && caseOptions.alertsPerCase && caseOptions.alertsPerCase > 0) {
+  if (
+    caseOptions?.createCases &&
+    caseOptions.alertsPerCase &&
+    caseOptions.alertsPerCase > 0
+  ) {
     console.log(`\n🔒 Creating cases for generated alerts...`);
-    
+
     const caseCount = Math.ceil(alertCount / caseOptions.alertsPerCase);
-    console.log(`📊 Creating ${caseCount} cases (${caseOptions.alertsPerCase} alerts per case)`);
-    
+    console.log(
+      `📊 Creating ${caseCount} cases (${caseOptions.alertsPerCase} alerts per case)`,
+    );
+
     try {
       // Create cases that will automatically attach existing alerts
       const caseCreationOptions: CaseCreationOptions = {
@@ -885,30 +902,31 @@ export const generateAlerts = async (
         alertQuery: '*', // Attach any alerts in the space
         useAI,
         timestampConfig,
-        namespace: _namespace
+        namespace: _namespace,
       };
-      
+
       const createdCases = await createCases(caseCreationOptions);
-      
+
       console.log(`✅ Created ${createdCases.length} security cases`);
       console.log(`🔗 Cases automatically linked to ${alertCount} alerts`);
-      
     } catch (error) {
       console.error('❌ Error creating cases:', error);
-      console.log('⚠️ Alert generation completed successfully, but case creation failed');
+      console.log(
+        '⚠️ Alert generation completed successfully, but case creation failed',
+      );
     }
   }
 
   // Display generated entities for user reference
   const generatedEntities: GeneratedEntities = {
     userNames,
-    hostNames
+    hostNames,
   };
   displayGeneratedEntities(generatedEntities, {
     namespace: _namespace,
     space,
     showKQLQueries: true,
-    showSampleQueries: true
+    showSampleQueries: true,
   });
 
   // Cleanup AI service to allow process to exit cleanly
@@ -1035,7 +1053,7 @@ export const generateLogs = async (
 ) => {
   // Clear field template cache for fresh generation
   clearFieldTemplateCache();
-  
+
   // Set global theme configuration
   if (theme) {
     setGlobalTheme(theme);
@@ -1096,12 +1114,12 @@ export const generateLogs = async (
 
   // Generate entity names
   if (!quiet) console.log('Generating entity names...');
-  
+
   // Generate themed entity names using universal theme generator
   if (theme && !quiet) {
     console.log(`🎭 Generating themed entity names: ${theme}`);
   }
-  
+
   // Generate unique user names
   const userNamesSet = new Set<string>();
   while (userNamesSet.size < userCount) {
@@ -1109,7 +1127,7 @@ export const generateLogs = async (
     userNamesSet.add(username);
   }
   const userNames = Array.from(userNamesSet);
-  
+
   // Generate unique host names
   const hostNamesSet = new Set<string>();
   while (hostNamesSet.size < hostCount) {
@@ -1294,12 +1312,12 @@ export const generateLogs = async (
   if (!quiet) {
     const generatedEntities: GeneratedEntities = {
       userNames,
-      hostNames
+      hostNames,
     };
     displayGeneratedEntities(generatedEntities, {
       namespace,
       showKQLQueries: true,
-      showSampleQueries: true
+      showSampleQueries: true,
     });
   }
 
@@ -1352,7 +1370,7 @@ export const generateCorrelatedCampaign = async (
 
   // Generate entity names
   console.log('Generating target entities...');
-  
+
   // Generate unique user names
   const userNamesSet = new Set<string>();
   while (userNamesSet.size < userCount) {
@@ -1360,7 +1378,7 @@ export const generateCorrelatedCampaign = async (
     userNamesSet.add(username);
   }
   const userNames = Array.from(userNamesSet);
-  
+
   // Generate unique host names
   const hostNamesSet = new Set<string>();
   while (hostNamesSet.size < hostCount) {
@@ -1400,14 +1418,22 @@ export const generateCorrelatedCampaign = async (
     console.log('\n📊 Campaign Summary:');
     console.log(`  🚨 Total Alerts: ${result.alertsGenerated}`);
     console.log(`  📋 Index: ${result.indexName}`);
-    console.log(`  🎯 Generated Entities: ${result.generatedEntities.userNames?.length || 0} users, ${result.generatedEntities.hostNames?.length || 0} hosts`);
-    console.log(`  ⏰ Performance: ${result.performance.overall.totalTimeMs}ms`);
-    console.log(`  🤖 AI Efficiency: ${result.performance.dataPoolGeneration.aiCalls} calls`);
+    console.log(
+      `  🎯 Generated Entities: ${result.generatedEntities.userNames?.length || 0} users, ${result.generatedEntities.hostNames?.length || 0} hosts`,
+    );
+    console.log(
+      `  ⏰ Performance: ${result.performance.overall.totalTimeMs}ms`,
+    );
+    console.log(
+      `  🤖 AI Efficiency: ${result.performance.dataPoolGeneration.aiCalls} calls`,
+    );
 
     console.log('\n✅ Correlated campaign generation completed successfully!');
     console.log(`📊 Generated ${result.alertsGenerated} alerts`);
     console.log(`📁 Index: ${result.indexName}`);
-    console.log(`👥 Entities: ${result.generatedEntities.userNames?.length || 0} users, ${result.generatedEntities.hostNames?.length || 0} hosts`);
+    console.log(
+      `👥 Entities: ${result.generatedEntities.userNames?.length || 0} users, ${result.generatedEntities.hostNames?.length || 0} hosts`,
+    );
     console.log(`📍 View alerts in Kibana space: ${space}`);
   } catch (error) {
     progress.stop();
@@ -1418,13 +1444,13 @@ export const generateCorrelatedCampaign = async (
   // Display generated entities for user reference
   const generatedEntities: GeneratedEntities = {
     userNames,
-    hostNames
+    hostNames,
   };
   displayGeneratedEntities(generatedEntities, {
     namespace: _namespace,
     space,
     showKQLQueries: true,
-    showSampleQueries: true
+    showSampleQueries: true,
   });
 
   // Cleanup AI service if used
