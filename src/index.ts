@@ -1003,7 +1003,7 @@ program
     'Comma-separated list of rule types (query,threshold,eql,machine_learning,threat_match,new_terms,esql)',
     'query,threshold,eql,machine_learning,threat_match,new_terms,esql',
   )
-  .option('-s, --space <space>', 'Kibana space to create rules in', 'jgy')
+  .option('-s, --space <space>', 'Kibana space to create rules in')
   .action(async (options) => {
     try {
       const ruleCount = parseInt(options.rules);
