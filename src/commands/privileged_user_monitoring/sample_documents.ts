@@ -846,6 +846,10 @@ export const ACCOUNT_SWITCH_LINUX_SAMPLE_DOCUMENT = (
       },
       name: userName,
       id: 0,
+      effective: {
+        name: 'root(id=0)',
+        id: 0,
+      },
     },
     group: {
       Ext: {
