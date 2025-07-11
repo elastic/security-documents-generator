@@ -11,12 +11,8 @@ const NodeWithCredentials = t.type({
   password: t.string,
 });
 
-const NodeWithAPIKey = t.type({
-  node: t.string,
-  apiKey: t.string,
-});
-
-const Node = t.union([NodeWithCredentials, NodeWithAPIKey]);
+// Simplified: Only support basic auth (username/password)
+const Node = NodeWithCredentials;
 
 const MitreConfig = t.partial({
   enabled: t.boolean,

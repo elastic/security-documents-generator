@@ -59,15 +59,22 @@ export const kibanaFetch = async <T>(
   const headers = new Headers();
   headers.append('Content-Type', 'application/json');
   headers.append('kbn-xsrf', 'true');
-  if ('apiKey' in config.kibana) {
-    headers.set('Authorization', 'ApiKey ' + config.kibana.apiKey);
-  } else {
+  // Configure basic authentication (username/password only)
+  if (
+    'username' in config.kibana &&
+    config.kibana.username &&
+    config.kibana.password
+  ) {
     headers.set(
       'Authorization',
       'Basic ' +
         Buffer.from(
           config.kibana.username + ':' + config.kibana.password,
         ).toString('base64'),
+    );
+  } else {
+    throw new Error(
+      'Kibana basic authentication required. Please set username and password in config.json',
     );
   }
 

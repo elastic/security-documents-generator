@@ -4,6 +4,11 @@ import {
   selectMitreTechniques,
 } from '../utils/mitre_attack_service';
 import { CasePostRequest } from '../utils/kibana_client';
+import { getConfig } from '../get_config';
+import { safeJsonParse } from '../utils/error_handling';
+import { sanitizeJSONResponse } from '../utils/validation_service';
+import { OpenAI } from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 
 export interface SecurityCaseData extends CasePostRequest {
   // Extended fields for security context
@@ -397,11 +402,290 @@ async function generateMitreData(): Promise<{
   }
 }
 
-// Generate a single security case
+// AI-powered case generation
+async function generateAICase(theme?: string): Promise<any> {
+  const config = getConfig();
+  
+  // Initialize AI client
+  let openai: OpenAI | null = null;
+  let claude: Anthropic | null = null;
+  
+  if (config.useClaudeAI && config.claudeApiKey) {
+    claude = new Anthropic({ apiKey: config.claudeApiKey });
+  } else if (config.useAzureOpenAI && config.azureOpenAIApiKey) {
+    openai = new OpenAI({ 
+      apiKey: config.azureOpenAIApiKey,
+      baseURL: config.azureOpenAIEndpoint,
+    });
+  } else if (config.openaiApiKey) {
+    openai = new OpenAI({ 
+      apiKey: config.openaiApiKey,
+    });
+  }
+
+  if (!openai && !claude) {
+    // AI not configured - use varied template generation
+    return generateVariedTemplateCase(theme);
+  }
+
+  const themeContext = theme ? generateThemePromptContext(theme) : '';
+  
+  const prompt = `Generate 1 security case as JSON:
+{"title":"Brief incident title","description":"2-3 sentences describing the incident","severity":"high","affected_systems":["system1","system2"],"category":"security_incident","incident_type":"Malware Infection","lead_analyst":"Jane Doe","findings":["Key finding 1","Key finding 2"]}
+
+Categories: security_incident, threat_hunting, malware_analysis, vulnerability_investigation, compliance_violation, insider_threat
+Severities: low, medium, high, critical
+Incident types: Security Breach, Malware Infection, Data Exfiltration, Phishing Attack, Insider Threat
+${themeContext}
+
+Return only valid JSON object.`;
+
+  try {
+    let response;
+    if (claude) {
+      const claudeResponse = await claude.messages.create({
+        model: 'claude-3-sonnet-20240229',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+      });
+      response = claudeResponse.content[0].type === 'text' ? claudeResponse.content[0].text : '';
+    } else if (openai) {
+      const openaiResponse = await openai.chat.completions.create({
+        model: config.useAzureOpenAI ? (config.azureOpenAIDeployment || 'gpt-4o') : 'gpt-4o',
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' },
+        temperature: 0.7,
+        max_tokens: 1000,
+      });
+      response = openaiResponse.choices[0].message.content || '';
+    }
+
+    if (response) {
+      const cleaned = sanitizeJSONResponse(response);
+      return safeJsonParse(cleaned);
+    }
+  } catch (error) {
+    // Silently fall back to varied template generation when AI fails
+    return generateVariedTemplateCase(theme);
+  }
+
+  return null;
+}
+
+// Generate varied template-based case when AI fails
+function generateVariedTemplateCase(theme?: string): any {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  
+  const incidents = [
+    'Suspicious Network Activity',
+    'Potential Data Breach',
+    'Malware Detection Alert',
+    'Unauthorized Access Attempt',
+    'Phishing Campaign Investigation',
+    'Insider Threat Analysis',
+    'Vulnerability Exploitation',
+    'Ransomware Indicators',
+    'Compliance Violation',
+    'Security Policy Breach',
+    'Anomalous User Behavior',
+    'Credential Compromise',
+    'Lateral Movement Detection',
+    'Command and Control Activity',
+    'Data Exfiltration Alert'
+  ];
+  
+  const severities = ['low', 'medium', 'high', 'critical'];
+  
+  const incident = incidents[Math.floor(Math.random() * incidents.length)];
+  const severity = severities[Math.floor(Math.random() * severities.length)];
+  
+  // Generate realistic themed context
+  const { themeContext, themeLocation, themeSystems } = generateThemeContext(theme);
+  
+  return {
+    title: `${incident}${themeLocation ? ` on ${themeLocation}` : ''}`,
+    description: `Security investigation for ${incident.toLowerCase()} detected${themeContext ? ` in ${themeContext}` : ''} at ${new Date().toISOString()}. Requires immediate analysis and response.`,
+    severity: severity,
+    category: 'security_incident',
+    incident_type: incident,
+    lead_analyst: faker.helpers.arrayElement(ANALYST_NAMES),
+    affected_systems: themeSystems,
+    findings: [
+      `Initial detection: ${incident}${themeContext ? ` in ${themeContext}` : ''}`,
+      `Timestamp: ${new Date().toISOString()}`,
+      `Investigation ID: ${random.toUpperCase()}`
+    ]
+  };
+}
+
+// Generate theme-specific prompt context for AI
+function generateThemePromptContext(theme: string): string {
+  const prompts: Record<string, string> = {
+    marvel: `Theme: Marvel Universe. Use locations like Stark Tower, Avengers Compound, S.H.I.E.L.D. Helicarrier. Systems like stark-ai-core, avengers-database, shield-mainframe. Make it about superhero organizations and their technology.`,
+    starwars: `Theme: Star Wars Universe. Use locations like Death Star, Rebel Base, Imperial Fleet, Jedi Temple. Systems like death-star-core, rebel-comms, imperial-database. Make it about galactic empires and rebel networks.`,
+    nba: `Theme: NBA Basketball. Use locations like Staples Center, Chase Center, NBA HQ. Systems like nba-stats-db, lakers-network, warriors-systems. Make it about basketball organizations and sports networks.`,
+    soccer: `Theme: Soccer/Football. Use locations like Old Trafford, Camp Nou, FIFA HQ, Wembley Stadium. Systems like manutd-network, barca-database, fifa-systems. Make it about football clubs and leagues.`,
+    tech_companies: `Theme: Tech Companies. Use locations like Apple Park, Google Campus, Microsoft HQ. Systems like apple-icloud, google-search, microsoft-azure. Make it about major technology corporations.`,
+    programming: `Theme: Programming/Development. Use locations like GitHub HQ, Stack Overflow. Systems like github-repos, stackoverflow-db, python-mirrors. Make it about developer communities and coding platforms.`
+  };
+  
+  return prompts[theme] || `Theme: ${theme}. Use realistic ${theme}-related locations, systems, and context for the security case.`;
+}
+
+// Generate realistic theme context for cases
+function generateThemeContext(theme?: string): {
+  themeContext: string;
+  themeLocation: string;
+  themeSystems: string[];
+} {
+  if (!theme) {
+    return {
+      themeContext: '',
+      themeLocation: '',
+      themeSystems: ['web-server-01', 'database-02', 'workstation-03']
+    };
+  }
+
+  const themeData: Record<string, {
+    contexts: string[];
+    locations: string[];
+    systems: string[];
+  }> = {
+    marvel: {
+      contexts: ['Stark Industries network', 'Avengers facility', 'S.H.I.E.L.D. systems', 'Xavier Institute'],
+      locations: ['Stark Tower', 'Avengers Compound', 'S.H.I.E.L.D. Helicarrier', 'Wakanda Embassy'],
+      systems: ['stark-ai-core', 'avengers-database', 'shield-mainframe', 'wakanda-network', 'jarvis-backup']
+    },
+    starwars: {
+      contexts: ['Rebel Alliance network', 'Imperial systems', 'Jedi Temple archives', 'Death Star infrastructure'],
+      locations: ['Death Star', 'Rebel Base', 'Imperial Fleet', 'Jedi Temple'],
+      systems: ['death-star-core', 'rebel-comms', 'imperial-database', 'jedi-archives', 'droid-network']
+    },
+    nba: {
+      contexts: ['NBA headquarters', 'Lakers facility', 'Warriors training center', 'league operations'],
+      locations: ['Staples Center', 'Chase Center', 'NBA HQ', 'Training Facility'],
+      systems: ['nba-stats-db', 'lakers-network', 'warriors-systems', 'arena-security', 'player-portal']
+    },
+    soccer: {
+      contexts: ['Manchester United network', 'Barcelona systems', 'FIFA headquarters', 'Premier League'],
+      locations: ['Old Trafford', 'Camp Nou', 'FIFA HQ', 'Wembley Stadium'],
+      systems: ['manutd-network', 'barca-database', 'fifa-systems', 'premier-league-hub', 'stadium-security']
+    },
+    tech_companies: {
+      contexts: ['Apple corporate network', 'Google datacenter', 'Microsoft Azure', 'Meta infrastructure'],
+      locations: ['Apple Park', 'Google Campus', 'Microsoft HQ', 'Meta Menlo Park'],
+      systems: ['apple-icloud', 'google-search', 'microsoft-azure', 'meta-servers', 'aws-infrastructure']
+    },
+    programming: {
+      contexts: ['GitHub enterprise', 'Stack Overflow systems', 'Python foundation', 'JavaScript community'],
+      locations: ['GitHub HQ', 'Stack Overflow', 'Python.org', 'Node.js Foundation'],
+      systems: ['github-repos', 'stackoverflow-db', 'python-mirrors', 'nodejs-cdn', 'docker-registry']
+    }
+  };
+
+  const defaultTheme = {
+    contexts: [`${theme} organization`, `${theme} network`, `${theme} systems`],
+    locations: [`${theme} HQ`, `${theme} Facility`, `${theme} Center`],
+    systems: [`${theme}-server-01`, `${theme}-database`, `${theme}-workstation`]
+  };
+
+  const data = themeData[theme] || defaultTheme;
+  
+  return {
+    themeContext: faker.helpers.arrayElement(data.contexts),
+    themeLocation: faker.helpers.arrayElement(data.locations),
+    themeSystems: faker.helpers.arrayElements(data.systems, { min: 2, max: 4 })
+  };
+}
+
+// Enhance AI-generated case with full structure
+async function enhanceAICaseWithStructure(
+  aiCase: any,
+  includeMitre: boolean,
+  owner: string,
+): Promise<SecurityCaseData> {
+  const now = new Date();
+  const discoveryTime = faker.date.recent({ days: 2 });
+  
+  // Use AI data but ensure required structure
+  const fullCase: SecurityCaseData = {
+    title: aiCase.title || 'Security Investigation Required',
+    description: aiCase.description || 'AI-generated security case requiring investigation.',
+    tags: [
+      aiCase.category || 'security_incident',
+      aiCase.severity || 'medium',
+      ...(aiCase.findings ? ['ai-enhanced'] : []),
+    ],
+    severity: aiCase.severity || 'medium',
+    owner,
+    assignees: [{ uid: (aiCase.lead_analyst || 'security.analyst').toLowerCase().replace(/\s+/g, '.') }],
+    connector: {
+      id: 'none',
+      name: 'None',
+      type: '.none',
+      fields: null,
+    },
+    settings: {
+      syncAlerts: true,
+    },
+    security: {
+      category: aiCase.category || 'security_incident',
+      subcategory: 'ai_generated',
+      incident_type: aiCase.incident_type || 'Security Alert',
+      priority: aiCase.severity || 'medium',
+      impact_assessment: 'AI-generated case requiring assessment',
+      affected_systems: aiCase.affected_systems || ['unknown-system'],
+      threat_level: aiCase.severity || 'medium',
+    },
+    timeline: {
+      discovery_time: discoveryTime.toISOString(),
+      first_occurrence: discoveryTime.toISOString(),
+    },
+    investigation: {
+      lead_analyst: aiCase.lead_analyst || 'Auto-Assignment Pending',
+      team: ['SOC Tier 1'],
+      status: 'open',
+      findings: aiCase.findings || undefined,
+    },
+    metadata: {
+      case_id: faker.string.uuid(),
+      created_by: 'AI-Enhanced Generation',
+      last_updated: now.toISOString(),
+      escalation_level: aiCase.severity === 'critical' ? 4 : aiCase.severity === 'high' ? 3 : 2,
+      alert_count: faker.number.int({ min: 0, max: 10 }),
+    },
+  };
+
+  if (includeMitre) {
+    fullCase.mitre = await generateMitreData();
+    fullCase.tags.push('mitre-attack', ...(fullCase.mitre.technique_ids.slice(0, 2)));
+  }
+
+  return fullCase;
+}
+
+// Generate a single security case with AI enhancement
 export async function generateSecurityCase(
   includeMitre: boolean = false,
   owner: string = 'securitySolution',
+  useAI: boolean = false,
+  theme?: string,
 ): Promise<SecurityCaseData> {
+  // Try AI generation first if enabled
+  if (useAI) {
+    try {
+      const aiCase = await generateAICase(theme);
+      if (aiCase) {
+        return enhanceAICaseWithStructure(aiCase, includeMitre, owner);
+      }
+    } catch (error) {
+      console.warn('AI case generation failed, falling back to template:', error);
+    }
+  }
+
+  // Fallback to template-based generation
   const category = faker.helpers.arrayElement(SECURITY_CASE_CATEGORIES);
   const subcategory = faker.helpers.arrayElement(
     CASE_SUBCATEGORIES[category] || ['general'],
@@ -574,11 +858,13 @@ export async function generateMultipleSecurityCases(
   count: number,
   includeMitre: boolean = false,
   owner: string = 'securitySolution',
+  useAI: boolean = false,
+  theme?: string,
 ): Promise<SecurityCaseData[]> {
   const cases: SecurityCaseData[] = [];
 
   for (let i = 0; i < count; i++) {
-    const securityCase = await generateSecurityCase(includeMitre, owner);
+    const securityCase = await generateSecurityCase(includeMitre, owner, useAI, theme);
     cases.push(securityCase);
   }
 

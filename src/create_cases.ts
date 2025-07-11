@@ -25,6 +25,7 @@ export interface CaseCreationOptions {
   alertsPerCase?: number;
   alertQuery?: string;
   useAI?: boolean;
+  theme?: string;
   timestampConfig?: TimestampConfig;
   environments?: number;
   namespace?: string;
@@ -68,6 +69,10 @@ export async function createCases(
   console.log(`\n🔒 Generating ${count} security cases...`);
   console.log(`📁 Space: ${space}`);
   console.log(`🎯 MITRE Integration: ${includeMitre ? 'enabled' : 'disabled'}`);
+  console.log(`🤖 AI Generation: always enabled`);
+  if (options.theme) {
+    console.log(`🎨 Theme: ${options.theme}`);
+  }
   console.log(
     `📎 Attach Alerts: ${attachExistingAlerts ? `${alertsPerCase} per case` : 'no'}`,
   );
@@ -110,6 +115,8 @@ export async function createCases(
       count,
       includeMitre,
       owner,
+      useAI,
+      options.theme,
     );
 
     const createdCases: CaseResponse[] = [];

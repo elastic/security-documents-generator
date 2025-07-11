@@ -13,40 +13,16 @@ export const createConfigFileOnFirstRun = async () => {
     First we need to create a config file for you.
   `);
 
-  let apiKey = '';
-  let username = '';
-  let password = '';
-
-  const enum AuthMethod {
-    Basic = 'basic',
-    ApiKey = 'api_key',
-  }
-
-  const authMethod: AuthMethod = await select({
-    choices: [
-      { name: 'Basic Auth (username + password)', value: AuthMethod.Basic },
-      { name: 'API Key', value: AuthMethod.ApiKey },
-    ],
-    message: 'Select the authentication method',
-    default: AuthMethod.Basic,
+  // Only support basic auth (username + password) for simplicity
+  const username = await input({
+    message: 'Enter the username',
+    default: 'elastic',
   });
 
-  if (authMethod === 'api_key') {
-    apiKey = await input({
-      message: 'Enter the API key',
-      default: '',
-    });
-  } else {
-    username = await input({
-      message: 'Enter the username',
-      default: 'elastic',
-    });
-
-    password = await input({
-      message: 'Enter the password',
-      default: 'changeme',
-    });
-  }
+  const password = await input({
+    message: 'Enter the password',
+    default: 'changeme',
+  });
 
   const elasticNode = await input({
     message: 'Enter the ElasticSearch node URL',
@@ -117,17 +93,16 @@ export const createConfigFileOnFirstRun = async () => {
     }
   }
 
-  const auth =
-    authMethod === AuthMethod.ApiKey ? { apiKey } : { username, password };
-
   const config: ConfigType = {
     elastic: {
       node: elasticNode,
-      ...auth,
+      username,
+      password,
     },
     kibana: {
       node: kibanaNode,
-      ...auth,
+      username,
+      password,
     },
     serverless: false,
     eventIndex: '',

@@ -10,16 +10,11 @@ export * from './create_agent_document';
 let esClient: Client;
 
 const getClientAuth = (config: ConfigType) => {
-  let auth;
-  if ('apiKey' in config.elastic) {
-    auth = { apiKey: config.elastic.apiKey };
-  } else if (config.elastic.username && config.elastic.password) {
-    auth = {
-      username: config.elastic.username,
-      password: config.elastic.password,
-    };
-  }
-  return auth;
+  // Only support basic auth (username/password)
+  return {
+    username: config.elastic.username,
+    password: config.elastic.password,
+  };
 };
 
 export const getEsClient = () => {

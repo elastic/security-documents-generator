@@ -2047,15 +2047,21 @@ program
     'generate cases across multiple environment namespaces',
     parseIntBase10,
   )
+  .option(
+    '--theme <theme>',
+    'theme for case generation (nba, soccer, marvel, starwars, etc.)',
+  )
   .action(async (options) => {
     const count = parseInt(options.n || '10');
-    const space = options.space || 'default';
+    const space = options.s || options.space || 'default';
     const namespace = options.namespace || 'default';
     const includeMitre = options.mitre || false;
     const attachExistingAlerts = options.attachExistingAlerts || false;
     const alertsPerCase = parseInt(options.alertsPerCase || '3');
     const alertQuery = options.alertQuery || '*';
     const environments = options.environments || 1;
+    const useAI = true; // Always use AI for case generation
+    const theme = options.theme;
 
     // Check if user explicitly set alerts-per-case but not attach-existing-alerts
     const userProvidedAlertsPerCase =
@@ -2082,7 +2088,8 @@ program
         attachExistingAlerts,
         alertsPerCase: attachExistingAlerts ? alertsPerCase : 0,
         alertQuery,
-        useAI: false,
+        useAI,
+        theme,
         environments,
         namespace,
       };

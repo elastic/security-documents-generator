@@ -87,22 +87,20 @@ export class KibanaClient {
       'kbn-xsrf': 'true',
     };
 
-    // Configure authentication based on available credentials
-    if ('apiKey' in this.config.kibana && this.config.kibana.apiKey) {
-      // Use API key authentication - as per Kibana docs
-      headers['Authorization'] = `ApiKey ${this.config.kibana.apiKey}`;
-    } else if (
+    // Configure basic authentication (username/password only)
+    if (
       'username' in this.config.kibana &&
-      this.config.kibana.username
+      this.config.kibana.username &&
+      this.config.kibana.password
     ) {
-      // Use basic authentication - encode username:password in base64 as per Kibana docs
+      // Use basic authentication - encode username:password in base64
       const credentials = Buffer.from(
         `${this.config.kibana.username}:${this.config.kibana.password}`,
       ).toString('base64');
       headers['Authorization'] = `Basic ${credentials}`;
     } else {
       throw new Error(
-        'No valid Kibana authentication configured. Please set either username/password or apiKey in config.json',
+        'Kibana basic authentication required. Please set username and password in config.json',
       );
     }
 
@@ -121,7 +119,7 @@ export class KibanaClient {
     space?: string,
   ): Promise<CaseResponse> {
     const url =
-      space && space !== 'default' ? `/s/${space}/api/cases` : '/api/cases';
+      space && space !== 'default' ? `/${space}/api/cases` : '/api/cases';
 
     try {
       const response = await this.client.post(url, caseData);
@@ -143,7 +141,7 @@ export class KibanaClient {
   async getCase(caseId: string, space?: string): Promise<CaseResponse> {
     const url =
       space && space !== 'default'
-        ? `/s/${space}/api/cases/${caseId}`
+        ? `/${space}/api/cases/${caseId}`
         : `/api/cases/${caseId}`;
 
     try {
@@ -180,7 +178,7 @@ export class KibanaClient {
   }> {
     const url =
       space && space !== 'default'
-        ? `/s/${space}/api/cases/_find`
+        ? `/${space}/api/cases/_find`
         : '/api/cases/_find';
 
     try {
@@ -198,7 +196,7 @@ export class KibanaClient {
   async deleteCase(caseId: string, space?: string): Promise<void> {
     const url =
       space && space !== 'default'
-        ? `/s/${space}/api/cases?ids=["${caseId}"]`
+        ? `/${space}/api/cases?ids=["${caseId}"]`
         : `/api/cases?ids=["${caseId}"]`;
 
     try {
@@ -214,7 +212,7 @@ export class KibanaClient {
    */
   async deleteCases(caseIds: string[], space?: string): Promise<void> {
     const url =
-      space && space !== 'default' ? `/s/${space}/api/cases` : '/api/cases';
+      space && space !== 'default' ? `/${space}/api/cases` : '/api/cases';
 
     try {
       await this.client.delete(url, {
@@ -238,7 +236,7 @@ export class KibanaClient {
   ): Promise<any> {
     const url =
       space && space !== 'default'
-        ? `/s/${space}/api/cases/${caseId}/comments`
+        ? `/${space}/api/cases/${caseId}/comments`
         : `/api/cases/${caseId}/comments`;
 
     try {
@@ -264,7 +262,7 @@ export class KibanaClient {
   ): Promise<any> {
     const url =
       space && space !== 'default'
-        ? `/s/${space}/api/cases/${caseId}/comments`
+        ? `/${space}/api/cases/${caseId}/comments`
         : `/api/cases/${caseId}/comments`;
 
     try {
@@ -285,7 +283,7 @@ export class KibanaClient {
     space?: string,
   ): Promise<CaseResponse> {
     const url =
-      space && space !== 'default' ? `/s/${space}/api/cases` : '/api/cases';
+      space && space !== 'default' ? `/${space}/api/cases` : '/api/cases';
 
     try {
       const caseData = await this.getCase(caseId, space);
@@ -317,7 +315,7 @@ export class KibanaClient {
   ): Promise<{ alerts: any[]; total: number }> {
     const alertsUrl =
       space && space !== 'default'
-        ? `/s/${space}/internal/rac/alerts`
+        ? `/${space}/internal/rac/alerts`
         : '/internal/rac/alerts';
 
     try {
