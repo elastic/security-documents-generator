@@ -5,7 +5,6 @@
  * Supports unlimited field counts with proper category filtering.
  */
 
-import { faker } from '@faker-js/faker';
 import { getEsClient } from './utils/indices';
 import { MultiFieldGenerator } from '../utils/multi_field_generator';
 import {
@@ -178,7 +177,7 @@ async function createFieldMapping(
     } catch (error) {
       console.warn(
         `⚠️  Could not create mapping for ${indexName}:`,
-        error.message,
+        error instanceof Error ? error.message : String(error),
       );
     }
   }
@@ -197,7 +196,10 @@ async function createFieldMapping(
       );
       await applyIndexTemplate(client, templateName, template);
     } catch (error) {
-      console.warn(`⚠️  Could not create index template:`, error.message);
+      console.warn(
+        `⚠️  Could not create index template:`,
+        error instanceof Error ? error.message : String(error),
+      );
     }
   }
 }
@@ -208,7 +210,7 @@ async function createFieldMapping(
 async function indexToElasticsearch(
   result: FieldGenerationResult,
   indexName: string,
-  config: FieldGenerationConfig,
+  _config: FieldGenerationConfig,
 ): Promise<void> {
   const client = getEsClient();
 
@@ -295,7 +297,7 @@ export async function generateFieldsCLI(
         }
         break;
       case 'console':
-      default:
+      default: {
         // Show sample fields
         const sampleFields = Object.entries(result.fields).slice(0, 10);
         console.log('\n📊 Sample Fields:');
@@ -308,6 +310,7 @@ export async function generateFieldsCLI(
           );
         }
         break;
+      }
     }
 
     if (options.includeMetadata) {

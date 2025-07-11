@@ -1,9 +1,15 @@
+/**
+ * Generate Detection Rules
+ *
+ * Creates sophisticated detection rules with AI-powered names and realistic event data.
+ * Supports all rule types including complex EQL, ESQL, and new terms detection.
+ */
 import { faker } from '@faker-js/faker';
 import { getEsClient } from './utils/indices';
 import moment from 'moment';
 import { chunk } from 'lodash-es';
 import { createRule, getAllRules, bulkDeleteRules } from '../utils/kibana_api';
-import { generateRealisticRuleName, generateRealisticRuleNamesBatch } from '../utils/ai_service';
+import { generateRealisticRuleNamesBatch } from '../utils/ai_service';
 
 const EVENTS_INDEX = 'logs-system.system-default';
 
@@ -142,16 +148,21 @@ const generateEvent = (from: number): Event => ({
 });
 
 // Generate events that will trigger specific rule types
-const generateMatchingEvents = (ruleType: string, ruleConfig: any, from: number, count: number): Event[] => {
+const generateMatchingEvents = (
+  ruleType: string,
+  ruleConfig: any,
+  from: number,
+  count: number,
+): Event[] => {
   const events: Event[] = [];
-  
+
   for (let i = 0; i < count; i++) {
     const timestamp = moment()
       .subtract(faker.number.int({ min: 1, max: from }), 'h')
       .toISOString();
-    
+
     let event: Event;
-    
+
     switch (ruleType) {
       case 'query':
         event = generateQueryMatchingEvent(ruleConfig.query, timestamp);
@@ -169,7 +180,10 @@ const generateMatchingEvents = (ruleType: string, ruleConfig: any, from: number,
         event = generateThreatMatchingEvent(timestamp);
         break;
       case 'new_terms':
-        event = generateNewTermsMatchingEvent(ruleConfig.new_terms_fields, timestamp);
+        event = generateNewTermsMatchingEvent(
+          ruleConfig.new_terms_fields,
+          timestamp,
+        );
         break;
       case 'esql':
         event = generateESQLMatchingEvent(ruleConfig.esql_query, timestamp);
@@ -177,14 +191,17 @@ const generateMatchingEvents = (ruleType: string, ruleConfig: any, from: number,
       default:
         event = generateEvent(from);
     }
-    
+
     events.push(event);
   }
-  
+
   return events;
 };
 
-const generateQueryMatchingEvent = (query: string, timestamp: string): Event => {
+const generateQueryMatchingEvent = (
+  query: string,
+  timestamp: string,
+): Event => {
   const baseEvent = {
     '@timestamp': timestamp,
     message: faker.lorem.sentence(),
@@ -204,23 +221,39 @@ const generateQueryMatchingEvent = (query: string, timestamp: string): Event => 
   };
 
   // Parse the query to generate matching events
-  if (query.includes('event.category:"process"') && query.includes('process.name:"cmd.exe"')) {
+  if (
+    query.includes('event.category:"process"') &&
+    query.includes('process.name:"cmd.exe"')
+  ) {
     return {
       ...baseEvent,
       event: { ...baseEvent.event, category: ['process'] },
       process: { name: 'cmd.exe', command_line: 'cmd.exe /c whoami' },
     } as Event;
   }
-  
-  if (query.includes('event.category:"authentication"') && query.includes('event.outcome:"failure"')) {
+
+  if (
+    query.includes('event.category:"authentication"') &&
+    query.includes('event.outcome:"failure"')
+  ) {
     return {
       ...baseEvent,
-      event: { ...baseEvent.event, category: ['authentication'], outcome: 'failure' },
-      user: { ...baseEvent.user, name: faker.helpers.arrayElement(['admin', 'administrator', 'root']) },
+      event: {
+        ...baseEvent.event,
+        category: ['authentication'],
+        outcome: 'failure',
+      },
+      user: {
+        ...baseEvent.user,
+        name: faker.helpers.arrayElement(['admin', 'administrator', 'root']),
+      },
     } as Event;
   }
-  
-  if (query.includes('event.category:"network"') && query.includes('destination.port:22')) {
+
+  if (
+    query.includes('event.category:"network"') &&
+    query.includes('destination.port:22')
+  ) {
     return {
       ...baseEvent,
       event: { ...baseEvent.event, category: ['network'] },
@@ -228,32 +261,49 @@ const generateQueryMatchingEvent = (query: string, timestamp: string): Event => 
       source: { ip: faker.internet.ip() },
     } as Event;
   }
-  
-  if (query.includes('user.name:"admin"') || query.includes('user.name:"administrator"')) {
+
+  if (
+    query.includes('user.name:"admin"') ||
+    query.includes('user.name:"administrator"')
+  ) {
     return {
       ...baseEvent,
-      user: { ...baseEvent.user, name: faker.helpers.arrayElement(['admin', 'administrator']) },
-    } as Event;
-  }
-  
-  if (query.includes('event.category:"file"') && query.includes('file.extension:"exe"')) {
-    return {
-      ...baseEvent,
-      event: { ...baseEvent.event, category: ['file'] },
-      file: { 
-        name: faker.system.fileName() + '.exe',
-        extension: 'exe',
-        path: `C:\\temp\\${faker.system.fileName()}.exe`
+      user: {
+        ...baseEvent.user,
+        name: faker.helpers.arrayElement(['admin', 'administrator']),
       },
     } as Event;
   }
-  
+
+  if (
+    query.includes('event.category:"file"') &&
+    query.includes('file.extension:"exe"')
+  ) {
+    return {
+      ...baseEvent,
+      event: { ...baseEvent.event, category: ['file'] },
+      file: {
+        name: faker.system.fileName() + '.exe',
+        extension: 'exe',
+        path: `C:\\temp\\${faker.system.fileName()}.exe`,
+      },
+    } as Event;
+  }
+
   return baseEvent;
 };
 
-const generateThresholdMatchingEvent = (config: any, timestamp: string): Event => {
-  const userName = faker.helpers.arrayElement(['testuser', 'admin', 'guest', 'service']);
-  
+const generateThresholdMatchingEvent = (
+  config: any,
+  timestamp: string,
+): Event => {
+  const userName = faker.helpers.arrayElement([
+    'testuser',
+    'admin',
+    'guest',
+    'service',
+  ]);
+
   return {
     '@timestamp': timestamp,
     message: 'Authentication failed',
@@ -276,7 +326,10 @@ const generateThresholdMatchingEvent = (config: any, timestamp: string): Event =
   } as Event;
 };
 
-const generateEQLMatchingEvent = (eqlQuery: string, timestamp: string): Event => {
+const generateEQLMatchingEvent = (
+  eqlQuery: string,
+  timestamp: string,
+): Event => {
   const baseEvent = {
     '@timestamp': timestamp,
     message: faker.lorem.sentence(),
@@ -298,21 +351,25 @@ const generateEQLMatchingEvent = (eqlQuery: string, timestamp: string): Event =>
   if (eqlQuery.includes('process where process.name == "cmd.exe"')) {
     return {
       ...baseEvent,
-      process: { 
+      process: {
         name: 'cmd.exe',
         command_line: 'cmd.exe /c dir',
-        pid: faker.number.int({ min: 1000, max: 9999 })
+        pid: faker.number.int({ min: 1000, max: 9999 }),
       },
     } as Event;
   }
-  
+
   if (eqlQuery.includes('authentication where event.outcome == "failure"')) {
     return {
       ...baseEvent,
-      event: { ...baseEvent.event, category: ['authentication'], outcome: 'failure' },
+      event: {
+        ...baseEvent.event,
+        category: ['authentication'],
+        outcome: 'failure',
+      },
     } as Event;
   }
-  
+
   if (eqlQuery.includes('network where destination.port == 22')) {
     return {
       ...baseEvent,
@@ -321,19 +378,19 @@ const generateEQLMatchingEvent = (eqlQuery: string, timestamp: string): Event =>
       source: { ip: faker.internet.ip() },
     } as Event;
   }
-  
+
   if (eqlQuery.includes('file where file.extension == "exe"')) {
     return {
       ...baseEvent,
       event: { ...baseEvent.event, category: ['file'] },
-      file: { 
+      file: {
         name: faker.system.fileName() + '.exe',
         extension: 'exe',
-        path: `C:\\temp\\${faker.system.fileName()}.exe`
+        path: `C:\\temp\\${faker.system.fileName()}.exe`,
       },
     } as Event;
   }
-  
+
   return baseEvent;
 };
 
@@ -382,22 +439,29 @@ const generateThreatMatchingEvent = (timestamp: string): Event => {
       ip: faker.helpers.arrayElement([
         '192.168.1.100', // Known suspicious IP for threat intel matching
         '10.0.0.50',
-        '172.16.0.100'
+        '172.16.0.100',
       ]),
     },
   } as Event;
 };
 
-const generateNewTermsMatchingEvent = (fields: string[], timestamp: string): Event => {
+const generateNewTermsMatchingEvent = (
+  fields: string[],
+  timestamp: string,
+): Event => {
   return {
     '@timestamp': timestamp,
     message: 'New entity detected',
     host: {
-      name: fields.includes('host.name') ? `new-host-${faker.string.alphanumeric(8)}` : faker.internet.domainName(),
+      name: fields.includes('host.name')
+        ? `new-host-${faker.string.alphanumeric(8)}`
+        : faker.internet.domainName(),
       ip: faker.internet.ip(),
     },
     user: {
-      name: fields.includes('user.name') ? `new-user-${faker.string.alphanumeric(8)}` : faker.internet.username(),
+      name: fields.includes('user.name')
+        ? `new-user-${faker.string.alphanumeric(8)}`
+        : faker.internet.username(),
       id: faker.string.uuid(),
     },
     event: {
@@ -406,12 +470,17 @@ const generateNewTermsMatchingEvent = (fields: string[], timestamp: string): Eve
       outcome: 'success',
     },
     process: {
-      name: fields.includes('process.name') ? `new-process-${faker.string.alphanumeric(8)}.exe` : 'notepad.exe',
+      name: fields.includes('process.name')
+        ? `new-process-${faker.string.alphanumeric(8)}.exe`
+        : 'notepad.exe',
     },
   } as Event;
 };
 
-const generateESQLMatchingEvent = (esqlQuery: string, timestamp: string): Event => {
+const generateESQLMatchingEvent = (
+  esqlQuery: string,
+  timestamp: string,
+): Event => {
   const baseEvent = {
     '@timestamp': timestamp,
     message: faker.lorem.sentence(),
@@ -433,20 +502,24 @@ const generateESQLMatchingEvent = (esqlQuery: string, timestamp: string): Event 
   if (esqlQuery.includes('event.category == "process"')) {
     return {
       ...baseEvent,
-      process: { 
-        name: faker.helpers.arrayElement(['cmd.exe', 'powershell.exe', 'notepad.exe']),
-        pid: faker.number.int({ min: 1000, max: 9999 })
+      process: {
+        name: faker.helpers.arrayElement([
+          'cmd.exe',
+          'powershell.exe',
+          'notepad.exe',
+        ]),
+        pid: faker.number.int({ min: 1000, max: 9999 }),
       },
     } as Event;
   }
-  
+
   if (esqlQuery.includes('event.category == "authentication"')) {
     return {
       ...baseEvent,
       event: { ...baseEvent.event, category: ['authentication'] },
     } as Event;
   }
-  
+
   if (esqlQuery.includes('event.category == "network"')) {
     return {
       ...baseEvent,
@@ -454,7 +527,7 @@ const generateESQLMatchingEvent = (esqlQuery: string, timestamp: string): Event 
       destination: { ip: faker.internet.ip() },
     } as Event;
   }
-  
+
   return baseEvent;
 };
 
@@ -588,10 +661,12 @@ const ingestEvents = async (events: Event[]) => {
       ]);
 
       const result = await client.bulk({ operations, refresh: true });
-      
+
       if (result.errors) {
         console.error('Bulk indexing errors detected');
-        const errors = result.items?.filter(item => item.create?.error || item.index?.error);
+        const errors = result.items?.filter(
+          (item) => item.create?.error || item.index?.error,
+        );
         console.error(`Failed to index ${errors?.length || 0} events`);
       } else {
         totalIndexed += chunk.length;
@@ -601,9 +676,11 @@ const ingestEvents = async (events: Event[]) => {
       throw err;
     }
   }
-  
+
   if (totalIndexed > 0) {
-    console.log(`✅ Successfully indexed ${totalIndexed}/${events.length} events to ${EVENTS_INDEX}`);
+    console.log(
+      `✅ Successfully indexed ${totalIndexed}/${events.length} events to ${EVENTS_INDEX}`,
+    );
   }
 };
 
@@ -761,41 +838,52 @@ export const generateRulesAndAlerts = async (
     ]);
     const riskScore = faker.number.int({ min: 1, max: 100 });
     const typeConfig = getRuleTypeConfig(ruleType);
-    const ruleQuery = typeConfig.query || typeConfig.eql_query || typeConfig.esql_query || '*:*';
-    
+    const ruleQuery =
+      typeConfig.query ||
+      typeConfig.eql_query ||
+      typeConfig.esql_query ||
+      '*:*';
+
     return {
       ruleType,
       severity,
       riskScore,
       typeConfig,
       ruleQuery,
-      category: getQueryCategory(ruleQuery)
+      category: getQueryCategory(ruleQuery),
     };
   });
 
   // Process rules in batches for optimal performance
   const BATCH_SIZE = 20; // AI can handle up to 20 rules efficiently in one call
   const ruleResults = [];
-  
+
   console.log(`🤖 Generating AI rule names in batches of ${BATCH_SIZE}...`);
-  
+
   for (let i = 0; i < ruleConfigs.length; i += BATCH_SIZE) {
     const batch = ruleConfigs.slice(i, i + BATCH_SIZE);
-    
+
     // Generate AI rule names for this batch
-    const aiRules = batch.map(config => ({
+    const aiRules = batch.map((config) => ({
       ruleType: config.ruleType,
       ruleQuery: config.ruleQuery,
       severity: config.severity,
-      category: config.category
+      category: config.category,
     }));
-    
+
     const batchAIResults = await generateRealisticRuleNamesBatch(aiRules);
-    
+
     // Create rules with AI-generated names in parallel
     const batchPromises = batch.map(async (config, batchIndex) => {
       const aiResult = batchAIResults[batchIndex];
-      
+
+      // Extract new_terms_fields separately to handle type compatibility
+      const { new_terms_fields, ...otherTypeConfig } = config.typeConfig;
+      const processedNewTermsFields =
+        new_terms_fields && Array.isArray(new_terms_fields)
+          ? ([...new_terms_fields] as string[])
+          : undefined;
+
       return createRule({
         name: aiResult.name,
         description: aiResult.description,
@@ -807,13 +895,14 @@ export const generateRulesAndAlerts = async (
         from: `now-${options.from}h`,
         interval: options.interval,
         space: space,
-        ...config.typeConfig,
+        new_terms_fields: processedNewTermsFields,
+        ...otherTypeConfig,
       });
     });
-    
+
     const batchResults = await Promise.all(batchPromises);
     ruleResults.push(...batchResults);
-    
+
     const progress = Math.min(i + BATCH_SIZE, ruleConfigs.length);
     console.log(`✅ Generated ${progress}/${ruleConfigs.length} rules`);
   }
@@ -821,19 +910,19 @@ export const generateRulesAndAlerts = async (
   // Generate events that match each rule's configuration
   const allEvents: Event[] = [];
   const eventsPerRule = Math.max(1, Math.floor(eventCount / ruleCount));
-  
+
   for (let i = 0; i < ruleCount; i++) {
     const ruleType = availableRuleTypes[i % availableRuleTypes.length];
     const ruleConfig = getRuleTypeConfig(ruleType);
-    
+
     // Generate events specifically designed to match this rule type
     const matchingEvents = generateMatchingEvents(
       ruleType,
       ruleConfig,
       options.from,
-      eventsPerRule
+      eventsPerRule,
     );
-    
+
     allEvents.push(...matchingEvents);
   }
 
@@ -860,9 +949,13 @@ export const generateRulesAndAlerts = async (
   await Promise.all([ingestEvents(allEvents), ingestGapEvents(gapEvents)]);
 
   console.log(`Created ${ruleResults.length} rules`);
-  console.log(`Ingested ${allEvents.length} events (${allEvents.length - randomEventCount} matching events + ${randomEventCount} random events)`);
+  console.log(
+    `Ingested ${allEvents.length} events (${allEvents.length - randomEventCount} matching events + ${randomEventCount} random events)`,
+  );
   console.log(`Generated ${gapEvents.length} gap events`);
-  console.log(`🎯 Rules should now generate alerts from matching source events!`);
+  console.log(
+    `🎯 Rules should now generate alerts from matching source events!`,
+  );
 
   return { rules: ruleResults, events: allEvents, gapEvents };
 };

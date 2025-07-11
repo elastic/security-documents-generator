@@ -1,9 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * Attack Simulation Engine
  *
- * This service orchestrates complex, multi-stage attack scenarios with
- * sophisticated temporal correlation, realistic field generation, and
- * comprehensive artifact creation for testing Kibana's AI security capabilities.
+ * Handles complex attack scenario simulation with dynamic data structures.
+ * Uses 'any' types due to variable attack pattern schemas and simulation complexity.
  */
 
 import { faker } from '@faker-js/faker';
@@ -342,24 +342,28 @@ export class AttackSimulationEngine {
     complexity: string,
   ): any {
     switch (type) {
-      case 'apt':
+      case 'apt': {
         const aptCampaigns = getAllAPTCampaigns();
         return aptCampaigns[Math.floor(Math.random() * aptCampaigns.length)];
-      case 'ransomware':
+      }
+      case 'ransomware': {
         const ransomwareChains = getAllRansomwareChains();
         return ransomwareChains[
           Math.floor(Math.random() * ransomwareChains.length)
         ];
-      case 'insider':
+      }
+      case 'insider': {
         const insiderScenarios = getAllInsiderThreatScenarios();
         return insiderScenarios[
           Math.floor(Math.random() * insiderScenarios.length)
         ];
-      case 'supply_chain':
+      }
+      case 'supply_chain': {
         const supplyChainAttacks = getAllSupplyChainAttacks();
         return supplyChainAttacks[
           Math.floor(Math.random() * supplyChainAttacks.length)
         ];
+      }
       default:
         throw new Error(`Unknown scenario type: ${type}`);
     }

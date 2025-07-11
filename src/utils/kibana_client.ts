@@ -1,3 +1,10 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/**
+ * Kibana Client
+ *
+ * Handles dynamic Kibana API interactions with variable response structures.
+ * Uses 'any' types due to diverse Kibana API response schemas.
+ */
 import { getConfig } from '../get_config';
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 

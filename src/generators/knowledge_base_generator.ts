@@ -119,7 +119,7 @@ const ACCESS_LEVELS = ['public', 'team', 'organization', 'restricted'];
 function generateSuggestedQuestions(
   category: string,
   subcategory: string,
-  title: string,
+  _title: string,
 ): string[] {
   const baseQuestions = [
     `What are the key takeaways from this ${category.replace('_', ' ')} document?`,
@@ -491,10 +491,17 @@ Exploit complexity is rated as ${faker.helpers.arrayElement(['Low', 'Medium', 'H
     };
   }
 
+  // Type assertion since we've checked subcategoryTemplate exists and has the required methods
+  const template = subcategoryTemplate as {
+    title: () => string;
+    content: () => string;
+    summary: () => string;
+  };
+
   return {
-    title: subcategoryTemplate.title(),
-    content: subcategoryTemplate.content(),
-    summary: subcategoryTemplate.summary(),
+    title: template.title(),
+    content: template.content(),
+    summary: template.summary(),
   };
 }
 

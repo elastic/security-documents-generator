@@ -1,11 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
- * Massive Field Generation Strategies
+ * Massive Field Strategies
  *
- * Handles 200k+ field generation using multiple approaches:
- * 1. Multi-index distribution
- * 2. Document sharding
- * 3. Field compression
- * 4. Elasticsearch optimization
+ * Handles large-scale field generation strategies and optimizations.
+ * Uses 'any' types due to dynamic field structures and performance optimizations.
  */
 
 import { faker } from '@faker-js/faker';

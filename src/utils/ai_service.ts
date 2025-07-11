@@ -56,13 +56,7 @@ import {
   JSON_RESPONSE_INSTRUCTION,
   ESSENTIAL_ALERT_FIELDS,
 } from './prompt_templates';
-import {
-  parseThemeConfig,
-  getThemeContext,
-  isValidTheme,
-  getRandomThemedValue,
-  type ParsedThemeConfig,
-} from './theme_service';
+import { parseThemeConfig, getThemeContext } from './theme_service';
 import { BaseCreateAlertsReturnType } from '../create_alerts';
 import { ChatCompletion } from 'openai/resources/index';
 import type { Message } from '@anthropic-ai/sdk/resources/messages';
@@ -110,6 +104,12 @@ const initializeAI = (): void => {
 
     // Initialize OpenAI clients
     if (config.useAzureOpenAI) {
+      if (!config.azureOpenAIEndpoint) {
+        throw new AIInitializationError(
+          'Azure OpenAI endpoint is required when useAzureOpenAI is true',
+        );
+      }
+
       openai = new OpenAI({
         apiKey: config.azureOpenAIApiKey,
         baseURL: `${config.azureOpenAIEndpoint.replace(/\/$/, '')}/openai/deployments/${config.azureOpenAIDeployment}`,
@@ -1353,10 +1353,10 @@ export const generateRealisticRuleNamesBatch = async (
     ruleQuery: string;
     severity: string;
     category: string;
-  }>
+  }>,
 ): Promise<Array<{ name: string; description: string }>> => {
   const config = getConfig();
-  
+
   // Create fallback function for when AI is not available
   const generateFallbackRuleNames = () => {
     const ruleTypeNames = {
@@ -1366,16 +1366,18 @@ export const generateRealisticRuleNamesBatch = async (
       machine_learning: 'Anomaly Detection',
       threat_match: 'Threat Intelligence Match',
       new_terms: 'New Entity Detection',
-      esql: 'Advanced Analytics Rule'
+      esql: 'Advanced Analytics Rule',
     };
-    
-    return rules.map((rule, index) => {
-      const baseName = ruleTypeNames[rule.ruleType as keyof typeof ruleTypeNames] || 'Security Detection';
+
+    return rules.map((rule, _index) => {
+      const baseName =
+        ruleTypeNames[rule.ruleType as keyof typeof ruleTypeNames] ||
+        'Security Detection';
       const identifier = faker.string.alphanumeric(6);
-      
+
       return {
         name: `${baseName} - ${identifier}`,
-        description: `${rule.ruleType} rule that detects ${faker.helpers.arrayElement(['suspicious', 'malicious', 'anomalous', 'unusual'])} activity`
+        description: `${rule.ruleType} rule that detects ${faker.helpers.arrayElement(['suspicious', 'malicious', 'anomalous', 'unusual'])} activity`,
       };
     });
   };
@@ -1386,9 +1388,12 @@ export const generateRealisticRuleNamesBatch = async (
   }
 
   try {
-    const rulesContext = rules.map((rule, index) => 
-      `${index + 1}. Type: ${rule.ruleType}, Query: ${rule.ruleQuery}, Severity: ${rule.severity}, Category: ${rule.category}`
-    ).join('\n');
+    const rulesContext = rules
+      .map(
+        (rule, index) =>
+          `${index + 1}. Type: ${rule.ruleType}, Query: ${rule.ruleQuery}, Severity: ${rule.severity}, Category: ${rule.category}`,
+      )
+      .join('\n');
 
     const prompt = `Generate realistic detection rule names and descriptions for ${rules.length} cybersecurity SIEM rules.
 
@@ -1412,7 +1417,7 @@ Return ONLY a JSON array with objects containing 'name' and 'description' fields
 
     if (config.useClaudeAI && config.claudeApiKey) {
       const anthropic = new Anthropic({ apiKey: config.claudeApiKey });
-      
+
       const response = await anthropic.messages.create({
         model: config.claudeModel || 'claude-3-5-sonnet-20241022',
         max_tokens: Math.min(4000, rules.length * 150),
@@ -1427,32 +1432,35 @@ Return ONLY a JSON array with objects containing 'name' and 'description' fields
       const content = response.content[0];
       if (content.type === 'text') {
         const rawText = content.text.trim();
-        
+
         // Try to extract JSON array from the response
         let jsonStr = rawText;
-        
+
         // Look for JSON array in the response
         const jsonMatch = rawText.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
           jsonStr = jsonMatch[0];
         }
-        
+
         // Clean up common AI response issues
         jsonStr = jsonStr
           .replace(/```json\n?/, '')
           .replace(/\n?```/, '')
           .replace(/^\s*\[/, '[')
           .replace(/\]\s*$/, ']');
-        
+
         const result = safeJsonParse(jsonStr, 'Batch rule name generation');
         if (Array.isArray(result) && result.length === rules.length) {
-          return result.map(item => ({
+          return result.map((item) => ({
             name: (item.name || '').substring(0, 80),
-            description: (item.description || '').substring(0, 200)
+            description: (item.description || '').substring(0, 200),
           }));
         }
       }
-    } else if (config.openaiApiKey || (config.useAzureOpenAI && config.azureOpenAIApiKey)) {
+    } else if (
+      config.openaiApiKey ||
+      (config.useAzureOpenAI && config.azureOpenAIApiKey)
+    ) {
       const openai = new OpenAI(
         config.useAzureOpenAI
           ? {
@@ -1461,11 +1469,13 @@ Return ONLY a JSON array with objects containing 'name' and 'description' fields
               defaultQuery: { 'api-version': config.azureOpenAIApiVersion },
               defaultHeaders: { 'api-key': config.azureOpenAIApiKey },
             }
-          : { apiKey: config.openaiApiKey }
+          : { apiKey: config.openaiApiKey },
       );
 
       const response = await openai.chat.completions.create({
-        model: config.useAzureOpenAI ? config.azureOpenAIDeployment || 'gpt-4' : 'gpt-4',
+        model: config.useAzureOpenAI
+          ? config.azureOpenAIDeployment || 'gpt-4'
+          : 'gpt-4',
         messages: [
           {
             role: 'user',
@@ -1479,34 +1489,37 @@ Return ONLY a JSON array with objects containing 'name' and 'description' fields
       const content = response.choices[0]?.message?.content;
       if (content) {
         const rawText = content.trim();
-        
+
         // Try to extract JSON array from the response
         let jsonStr = rawText;
-        
+
         // Look for JSON array in the response
         const jsonMatch = rawText.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
           jsonStr = jsonMatch[0];
         }
-        
+
         // Clean up common AI response issues
         jsonStr = jsonStr
           .replace(/```json\n?/, '')
           .replace(/\n?```/, '')
           .replace(/^\s*\[/, '[')
           .replace(/\]\s*$/, ']');
-        
+
         const result = safeJsonParse(jsonStr, 'Batch rule name generation');
         if (Array.isArray(result) && result.length === rules.length) {
-          return result.map(item => ({
+          return result.map((item) => ({
             name: (item.name || '').substring(0, 80),
-            description: (item.description || '').substring(0, 200)
+            description: (item.description || '').substring(0, 200),
           }));
         }
       }
     }
   } catch (error) {
-    console.warn('Failed to generate batch AI rule names, using fallbacks:', error instanceof Error ? error.message : 'Unknown error');
+    console.warn(
+      'Failed to generate batch AI rule names, using fallbacks:',
+      error instanceof Error ? error.message : 'Unknown error',
+    );
   }
 
   // Fallback if AI fails
@@ -1521,10 +1534,10 @@ export const generateRealisticRuleName = async (
     severity?: string;
     category?: string;
     technique?: string;
-  } = {}
+  } = {},
 ): Promise<{ name: string; description: string }> => {
   const config = getConfig();
-  
+
   // Create a fallback function for when AI is not available
   const generateFallbackRuleName = () => {
     const ruleTypeNames = {
@@ -1534,15 +1547,17 @@ export const generateRealisticRuleName = async (
       machine_learning: 'Anomaly Detection',
       threat_match: 'Threat Intelligence Match',
       new_terms: 'New Entity Detection',
-      esql: 'Advanced Analytics Rule'
+      esql: 'Advanced Analytics Rule',
     };
-    
-    const baseName = ruleTypeNames[ruleType as keyof typeof ruleTypeNames] || 'Security Detection';
+
+    const baseName =
+      ruleTypeNames[ruleType as keyof typeof ruleTypeNames] ||
+      'Security Detection';
     const identifier = faker.string.alphanumeric(6);
-    
+
     return {
       name: `${baseName} - ${identifier}`,
-      description: `${ruleType} rule that detects ${faker.helpers.arrayElement(['suspicious', 'malicious', 'anomalous', 'unusual'])} activity`
+      description: `${ruleType} rule that detects ${faker.helpers.arrayElement(['suspicious', 'malicious', 'anomalous', 'unusual'])} activity`,
     };
   };
 
@@ -1579,7 +1594,7 @@ Return ONLY a JSON object with 'name' and 'description' fields:`;
 
     if (config.useClaudeAI && config.claudeApiKey) {
       const anthropic = new Anthropic({ apiKey: config.claudeApiKey });
-      
+
       const response = await anthropic.messages.create({
         model: config.claudeModel || 'claude-3-5-sonnet-20241022',
         max_tokens: 300,
@@ -1594,45 +1609,62 @@ Return ONLY a JSON object with 'name' and 'description' fields:`;
       const content = response.content[0];
       if (content.type === 'text') {
         const rawText = content.text.trim();
-        
+
         // Try to extract JSON from the response
         let jsonStr = rawText;
-        
+
         // Look for JSON object in the response
         const jsonMatch = rawText.match(/\{[^{}]*"name"[^{}]*\}/);
         if (jsonMatch) {
           jsonStr = jsonMatch[0];
         }
-        
+
         // Clean up common AI response issues
         jsonStr = jsonStr
           .replace(/```json\n?/, '')
           .replace(/\n?```/, '')
           .replace(/^\s*{/, '{')
           .replace(/}\s*$/, '}');
-        
+
         const result = safeJsonParse(jsonStr, 'Rule name generation');
-        if (result && result.name && result.description) {
+        if (
+          result &&
+          typeof result === 'object' &&
+          'name' in result &&
+          'description' in result
+        ) {
+          const typedResult = result as { name: string; description: string };
           return {
-            name: result.name.substring(0, 80),
-            description: result.description.substring(0, 200)
+            name: typedResult.name.substring(0, 80),
+            description: typedResult.description.substring(0, 200),
           };
         }
       }
-    } else if (config.openaiApiKey || (config.useAzureOpenAI && config.azureOpenAIApiKey)) {
+    } else if (
+      config.openaiApiKey ||
+      (config.useAzureOpenAI && config.azureOpenAIApiKey)
+    ) {
+      if (config.useAzureOpenAI && !config.azureOpenAIEndpoint) {
+        throw new Error(
+          'Azure OpenAI endpoint is required when useAzureOpenAI is true',
+        );
+      }
+
       const openai = new OpenAI(
         config.useAzureOpenAI
           ? {
               apiKey: config.azureOpenAIApiKey,
-              baseURL: `${config.azureOpenAIEndpoint}/openai/deployments/${config.azureOpenAIDeployment}`,
+              baseURL: `${config.azureOpenAIEndpoint!.replace(/\/$/, '')}/openai/deployments/${config.azureOpenAIDeployment}`,
               defaultQuery: { 'api-version': config.azureOpenAIApiVersion },
               defaultHeaders: { 'api-key': config.azureOpenAIApiKey },
             }
-          : { apiKey: config.openaiApiKey }
+          : { apiKey: config.openaiApiKey },
       );
 
       const response = await openai.chat.completions.create({
-        model: config.useAzureOpenAI ? config.azureOpenAIDeployment || 'gpt-4' : 'gpt-4',
+        model: config.useAzureOpenAI
+          ? config.azureOpenAIDeployment || 'gpt-4'
+          : 'gpt-4',
         messages: [
           {
             role: 'user',
@@ -1646,34 +1678,43 @@ Return ONLY a JSON object with 'name' and 'description' fields:`;
       const content = response.choices[0]?.message?.content;
       if (content) {
         const rawText = content.trim();
-        
+
         // Try to extract JSON from the response
         let jsonStr = rawText;
-        
+
         // Look for JSON object in the response
         const jsonMatch = rawText.match(/\{[^{}]*"name"[^{}]*\}/);
         if (jsonMatch) {
           jsonStr = jsonMatch[0];
         }
-        
+
         // Clean up common AI response issues
         jsonStr = jsonStr
           .replace(/```json\n?/, '')
           .replace(/\n?```/, '')
           .replace(/^\s*{/, '{')
           .replace(/}\s*$/, '}');
-        
+
         const result = safeJsonParse(jsonStr, 'Rule name generation');
-        if (result && result.name && result.description) {
+        if (
+          result &&
+          typeof result === 'object' &&
+          'name' in result &&
+          'description' in result
+        ) {
+          const typedResult = result as { name: string; description: string };
           return {
-            name: result.name.substring(0, 80),
-            description: result.description.substring(0, 200)
+            name: typedResult.name.substring(0, 80),
+            description: typedResult.description.substring(0, 200),
           };
         }
       }
     }
   } catch (error) {
-    console.warn('Failed to generate AI rule name, using fallback:', error instanceof Error ? error.message : 'Unknown error');
+    console.warn(
+      'Failed to generate AI rule name, using fallback:',
+      error instanceof Error ? error.message : 'Unknown error',
+    );
   }
 
   // Fallback if AI fails

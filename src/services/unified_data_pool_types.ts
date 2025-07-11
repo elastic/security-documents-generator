@@ -7,7 +7,6 @@
 
 import { MitreTechnique } from '../utils/ai_service_types';
 import { ElasticsearchMapping } from '../utils/dynamic_mapping_generator';
-import { FieldTemplate } from '../utils/multi_field_templates';
 
 /**
  * Standard security data that's always generated

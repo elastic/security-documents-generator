@@ -1,3 +1,10 @@
+/**
+ * Document Generator Commands
+ *
+ * This module handles the generation of various security documents.
+ * Uses 'any' types extensively due to dynamic Elasticsearch document structures
+ * and AI-generated content that varies in schema.
+ */
 import createAlerts, { BaseCreateAlertsReturnType } from '../create_alerts';
 import createEvents from '../create_events';
 import eventMappings from '../mappings/eventMappings.json' assert { type: 'json' };
@@ -25,12 +32,7 @@ import {
 } from '../utils/false_positive_generator';
 import { generateFields } from './generate_fields';
 import { createCases, CaseCreationOptions } from '../create_cases';
-import { generateCaseFromAlert } from '../generators/case_generator';
-import {
-  parseThemeConfig,
-  getRandomThemedValue,
-  isValidTheme,
-} from '../utils/theme_service';
+
 import {
   setGlobalTheme,
   getThemedUsername,
@@ -66,7 +68,7 @@ async function applyMultiFieldGeneration<T extends Record<string, any>>(
     contextWeightEnabled?: boolean;
     correlationEnabled?: boolean;
   },
-  useMitre = false,
+  _useMitre = false, // Prefixed with _ - reserved for future MITRE integration
 ): Promise<T> {
   if (!multiFieldConfig) {
     return alert;
@@ -1335,7 +1337,7 @@ export const generateCorrelatedCampaign = async (
   space: string = 'default',
   useAI = false,
   useMitre = false,
-  logVolumeMultiplier = 6,
+  _logVolumeMultiplier = 6,
   timestampConfig?: TimestampConfig,
   _namespace = 'default',
   theme?: string,
@@ -1364,7 +1366,7 @@ export const generateCorrelatedCampaign = async (
   const { unifiedAlertGenerationService } = await import(
     '../services/unified_alert_generation'
   );
-  const logMappings = await import('../mappings/log_mappings.json', {
+  const _logMappings = await import('../mappings/log_mappings.json', {
     assert: { type: 'json' },
   });
 
@@ -1753,7 +1755,7 @@ export const deleteAllData = async () => {
       const { deleteAllRules } = await import('./rules');
       console.log('\n📜 Deleting detection rules...');
       await deleteAllRules();
-    } catch (error) {
+    } catch (_error) {
       console.log('Note: No detection rules to delete');
     }
 

@@ -3,7 +3,6 @@ import { generateTimestamp } from '../utils/timestamp_utils';
 import {
   SessionViewGenerator,
   createProcessWithSessionView,
-  SessionViewFields,
 } from '../services/session_view_generator';
 
 export interface EndpointLogConfig {
@@ -758,8 +757,6 @@ export const generateSessionViewProcessLog = (
     userName = faker.internet.username(),
     timestampConfig,
     namespace = 'default',
-    sessionView = false,
-    visualAnalyzer = false,
   } = config;
 
   // Generate realistic process activities for Session View

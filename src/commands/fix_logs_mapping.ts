@@ -17,28 +17,23 @@ async function createLogsIndexTemplate(): Promise<void> {
 
   // Create index template for logs-* pattern with specific security patterns
   const indexTemplate = {
-    index_patterns: [
-      'logs-security.*-default',
-      'logs-testlogs-default',
-      '.ds-logs-security.*-default-*',
-    ],
-    priority: 250, // Higher than existing templates (200)
+    index_patterns: ['logs-*', '.ds-logs-*'],
+    priority: 200, // Higher than default logs template
     data_stream: {},
     template: {
       settings: {
         'index.mapping.total_fields.limit': 50000,
         'index.mapping.depth.limit': 20,
-        'index.mapping.total_fields.ignore_dynamic_beyond_limit': false, // Don't ignore fields!
+        'index.mapping.total_fields.ignore_dynamic_beyond_limit': false,
       },
       mappings: {
-        dynamic: true, // Allow dynamic mapping
         dynamic_templates: [
           {
             behavioral_numbers: {
               path_match: 'behavioral.*',
               match_mapping_type: 'long',
               mapping: {
-                type: 'long',
+                type: 'long' as const,
                 index: true,
                 doc_values: true,
               },
@@ -49,7 +44,7 @@ async function createLogsIndexTemplate(): Promise<void> {
               path_match: 'behavioral.*',
               match_mapping_type: 'double',
               mapping: {
-                type: 'double',
+                type: 'double' as const,
                 index: true,
                 doc_values: true,
               },
@@ -60,45 +55,7 @@ async function createLogsIndexTemplate(): Promise<void> {
               path_match: 'behavioral.*',
               match_mapping_type: 'string',
               mapping: {
-                type: 'keyword',
-                index: true,
-                doc_values: true,
-                fields: {
-                  text: {
-                    type: 'text',
-                  },
-                },
-              },
-            },
-          },
-          {
-            user_behavior_numbers: {
-              path_match: 'user_behavior.*',
-              match_mapping_type: 'long',
-              mapping: {
-                type: 'long',
-                index: true,
-                doc_values: true,
-              },
-            },
-          },
-          {
-            user_behavior_floats: {
-              path_match: 'user_behavior.*',
-              match_mapping_type: 'double',
-              mapping: {
-                type: 'double',
-                index: true,
-                doc_values: true,
-              },
-            },
-          },
-          {
-            security_scores: {
-              path_match: 'security.*',
-              match_mapping_type: 'double',
-              mapping: {
-                type: 'double',
+                type: 'keyword' as const,
                 index: true,
                 doc_values: true,
               },
@@ -109,7 +66,7 @@ async function createLogsIndexTemplate(): Promise<void> {
               path_match: 'threat.*',
               match_mapping_type: 'long',
               mapping: {
-                type: 'long',
+                type: 'long' as const,
                 index: true,
                 doc_values: true,
               },
@@ -119,7 +76,7 @@ async function createLogsIndexTemplate(): Promise<void> {
             all_numbers: {
               match_mapping_type: 'long',
               mapping: {
-                type: 'long',
+                type: 'long' as const,
                 index: true,
                 doc_values: true,
               },
@@ -129,7 +86,7 @@ async function createLogsIndexTemplate(): Promise<void> {
             all_floats: {
               match_mapping_type: 'double',
               mapping: {
-                type: 'double',
+                type: 'double' as const,
                 index: true,
                 doc_values: true,
               },
@@ -148,7 +105,7 @@ async function createLogsIndexTemplate(): Promise<void> {
 
   await client.indices.putIndexTemplate({
     name: 'security-logs-unlimited-fields',
-    body: indexTemplate,
+    body: indexTemplate as any, // Type assertion to work around strict typing
   });
 
   console.log('✅ Created index template: security-logs-unlimited-fields');
@@ -178,13 +135,27 @@ async function analyzeLogsIndices(): Promise<void> {
   for (const idx of logsIndices.slice(0, 3)) {
     // Show first 3
     try {
+      // Check if index name exists
+      if (!idx.index) {
+        console.log(`  ⚠️  Skipping index with undefined name`);
+        continue;
+      }
+
       // Get index settings
       const settings = await client.indices.getSettings({ index: idx.index });
-      const indexSettings = settings[idx.index].settings.index;
+      const indexData = settings[idx.index];
+
+      if (!indexData?.settings?.index) {
+        console.log(`  ⚠️  Could not get settings for ${idx.index}`);
+        continue;
+      }
+
+      const indexSettings = indexData.settings.index;
 
       const fieldLimit = indexSettings.mapping?.total_fields?.limit || 1000;
-      const ignoreBeyondLimit =
-        indexSettings.mapping?.ignore_dynamic_beyond_limit;
+      const ignoreBeyondLimit = (indexSettings.mapping as any)?.[
+        'ignore_dynamic_beyond_limit'
+      ];
 
       console.log(`  📄 ${idx.index}:`);
       console.log(`    Field limit: ${fieldLimit}`);
@@ -192,12 +163,22 @@ async function analyzeLogsIndices(): Promise<void> {
 
       // Get field count
       const mapping = await client.indices.getMapping({ index: idx.index });
-      const properties = mapping[idx.index].mappings.properties || {};
+      const indexMapping = mapping[idx.index];
+
+      if (!indexMapping?.mappings?.properties) {
+        console.log(`    Current fields: unknown (no mapping found)`);
+        continue;
+      }
+
+      const properties = indexMapping.mappings.properties;
       const fieldCount = Object.keys(flattenMapping(properties)).length;
 
       console.log(`    Current fields: ${fieldCount}`);
     } catch (error) {
-      console.log(`  ⚠️  Could not analyze ${idx.index}`);
+      console.log(
+        `  ⚠️  Could not analyze ${idx.index}:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      );
     }
   }
 }
@@ -209,7 +190,7 @@ function flattenMapping(obj: any, prefix = ''): Record<string, any> {
   const flattened: Record<string, any> = {};
 
   for (const key in obj) {
-    if (obj.hasOwnProperty(key)) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
       const newKey = prefix ? `${prefix}.${key}` : key;
 
       if (obj[key].properties) {

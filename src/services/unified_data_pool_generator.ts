@@ -15,35 +15,17 @@ import {
   ThemeDataPool,
   DataPoolGenerationConfig,
   DataPoolGenerationResult,
-  BatchingStrategy,
-  FieldGenerationBatch,
   ExtendedFieldData,
-  UnifiedSystemError,
-  UnifiedSystemErrorType,
 } from './unified_data_pool_types';
-import {
-  getThemedData,
-  batchGenerateThemedData,
-  Theme,
-  SUPPORTED_THEMES,
-} from '../utils/theme_service';
+import { batchGenerateThemedData, Theme } from '../utils/theme_service';
 import {
   loadMitreData,
   selectMitreTechniques,
 } from '../utils/mitre_attack_service';
-import { MitreTechnique, MitreAttackData } from '../utils/ai_service_types';
-import {
-  MultiFieldGenerator,
-  MultiFieldConfig,
-} from '../utils/multi_field_generator';
-import {
-  getFieldCategories,
-  MULTI_FIELD_TEMPLATES,
-} from '../utils/multi_field_templates';
+import { MultiFieldGenerator } from '../utils/multi_field_generator';
+import { getFieldCategories } from '../utils/multi_field_templates';
 import {
   generateAISecurityData,
-  generateAIFieldSchema,
-  generateAIFieldData,
   calculateBatchingStrategy,
   processFieldBatches,
 } from './ai_data_pool_service';
@@ -171,8 +153,10 @@ export class UnifiedDataPoolGenerator {
         errors,
         warnings,
       };
-    } catch (error) {
-      errors.push(`Data pool generation failed: ${error.message}`);
+    } catch (error: any) {
+      errors.push(
+        `Data pool generation failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
 
       // Return fallback data pool
       const fallbackPool = await this.generateFallbackDataPool(config);
@@ -242,7 +226,7 @@ export class UnifiedDataPoolGenerator {
           aiCalls,
           tokens,
         };
-      } catch (error: any) {
+      } catch (_error: any) {
         console.warn(
           'AI standard data generation failed, using high-quality fallback',
         );
@@ -383,7 +367,12 @@ export class UnifiedDataPoolGenerator {
 
       return {
         pool: {
-          techniques: selectedTechniques,
+          techniques: selectedTechniques.map((tech) => ({
+            name: tech.technique,
+            description: `MITRE ATT&CK technique ${tech.technique}`,
+            tactics: [tech.tactic],
+            subTechniques: tech.subTechnique ? [tech.subTechnique] : undefined,
+          })),
           tactics: Object.keys(mitreData.tactics),
           procedures: [],
           subtechniques: Object.keys(mitreData.subTechniques || {}),
@@ -392,7 +381,7 @@ export class UnifiedDataPoolGenerator {
         aiCalls: 0,
         tokens: 0,
       };
-    } catch (error: any) {
+    } catch (_error: any) {
       console.warn('MITRE data loading failed, using fallback');
 
       return {
@@ -478,7 +467,7 @@ export class UnifiedDataPoolGenerator {
           aiCalls,
           tokens,
         };
-      } catch (error) {
+      } catch (_error) {
         console.warn('Theme data generation failed, using empty theme pool');
       }
     }
@@ -503,7 +492,7 @@ export class UnifiedDataPoolGenerator {
   private async generateAIExtendedFields(
     fieldCount: number,
     categories?: string[],
-    alertCount: number = 100,
+    _alertCount: number = 100,
   ): Promise<{
     fields: ExtendedFieldData[];
     aiCalls: number;

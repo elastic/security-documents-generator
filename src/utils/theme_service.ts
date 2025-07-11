@@ -156,8 +156,14 @@ const initializeAI = (): void => {
   }
 
   if (config.useAzureOpenAI) {
+    if (!config.azureOpenAIEndpoint) {
+      throw new Error(
+        'Azure OpenAI endpoint is required when useAzureOpenAI is true',
+      );
+    }
+
     openai = new OpenAI({
-      apiKey: config.azureOpenAIApiKey,
+      apiKey: config.azureOpenAIApiKey || '',
       baseURL: `${config.azureOpenAIEndpoint.replace(/\/+$/, '')}/openai/deployments/${config.azureOpenAIDeployment}`,
       defaultQuery: {
         'api-version': config.azureOpenAIApiVersion || '2024-02-15-preview',
@@ -492,7 +498,7 @@ Return as JSON array.`,
         if (Array.isArray(parsed)) {
           data = parsed.filter((item: any) => typeof item === 'string');
         }
-      } catch (jsonError) {
+      } catch (_jsonError) {
         // Try with safeJsonParse as fallback
         const parsed = safeJsonParse(
           cleanResponse,
@@ -1498,7 +1504,7 @@ export const getThemedData = async (
     };
 
     return data;
-  } catch (error) {
+  } catch (_error) {
     console.warn(
       `AI theme generation failed for ${theme} ${dataType}, using fallback`,
     );
@@ -1528,7 +1534,7 @@ export const batchGenerateThemedData = async (
   for (const dataType of dataTypes) {
     try {
       results[dataType] = await getThemedData(theme, dataType, count);
-    } catch (error) {
+    } catch (_error) {
       console.warn(
         `Failed to generate ${dataType} for theme ${theme}, using fallback`,
       );

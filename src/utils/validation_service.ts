@@ -1,3 +1,8 @@
+/**
+ * Validation Service
+ *
+ * Handles data validation with legitimate control character detection.
+ */
 import { faker } from '@faker-js/faker';
 import { generateTimestamp, TimestampConfig } from './timestamp_utils';
 import { BaseCreateAlertsReturnType } from '../create_alerts';

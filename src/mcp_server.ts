@@ -1,5 +1,14 @@
 #!/usr/bin/env node
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
+/**
+ * Model Context Protocol (MCP) Server
+ *
+ * Handles dynamic MCP requests and responses with variable data structures.
+ * Uses 'any' types due to dynamic nature of MCP protocol and flexible message schemas.
+ */
+
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -1530,14 +1539,18 @@ class SecurityDataMCPServer {
             );
 
           case 'query_massive_fields':
-            if (!args || !('correlationId' in args)) {
+            if (
+              !args ||
+              !('correlationId' in args) ||
+              typeof args.correlationId !== 'string'
+            ) {
               throw new McpError(
                 ErrorCode.InvalidParams,
-                'correlationId is required',
+                'correlationId is required and must be a string',
               );
             }
             return await this.handleQueryMassiveFields(
-              args as QueryMassiveFieldsParams,
+              args as unknown as QueryMassiveFieldsParams,
             );
 
           case 'generate_cases':

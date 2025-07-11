@@ -417,7 +417,7 @@ export class EnhancedPromptGenerator {
   private static addEnhancementDirectives(
     basePrompt: string,
     enhancementLevel: 'basic' | 'advanced' | 'expert',
-    context: PromptContext,
+    _context: PromptContext,
   ): string {
     let enhancedPrompt = basePrompt;
 

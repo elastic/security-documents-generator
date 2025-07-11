@@ -141,7 +141,7 @@ function mergeNestedMappings(
  */
 export function generateElasticsearchMapping(
   fields: Record<string, { type: string; description?: string }>,
-  indexName: string,
+  _indexName: string,
 ): ElasticsearchMapping {
   console.log(
     `🗺️  Generating Elasticsearch mapping for ${Object.keys(fields).length} fields...`,
@@ -257,7 +257,7 @@ export async function deleteConflictingIndices(
       }
       console.log(`✅ Cleaned up ${indices.length} conflicting indices`);
     }
-  } catch (error) {
+  } catch (_error) {
     // Index doesn't exist or other error - this is fine for new generation
     console.log(`ℹ️  No conflicting indices found for ${indexPattern}`);
   }

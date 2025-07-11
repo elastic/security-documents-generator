@@ -134,7 +134,7 @@ export class UnifiedAlertGenerationService {
           console.log(
             `✅ Generated ${userNames.length} themed usernames and ${hostNames.length} themed hostnames`,
           );
-        } catch (error) {
+        } catch (_error) {
           console.warn('AI entity generation failed, using fallback');
           const fallbackResult = await this.generateEntityNames(
             config.userCount,
@@ -335,7 +335,7 @@ export class UnifiedAlertGenerationService {
   private async generateEntityNames(
     userCount: number,
     hostCount: number,
-    theme?: string,
+    _theme?: string,
   ): Promise<{ userNames: string[]; hostNames: string[] }> {
     const { faker } = await import('@faker-js/faker');
 

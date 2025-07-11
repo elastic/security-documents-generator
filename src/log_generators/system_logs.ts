@@ -5,7 +5,6 @@ import {
   getThemedHostname,
   getThemedProcessName,
   getThemedFilename,
-  getGlobalThemeGenerator,
 } from '../utils/universal_theme_generator';
 
 export interface SystemLogConfig {

@@ -4,7 +4,6 @@ import {
   getThemedUsername,
   getThemedHostname,
   getThemedDomain,
-  getGlobalThemeGenerator,
 } from '../utils/universal_theme_generator';
 
 export interface AuthLogConfig {

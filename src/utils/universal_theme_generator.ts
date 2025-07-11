@@ -7,10 +7,8 @@
 
 import { faker } from '@faker-js/faker';
 import {
-  Theme,
   ParsedThemeConfig,
   parseThemeConfig,
-  getThemedData,
   getRandomThemedValue,
 } from './theme_service';
 

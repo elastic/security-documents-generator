@@ -1,4 +1,4 @@
-import { input, select, confirm } from '@inquirer/prompts';
+import { input, confirm } from '@inquirer/prompts';
 import fs from 'fs';
 import { configPath, ConfigType } from '../get_config';
 

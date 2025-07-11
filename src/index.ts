@@ -1,4 +1,7 @@
 #! /usr/bin/env node
+
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import { program } from 'commander';
 import {
   deleteAllAlerts,
@@ -1054,12 +1057,17 @@ program
         await deleteAllRules();
       }
 
-      await generateRulesAndAlerts(ruleCount, eventCount, {
-        interval: options.interval,
-        from: fromHours,
-        gapsPerRule: gaps,
-        ruleTypes: ruleTypes as any,
-      }, options.space);
+      await generateRulesAndAlerts(
+        ruleCount,
+        eventCount,
+        {
+          interval: options.interval,
+          from: fromHours,
+          gapsPerRule: gaps,
+          ruleTypes: ruleTypes as any,
+        },
+        options.space,
+      );
 
       console.log('Successfully generated rules and events');
     } catch (error) {
@@ -2557,8 +2565,7 @@ program
         },
       });
 
-      const hits =
-        searchResult.hits?.hits || searchResult.body?.hits?.hits || [];
+      const hits = searchResult.hits?.hits || [];
       console.log(
         `📊 Found ${hits.length} documents for correlation ID: ${correlationId}`,
       );

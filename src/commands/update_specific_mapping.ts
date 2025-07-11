@@ -167,6 +167,12 @@ export async function updateSecurityAlertsMapping(
   );
 
   try {
+    // Check if target index is valid
+    if (!targetIndex) {
+      console.error('❌ Target index is undefined');
+      return;
+    }
+
     // Apply the mapping update
     await client.indices.putMapping({
       index: targetIndex,

@@ -8,8 +8,6 @@
 import { getEsClient } from './utils/indices';
 import {
   generateElasticsearchMapping,
-  generateIndexTemplate,
-  applyIndexTemplate,
   generateSecurityFieldMapping,
 } from '../utils/dynamic_mapping_generator';
 
@@ -56,9 +54,15 @@ export async function setupSecurityMappings(): Promise<void> {
     let updatedCount = 0;
     for (const idx of securityIndices) {
       try {
+        // Check if index name exists
+        if (!idx.index) {
+          console.log(`  ⚠️  Skipping index with undefined name`);
+          continue;
+        }
+
         await client.indices.putMapping({
           index: idx.index,
-          body: mapping.mappings,
+          body: mapping.mappings as any, // Type assertion for ES client compatibility
         });
         console.log(`  ✅ Updated mapping for ${idx.index}`);
         updatedCount++;
@@ -91,7 +95,7 @@ export async function setupSecurityMappings(): Promise<void> {
 
     await client.cluster.putComponentTemplate({
       name: 'security-multi-fields-component',
-      body: componentTemplate,
+      body: componentTemplate as any, // Type assertion for ES client compatibility
     });
 
     console.log('✅ Security field mappings setup completed!');

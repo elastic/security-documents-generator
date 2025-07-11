@@ -8,7 +8,6 @@
  */
 
 import { getEsClient } from './utils/indices';
-import { generateFields } from './generate_fields';
 
 interface FixOptions {
   reindex?: boolean;
@@ -72,7 +71,7 @@ function flattenObject(obj: any, prefix = ''): Record<string, any> {
   const flattened: Record<string, any> = {};
 
   for (const key in obj) {
-    if (obj.hasOwnProperty(key)) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
       const newKey = prefix ? `${prefix}.${key}` : key;
 
       if (
@@ -241,6 +240,12 @@ export async function fixUnmappedFields(
   }
 
   const currentIndex = securityIndex.index;
+
+  if (!currentIndex) {
+    console.error('❌ Security index has no name');
+    return;
+  }
+
   console.log(`🎯 Found index: ${currentIndex}`);
 
   // Analyze current data

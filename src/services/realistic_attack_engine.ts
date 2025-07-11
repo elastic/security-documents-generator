@@ -8,7 +8,6 @@ import type { TimestampConfig } from '../utils/timestamp_utils';
 import {
   getThemedUsername,
   getThemedHostname,
-  getGlobalThemeGenerator,
 } from '../utils/universal_theme_generator';
 import createAlerts from '../create_alerts';
 
@@ -185,14 +184,6 @@ export class RealisticAttackEngine {
           // Create a mock alert to use correlation engine with themed data
           const hostName = await getThemedHostname(faker.internet.domainName());
           const userName = await getThemedUsername(faker.internet.username());
-
-          const mockAlert = {
-            '@timestamp': stage.start_time.toISOString(),
-            'host.name': hostName,
-            'user.name': userName,
-            'threat.technique.id': technique,
-            'kibana.alert.uuid': faker.string.uuid(),
-          } as any;
 
           // Generate simplified logs for this technique (replacing deleted correlation engine)
           const techniqueeLogs = await this.generateSimplifiedLogs({

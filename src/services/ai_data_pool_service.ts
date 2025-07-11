@@ -1,8 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 /**
  * AI Data Pool Service
  *
- * Handles AI-powered generation of security data pools using simple,
- * reliable string array generation instead of complex JSON structures.
+ * Handles AI-generated data pool creation for security simulations.
+ * Uses 'any' types extensively due to dynamic AI response structures
+ * and variable data schemas from different AI providers.
  */
 
 import { OpenAI } from 'openai';
@@ -34,21 +37,29 @@ const initializeAI = (): void => {
         apiKey: config.claudeApiKey,
       });
     } else if (config.useAzureOpenAI && config.azureOpenAIApiKey) {
-      openai = new OpenAI({
-        apiKey: config.azureOpenAIApiKey,
-        baseURL: `${config.azureOpenAIEndpoint.replace(/\/$/, '')}/openai/deployments/${config.azureOpenAIDeployment}`,
-        defaultQuery: {
-          'api-version': config.azureOpenAIApiVersion || '2024-08-01-preview',
-        },
-        defaultHeaders: {
-          'api-key': config.azureOpenAIApiKey,
-          'Content-Type': 'application/json',
-        },
-      });
-    } else if (config.openaiApiKey) {
-      openai = new OpenAI({
-        apiKey: config.openaiApiKey,
-      });
+      if (config.useAzureOpenAI) {
+        if (!config.azureOpenAIEndpoint) {
+          throw new Error(
+            'Azure OpenAI endpoint is required when useAzureOpenAI is true',
+          );
+        }
+
+        openai = new OpenAI({
+          apiKey: config.azureOpenAIApiKey,
+          baseURL: `${config.azureOpenAIEndpoint.replace(/\/$/, '')}/openai/deployments/${config.azureOpenAIDeployment}`,
+          defaultQuery: {
+            'api-version': config.azureOpenAIApiVersion || '2024-08-01-preview',
+          },
+          defaultHeaders: {
+            'api-key': config.azureOpenAIApiKey,
+            'Content-Type': 'application/json',
+          },
+        });
+      } else if (config.openaiApiKey) {
+        openai = new OpenAI({
+          apiKey: config.openaiApiKey,
+        });
+      }
     }
   } catch (error) {
     console.warn('AI initialization failed:', error);
@@ -277,7 +288,7 @@ These are fictional names for security training. One per line, no numbering:`;
 
 For ${theme} theme, create realistic but fictional file names like:
 - If anime: "ninja_training.exe", "chakra_manual.pdf", "village_secrets.dll"
-- If soccer: "match_stats.exe", "player_data.pdf", "team_strategy.dll"  
+- If soccer: "match_stats.exe", "player_data.pdf", "team_strategy.dll"
 - If marvel: "hero_training.exe", "shield_manual.pdf", "powers_database.dll"
 
 These are for security simulation purposes. One per line, no numbering:`;
@@ -412,7 +423,7 @@ Return a JSON object with a "fields" array:
     {
       "name": "threat.intelligence.reputation_score",
       "type": "integer",
-      "category": "threat_intelligence", 
+      "category": "threat_intelligence",
       "description": "IP reputation score from threat feeds"
     }
   ]
@@ -825,7 +836,14 @@ function generateThemedFallbackData(
   const result: string[] = [];
 
   // Create simple themed variations of standard data
-  const themeMap: Record<string, any> = {
+  const themeMap: Record<
+    string,
+    {
+      prefixes: string[];
+      hostPrefixes: string[];
+      threatTerms: string[];
+    }
+  > = {
     anime: {
       prefixes: ['naruto', 'sasuke', 'sakura', 'kakashi', 'akatsuki', 'konoha'],
       hostPrefixes: ['konoha', 'akatsuki', 'chunin', 'ninja', 'hokage'],
@@ -847,13 +865,14 @@ function generateThemedFallbackData(
 
   for (let i = 0; i < count; i++) {
     switch (key) {
-      case 'userNames':
+      case 'userNames': {
         const firstName = faker.helpers.arrayElement(themeData.prefixes);
         const lastName = faker.person.lastName().toLowerCase();
         result.push(`${firstName}.${lastName}`);
         break;
+      }
 
-      case 'hostNames':
+      case 'hostNames': {
         const hostPrefix = faker.helpers.arrayElement(themeData.hostPrefixes);
         const function_name = faker.helpers.arrayElement([
           'web',
@@ -868,21 +887,24 @@ function generateThemedFallbackData(
           .padStart(2, '0');
         result.push(`${hostPrefix}-${function_name}-${env}-${num}`);
         break;
+      }
 
-      case 'alertNames':
+      case 'alertNames': {
         const threatTerm = faker.helpers.arrayElement(themeData.threatTerms);
         result.push(
           `${threatTerm.charAt(0).toUpperCase() + threatTerm.slice(1)} Security Alert`,
         );
         break;
+      }
 
-      case 'fileNames':
+      case 'fileNames': {
         const fileTerm = faker.helpers.arrayElement(themeData.threatTerms);
         const ext = faker.helpers.arrayElement(['exe', 'dll', 'bat']);
         result.push(`${fileTerm}_payload.${ext}`);
         break;
+      }
 
-      case 'domains':
+      case 'domains': {
         const domainWord = faker.helpers.arrayElement(themeData.prefixes);
         const pattern = faker.helpers.arrayElement([
           'downloads',
@@ -893,6 +915,7 @@ function generateThemedFallbackData(
         const tld = faker.helpers.arrayElement(['com', 'net', 'org']);
         result.push(`${domainWord}-${pattern}.${tld}`);
         break;
+      }
 
       default:
         result.push(generateFallbackData(key, 1, theme)[0]);

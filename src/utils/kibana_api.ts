@@ -90,7 +90,7 @@ export const kibanaFetch = async <T>(
   if (rawResponse) {
     try {
       data = JSON.parse(rawResponse);
-    } catch (e) {
+    } catch (_e) {
       // If parsing fails, treat as plain text error response
       data = { error: rawResponse };
     }
@@ -150,46 +150,6 @@ export const assignAssetCriticality = async (
     { apiVersion: API_VERSIONS.public.v1, space },
   );
 };
-
-// Rule type specific configurations
-interface RuleTypeConfig {
-  query?: {
-    query: string;
-    language?: string;
-  };
-  threshold?: {
-    field: string[];
-    value: number;
-    cardinality?: Array<{ field: string; value: number }>;
-  };
-  eql?: {
-    query: string;
-    language: 'eql';
-  };
-  machine_learning?: {
-    anomaly_threshold: number;
-    machine_learning_job_id: string[];
-  };
-  threat_match?: {
-    threat_index: string[];
-    threat_query: string;
-    threat_mapping: Array<{
-      entries: Array<{
-        field: string;
-        type: string;
-        value: string;
-      }>;
-    }>;
-  };
-  new_terms?: {
-    new_terms_fields: string[];
-    history_window_start: string;
-  };
-  esql?: {
-    query: string;
-    language: 'esql';
-  };
-}
 
 export const createRule = ({
   space,
@@ -279,7 +239,9 @@ export const createRule = ({
 
     case 'threshold':
       typeSpecificConfig = {
-        query: query || 'event.category:"authentication" AND event.outcome:"failure"',
+        query:
+          query ||
+          'event.category:"authentication" AND event.outcome:"failure"',
         language: 'kuery',
         threshold: {
           field: threshold_field || ['user.name'],

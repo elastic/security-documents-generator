@@ -246,7 +246,7 @@ function generateCaseDescription(
     security_incident: () =>
       `
 **Incident Summary:**
-A ${severity} severity security incident has been detected involving ${incidentType.toLowerCase()}. 
+A ${severity} severity security incident has been detected involving ${incidentType.toLowerCase()}.
 
 **Initial Observations:**
 - First detected: ${timestamp}
@@ -260,7 +260,7 @@ A ${severity} severity security incident has been detected involving ${incidentT
 3. Assess scope of compromise
 4. Implement recovery procedures
 
-**Investigation Status:** 
+**Investigation Status:**
 Investigation is ongoing. Analyst assignment and detailed forensic analysis required.
 
 **Business Impact:**
@@ -389,7 +389,7 @@ async function generateMitreData(): Promise<{
       framework: 'MITRE ATT&CK',
       kill_chain_phases,
     };
-  } catch (error) {
+  } catch (_error) {
     // Fallback if MITRE data is not available
     return {
       technique_ids: [`T${faker.number.int({ min: 1000, max: 1999 })}`],
@@ -405,20 +405,20 @@ async function generateMitreData(): Promise<{
 // AI-powered case generation
 async function generateAICase(theme?: string): Promise<any> {
   const config = getConfig();
-  
+
   // Initialize AI client
   let openai: OpenAI | null = null;
   let claude: Anthropic | null = null;
-  
+
   if (config.useClaudeAI && config.claudeApiKey) {
     claude = new Anthropic({ apiKey: config.claudeApiKey });
   } else if (config.useAzureOpenAI && config.azureOpenAIApiKey) {
-    openai = new OpenAI({ 
+    openai = new OpenAI({
       apiKey: config.azureOpenAIApiKey,
       baseURL: config.azureOpenAIEndpoint,
     });
   } else if (config.openaiApiKey) {
-    openai = new OpenAI({ 
+    openai = new OpenAI({
       apiKey: config.openaiApiKey,
     });
   }
@@ -429,7 +429,7 @@ async function generateAICase(theme?: string): Promise<any> {
   }
 
   const themeContext = theme ? generateThemePromptContext(theme) : '';
-  
+
   const prompt = `Generate 1 security case as JSON:
 {"title":"Brief incident title","description":"2-3 sentences describing the incident","severity":"high","affected_systems":["system1","system2"],"category":"security_incident","incident_type":"Malware Infection","lead_analyst":"Jane Doe","findings":["Key finding 1","Key finding 2"]}
 
@@ -449,10 +449,15 @@ Return only valid JSON object.`;
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
       });
-      response = claudeResponse.content[0].type === 'text' ? claudeResponse.content[0].text : '';
+      response =
+        claudeResponse.content[0].type === 'text'
+          ? claudeResponse.content[0].text
+          : '';
     } else if (openai) {
       const openaiResponse = await openai.chat.completions.create({
-        model: config.useAzureOpenAI ? (config.azureOpenAIDeployment || 'gpt-4o') : 'gpt-4o',
+        model: config.useAzureOpenAI
+          ? config.azureOpenAIDeployment || 'gpt-4o'
+          : 'gpt-4o',
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' },
         temperature: 0.7,
@@ -465,7 +470,7 @@ Return only valid JSON object.`;
       const cleaned = sanitizeJSONResponse(response);
       return safeJsonParse(cleaned);
     }
-  } catch (error) {
+  } catch (_error) {
     // Silently fall back to varied template generation when AI fails
     return generateVariedTemplateCase(theme);
   }
@@ -475,9 +480,8 @@ Return only valid JSON object.`;
 
 // Generate varied template-based case when AI fails
 function generateVariedTemplateCase(theme?: string): any {
-  const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 8);
-  
+
   const incidents = [
     'Suspicious Network Activity',
     'Potential Data Breach',
@@ -493,17 +497,18 @@ function generateVariedTemplateCase(theme?: string): any {
     'Credential Compromise',
     'Lateral Movement Detection',
     'Command and Control Activity',
-    'Data Exfiltration Alert'
+    'Data Exfiltration Alert',
   ];
-  
+
   const severities = ['low', 'medium', 'high', 'critical'];
-  
+
   const incident = incidents[Math.floor(Math.random() * incidents.length)];
   const severity = severities[Math.floor(Math.random() * severities.length)];
-  
+
   // Generate realistic themed context
-  const { themeContext, themeLocation, themeSystems } = generateThemeContext(theme);
-  
+  const { themeContext, themeLocation, themeSystems } =
+    generateThemeContext(theme);
+
   return {
     title: `${incident}${themeLocation ? ` on ${themeLocation}` : ''}`,
     description: `Security investigation for ${incident.toLowerCase()} detected${themeContext ? ` in ${themeContext}` : ''} at ${new Date().toISOString()}. Requires immediate analysis and response.`,
@@ -515,8 +520,8 @@ function generateVariedTemplateCase(theme?: string): any {
     findings: [
       `Initial detection: ${incident}${themeContext ? ` in ${themeContext}` : ''}`,
       `Timestamp: ${new Date().toISOString()}`,
-      `Investigation ID: ${random.toUpperCase()}`
-    ]
+      `Investigation ID: ${random.toUpperCase()}`,
+    ],
   };
 }
 
@@ -528,10 +533,13 @@ function generateThemePromptContext(theme: string): string {
     nba: `Theme: NBA Basketball. Use locations like Staples Center, Chase Center, NBA HQ. Systems like nba-stats-db, lakers-network, warriors-systems. Make it about basketball organizations and sports networks.`,
     soccer: `Theme: Soccer/Football. Use locations like Old Trafford, Camp Nou, FIFA HQ, Wembley Stadium. Systems like manutd-network, barca-database, fifa-systems. Make it about football clubs and leagues.`,
     tech_companies: `Theme: Tech Companies. Use locations like Apple Park, Google Campus, Microsoft HQ. Systems like apple-icloud, google-search, microsoft-azure. Make it about major technology corporations.`,
-    programming: `Theme: Programming/Development. Use locations like GitHub HQ, Stack Overflow. Systems like github-repos, stackoverflow-db, python-mirrors. Make it about developer communities and coding platforms.`
+    programming: `Theme: Programming/Development. Use locations like GitHub HQ, Stack Overflow. Systems like github-repos, stackoverflow-db, python-mirrors. Make it about developer communities and coding platforms.`,
   };
-  
-  return prompts[theme] || `Theme: ${theme}. Use realistic ${theme}-related locations, systems, and context for the security case.`;
+
+  return (
+    prompts[theme] ||
+    `Theme: ${theme}. Use realistic ${theme}-related locations, systems, and context for the security case.`
+  );
 }
 
 // Generate realistic theme context for cases
@@ -544,59 +552,152 @@ function generateThemeContext(theme?: string): {
     return {
       themeContext: '',
       themeLocation: '',
-      themeSystems: ['web-server-01', 'database-02', 'workstation-03']
+      themeSystems: ['web-server-01', 'database-02', 'workstation-03'],
     };
   }
 
-  const themeData: Record<string, {
-    contexts: string[];
-    locations: string[];
-    systems: string[];
-  }> = {
+  const themeData: Record<
+    string,
+    {
+      contexts: string[];
+      locations: string[];
+      systems: string[];
+    }
+  > = {
     marvel: {
-      contexts: ['Stark Industries network', 'Avengers facility', 'S.H.I.E.L.D. systems', 'Xavier Institute'],
-      locations: ['Stark Tower', 'Avengers Compound', 'S.H.I.E.L.D. Helicarrier', 'Wakanda Embassy'],
-      systems: ['stark-ai-core', 'avengers-database', 'shield-mainframe', 'wakanda-network', 'jarvis-backup']
+      contexts: [
+        'Stark Industries network',
+        'Avengers facility',
+        'S.H.I.E.L.D. systems',
+        'Xavier Institute',
+      ],
+      locations: [
+        'Stark Tower',
+        'Avengers Compound',
+        'S.H.I.E.L.D. Helicarrier',
+        'Wakanda Embassy',
+      ],
+      systems: [
+        'stark-ai-core',
+        'avengers-database',
+        'shield-mainframe',
+        'wakanda-network',
+        'jarvis-backup',
+      ],
     },
     starwars: {
-      contexts: ['Rebel Alliance network', 'Imperial systems', 'Jedi Temple archives', 'Death Star infrastructure'],
+      contexts: [
+        'Rebel Alliance network',
+        'Imperial systems',
+        'Jedi Temple archives',
+        'Death Star infrastructure',
+      ],
       locations: ['Death Star', 'Rebel Base', 'Imperial Fleet', 'Jedi Temple'],
-      systems: ['death-star-core', 'rebel-comms', 'imperial-database', 'jedi-archives', 'droid-network']
+      systems: [
+        'death-star-core',
+        'rebel-comms',
+        'imperial-database',
+        'jedi-archives',
+        'droid-network',
+      ],
     },
     nba: {
-      contexts: ['NBA headquarters', 'Lakers facility', 'Warriors training center', 'league operations'],
-      locations: ['Staples Center', 'Chase Center', 'NBA HQ', 'Training Facility'],
-      systems: ['nba-stats-db', 'lakers-network', 'warriors-systems', 'arena-security', 'player-portal']
+      contexts: [
+        'NBA headquarters',
+        'Lakers facility',
+        'Warriors training center',
+        'league operations',
+      ],
+      locations: [
+        'Staples Center',
+        'Chase Center',
+        'NBA HQ',
+        'Training Facility',
+      ],
+      systems: [
+        'nba-stats-db',
+        'lakers-network',
+        'warriors-systems',
+        'arena-security',
+        'player-portal',
+      ],
     },
     soccer: {
-      contexts: ['Manchester United network', 'Barcelona systems', 'FIFA headquarters', 'Premier League'],
+      contexts: [
+        'Manchester United network',
+        'Barcelona systems',
+        'FIFA headquarters',
+        'Premier League',
+      ],
       locations: ['Old Trafford', 'Camp Nou', 'FIFA HQ', 'Wembley Stadium'],
-      systems: ['manutd-network', 'barca-database', 'fifa-systems', 'premier-league-hub', 'stadium-security']
+      systems: [
+        'manutd-network',
+        'barca-database',
+        'fifa-systems',
+        'premier-league-hub',
+        'stadium-security',
+      ],
     },
     tech_companies: {
-      contexts: ['Apple corporate network', 'Google datacenter', 'Microsoft Azure', 'Meta infrastructure'],
-      locations: ['Apple Park', 'Google Campus', 'Microsoft HQ', 'Meta Menlo Park'],
-      systems: ['apple-icloud', 'google-search', 'microsoft-azure', 'meta-servers', 'aws-infrastructure']
+      contexts: [
+        'Apple corporate network',
+        'Google datacenter',
+        'Microsoft Azure',
+        'Meta infrastructure',
+      ],
+      locations: [
+        'Apple Park',
+        'Google Campus',
+        'Microsoft HQ',
+        'Meta Menlo Park',
+      ],
+      systems: [
+        'apple-icloud',
+        'google-search',
+        'microsoft-azure',
+        'meta-servers',
+        'aws-infrastructure',
+      ],
     },
     programming: {
-      contexts: ['GitHub enterprise', 'Stack Overflow systems', 'Python foundation', 'JavaScript community'],
-      locations: ['GitHub HQ', 'Stack Overflow', 'Python.org', 'Node.js Foundation'],
-      systems: ['github-repos', 'stackoverflow-db', 'python-mirrors', 'nodejs-cdn', 'docker-registry']
-    }
+      contexts: [
+        'GitHub enterprise',
+        'Stack Overflow systems',
+        'Python foundation',
+        'JavaScript community',
+      ],
+      locations: [
+        'GitHub HQ',
+        'Stack Overflow',
+        'Python.org',
+        'Node.js Foundation',
+      ],
+      systems: [
+        'github-repos',
+        'stackoverflow-db',
+        'python-mirrors',
+        'nodejs-cdn',
+        'docker-registry',
+      ],
+    },
   };
 
   const defaultTheme = {
     contexts: [`${theme} organization`, `${theme} network`, `${theme} systems`],
     locations: [`${theme} HQ`, `${theme} Facility`, `${theme} Center`],
-    systems: [`${theme}-server-01`, `${theme}-database`, `${theme}-workstation`]
+    systems: [
+      `${theme}-server-01`,
+      `${theme}-database`,
+      `${theme}-workstation`,
+    ],
   };
 
   const data = themeData[theme] || defaultTheme;
-  
+
   return {
     themeContext: faker.helpers.arrayElement(data.contexts),
     themeLocation: faker.helpers.arrayElement(data.locations),
-    themeSystems: faker.helpers.arrayElements(data.systems, { min: 2, max: 4 })
+    themeSystems: faker.helpers.arrayElements(data.systems, { min: 2, max: 4 }),
   };
 }
 
@@ -608,11 +709,13 @@ async function enhanceAICaseWithStructure(
 ): Promise<SecurityCaseData> {
   const now = new Date();
   const discoveryTime = faker.date.recent({ days: 2 });
-  
+
   // Use AI data but ensure required structure
   const fullCase: SecurityCaseData = {
     title: aiCase.title || 'Security Investigation Required',
-    description: aiCase.description || 'AI-generated security case requiring investigation.',
+    description:
+      aiCase.description ||
+      'AI-generated security case requiring investigation.',
     tags: [
       aiCase.category || 'security_incident',
       aiCase.severity || 'medium',
@@ -620,7 +723,13 @@ async function enhanceAICaseWithStructure(
     ],
     severity: aiCase.severity || 'medium',
     owner,
-    assignees: [{ uid: (aiCase.lead_analyst || 'security.analyst').toLowerCase().replace(/\s+/g, '.') }],
+    assignees: [
+      {
+        uid: (aiCase.lead_analyst || 'security.analyst')
+          .toLowerCase()
+          .replace(/\s+/g, '.'),
+      },
+    ],
     connector: {
       id: 'none',
       name: 'None',
@@ -653,14 +762,18 @@ async function enhanceAICaseWithStructure(
       case_id: faker.string.uuid(),
       created_by: 'AI-Enhanced Generation',
       last_updated: now.toISOString(),
-      escalation_level: aiCase.severity === 'critical' ? 4 : aiCase.severity === 'high' ? 3 : 2,
+      escalation_level:
+        aiCase.severity === 'critical' ? 4 : aiCase.severity === 'high' ? 3 : 2,
       alert_count: faker.number.int({ min: 0, max: 10 }),
     },
   };
 
   if (includeMitre) {
     fullCase.mitre = await generateMitreData();
-    fullCase.tags.push('mitre-attack', ...(fullCase.mitre.technique_ids.slice(0, 2)));
+    fullCase.tags.push(
+      'mitre-attack',
+      ...fullCase.mitre.technique_ids.slice(0, 2),
+    );
   }
 
   return fullCase;
@@ -681,7 +794,10 @@ export async function generateSecurityCase(
         return enhanceAICaseWithStructure(aiCase, includeMitre, owner);
       }
     } catch (error) {
-      console.warn('AI case generation failed, falling back to template:', error);
+      console.warn(
+        'AI case generation failed, falling back to template:',
+        error,
+      );
     }
   }
 
@@ -864,7 +980,12 @@ export async function generateMultipleSecurityCases(
   const cases: SecurityCaseData[] = [];
 
   for (let i = 0; i < count; i++) {
-    const securityCase = await generateSecurityCase(includeMitre, owner, useAI, theme);
+    const securityCase = await generateSecurityCase(
+      includeMitre,
+      owner,
+      useAI,
+      theme,
+    );
     cases.push(securityCase);
   }
 

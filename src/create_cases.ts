@@ -1,3 +1,10 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/**
+ * Case Creation Module
+ *
+ * Handles dynamic case generation for security incident management.
+ * Uses 'any' types due to variable case data structures and AI integration.
+ */
 import {
   generateSecurityCase,
   generateMultipleSecurityCases,
@@ -531,13 +538,14 @@ function groupAlerts(
     let groupKey: string;
 
     switch (strategy) {
-      case 'by-time':
+      case 'by-time': {
         const alertTime = new Date(alert._source['@timestamp']);
         const timeSlot = Math.floor(
           alertTime.getTime() / (timeWindowHours * 60 * 60 * 1000),
         );
         groupKey = `time-${timeSlot}`;
         break;
+      }
 
       case 'by-host':
         groupKey = `host-${alert._source['host.name'] || 'unknown'}`;

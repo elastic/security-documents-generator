@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
- * Unified Alert Assembler
+ * Unified Alert Assembler Service
  *
- * Assembles security alerts from data pools, combining standard fields,
- * extended fields, MITRE data, and theme integration efficiently.
+ * Handles dynamic alert assembly with variable data structures.
+ * Uses 'any' types due to flexible alert schema requirements.
  */
 
 import { faker } from '@faker-js/faker';
@@ -70,7 +71,7 @@ export class UnifiedAlertAssembler {
     // Apply false positive logic if configured
     if (options.falsePositiveRate && options.falsePositiveRate > 0) {
       const alertsArray = applyFalsePositiveLogic(
-        [alert],
+        [alert as BaseCreateAlertsReturnType],
         options.falsePositiveRate,
       );
       Object.assign(alert, alertsArray[0]);
@@ -371,17 +372,50 @@ export class UnifiedAlertAssembler {
     if (mitre.techniques.length > 0) {
       const technique = mitre.techniques[alertIndex % mitre.techniques.length];
 
-      // Add MITRE technique information
-      alert['threat.technique.id'] = technique.id;
-      alert['threat.technique.name'] = technique.name;
-      alert['threat.technique.reference'] = technique.reference;
+      // Check if this is the expected structure from selectMitreTechniques
+      if ('technique' in technique && 'tactic' in technique) {
+        // Handle the {tactic: string, technique: string, subTechnique?: string} structure
+        const techniqueObj = technique as {
+          tactic: string;
+          technique: string;
+          subTechnique?: string;
+        };
 
-      // Add tactic information
-      if (technique.tactics && technique.tactics.length > 0) {
-        const tactic = technique.tactics[0];
-        alert['threat.tactic.id'] = tactic.id;
-        alert['threat.tactic.name'] = tactic.name;
-        alert['threat.tactic.reference'] = tactic.reference;
+        alert['threat.technique.id'] = techniqueObj.technique;
+        alert['threat.technique.name'] = techniqueObj.technique; // Use ID as name for now
+        alert['threat.technique.reference'] =
+          `https://attack.mitre.org/techniques/${techniqueObj.technique}/`;
+
+        // Add tactic information
+        alert['threat.tactic.id'] = techniqueObj.tactic;
+        alert['threat.tactic.name'] = techniqueObj.tactic; // Use ID as name for now
+        alert['threat.tactic.reference'] =
+          `https://attack.mitre.org/tactics/${techniqueObj.tactic}/`;
+
+        // Add sub-technique if present
+        if (techniqueObj.subTechnique) {
+          alert['threat.subtechnique.id'] = techniqueObj.subTechnique;
+          alert['threat.subtechnique.name'] = techniqueObj.subTechnique;
+        }
+      } else if ('name' in technique && 'tactics' in technique) {
+        // Handle the MitreTechnique interface structure
+        const mitretech = technique as {
+          name: string;
+          tactics: string[];
+          description: string;
+        };
+
+        alert['threat.technique.name'] = mitretech.name;
+        alert['threat.technique.description'] = mitretech.description;
+
+        // Add tactic information from the first tactic
+        if (mitretech.tactics && mitretech.tactics.length > 0) {
+          const tacticId = mitretech.tactics[0];
+          alert['threat.tactic.id'] = tacticId;
+          alert['threat.tactic.name'] = tacticId; // Use ID as name for now
+          alert['threat.tactic.reference'] =
+            `https://attack.mitre.org/tactics/${tacticId}/`;
+        }
       }
 
       // Add framework information

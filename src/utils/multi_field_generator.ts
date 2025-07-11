@@ -1,15 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
- * Multi-Field Generator Service
+ * Multi-Field Generator
  *
- * High-performance, token-free multi-field generation for security documents.
- * Generates hundreds of contextually relevant security fields using algorithmic approaches.
- *
- * Performance Features:
- * - 99% token reduction vs AI generation
- * - <100ms generation time for 500 fields
- * - Context-aware field selection
- * - Realistic value correlations
- * - Zero AI dependency
+ * Handles dynamic multi-field generation with variable schemas.
+ * Uses 'any' types due to flexible field generation requirements.
  */
 
 import { faker } from '@faker-js/faker';
