@@ -372,6 +372,8 @@ export const generateAlerts = async (
     caseGroupingStrategy?: 'by-time' | 'by-host' | 'by-rule' | 'by-severity';
   },
   theme?: string,
+  sessionView = false,
+  visualAnalyzer = false,
 ) => {
   // Clear field template cache for fresh generation
   clearFieldTemplateCache();
@@ -442,6 +444,8 @@ export const generateAlerts = async (
       hostName,
       space,
       timestampConfig,
+      sessionView,
+      visualAnalyzer,
     });
 
     // Apply multi-field generation if enabled
@@ -580,7 +584,14 @@ export const generateAlerts = async (
     const exampleAlerts = alertEntityNames
       .slice(0, 2)
       .map(({ userName, hostName }) =>
-        createAlerts(no_overrides, { userName, hostName, space }),
+        createAlerts(no_overrides, {
+          userName,
+          hostName,
+          space,
+          timestampConfig,
+          sessionView,
+          visualAnalyzer,
+        }),
       );
 
     progress.start(alertCount, 0);
@@ -816,6 +827,8 @@ export const generateAlerts = async (
       hostName,
       space,
       timestampConfig,
+      sessionView,
+      visualAnalyzer,
     });
 
     // Apply multi-field generation if enabled

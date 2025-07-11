@@ -4,6 +4,7 @@ import {
   SessionViewGenerator,
   createProcessWithSessionView,
 } from '../services/session_view_generator';
+import { createProcessEventWithVisualAnalyzer } from '../services/visual_event_analyzer';
 
 export interface EndpointLogConfig {
   hostName?: string;
@@ -153,7 +154,7 @@ export const generateMalwareDetectionLog = (config: EndpointLogConfig = {}) => {
   };
 
   // Add Session View fields if enabled
-  if (sessionView || visualAnalyzer) {
+  if (sessionView) {
     const { sessionViewFields } = createProcessWithSessionView({
       name: baseLog['process.name'],
       executable: baseLog['process.executable'],
@@ -161,6 +162,25 @@ export const generateMalwareDetectionLog = (config: EndpointLogConfig = {}) => {
       hostName,
     });
     baseLog = { ...baseLog, ...sessionViewFields };
+  }
+
+  // Add Visual Event Analyzer fields if enabled
+  if (visualAnalyzer) {
+    const { visualAnalyzerFields } = createProcessEventWithVisualAnalyzer({
+      processName: baseLog['process.name'],
+      processPid: baseLog['process.pid'],
+      commandLine: baseLog['process.command_line'],
+      userName: baseLog['user.name'],
+      eventType: 'process_start',
+      action: 'malware_detection',
+      metadata: {
+        malware_family: malwareFamily,
+        threat_type: 'trojan',
+        detection_method: 'signature',
+        file_hash: baseLog['file.hash.sha256'],
+      },
+    });
+    baseLog = { ...baseLog, ...visualAnalyzerFields };
   }
 
   return baseLog;
@@ -748,6 +768,134 @@ export const generateLateralMovementLog = (config: EndpointLogConfig = {}) => {
   };
 };
 
+// Enhanced Session View Attack Scenario Generator
+export const generateEnhancedSessionViewLog = (config: EndpointLogConfig = {}) => {
+  const {
+    hostName = faker.internet.domainName(),
+    userName = faker.internet.username(),
+    timestampConfig,
+    namespace = 'default',
+  } = config;
+
+  const sessionGenerator = new SessionViewGenerator(hostName);
+
+  // Generate different attack scenarios
+  const scenarios = ['lateral_movement', 'privilege_escalation', 'persistence', 'discovery', 'data_exfiltration'] as const;
+  const selectedScenario = faker.helpers.arrayElement(scenarios);
+
+  const attackProcesses = sessionGenerator.generateAttackScenario(selectedScenario);
+  const logs = [];
+
+  // Create logs for each process in the attack chain
+  for (let i = 0; i < attackProcesses.length; i++) {
+    const process = attackProcesses[i];
+    const parentProcess = i > 0 ? attackProcesses[i - 1] : undefined;
+
+    const sessionViewFields = sessionGenerator.generateSessionViewFields(
+      process,
+      parentProcess,
+    );
+
+    const log = {
+      '@timestamp': generateTimestamp(timestampConfig),
+      'agent.type': 'endpoint',
+      'agent.version': '8.15.0',
+      'data_stream.dataset': 'endpoint.events.process',
+      'data_stream.namespace': namespace,
+      'data_stream.type': 'logs',
+      'ecs.version': '8.11.0',
+      'event.action': i === 0 ? 'session_start' : 'exec',
+      'event.category': ['process'],
+      'event.dataset': 'endpoint.events.process',
+      'event.kind': 'event',
+      'event.module': 'endpoint',
+      'event.type': ['start'],
+      'host.name': hostName,
+      'host.os.family': process.executable.includes('cmd.exe') ? 'windows' : 'linux',
+      'host.os.name': process.executable.includes('cmd.exe') ? 'Windows 10' : 'Ubuntu',
+      'host.os.version': process.executable.includes('cmd.exe') ? '10.0' : '20.04',
+      message: `${selectedScenario.replace(/_/g, ' ')} step ${i + 1}: ${process.name}`,
+      'process.command_line': process.command_line,
+      'process.executable': process.executable,
+      'process.name': process.name,
+      'process.pid': process.pid,
+      'process.start': process.start,
+      'process.user.name': process.user.name,
+      'process.user.id': process.user.id,
+      'process.group.name': process.group.name,
+      'process.group.id': process.group.id,
+      'user.domain': faker.internet.domainName(),
+      'user.name': userName,
+      'related.user': [userName, process.user.name],
+      // MITRE ATT&CK mapping based on scenario
+      'threat.technique.id': getMitreTechnique(selectedScenario, process.name),
+      'threat.tactic.name': getMitreTactic(selectedScenario),
+      ...sessionViewFields,
+    };
+
+    logs.push(log);
+  }
+
+  return faker.helpers.arrayElement(logs);
+};
+
+// Helper functions for MITRE mapping
+function getMitreTechnique(scenario: string, processName: string): string[] {
+  const mappings: Record<string, Record<string, string[]>> = {
+    lateral_movement: {
+      nmap: ['T1018'], // Remote System Discovery
+      mimikatz: ['T1003.001'], // LSASS Memory
+      psexec: ['T1021.002'], // SMB/Windows Admin Shares
+      default: ['T1021'], // Remote Services
+    },
+    privilege_escalation: {
+      linpeas: ['T1057'], // Process Discovery
+      find: ['T1083'], // File and Directory Discovery
+      sudo: ['T1548.003'], // Sudo and Sudo Caching
+      default: ['T1548'], // Abuse Elevation Control Mechanism
+    },
+    persistence: {
+      crontab: ['T1053.003'], // Cron
+      'ssh-keygen': ['T1098.004'], // SSH Authorized Keys
+      systemctl: ['T1543.002'], // Systemd Service
+      default: ['T1053'], // Scheduled Task/Job
+    },
+    discovery: {
+      whoami: ['T1033'], // System Owner/User Discovery
+      ps: ['T1057'], // Process Discovery
+      netstat: ['T1049'], // System Network Connections Discovery
+      cat: ['T1083'], // File and Directory Discovery
+      default: ['T1057'], // Process Discovery
+    },
+    data_exfiltration: {
+      find: ['T1083'], // File and Directory Discovery
+      tar: ['T1560.001'], // Archive via Utility
+      curl: ['T1041'], // Exfiltration Over C2 Channel
+      scp: ['T1041'], // Exfiltration Over C2 Channel
+      nc: ['T1041'], // Exfiltration Over C2 Channel
+      default: ['T1041'], // Exfiltration Over C2 Channel
+    },
+  };
+
+  const scenarioMappings = mappings[scenario];
+  if (scenarioMappings) {
+    return scenarioMappings[processName] || scenarioMappings.default || ['T1059'];
+  }
+  return ['T1059']; // Command and Scripting Interpreter
+}
+
+function getMitreTactic(scenario: string): string[] {
+  const tactics: Record<string, string[]> = {
+    lateral_movement: ['Lateral Movement'],
+    privilege_escalation: ['Privilege Escalation'],
+    persistence: ['Persistence'],
+    discovery: ['Discovery'],
+    data_exfiltration: ['Exfiltration'],
+  };
+
+  return tactics[scenario] || ['Execution'];
+}
+
 // Dedicated Session View Process Log Generator
 export const generateSessionViewProcessLog = (
   config: EndpointLogConfig = {},
@@ -946,33 +1094,48 @@ export default function createEndpointLog(
     generateRegistryRunKeyLog, // APT Persistence (T1547)
     // Add Session View generators when enabled
     ...(config.sessionView || config.visualAnalyzer
-      ? [generateSessionViewProcessLog]
+      ? [generateSessionViewProcessLog, generateEnhancedSessionViewLog]
       : []),
   ];
 
   const selectedGenerator = faker.helpers.arrayElement(weightedGenerators);
-  const baseLog = selectedGenerator(config);
+  let baseLog = selectedGenerator(config);
 
   // Add Session View fields to existing logs if enabled
-  if (config.sessionView || config.visualAnalyzer) {
-    // Only add Session View fields if this is a process-related log
-    if (
-      baseLog['data_stream.dataset']?.includes('process') &&
-      !baseLog['process.entity_id']
-    ) {
-      const { sessionViewFields } = createProcessWithSessionView({
-        name: baseLog['process.name'],
-        executable: baseLog['process.executable'],
-        commandLine: baseLog['process.command_line'],
-        hostName: config.hostName,
-      });
+  if (
+    config.sessionView &&
+    baseLog['data_stream.dataset']?.includes('process') &&
+    !baseLog['process.entity_id']
+  ) {
+    const { sessionViewFields } = createProcessWithSessionView({
+      name: baseLog['process.name'],
+      executable: baseLog['process.executable'],
+      commandLine: baseLog['process.command_line'],
+      hostName: config.hostName,
+    });
+    baseLog = { ...baseLog, ...sessionViewFields };
+  }
 
-      return {
-        ...baseLog,
-        ...sessionViewFields,
-        ...override,
-      };
-    }
+  // Add Visual Event Analyzer fields to existing logs if enabled
+  if (
+    config.visualAnalyzer &&
+    baseLog['data_stream.dataset']?.includes('process') &&
+    !baseLog['event.correlation.id']
+  ) {
+    const { visualAnalyzerFields } = createProcessEventWithVisualAnalyzer({
+      processName: baseLog['process.name'],
+      processPid: baseLog['process.pid'],
+      commandLine: baseLog['process.command_line'],
+      userName: baseLog['user.name'],
+      eventType: 'process_start',
+      action: baseLog['event.action'] || 'execute',
+      metadata: {
+        dataset: baseLog['data_stream.dataset'],
+        host_name: baseLog['host.name'],
+        event_kind: baseLog['event.kind'],
+      },
+    });
+    baseLog = { ...baseLog, ...visualAnalyzerFields };
   }
 
   return {

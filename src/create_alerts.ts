@@ -1,5 +1,7 @@
 import { faker } from '@faker-js/faker';
 import { generateTimestamp } from './utils/timestamp_utils';
+import { createProcessWithSessionView } from './services/session_view_generator';
+import { createProcessEventWithVisualAnalyzer } from './services/visual_event_analyzer';
 
 // Realistic security alert rule names
 const REALISTIC_ALERT_NAMES = [
@@ -139,15 +141,55 @@ export default function createAlerts<O extends object>(
     hostName,
     space,
     timestampConfig,
+    sessionView,
+    visualAnalyzer,
   }: {
     userName?: string;
     hostName?: string;
     space?: string;
     timestampConfig?: import('./utils/timestamp_utils').TimestampConfig;
+    sessionView?: boolean;
+    visualAnalyzer?: boolean;
   } = {},
 ): O & BaseCreateAlertsReturnType {
+  let baseAlert = baseCreateAlerts({
+    userName,
+    hostName,
+    space,
+    timestampConfig,
+  });
+
+  // Add Session View fields if enabled
+  if (sessionView) {
+    const { sessionViewFields } = createProcessWithSessionView({
+      name: 'security-alert-process',
+      executable: '/usr/bin/security-alert',
+      commandLine: '/usr/bin/security-alert --alert-trigger',
+      hostName,
+    });
+    baseAlert = { ...baseAlert, ...sessionViewFields };
+  }
+
+  // Add Visual Event Analyzer fields if enabled
+  if (visualAnalyzer) {
+    const { visualAnalyzerFields } = createProcessEventWithVisualAnalyzer({
+      processName: 'security-alert-process',
+      processPid: 12345,
+      commandLine: '/usr/bin/security-alert --alert-trigger',
+      userName: userName || 'unknown',
+      eventType: 'process_start',
+      action: 'security_alert',
+      metadata: {
+        alert_type: 'security_detection',
+        triggered_by: 'detection_rule',
+        alert_id: baseAlert['kibana.alert.uuid'],
+      },
+    });
+    baseAlert = { ...baseAlert, ...visualAnalyzerFields };
+  }
+
   return {
-    ...baseCreateAlerts({ userName, hostName, space, timestampConfig }),
+    ...baseAlert,
     ...override,
   };
 }

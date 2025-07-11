@@ -158,6 +158,16 @@ program
     '--theme <theme>',
     'apply AI-generated themed data (e.g., "nba", "marvel", "usernames:nba,hostnames:marvel")',
   )
+  .option(
+    '--session-view',
+    'generate Session View compatible data with process hierarchies and terminal output',
+    false,
+  )
+  .option(
+    '--visual-analyzer',
+    'generate Visual Event Analyzer compatible data with process entity tracking',
+    false,
+  )
   .description(
     'Generate AI-powered security alerts with optional MITRE ATT&CK scenarios',
   )
@@ -180,6 +190,8 @@ program
     const fieldPerformanceMode = options.fieldPerformanceMode || false;
     const createCases = options.createCases || false;
     const alertsPerCase = parseInt(options.alertsPerCase || '5');
+    const sessionView = options.sessionView || false;
+    const visualAnalyzer = options.visualAnalyzer || false;
     const theme = options.theme;
 
     // Validate case options - only check if user explicitly provided alerts-per-case
@@ -392,6 +404,8 @@ program
           envNamespace,
           caseOptions,
           theme,
+          sessionView,
+          visualAnalyzer,
         );
       }
 
@@ -415,6 +429,8 @@ program
         namespace,
         caseOptions,
         theme,
+        sessionView,
+        visualAnalyzer,
       );
     }
   });
@@ -552,6 +568,11 @@ program
     '--theme <theme>',
     'apply AI-generated themed data (e.g., "nba", "marvel", "usernames:nba,hostnames:marvel")',
   )
+  .option(
+    '--mitre',
+    'use MITRE ATT&CK framework for realistic attack scenarios',
+    false,
+  )
   .action(async (options) => {
     const logCount = parseInt(options.n || '1000');
     const hostCount = parseInt(options.h || '10');
@@ -568,6 +589,7 @@ program
     const visualAnalyzer = options.visualAnalyzer || false;
     const namespace = options.namespace || 'default';
     const environments = options.environments || 1;
+    const useMitre = options.mitre || false;
     const theme = options.theme;
 
     // Validate log types

