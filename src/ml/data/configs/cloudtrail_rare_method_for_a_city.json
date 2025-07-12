@@ -1,0 +1,7 @@
+{
+  "event.type": "info",
+  "event.category": "api", 
+  "cloud.provider": "aws",
+  "service.name": "cloudtrail",
+  "agent.type": "awscloudtrail"
+}

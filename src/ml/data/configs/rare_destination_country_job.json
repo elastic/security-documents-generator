@@ -1,0 +1,20 @@
+{
+  "job_id": "rare_destination_country",
+  "description": "Rare destination country detection",
+  "analysis_config": {
+    "bucket_span": "15m",
+    "detectors": [
+      {
+        "function": "rare",
+        "by_field_name": "destination.geo.country_iso_code",
+        "over_field_name": "source.ip",
+        "detector_description": "Detect rare destination countries for source IPs"
+      }
+    ],
+    "influencers": ["destination.geo.country_iso_code", "source.ip", "destination.ip"]
+  },
+  "data_description": {
+    "time_field": "@timestamp"
+  },
+  "groups": ["security", "network"]
+}

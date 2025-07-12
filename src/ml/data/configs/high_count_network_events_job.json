@@ -1,0 +1,19 @@
+{
+  "job_id": "high_count_network_events",
+  "description": "High count of network events detection",
+  "analysis_config": {
+    "bucket_span": "15m",
+    "detectors": [
+      {
+        "function": "high_count",
+        "by_field_name": "source.ip",
+        "detector_description": "Detect high count of network events by source IP"
+      }
+    ],
+    "influencers": ["source.ip", "destination.ip", "destination.port"]
+  },
+  "data_description": {
+    "time_field": "@timestamp"
+  },
+  "groups": ["security", "network"]
+}

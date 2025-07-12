@@ -1,0 +1,19 @@
+{
+  "job_id": "v3_linux_anomalous_network_activity",
+  "description": "Linux anomalous network activity detection",
+  "analysis_config": {
+    "bucket_span": "15m",
+    "detectors": [
+      {
+        "function": "high_count",
+        "over_field_name": "destination.ip",
+        "detector_description": "Detect high count of network connections"
+      }
+    ],
+    "influencers": ["source.ip", "destination.ip", "host.name"]
+  },
+  "data_description": {
+    "time_field": "@timestamp"
+  },
+  "groups": ["security", "linux", "network"]
+}

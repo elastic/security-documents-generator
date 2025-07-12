@@ -1,0 +1,20 @@
+{
+  "job_id": "packetbeat_rare_server_domain",
+  "description": "Packetbeat rare server domain detection",
+  "analysis_config": {
+    "bucket_span": "15m",
+    "detectors": [
+      {
+        "function": "rare",
+        "by_field_name": "destination.domain",
+        "over_field_name": "source.ip",
+        "detector_description": "Detect rare server domains accessed by source IPs"
+      }
+    ],
+    "influencers": ["destination.domain", "source.ip", "http.request.method"]
+  },
+  "data_description": {
+    "time_field": "@timestamp"
+  },
+  "groups": ["security", "packetbeat"]
+}

@@ -1,0 +1,19 @@
+{
+  "job_id": "rare_error_code",
+  "description": "CloudTrail rare error code detection",
+  "analysis_config": {
+    "bucket_span": "15m",
+    "detectors": [
+      {
+        "function": "rare",
+        "by_field_name": "aws.cloudtrail.error_code",
+        "detector_description": "Detect rare CloudTrail error codes"
+      }
+    ],
+    "influencers": ["aws.cloudtrail.error_code", "source.ip", "user.name"]
+  },
+  "data_description": {
+    "time_field": "@timestamp"
+  },
+  "groups": ["security", "cloudtrail"]
+}

@@ -1,0 +1,20 @@
+{
+  "job_id": "v3_linux_rare_metadata_process",
+  "description": "Linux rare process metadata detection",
+  "analysis_config": {
+    "bucket_span": "15m",
+    "detectors": [
+      {
+        "function": "rare",
+        "by_field_name": "process.name",
+        "over_field_name": "host.name",
+        "detector_description": "Detect rare process execution patterns"
+      }
+    ],
+    "influencers": ["process.name", "user.name", "host.name"]
+  },
+  "data_description": {
+    "time_field": "@timestamp"
+  },
+  "groups": ["security", "linux"]
+}

@@ -1,0 +1,7 @@
+{
+  "event.type": "connection",
+  "event.category": "network",
+  "host.os.type": "linux",
+  "agent.type": "auditbeat",
+  "network.protocol": "tcp"
+}

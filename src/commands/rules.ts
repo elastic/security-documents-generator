@@ -10,6 +10,9 @@ import moment from 'moment';
 import { chunk } from 'lodash-es';
 import { createRule, getAllRules, bulkDeleteRules } from '../utils/kibana_api';
 import { generateRealisticRuleNamesBatch } from '../utils/ai_service';
+import { MLDataGenerator } from '../ml/ml_data_generator';
+import { MLJobManager } from '../ml/utils/job_manager';
+import { ML_SECURITY_MODULES } from '../ml/types/ml_types';
 
 const EVENTS_INDEX = 'logs-system.system-default';
 
@@ -62,6 +65,9 @@ interface RuleGenerationOptions {
     | 'new_terms'
     | 'esql'
   )[];
+  enableMLJobs?: boolean;
+  generateMLData?: boolean;
+  mlModules?: string[];
 }
 
 interface GapRange {
@@ -174,7 +180,8 @@ const generateMatchingEvents = (
         event = generateEQLMatchingEvent(ruleConfig.eql_query, timestamp);
         break;
       case 'machine_learning':
-        event = generateMLMatchingEvent(timestamp);
+        const mlJobId = ruleConfig.ml_job_id?.[0];
+        event = generateMLMatchingEvent(timestamp, mlJobId);
         break;
       case 'threat_match':
         event = generateThreatMatchingEvent(timestamp);
@@ -394,7 +401,117 @@ const generateEQLMatchingEvent = (
   return baseEvent;
 };
 
-const generateMLMatchingEvent = (timestamp: string): Event => {
+const generateMLMatchingEvent = (timestamp: string, mlJobId?: string): Event => {
+  // Generate event based on ML job type if provided
+  if (mlJobId) {
+    if (mlJobId.includes('auth')) {
+      return {
+        '@timestamp': timestamp,
+        message: 'Authentication event for ML analysis',
+        host: {
+          name: faker.internet.domainName(),
+          ip: faker.internet.ip(),
+        },
+        user: {
+          name: faker.internet.username(),
+          id: faker.string.uuid(),
+        },
+        event: {
+          category: ['authentication'],
+          type: ['start'],
+          outcome: faker.helpers.arrayElement(['success', 'failure']),
+        },
+        source: {
+          ip: faker.internet.ip(),
+        },
+      } as Event;
+    }
+    
+    if (mlJobId.includes('windows') || mlJobId.includes('linux')) {
+      return {
+        '@timestamp': timestamp,
+        message: 'Process event for ML analysis',
+        host: {
+          name: faker.internet.domainName(),
+          ip: faker.internet.ip(),
+          os: {
+            type: mlJobId.includes('windows') ? 'windows' : 'linux'
+          }
+        },
+        user: {
+          name: faker.internet.username(),
+          id: faker.string.uuid(),
+        },
+        event: {
+          category: ['process'],
+          type: ['start'],
+          outcome: 'success',
+        },
+        process: {
+          name: faker.helpers.arrayElement(['cmd.exe', 'powershell.exe', 'bash', 'sudo']),
+          command_line: faker.lorem.sentence(),
+        },
+      } as Event;
+    }
+    
+    if (mlJobId.includes('network') || mlJobId.includes('packetbeat')) {
+      return {
+        '@timestamp': timestamp,
+        message: 'Network event for ML analysis',
+        host: {
+          name: faker.internet.domainName(),
+          ip: faker.internet.ip(),
+        },
+        user: {
+          name: faker.internet.username(),
+          id: faker.string.uuid(),
+        },
+        event: {
+          category: ['network'],
+          type: ['connection'],
+          outcome: 'success',
+        },
+        source: {
+          ip: faker.internet.ip(),
+        },
+        destination: {
+          ip: faker.internet.ip(),
+          port: faker.number.int({ min: 80, max: 8080 }),
+        },
+      } as Event;
+    }
+    
+    if (mlJobId.includes('cloudtrail')) {
+      return {
+        '@timestamp': timestamp,
+        message: 'CloudTrail event for ML analysis',
+        host: {
+          name: faker.internet.domainName(),
+          ip: faker.internet.ip(),
+        },
+        user: {
+          name: faker.internet.username(),
+          id: faker.string.uuid(),
+        },
+        event: {
+          category: ['api'],
+          type: ['info'],
+          outcome: faker.helpers.arrayElement(['success', 'failure']),
+        },
+        cloud: {
+          provider: 'aws',
+        },
+        aws: {
+          cloudtrail: {
+            error_code: faker.helpers.arrayElement(['UnauthorizedOperation', 'AccessDenied', 'InvalidUserID.NotFound']),
+            error_message: faker.lorem.sentence(),
+          }
+        },
+      } as Event;
+    }
+  }
+  
+  // Default ML event
   return {
     '@timestamp': timestamp,
     message: 'Unusual authentication activity detected',
@@ -411,7 +528,6 @@ const generateMLMatchingEvent = (timestamp: string): Event => {
       type: ['start'],
       outcome: 'success',
     },
-    // Add fields that ML jobs typically analyze
     source: {
       ip: faker.internet.ip(),
     },
@@ -745,7 +861,7 @@ const getQueryCategory = (query: string): string => {
 };
 
 // Rule type templates with realistic configurations
-const getRuleTypeConfig = (type: string) => {
+const getRuleTypeConfig = (type: string, availableMLJobs?: string[]) => {
   switch (type) {
     case 'query':
       return {
@@ -773,14 +889,14 @@ const getRuleTypeConfig = (type: string) => {
         ]),
       };
     case 'machine_learning':
+      // Use filtered ML jobs if provided, otherwise use all
+      const mlJobsToUse = availableMLJobs && availableMLJobs.length > 0 
+        ? availableMLJobs 
+        : ML_SECURITY_MODULES.flatMap(module => module.jobs);
       return {
         anomaly_threshold: faker.number.int({ min: 50, max: 90 }),
         ml_job_id: [
-          faker.helpers.arrayElement([
-            'auth_rare_hour',
-            'packetbeat_rare_dns',
-            'rare_process_by_host',
-          ]),
+          faker.helpers.arrayElement(mlJobsToUse),
         ],
       };
     case 'threat_match':
@@ -827,6 +943,25 @@ export const generateRulesAndAlerts = async (
     'esql',
   ];
 
+  // Get ML jobs only from specified modules if ML data generation is enabled
+  let availableMLJobs: string[] = [];
+  if (options.generateMLData && options.mlModules) {
+    availableMLJobs = ML_SECURITY_MODULES
+      .filter(module => options.mlModules?.includes(module.name))
+      .flatMap(module => module.jobs);
+    
+    console.log(`🤖 Using ML jobs from modules: ${options.mlModules.join(', ')}`);
+    console.log(`🎯 Available ML jobs: ${availableMLJobs.join(', ')}`);
+    
+    if (availableMLJobs.length === 0) {
+      console.warn('⚠️  No ML jobs found for specified modules. Using all available ML jobs.');
+      availableMLJobs = ML_SECURITY_MODULES.flatMap(module => module.jobs);
+    }
+  } else {
+    availableMLJobs = ML_SECURITY_MODULES.flatMap(module => module.jobs);
+    console.log(`🤖 Using all available ML jobs: ${availableMLJobs.length} total`);
+  }
+
   // Prepare rule configurations for batch AI processing
   const ruleConfigs = Array.from({ length: ruleCount }, (_, index) => {
     const ruleType = availableRuleTypes[index % availableRuleTypes.length];
@@ -837,7 +972,7 @@ export const generateRulesAndAlerts = async (
       'critical',
     ]);
     const riskScore = faker.number.int({ min: 1, max: 100 });
-    const typeConfig = getRuleTypeConfig(ruleType);
+    const typeConfig = getRuleTypeConfig(ruleType, availableMLJobs);
     const ruleQuery =
       typeConfig.query ||
       typeConfig.eql_query ||
@@ -913,7 +1048,7 @@ export const generateRulesAndAlerts = async (
 
   for (let i = 0; i < ruleCount; i++) {
     const ruleType = availableRuleTypes[i % availableRuleTypes.length];
-    const ruleConfig = getRuleTypeConfig(ruleType);
+    const ruleConfig = getRuleTypeConfig(ruleType, availableMLJobs);
 
     // Generate events specifically designed to match this rule type
     const matchingEvents = generateMatchingEvents(
@@ -948,16 +1083,84 @@ export const generateRulesAndAlerts = async (
 
   await Promise.all([ingestEvents(allEvents), ingestGapEvents(gapEvents)]);
 
+  // Generate ML data and create ML jobs if enabled
+  let mlJobsCreated = 0;
+  let mlDocumentsGenerated = 0;
+  
+  if (options.enableMLJobs || options.generateMLData) {
+    console.log('🤖 Processing ML functionality...');
+    
+    // Get ML job IDs from created ML rules
+    const mlRuleJobIds = ruleResults
+      .filter(rule => rule.type === 'machine_learning')
+      .flatMap(rule => rule.ml_job_id || []);
+    
+    if (mlRuleJobIds.length > 0) {
+      console.log(`Found ${mlRuleJobIds.length} ML jobs to process: ${mlRuleJobIds.join(', ')}`);
+      
+      if (options.enableMLJobs) {
+        // Create and enable ML jobs
+        const jobManager = new MLJobManager();
+        for (const jobId of mlRuleJobIds) {
+          try {
+            await jobManager.createJob(jobId);
+            await jobManager.openJob(jobId);
+            await jobManager.startDatafeed(jobId);
+            mlJobsCreated++;
+            console.log(`✅ ML job ${jobId} created and started`);
+          } catch (error) {
+            console.warn(`⚠️  Failed to create ML job ${jobId}:`, (error as Error).message);
+          }
+        }
+      }
+      
+      if (options.generateMLData) {
+        // Generate ML data for the jobs
+        const mlGenerator = new MLDataGenerator();
+        const mlModules = options.mlModules || ['security_auth', 'security_windows', 'security_linux'];
+        
+        for (const module of mlModules) {
+          try {
+            const results = await mlGenerator.generateByModule(module, {
+              chunkSize: 1000,
+              refreshPolicy: 'true'
+            });
+            
+            const moduleDocCount = results.reduce((sum, r) => sum + r.documentsGenerated, 0);
+            mlDocumentsGenerated += moduleDocCount;
+            console.log(`✅ Generated ${moduleDocCount} ML documents for ${module} module`);
+          } catch (error) {
+            console.warn(`⚠️  Failed to generate ML data for ${module}:`, (error as Error).message);
+          }
+        }
+      }
+    }
+  }
+
   console.log(`Created ${ruleResults.length} rules`);
   console.log(
     `Ingested ${allEvents.length} events (${allEvents.length - randomEventCount} matching events + ${randomEventCount} random events)`,
   );
   console.log(`Generated ${gapEvents.length} gap events`);
+  
+  if (mlJobsCreated > 0) {
+    console.log(`🤖 Created and started ${mlJobsCreated} ML jobs`);
+  }
+  if (mlDocumentsGenerated > 0) {
+    console.log(`🤖 Generated ${mlDocumentsGenerated} ML documents`);
+  }
+  
   console.log(
     `🎯 Rules should now generate alerts from matching source events!`,
   );
 
-  return { rules: ruleResults, events: allEvents, gapEvents };
+  return { 
+    rules: ruleResults, 
+    events: allEvents, 
+    gapEvents,
+    mlJobsCreated,
+    mlDocumentsGenerated 
+  };
 };
 
 export const deleteAllRules = async (space?: string) => {

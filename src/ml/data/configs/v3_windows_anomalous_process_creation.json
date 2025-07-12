@@ -1,0 +1,6 @@
+{
+  "event.type": "start",
+  "event.category": "process",
+  "host.os.type": "windows",
+  "agent.type": "winlogbeat"
+}

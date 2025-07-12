@@ -1,0 +1,20 @@
+{
+  "job_id": "high_distinct_count_error_message",
+  "description": "CloudTrail high distinct count of error messages",
+  "analysis_config": {
+    "bucket_span": "15m",
+    "detectors": [
+      {
+        "function": "high_distinct_count",
+        "field_name": "aws.cloudtrail.error_message",
+        "over_field_name": "source.ip",
+        "detector_description": "Detect high distinct count of error messages by source IP"
+      }
+    ],
+    "influencers": ["source.ip", "user.name", "aws.cloudtrail.user_identity.type"]
+  },
+  "data_description": {
+    "time_field": "@timestamp"
+  },
+  "groups": ["security", "cloudtrail"]
+}

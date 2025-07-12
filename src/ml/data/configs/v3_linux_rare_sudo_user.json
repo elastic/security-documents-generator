@@ -1,0 +1,7 @@
+{
+  "event.type": "start",
+  "process.name": "sudo",
+  "host.os.type": "linux",
+  "agent.type": "auditbeat",
+  "event.category": "process"
+}

@@ -1,0 +1,20 @@
+{
+  "job_id": "v3_windows_anomalous_process_creation",
+  "description": "Windows anomalous process creation detection",
+  "analysis_config": {
+    "bucket_span": "15m",
+    "detectors": [
+      {
+        "function": "rare",
+        "by_field_name": "process.name",
+        "over_field_name": "user.name",
+        "detector_description": "Detect rare process creation by user"
+      }
+    ],
+    "influencers": ["process.name", "user.name", "host.name"]
+  },
+  "data_description": {
+    "time_field": "@timestamp"
+  },
+  "groups": ["security", "windows"]
+}

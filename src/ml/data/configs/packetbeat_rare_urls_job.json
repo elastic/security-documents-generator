@@ -1,0 +1,20 @@
+{
+  "job_id": "packetbeat_rare_urls",
+  "description": "Packetbeat rare URLs detection",
+  "analysis_config": {
+    "bucket_span": "15m",
+    "detectors": [
+      {
+        "function": "rare",
+        "by_field_name": "url.path",
+        "over_field_name": "source.ip",
+        "detector_description": "Detect rare URL paths accessed by source IPs"
+      }
+    ],
+    "influencers": ["url.path", "source.ip", "http.request.method"]
+  },
+  "data_description": {
+    "time_field": "@timestamp"
+  },
+  "groups": ["security", "packetbeat"]
+}

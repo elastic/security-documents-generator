@@ -1,0 +1,6 @@
+{
+  "event.dataset": "dns",
+  "agent.type": "packetbeat",
+  "event.category": "network",
+  "event.type": "protocol"
+}

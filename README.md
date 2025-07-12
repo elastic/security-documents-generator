@@ -161,6 +161,13 @@ yarn start update-mapping
 | `generate-knowledge-base --mitre` | Knowledge docs with MITRE mappings | `yarn start generate-knowledge-base -n 20 --mitre --confidence-threshold 0.8` |
 | `delete-knowledge-base` | Clean up knowledge base | `yarn start delete-knowledge-base --namespace prod` |
 
+### 🤖 Machine Learning Commands
+| Command | Description | Example |
+|---------|-------------|---------|
+| **`generate-ml-data`** | **🤖 ML Training Data Generation** | `yarn start generate-ml-data --modules security_auth,security_linux` |
+| `generate-ml-data --enable-jobs` | Create ML jobs in Elasticsearch | `yarn start generate-ml-data --modules security_auth --enable-jobs` |
+| `rules --enable-ml-jobs --generate-ml-data` | ML-enhanced detection rules | `yarn start rules -r 10 -t machine_learning --enable-ml-jobs --generate-ml-data` |
+
 ### 🗑️ Cleanup Commands
 | Command | Description |
 |---------|-------------|
@@ -456,6 +463,83 @@ yarn start generate-knowledge-base -n 20 --mitre --categories malware_analysis,f
 
 **📚 [Full Knowledge Base Documentation →](docs/knowledge-base-integration.md)**
 
+## 🤖 Machine Learning Anomaly Detection
+
+### **🎯 Enterprise ML Data Generation**
+Generate realistic ML training data for Elastic Security Machine Learning jobs across all security domains:
+
+```bash
+# Generate authentication anomaly data
+yarn start generate-ml-data --modules security_auth,security_linux
+
+# Complete ML workflow: create jobs + generate training data
+yarn start generate-ml-data --modules security_auth,security_windows --enable-jobs
+
+# Enterprise scale: all modules with performance optimization
+yarn start generate-ml-data --modules security_auth,security_linux,security_windows,security_network,security_packetbeat,security_cloudtrail --chunk-size 5000
+```
+
+### **📊 ML Security Modules**
+- **`security_auth`** - Authentication anomalies (rare users, failed logins, unusual timing)
+- **`security_linux`** - Linux system anomalies (unusual users, sudo activity, network patterns)  
+- **`security_windows`** - Windows anomalies (process creation, runas events, script execution)
+- **`security_cloudtrail`** - AWS CloudTrail anomalies (error patterns, API methods, geographic)
+- **`security_network`** - Network anomalies (high volume, rare destinations, unusual processes)
+- **`security_packetbeat`** - Traffic anomalies (DNS queries, server domains, URL patterns)
+
+### **🚀 ML-Enhanced Detection Rules**
+Integrate ML jobs directly with detection rule generation:
+
+```bash
+# Generate ML rules with automatic training data
+yarn start rules -r 10 -t machine_learning --generate-ml-data --ml-modules security_auth,security_windows
+
+# Complete ML-powered SOC setup: rules + jobs + data
+yarn start rules -r 20 -t query,threshold,machine_learning --enable-ml-jobs --generate-ml-data --ml-modules security_auth,security_cloudtrail,security_network
+
+# Enterprise ML testing across multiple spaces
+yarn start rules -r 15 --enable-ml-jobs --generate-ml-data --ml-modules security_auth,security_windows,security_linux -s ml-testing
+```
+
+### **🔍 ML Analysis Functions**
+- **`rare`** - Detects rare field values (unusual usernames, rare processes)
+- **`high_count`** - Identifies volume anomalies (authentication spikes, network floods)
+- **`high_distinct_count`** - Finds diversity anomalies (error message variety)
+- **`high_info_content`** - Detects entropy anomalies (encoded commands, scripts)
+- **`time_of_day`** - Identifies temporal anomalies (unusual login hours)
+
+### **📈 Key Features**
+- **21 Pre-built ML Jobs**: Complete coverage across security domains
+- **Realistic Anomaly Injection**: 0.02%-0.08% anomaly rates matching production
+- **Context-Aware Generation**: Field patterns specific to security domains
+- **Enterprise Scale**: Generate 100k+ documents with performance optimization
+- **Rule Integration**: ML jobs automatically connected to detection rules
+
+### **💡 Example Use Cases**
+
+#### **SOC Analyst Training**
+```bash
+# Create realistic authentication anomalies for training
+yarn start generate-ml-data --modules security_auth --enable-jobs
+# Result: 40,000 auth events with 22 realistic anomalies
+```
+
+#### **Detection Rule Testing**
+```bash
+# Test ML rules with comprehensive data
+yarn start rules -r 5 -t machine_learning --generate-ml-data --ml-modules security_windows,security_linux
+# Result: ML rules with corresponding training data and realistic test events
+```
+
+#### **Enterprise ML Deployment**
+```bash
+# Full ML environment setup
+yarn start generate-ml-data --modules security_auth,security_linux,security_windows,security_network,security_packetbeat,security_cloudtrail --enable-jobs --chunk-size 3000
+# Result: All 21 ML jobs with 210,000 training documents
+```
+
+**🤖 [Full ML Documentation →](docs/machine-learning-integration.md)**
+
 ## 🎪 Realistic Attack Scenarios
 
 ### **🎭 Complete SOC Training Scenarios**
@@ -592,6 +676,7 @@ event.category:network AND destination.ip:10.* AND source.ip:external
 | **[🔗 Kibana Cloud Integration](docs/kibana-cloud-integration.md)** | **Direct Security → Alerts integration** ⭐ |
 | **[🎨 Theme-Based Generation](docs/theme-generation.md)** | **Consistent themed security data** |
 | **[Multi-Field Generation](docs/multi-field-generation.md)** | **500+ security fields, zero tokens** |
+| **[🤖 Machine Learning Integration](docs/machine-learning-integration.md)** | **ML anomaly detection and training data** |
 | [Use Cases Guide](docs/use-cases-guide.md) | Enterprise scenarios and workflows |
 | [False Positives](docs/false-positives.md) | Detection rule testing and SOC training |
 | [Attack Campaigns](docs/attack-campaigns.md) | Campaign generation guide |

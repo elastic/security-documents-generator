@@ -1,0 +1,18 @@
+{
+  "job_id": "auth_high_count_logon_fails",
+  "description": "High count of authentication failures",
+  "analysis_config": {
+    "bucket_span": "15m",
+    "detectors": [
+      {
+        "function": "high_count",
+        "detector_description": "Detect high count of logon failures"
+      }
+    ],
+    "influencers": ["user.name", "source.ip"]
+  },
+  "data_description": {
+    "time_field": "@timestamp"
+  },
+  "groups": ["security", "authentication"]
+}

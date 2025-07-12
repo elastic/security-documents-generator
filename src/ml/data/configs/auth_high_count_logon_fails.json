@@ -1,0 +1,6 @@
+{
+  "event.category": "authentication",
+  "event.outcome": "failure",
+  "event.type": "start",
+  "agent.type": "auditbeat"
+}

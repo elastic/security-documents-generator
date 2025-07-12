@@ -1,0 +1,19 @@
+{
+  "job_id": "packetbeat_rare_dns_question",
+  "description": "Packetbeat rare DNS question detection",
+  "analysis_config": {
+    "bucket_span": "15m",
+    "detectors": [
+      {
+        "function": "rare",
+        "by_field_name": "dns.question.name",
+        "detector_description": "Detect rare DNS question names"
+      }
+    ],
+    "influencers": ["dns.question.name", "source.ip", "dns.question.type"]
+  },
+  "data_description": {
+    "time_field": "@timestamp"
+  },
+  "groups": ["security", "packetbeat"]
+}

@@ -1,0 +1,5 @@
+{
+  "event.type": "connection",
+  "event.category": "network",
+  "agent.type": "packetbeat"
+}

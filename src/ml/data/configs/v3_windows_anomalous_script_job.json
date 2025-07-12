@@ -1,0 +1,19 @@
+{
+  "job_id": "v3_windows_anomalous_script",
+  "description": "Windows anomalous script execution detection",
+  "analysis_config": {
+    "bucket_span": "15m",
+    "detectors": [
+      {
+        "function": "high_info_content",
+        "field_name": "process.command_line",
+        "detector_description": "Detect anomalous script command lines"
+      }
+    ],
+    "influencers": ["process.name", "user.name", "host.name"]
+  },
+  "data_description": {
+    "time_field": "@timestamp"
+  },
+  "groups": ["security", "windows"]
+}

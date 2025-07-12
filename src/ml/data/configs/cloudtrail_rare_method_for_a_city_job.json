@@ -1,0 +1,20 @@
+{
+  "job_id": "cloudtrail_rare_method_for_a_city",
+  "description": "CloudTrail rare API method for a city detection",
+  "analysis_config": {
+    "bucket_span": "15m",
+    "detectors": [
+      {
+        "function": "rare",
+        "by_field_name": "http.request.method",
+        "over_field_name": "source.geo.city_name",
+        "detector_description": "Detect rare API methods for specific cities"
+      }
+    ],
+    "influencers": ["http.request.method", "source.geo.city_name", "user.name"]
+  },
+  "data_description": {
+    "time_field": "@timestamp"
+  },
+  "groups": ["security", "cloudtrail"]
+}

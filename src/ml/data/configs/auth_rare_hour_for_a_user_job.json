@@ -1,0 +1,19 @@
+{
+  "job_id": "auth_rare_hour_for_a_user",
+  "description": "Rare authentication hour for a user",
+  "analysis_config": {
+    "bucket_span": "1h",
+    "detectors": [
+      {
+        "function": "time_of_day",
+        "by_field_name": "user.name",
+        "detector_description": "Detect unusual authentication timing"
+      }
+    ],
+    "influencers": ["user.name", "source.ip"]
+  },
+  "data_description": {
+    "time_field": "@timestamp"
+  },
+  "groups": ["security", "authentication"]
+}

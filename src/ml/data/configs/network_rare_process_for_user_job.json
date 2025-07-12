@@ -1,0 +1,20 @@
+{
+  "job_id": "network_rare_process_for_user",
+  "description": "Rare network process for a user detection",
+  "analysis_config": {
+    "bucket_span": "15m",
+    "detectors": [
+      {
+        "function": "rare",
+        "by_field_name": "process.name",
+        "over_field_name": "user.name",
+        "detector_description": "Detect rare network processes for specific users"
+      }
+    ],
+    "influencers": ["process.name", "user.name", "destination.ip"]
+  },
+  "data_description": {
+    "time_field": "@timestamp"
+  },
+  "groups": ["security", "network"]
+}
