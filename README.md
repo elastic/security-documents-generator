@@ -8,6 +8,7 @@ A powerful tool for generating realistic security scenarios with complete forens
 - **🔬 Multi-Field Generation**: Up to 50,000 additional security fields per document
 - **⚔️ Advanced MITRE Integration**: Sub-techniques, attack chains, and tactic focusing
 - **📱 Session View Compatibility**: Elastic Security process hierarchy support
+- **👁️ Visual Event Analyzer Integration**: Linux process events with full correlation support
 - **🎯 False Positive Testing**: Generate realistic false positives for rule tuning
 - **🗣️ Conversational Interface**: Ask Claude to "Generate an APT campaign across 50 environments with 5000 forensic fields each"
 
@@ -95,6 +96,7 @@ A powerful tool for generating realistic security scenarios with complete forens
 | **`--theme <theme>`** | **🎨 Theme-based data generation** | `yarn start generate-alerts -n 100 --theme marvel --mitre` |
 | **`generate-fields`** | **🔬 Generate fields on demand** | `yarn start generate-fields -n 4000 --categories behavioral_analytics` |
 | **`generate-alerts --multi-field`** | **🔬 Alerts with 10,000+ fields** | `yarn start generate-alerts -n 100 --multi-field --field-count 10000` |
+| **`--visual-analyzer`** | **👁️ Visual Event Analyzer support** | `yarn start generate-alerts -n 50 --visual-analyzer --mitre` |
 | `generate-logs --multi-field` | Source logs with enriched fields | `yarn start generate-logs -n 1000 --multi-field --field-count 200` |
 | `--theme <theme>` | Themed data generation | `yarn start generate-logs -n 500 --theme starwars --types system,auth` |
 | `generate-campaign` | Multi-stage attack campaigns | `yarn start generate-campaign ransomware --mitre` |
@@ -539,6 +541,83 @@ yarn start generate-ml-data --modules security_auth,security_linux,security_wind
 ```
 
 **🤖 [Full ML Documentation →](docs/machine-learning-integration.md)**
+
+## 👁️ Visual Event Analyzer Integration
+
+### **🔗 Linux Process Events with Full Correlation Support**
+Generate alerts with correlated process events for Elastic Security's Visual Event Analyzer. Each alert includes matching process events that create complete process trees and attack visualizations.
+
+```bash
+# Generate alerts with Visual Event Analyzer support
+yarn start generate-alerts -n 20 --visual-analyzer
+
+# Combine with MITRE ATT&CK for realistic attack scenarios
+yarn start generate-alerts -n 50 --visual-analyzer --mitre
+
+# Generate attack campaigns with process visualization
+yarn start generate-campaign apt --visual-analyzer --realistic
+
+# Generate logs with Linux process hierarchies
+yarn start generate-logs -n 100 --visual-analyzer --types endpoint
+```
+
+### **🐧 Linux Process Hierarchy Generation**
+Realistic Linux attack scenarios with parent-child process relationships:
+
+- **🔓 Privilege Escalation**: `bash → sudo → su → bash`
+- **🌐 Lateral Movement**: `ssh → python3 → bash → nc`  
+- **🔄 Persistence**: `crontab → vim → bash → crontab`
+- **🔍 Discovery**: `ps → netstat → find → cat`
+- **📤 Data Exfiltration**: `find → tar → curl → rm`
+
+### **📊 Visual Event Analyzer Requirements**
+Generated data includes all required fields for Visual Event Analyzer functionality:
+
+- ✅ **`agent.type: "endpoint"`** - Proper agent type configuration
+- ✅ **`process.entity_id`** - Unique process entity identifiers  
+- ✅ **`event.category: "process"`** - Correct event categorization
+- ✅ **Alert correlation** - Alerts reference existing process events
+- ✅ **Process trees** - Parent-child process relationships
+- ✅ **MITRE mapping** - ATT&CK technique associations
+
+### **🎯 Key Features**
+- **Perfect Correlation**: Each alert has matching process events with identical `process.entity_id`
+- **Realistic Process Chains**: Linux-specific attack progression patterns
+- **Automatic Generation**: Process events created automatically with alerts
+- **Multi-Environment Support**: Works with `--environments` flag for scale testing
+- **MITRE Integration**: Process chains mapped to proper ATT&CK techniques
+
+### **💡 Example Use Cases**
+
+#### **SOC Analyst Training**
+```bash
+# Generate correlated alerts for investigation training
+yarn start generate-alerts -n 25 --visual-analyzer --mitre
+# Result: 25 alerts + 25 correlated process events for complete investigation scenarios
+```
+
+#### **Detection Rule Testing**
+```bash
+# Create complex attack scenarios for rule validation
+yarn start generate-campaign lateral_movement --visual-analyzer --realistic
+# Result: Multi-stage lateral movement with complete process visibility
+```
+
+#### **Enterprise Testing**
+```bash
+# Large-scale Visual Event Analyzer testing
+yarn start generate-alerts -n 500 --visual-analyzer --environments 50 --namespace prod
+# Result: 25,000 correlated alerts across 50 environments with full process context
+```
+
+### **🔍 Kibana Integration**
+After generation, alerts in Kibana Security will show:
+- ✅ **Visual Event Analyzer icon** in the alerts table
+- ✅ **Process tree visualization** when clicking the analyzer icon
+- ✅ **Complete attack chains** with process relationships
+- ✅ **Linux process hierarchies** showing realistic attack progression
+
+**👁️ [Full Visual Event Analyzer Documentation →](docs/visual-event-analyzer-integration.md)**
 
 ## 🎪 Realistic Attack Scenarios
 

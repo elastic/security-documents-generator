@@ -1029,8 +1029,16 @@ program
     'query,threshold,eql,machine_learning,threat_match,new_terms,esql',
   )
   .option('-s, --space <space>', 'Kibana space to create rules in')
-  .option('--enable-ml-jobs', 'Create and enable ML jobs in Elasticsearch', false)
-  .option('--generate-ml-data', 'Generate ML data for machine learning rules', false)
+  .option(
+    '--enable-ml-jobs',
+    'Create and enable ML jobs in Elasticsearch',
+    false,
+  )
+  .option(
+    '--generate-ml-data',
+    'Generate ML data for machine learning rules',
+    false,
+  )
   .option(
     '--ml-modules <modules>',
     'Comma-separated ML modules to process (security_auth,security_windows,security_linux,security_network,security_packetbeat,security_cloudtrail)',
@@ -1086,12 +1094,14 @@ program
       console.log(`Generating events from last ${fromHours} hours`);
       console.log(`Generating ${gaps} gaps per rule`);
       console.log(`Rule types: ${ruleTypes.join(', ')}`);
-      
+
       if (options.enableMlJobs) {
         console.log(`🤖 ML jobs will be created and enabled`);
       }
       if (options.generateMlData) {
-        console.log(`🤖 ML data will be generated for modules: ${mlModules.join(', ')}`);
+        console.log(
+          `🤖 ML data will be generated for modules: ${mlModules.join(', ')}`,
+        );
       }
 
       if (options.clean === true) {
@@ -2660,21 +2670,54 @@ program
 // ML Data Generation Commands
 program
   .command('generate-ml-data')
-  .description('Generate ML anomaly detection data for testing security ML jobs')
+  .description(
+    'Generate ML anomaly detection data for testing security ML jobs',
+  )
   .option('--jobs <jobs>', 'comma-separated ML job IDs to generate data for')
-  .option('--modules <modules>', 'comma-separated security modules (security_auth,security_linux,security_network,security_windows,security_cloudtrail,security_packetbeat)')
+  .option(
+    '--modules <modules>',
+    'comma-separated security modules (security_auth,security_linux,security_network,security_windows,security_cloudtrail,security_packetbeat)',
+  )
   .option('--enable-jobs', 'create and enable ML jobs in Elasticsearch', false)
-  .option('--start-datafeeds', 'start datafeeds after creating ML jobs (requires --enable-jobs)', false)
-  .option('--delete-existing', 'delete existing ML jobs before creating new ones', false)
-  .option('--namespace <namespace>', 'custom namespace for ML indices (default: default)', 'default')
-  .option('--theme <theme>', 'apply themed data generation (e.g., "nba", "marvel")')
+  .option(
+    '--start-datafeeds',
+    'start datafeeds after creating ML jobs (requires --enable-jobs)',
+    false,
+  )
+  .option(
+    '--delete-existing',
+    'delete existing ML jobs before creating new ones',
+    false,
+  )
+  .option(
+    '--namespace <namespace>',
+    'custom namespace for ML indices (default: default)',
+    'default',
+  )
+  .option(
+    '--theme <theme>',
+    'apply themed data generation (e.g., "nba", "marvel")',
+  )
   .option('--claude', 'use Claude AI for enhanced ML data patterns', false)
-  .option('--mitre', 'integrate MITRE ATT&CK techniques into anomaly patterns', false)
-  .option('--multi-field', 'generate additional contextual security fields', false)
+  .option(
+    '--mitre',
+    'integrate MITRE ATT&CK techniques into anomaly patterns',
+    false,
+  )
+  .option(
+    '--multi-field',
+    'generate additional contextual security fields',
+    false,
+  )
   .option('--chunk-size <size>', 'bulk indexing chunk size', '1000')
-  .option('--environments <count>', 'generate across multiple environments', parseIntBase10)
+  .option(
+    '--environments <count>',
+    'generate across multiple environments',
+    parseIntBase10,
+  )
   .action(async (options) => {
-    const { generateMLData, generateMLDataForModules, listMLJobs } = await import('./commands/ml_data');
+    const { generateMLData, generateMLDataForModules, listMLJobs } =
+      await import('./commands/ml_data');
 
     // Show available jobs and modules if no options provided
     if (!options.jobs && !options.modules) {
@@ -2684,7 +2727,9 @@ program
 
     // Validate dependencies
     if (options.startDatafeeds && !options.enableJobs) {
-      console.error('Error: --start-datafeeds requires --enable-jobs to be enabled');
+      console.error(
+        'Error: --start-datafeeds requires --enable-jobs to be enabled',
+      );
       process.exit(1);
     }
 
@@ -2698,15 +2743,21 @@ program
 
     try {
       if (environments > 1) {
-        console.log(`\n🌍 Multi-Environment ML Generation: ${environments} environments`);
-        
+        console.log(
+          `\n🌍 Multi-Environment ML Generation: ${environments} environments`,
+        );
+
         for (let i = 1; i <= environments; i++) {
           const envNamespace = `${options.namespace}-env-${i.toString().padStart(3, '0')}`;
           console.log(`\n🔄 Environment ${i}/${environments}: ${envNamespace}`);
 
           const params = {
-            jobIds: options.jobs ? options.jobs.split(',').map((j: string) => j.trim()) : undefined,
-            modules: options.modules ? options.modules.split(',').map((m: string) => m.trim()) : undefined,
+            jobIds: options.jobs
+              ? options.jobs.split(',').map((j: string) => j.trim())
+              : undefined,
+            modules: options.modules
+              ? options.modules.split(',').map((m: string) => m.trim())
+              : undefined,
             enableJobs: options.enableJobs,
             startDatafeeds: options.startDatafeeds,
             deleteExisting: options.deleteExisting,
@@ -2726,8 +2777,12 @@ program
         console.log(`🌍 Generated across ${environments} environments`);
       } else {
         const params = {
-          jobIds: options.jobs ? options.jobs.split(',').map((j: string) => j.trim()) : undefined,
-          modules: options.modules ? options.modules.split(',').map((m: string) => m.trim()) : undefined,
+          jobIds: options.jobs
+            ? options.jobs.split(',').map((j: string) => j.trim())
+            : undefined,
+          modules: options.modules
+            ? options.modules.split(',').map((m: string) => m.trim())
+            : undefined,
           enableJobs: options.enableJobs,
           startDatafeeds: options.startDatafeeds,
           deleteExisting: options.deleteExisting,
@@ -2752,8 +2807,16 @@ program
   .command('delete-ml-data')
   .description('Delete ML data, jobs, and datafeeds')
   .option('--jobs <jobs>', 'comma-separated ML job IDs to delete')
-  .option('--namespace <namespace>', 'namespace to delete from (default: default)', 'default')
-  .option('--environments <count>', 'delete across multiple environments', parseIntBase10)
+  .option(
+    '--namespace <namespace>',
+    'namespace to delete from (default: default)',
+    'default',
+  )
+  .option(
+    '--environments <count>',
+    'delete across multiple environments',
+    parseIntBase10,
+  )
   .action(async (options) => {
     if (!options.jobs) {
       console.error('Error: --jobs parameter is required');
@@ -2765,8 +2828,10 @@ program
 
     try {
       if (environments > 1) {
-        console.log(`\n🌍 Multi-Environment ML Deletion: ${environments} environments`);
-        
+        console.log(
+          `\n🌍 Multi-Environment ML Deletion: ${environments} environments`,
+        );
+
         for (let i = 1; i <= environments; i++) {
           const envNamespace = `${options.namespace}-env-${i.toString().padStart(3, '0')}`;
           console.log(`\n🗑️ Environment ${i}/${environments}: ${envNamespace}`);

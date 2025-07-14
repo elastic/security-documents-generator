@@ -3271,7 +3271,9 @@ Next steps:
     }
   }
 
-  private async handleGenerateMLAnomalyData(params: GenerateMLAnomalyDataParams) {
+  private async handleGenerateMLAnomalyData(
+    params: GenerateMLAnomalyDataParams,
+  ) {
     const {
       modules = ['security_auth'],
       jobIds,
@@ -3286,18 +3288,22 @@ Next steps:
     console.error('[MCP] Generating ML anomaly data...');
 
     try {
-      const { generateMLDataForModules, generateMLData } = await import('./commands/ml_data.js');
+      const { generateMLDataForModules, generateMLData } = await import(
+        './commands/ml_data.js'
+      );
 
       let results;
       let totalDocuments = 0;
       let totalAnomalies = 0;
 
       if (environments > 1) {
-        console.error(`[MCP] Multi-environment ML generation: ${environments} environments`);
-        
+        console.error(
+          `[MCP] Multi-environment ML generation: ${environments} environments`,
+        );
+
         for (let i = 1; i <= environments; i++) {
           const envNamespace = `${namespace}-env-${i.toString().padStart(3, '0')}`;
-          
+
           const params = {
             modules: modules,
             jobIds: jobIds,
@@ -3331,7 +3337,8 @@ Next steps:
       }
 
       const moduleList = modules.join(', ');
-      const envText = environments > 1 ? ` across ${environments} environments` : '';
+      const envText =
+        environments > 1 ? ` across ${environments} environments` : '';
 
       return {
         content: [
@@ -3362,7 +3369,8 @@ ${enableJobs ? '✅ Created and started ML jobs in Elasticsearch' : ''}
         ],
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(`ML anomaly data generation failed: ${errorMessage}`);
     }
   }

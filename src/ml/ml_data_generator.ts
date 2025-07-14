@@ -8,14 +8,18 @@ import { Client } from '@elastic/elasticsearch';
 import { MLJobParser } from './utils/job_parser';
 import { MLJobManager, MLJobOptions } from './utils/job_manager';
 import { MLGeneratorFactory } from './generators/generator_factory';
-import { 
-  MLGenerationResult, 
-  MLBulkIndexOptions, 
+import {
+  MLGenerationResult,
+  MLBulkIndexOptions,
   ML_SECURITY_MODULES,
-  MLJobModule 
+  MLJobModule,
 } from './types/ml_types';
 import { getEsClient, indexCheck } from '../commands/utils/indices';
-import { parseThemeConfig, getThemedData, type ParsedThemeConfig } from '../utils/theme_service';
+import {
+  parseThemeConfig,
+  getThemedData,
+  type ParsedThemeConfig,
+} from '../utils/theme_service';
 
 export interface MLDataGenerationOptions {
   enableJobs?: boolean;
@@ -42,7 +46,7 @@ export class MLDataGenerator {
   private async getThemedDataForML(theme: string): Promise<any> {
     try {
       console.log(`🎨 Fetching themed data for theme: ${theme}`);
-      
+
       const [usernames, hostnames, processNames, domains] = await Promise.all([
         getThemedData(theme as any, 'usernames', 50),
         getThemedData(theme as any, 'hostnames', 30),
@@ -57,7 +61,10 @@ export class MLDataGenerator {
         domains,
       };
     } catch (error) {
-      console.warn(`⚠️  Failed to fetch themed data for ${theme}, using default patterns:`, error instanceof Error ? error.message : error);
+      console.warn(
+        `⚠️  Failed to fetch themed data for ${theme}, using default patterns:`,
+        error instanceof Error ? error.message : error,
+      );
       return null;
     }
   }
@@ -68,10 +75,10 @@ export class MLDataGenerator {
    */
   public async generateMLData(
     jobIds: string[],
-    options: MLDataGenerationOptions = {}
+    options: MLDataGenerationOptions = {},
   ): Promise<MLGenerationResult[]> {
     const results: MLGenerationResult[] = [];
-    
+
     // Get themed data if theme is specified
     let themedData = null;
     if (options.theme) {
@@ -80,22 +87,29 @@ export class MLDataGenerator {
         themedData = await this.getThemedDataForML(options.theme);
       }
     }
-    
+
     console.log(`🤖 Generating ML data for ${jobIds.length} jobs...`);
-    
+
     for (const jobId of jobIds) {
       console.log(`\n📊 Processing ML job: ${jobId}`);
-      
+
       try {
-        const result = await this.generateSingleJobData(jobId, options, themedData);
+        const result = await this.generateSingleJobData(
+          jobId,
+          options,
+          themedData,
+        );
         results.push(result);
-        
+
         if (result.success) {
-          console.log(`✅ Generated ${result.documentsGenerated} documents for ${jobId}`);
+          console.log(
+            `✅ Generated ${result.documentsGenerated} documents for ${jobId}`,
+          );
         } else {
-          console.error(`❌ Failed to generate data for ${jobId}: ${result.error}`);
+          console.error(
+            `❌ Failed to generate data for ${jobId}: ${result.error}`,
+          );
         }
-        
       } catch (error) {
         console.error(`❌ Error processing job ${jobId}:`, error);
         results.push({
@@ -105,11 +119,11 @@ export class MLDataGenerator {
           anomaliesGenerated: 0,
           timeRange: { start: 0, end: 0 },
           success: false,
-          error: String(error)
+          error: String(error),
         });
       }
     }
-    
+
     return results;
   }
 
@@ -118,25 +132,27 @@ export class MLDataGenerator {
    */
   public async generateMLDataForModules(
     moduleNames: string[],
-    options: MLDataGenerationOptions = {}
+    options: MLDataGenerationOptions = {},
   ): Promise<MLGenerationResult[]> {
     const allJobIds: string[] = [];
-    
+
     for (const moduleName of moduleNames) {
-      const module = ML_SECURITY_MODULES.find(m => m.name === moduleName);
+      const module = ML_SECURITY_MODULES.find((m) => m.name === moduleName);
       if (module) {
         allJobIds.push(...module.jobs);
-        console.log(`📦 Added ${module.jobs.length} jobs from module: ${moduleName}`);
+        console.log(
+          `📦 Added ${module.jobs.length} jobs from module: ${moduleName}`,
+        );
       } else {
         console.warn(`⚠️ Unknown security module: ${moduleName}`);
       }
     }
-    
+
     if (allJobIds.length === 0) {
       console.error('❌ No valid jobs found in specified modules');
       return [];
     }
-    
+
     console.log(`🎯 Total jobs to process: ${allJobIds.length}`);
     return this.generateMLData(allJobIds, options);
   }
@@ -148,7 +164,7 @@ export class MLDataGenerator {
   private async generateSingleJobData(
     jobId: string,
     options: MLDataGenerationOptions = {},
-    themedData?: any
+    themedData?: any,
   ): Promise<MLGenerationResult> {
     const result: MLGenerationResult = {
       jobId,
@@ -156,7 +172,7 @@ export class MLDataGenerator {
       documentsGenerated: 0,
       anomaliesGenerated: 0,
       timeRange: { start: 0, end: 0 },
-      success: false
+      success: false,
     };
 
     try {
@@ -164,16 +180,16 @@ export class MLDataGenerator {
       console.log(`🔍 Parsing job configuration for ${jobId}...`);
       const parser = new MLJobParser(jobId);
       const config = await parser.parseJobConfig();
-      
+
       result.timeRange = {
         start: config.startTime,
-        end: config.endTime
+        end: config.endTime,
       };
 
       // 2. Create index with proper mapping
       const indexName = this.getIndexName(jobId, options.namespace);
       result.indexName = indexName;
-      
+
       console.log(`📁 Creating index: ${indexName}`);
       await this.createMLIndex(indexName);
 
@@ -185,25 +201,39 @@ export class MLDataGenerator {
         burstSize: 100,
         stringLength: [5, 10],
       };
-      
+
       // Add themed data if available
       if (themedData) {
         generatorOptions.themedData = themedData;
-        console.log(`🎨 Using themed data: ${Object.keys(themedData).join(', ')}`);
+        console.log(
+          `🎨 Using themed data: ${Object.keys(themedData).join(', ')}`,
+        );
       }
-      
-      const generator = MLGeneratorFactory.createGenerator(config, generatorOptions);
+
+      const generator = MLGeneratorFactory.createGenerator(
+        config,
+        generatorOptions,
+      );
       const documents = await generator.generateAll();
-      
+
       result.documentsGenerated = documents.length;
 
       // Count anomalies (approximate based on generator type)
-      result.anomaliesGenerated = this.estimateAnomalies(documents.length, config.function);
+      result.anomaliesGenerated = this.estimateAnomalies(
+        documents.length,
+        config.function,
+      );
 
       // 4. Bulk index data to Elasticsearch
       if (documents.length > 0) {
-        console.log(`📤 Indexing ${documents.length} documents to ${indexName}...`);
-        await this.bulkIndexDocuments(indexName, documents, options.bulkOptions);
+        console.log(
+          `📤 Indexing ${documents.length} documents to ${indexName}...`,
+        );
+        await this.bulkIndexDocuments(
+          indexName,
+          documents,
+          options.bulkOptions,
+        );
       }
 
       // 5. Create ML job and datafeed if enabled
@@ -212,17 +242,18 @@ export class MLDataGenerator {
         const jobOptions: MLJobOptions = {
           enableJob: true,
           startDatafeed: options.startDatafeeds,
-          deleteExisting: options.deleteExistingJobs
+          deleteExisting: options.deleteExistingJobs,
         };
-        
+
         // Note: This would require the actual ML job configuration
         // For now, we'll log that this step would happen
-        console.log(`📋 ML job setup would be performed here with configuration from ${jobId}.json`);
+        console.log(
+          `📋 ML job setup would be performed here with configuration from ${jobId}.json`,
+        );
       }
 
       result.success = true;
       console.log(`✅ Successfully generated ML data for ${jobId}`);
-
     } catch (error) {
       result.error = String(error);
       console.error(`❌ Failed to generate ML data for ${jobId}:`, error);
@@ -240,43 +271,43 @@ export class MLDataGenerator {
       properties: {
         '@timestamp': {
           type: 'date',
-          format: 'epoch_second'
-        }
+          format: 'epoch_second',
+        },
       },
       dynamic_templates: [
         {
           string_as_ip: {
             path_match: '*.ip',
             mapping: {
-              type: 'ip'
-            }
-          }
+              type: 'ip',
+            },
+          },
         },
         {
           string_as_keyword_error_code: {
             path_match: '*.error_code',
             mapping: {
-              type: 'keyword'
-            }
-          }
+              type: 'keyword',
+            },
+          },
         },
         {
           port_as_long: {
             path_match: '*.port',
             mapping: {
-              type: 'long'
-            }
-          }
+              type: 'long',
+            },
+          },
         },
         {
           default: {
             match_mapping_type: 'string',
             mapping: {
-              type: 'keyword'
-            }
-          }
-        }
-      ]
+              type: 'keyword',
+            },
+          },
+        },
+      ],
     };
 
     await indexCheck(indexName, { mappings: mapping }, true);
@@ -289,7 +320,7 @@ export class MLDataGenerator {
   private async bulkIndexDocuments(
     indexName: string,
     documents: any[],
-    options: MLBulkIndexOptions = {}
+    options: MLBulkIndexOptions = {},
   ): Promise<void> {
     const chunkSize = options.chunkSize || 1000;
     const operations: any[] = [];
@@ -299,12 +330,12 @@ export class MLDataGenerator {
       // Remove _index field from document as it should be in operation metadata
       const cleanDoc = { ...doc };
       delete cleanDoc._index;
-      
+
       operations.push({
         create: {
           _index: indexName,
-          _id: `${doc['@timestamp']}_${Math.random().toString(36).substr(2, 9)}`
-        }
+          _id: `${doc['@timestamp']}_${Math.random().toString(36).substr(2, 9)}`,
+        },
       });
       operations.push(cleanDoc);
     }
@@ -312,36 +343,37 @@ export class MLDataGenerator {
     // Execute bulk indexing in chunks
     for (let i = 0; i < operations.length; i += chunkSize * 2) {
       const chunk = operations.slice(i, i + chunkSize * 2);
-      
+
       try {
         const response = await this.client.bulk({
           operations: chunk,
           refresh: options.refreshPolicy || 'true', // Force refresh for immediate visibility
-          timeout: options.timeout || '60s'
+          timeout: options.timeout || '60s',
         });
-        
+
         // Check for bulk indexing errors
         if (response.errors) {
           const errors = response.items.filter((item: any) => {
             const operation = item.create || item.index;
             return operation && operation.error;
           });
-          
+
           if (errors.length > 0) {
             console.error(`❌ Bulk indexing errors:`, errors.slice(0, 3)); // Show first 3 errors
-            throw new Error(`Bulk indexing failed with ${errors.length} errors`);
+            throw new Error(
+              `Bulk indexing failed with ${errors.length} errors`,
+            );
           }
         }
-        
+
         const docsInChunk = chunk.length / 2;
         process.stdout.write(`📤 Indexed ${docsInChunk} documents... `);
-        
       } catch (error) {
         console.error(`❌ Bulk indexing error:`, error);
         throw error;
       }
     }
-    
+
     console.log(`\n✅ Bulk indexing completed for ${indexName}`);
   }
 
@@ -360,14 +392,14 @@ export class MLDataGenerator {
    */
   private estimateAnomalies(documentCount: number, mlFunction: string): number {
     const rates: Record<string, number> = {
-      'rare': 0.0002,
-      'high_count': 0.0002,
-      'high_non_zero_count': 0.0002,
-      'high_distinct_count': 0.0002,
-      'high_info_content': 0.0008,
-      'time_of_day': 0.001 // Approximate based on midnight pattern
+      rare: 0.0002,
+      high_count: 0.0002,
+      high_non_zero_count: 0.0002,
+      high_distinct_count: 0.0002,
+      high_info_content: 0.0008,
+      time_of_day: 0.001, // Approximate based on midnight pattern
     };
-    
+
     const rate = rates[mlFunction] || 0.0002;
     return Math.round(documentCount * rate);
   }
@@ -375,23 +407,27 @@ export class MLDataGenerator {
   /**
    * Delete ML data and jobs
    */
-  public async deleteMLData(jobIds: string[], options: MLDataGenerationOptions = {}): Promise<void> {
+  public async deleteMLData(
+    jobIds: string[],
+    options: MLDataGenerationOptions = {},
+  ): Promise<void> {
     console.log(`🗑️ Deleting ML data for ${jobIds.length} jobs...`);
-    
+
     for (const jobId of jobIds) {
       try {
         // Delete ML job and datafeed
         await this.jobManager.deleteMLJob(jobId);
-        
+
         // Delete index
         const indexName = this.getIndexName(jobId, options.namespace);
-        const indexExists = await this.client.indices.exists({ index: indexName });
-        
+        const indexExists = await this.client.indices.exists({
+          index: indexName,
+        });
+
         if (indexExists) {
           await this.client.indices.delete({ index: indexName });
           console.log(`✅ Deleted index: ${indexName}`);
         }
-        
       } catch (error) {
         console.error(`❌ Failed to delete ML data for ${jobId}:`, error);
       }

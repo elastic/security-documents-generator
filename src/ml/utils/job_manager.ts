@@ -1,12 +1,16 @@
 /**
  * ML Job Lifecycle Manager
  * Migrated from Python ML job and datafeed management
- * 
+ *
  * Handles ML job creation, datafeed setup, and lifecycle operations
  */
 
 import { Client } from '@elastic/elasticsearch';
-import { MLJobConfig, MLGenerationResult, MLBulkIndexOptions } from '../types/ml_types';
+import {
+  MLJobConfig,
+  MLGenerationResult,
+  MLBulkIndexOptions,
+} from '../types/ml_types';
 import { getEsClient } from '../../commands/utils/indices';
 
 export interface MLJobOptions {
@@ -38,7 +42,7 @@ export class MLJobManager {
   public async createMLJob(
     jobId: string,
     jobConfig: MLJobConfig,
-    options: MLJobOptions = {}
+    options: MLJobOptions = {},
   ): Promise<boolean> {
     try {
       // Delete existing job if requested
@@ -57,7 +61,7 @@ export class MLJobManager {
       console.log(`Creating ML job: ${jobId}`);
       await this.client.ml.putJob({
         job_id: jobId,
-        body: jobConfig
+        body: jobConfig,
       });
 
       console.log(`✅ ML job ${jobId} created successfully`);
@@ -68,7 +72,6 @@ export class MLJobManager {
       }
 
       return true;
-
     } catch (error) {
       console.error(`❌ Failed to create ML job ${jobId}:`, error);
       return false;
@@ -82,7 +85,7 @@ export class MLJobManager {
   public async createDatafeed(
     jobId: string,
     indexName: string,
-    options: MLJobOptions = {}
+    options: MLJobOptions = {},
   ): Promise<boolean> {
     try {
       const datafeedId = `datafeed-${jobId}`;
@@ -90,7 +93,9 @@ export class MLJobManager {
       // Check if datafeed already exists
       const datafeedExists = await this.datafeedExists(datafeedId);
       if (datafeedExists) {
-        console.log(`Datafeed ${datafeedId} already exists. Skipping creation.`);
+        console.log(
+          `Datafeed ${datafeedId} already exists. Skipping creation.`,
+        );
         return true;
       }
 
@@ -100,15 +105,15 @@ export class MLJobManager {
         job_id: jobId,
         indices: [indexName],
         query: {
-          match_all: {}
-        }
+          match_all: {},
+        },
       };
 
       // Create datafeed
       console.log(`Creating datafeed: ${datafeedId}`);
       await this.client.ml.putDatafeed({
         datafeed_id: datafeedId,
-        body: datafeedConfig
+        body: datafeedConfig,
       });
 
       console.log(`✅ Datafeed ${datafeedId} created successfully`);
@@ -119,7 +124,6 @@ export class MLJobManager {
       }
 
       return true;
-
     } catch (error) {
       console.error(`❌ Failed to create datafeed for job ${jobId}:`, error);
       return false;
@@ -133,12 +137,11 @@ export class MLJobManager {
     try {
       console.log(`Opening ML job: ${jobId}`);
       await this.client.ml.openJob({
-        job_id: jobId
+        job_id: jobId,
       });
 
       console.log(`✅ ML job ${jobId} opened successfully`);
       return true;
-
     } catch (error) {
       console.error(`❌ Failed to open ML job ${jobId}:`, error);
       return false;
@@ -152,12 +155,11 @@ export class MLJobManager {
     try {
       console.log(`Closing ML job: ${jobId}`);
       await this.client.ml.closeJob({
-        job_id: jobId
+        job_id: jobId,
       });
 
       console.log(`✅ ML job ${jobId} closed successfully`);
       return true;
-
     } catch (error) {
       console.error(`❌ Failed to close ML job ${jobId}:`, error);
       return false;
@@ -171,12 +173,11 @@ export class MLJobManager {
     try {
       console.log(`Starting datafeed: ${datafeedId}`);
       await this.client.ml.startDatafeed({
-        datafeed_id: datafeedId
+        datafeed_id: datafeedId,
       });
 
       console.log(`✅ Datafeed ${datafeedId} started successfully`);
       return true;
-
     } catch (error) {
       console.error(`❌ Failed to start datafeed ${datafeedId}:`, error);
       return false;
@@ -190,12 +191,11 @@ export class MLJobManager {
     try {
       console.log(`Stopping datafeed: ${datafeedId}`);
       await this.client.ml.stopDatafeed({
-        datafeed_id: datafeedId
+        datafeed_id: datafeedId,
       });
 
       console.log(`✅ Datafeed ${datafeedId} stopped successfully`);
       return true;
-
     } catch (error) {
       console.error(`❌ Failed to stop datafeed ${datafeedId}:`, error);
       return false;
@@ -214,7 +214,7 @@ export class MLJobManager {
       if (datafeedExists) {
         await this.stopDatafeed(datafeedId);
         await this.client.ml.deleteDatafeed({
-          datafeed_id: datafeedId
+          datafeed_id: datafeedId,
         });
       }
 
@@ -223,13 +223,12 @@ export class MLJobManager {
       if (jobExists) {
         await this.closeMLJob(jobId);
         await this.client.ml.deleteJob({
-          job_id: jobId
+          job_id: jobId,
         });
       }
 
       console.log(`✅ ML job ${jobId} and datafeed deleted successfully`);
       return true;
-
     } catch (error) {
       console.error(`❌ Failed to delete ML job ${jobId}:`, error);
       return false;
@@ -242,7 +241,7 @@ export class MLJobManager {
   public async jobExists(jobId: string): Promise<boolean> {
     try {
       await this.client.ml.getJobs({
-        job_id: jobId
+        job_id: jobId,
       });
       return true;
     } catch (error) {
@@ -256,7 +255,7 @@ export class MLJobManager {
   public async datafeedExists(datafeedId: string): Promise<boolean> {
     try {
       await this.client.ml.getDatafeeds({
-        datafeed_id: datafeedId
+        datafeed_id: datafeedId,
       });
       return true;
     } catch (error) {
@@ -270,7 +269,7 @@ export class MLJobManager {
   public async getJobStatus(jobId: string): Promise<any> {
     try {
       const response = await this.client.ml.getJobStats({
-        job_id: jobId
+        job_id: jobId,
       });
       return response.jobs[0];
     } catch (error) {
@@ -285,7 +284,7 @@ export class MLJobManager {
   public async getDatafeedStatus(datafeedId: string): Promise<any> {
     try {
       const response = await this.client.ml.getDatafeedStats({
-        datafeed_id: datafeedId
+        datafeed_id: datafeedId,
       });
       return response.datafeeds[0];
     } catch (error) {
@@ -300,7 +299,7 @@ export class MLJobManager {
   public async listJobs(): Promise<string[]> {
     try {
       const response = await this.client.ml.getJobs();
-      return response.jobs.map(job => job.job_id);
+      return response.jobs.map((job) => job.job_id);
     } catch (error) {
       console.error('Failed to list ML jobs:', error);
       return [];
@@ -315,7 +314,7 @@ export class MLJobManager {
     jobId: string,
     jobConfig: MLJobConfig,
     indexName: string,
-    options: MLJobOptions = {}
+    options: MLJobOptions = {},
   ): Promise<MLGenerationResult> {
     const result: MLGenerationResult = {
       jobId,
@@ -323,7 +322,7 @@ export class MLJobManager {
       documentsGenerated: 0,
       anomaliesGenerated: 0,
       timeRange: { start: 0, end: 0 },
-      success: false
+      success: false,
     };
 
     try {
@@ -335,7 +334,11 @@ export class MLJobManager {
       }
 
       // 2. Create datafeed
-      const datafeedCreated = await this.createDatafeed(jobId, indexName, options);
+      const datafeedCreated = await this.createDatafeed(
+        jobId,
+        indexName,
+        options,
+      );
       if (!datafeedCreated) {
         result.error = 'Failed to create datafeed';
         return result;
@@ -343,7 +346,6 @@ export class MLJobManager {
 
       result.success = true;
       console.log(`✅ Complete ML job setup finished for ${jobId}`);
-
     } catch (error) {
       result.error = `ML job setup failed: ${error}`;
       console.error(`❌ Complete ML job setup failed for ${jobId}:`, error);

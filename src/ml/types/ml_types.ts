@@ -26,7 +26,7 @@ export interface MLDetector {
   detector_description: string;
 }
 
-export type MLFunction = 
+export type MLFunction =
   | 'rare'
   | 'high_count'
   | 'high_non_zero_count'
@@ -78,16 +78,16 @@ export const ML_SECURITY_MODULES: MLJobModule[] = [
       'auth_rare_user',
       'auth_high_count_logon_fails',
       'auth_rare_hour_for_a_user',
-      'suspicious_login_activity'
-    ]
+      'suspicious_login_activity',
+    ],
   },
   {
     name: 'security_cloudtrail',
     jobs: [
       'high_distinct_count_error_message',
       'rare_error_code',
-      'cloudtrail_rare_method_for_a_city'
-    ]
+      'cloudtrail_rare_method_for_a_city',
+    ],
   },
   {
     name: 'security_linux',
@@ -95,33 +95,33 @@ export const ML_SECURITY_MODULES: MLJobModule[] = [
       'v3_linux_anomalous_user_name',
       'v3_linux_rare_sudo_user',
       'v3_linux_anomalous_network_activity',
-      'v3_linux_rare_metadata_process'
-    ]
+      'v3_linux_rare_metadata_process',
+    ],
   },
   {
     name: 'security_network',
     jobs: [
       'high_count_network_events',
       'rare_destination_country',
-      'network_rare_process_for_user'
-    ]
+      'network_rare_process_for_user',
+    ],
   },
   {
     name: 'security_packetbeat',
     jobs: [
       'packetbeat_rare_dns_question',
       'packetbeat_rare_server_domain',
-      'packetbeat_rare_urls'
-    ]
+      'packetbeat_rare_urls',
+    ],
   },
   {
     name: 'security_windows',
     jobs: [
       'v3_windows_anomalous_process_creation',
       'v3_windows_rare_user_runas_event',
-      'v3_windows_anomalous_script'
-    ]
-  }
+      'v3_windows_anomalous_script',
+    ],
+  },
 ];
 
 export interface MLGenerationResult {

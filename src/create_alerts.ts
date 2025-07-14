@@ -41,6 +41,7 @@ function baseCreateAlerts({
   const timestamp = generateTimestamp(timestampConfig);
   const currentTime = new Date().toISOString(); // For rule metadata timestamps
   return {
+    'agent.type': 'endpoint',
     'host.name': hostName,
     'user.name': userName,
     'kibana.alert.start': timestamp,
@@ -172,7 +173,8 @@ export default function createAlerts<O extends object>(
 
   // Add Visual Event Analyzer fields if enabled
   if (visualAnalyzer) {
-    const { visualAnalyzerFields } = createProcessEventWithVisualAnalyzer({
+    // Generate correlated process event first
+    const { event, visualAnalyzerFields } = createProcessEventWithVisualAnalyzer({
       processName: 'security-alert-process',
       processPid: 12345,
       commandLine: '/usr/bin/security-alert --alert-trigger',
@@ -185,6 +187,19 @@ export default function createAlerts<O extends object>(
         alert_id: baseAlert['kibana.alert.uuid'],
       },
     });
+    
+    // Store the process event globally for correlation
+    if (typeof globalThis !== 'undefined') {
+      globalThis.correlatedProcessEvents = globalThis.correlatedProcessEvents || [];
+      globalThis.correlatedProcessEvents.push({
+        event,
+        entityId: visualAnalyzerFields['process.entity_id'],
+        timestamp: generateTimestamp(timestampConfig),
+        hostName,
+        userName
+      });
+    }
+    
     baseAlert = { ...baseAlert, ...visualAnalyzerFields };
   }
 

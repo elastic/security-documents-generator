@@ -18,6 +18,17 @@ import pMap from 'p-map';
 import { chunk } from 'lodash-es';
 import cliProgress from 'cli-progress';
 import { faker } from '@faker-js/faker';
+
+// Type definition for correlated process events
+declare global {
+  var correlatedProcessEvents: Array<{
+    event: any;
+    entityId: string;
+    timestamp: string;
+    hostName: string;
+    userName: string;
+  }> | undefined;
+}
 import { getAlertIndex } from '../utils';
 import {
   generateAIAlert,
@@ -222,9 +233,9 @@ const alertToBatchOps = (
 ): unknown[] => {
   // Alert indices are data streams that require 'create' operations
   const isAlertIndex = index.startsWith('.alerts-security.alerts-');
-  
+
   return [
-    isAlertIndex 
+    isAlertIndex
       ? { create: { _index: index, _id: alert['kibana.alert.uuid'] } }
       : { index: { _index: index, _id: alert['kibana.alert.uuid'] } },
     { ...alert },
@@ -251,17 +262,21 @@ const createDocuments = async (
           id_field: 'host.name',
           id_value: `Host ${generated + i}`,
         });
-        acc.push(isAlertIndex 
-          ? { create: { _index: index } }
-          : { index: { _index: index } });
+        acc.push(
+          isAlertIndex
+            ? { create: { _index: index } }
+            : { index: { _index: index } },
+        );
         acc.push({ ...alert });
         alert = createDoc({
           id_field: 'user.name',
           id_value: `User ${generated + i}`,
         });
-        acc.push(isAlertIndex 
-          ? { create: { _index: index } }
-          : { index: { _index: index } });
+        acc.push(
+          isAlertIndex
+            ? { create: { _index: index } }
+            : { index: { _index: index } },
+        );
         acc.push({ ...alert });
         return acc;
       }, []);
@@ -313,9 +328,11 @@ const createDocuments = async (
                 })
               : createDoc({ id_field: 'host.name', id_value: hostId });
 
-          docs.push(isAlertIndex 
-            ? { create: { _index: index } }
-            : { index: { _index: index } });
+          docs.push(
+            isAlertIndex
+              ? { create: { _index: index } }
+              : { index: { _index: index } },
+          );
           docs.push({ ...hostAlert });
           progress.increment(0.5);
         }
@@ -332,9 +349,11 @@ const createDocuments = async (
                 })
               : createDoc({ id_field: 'user.name', id_value: userId });
 
-          docs.push(isAlertIndex 
-            ? { create: { _index: index } }
-            : { index: { _index: index } });
+          docs.push(
+            isAlertIndex
+              ? { create: { _index: index } }
+              : { index: { _index: index } },
+          );
           docs.push({ ...userAlert });
           progress.increment(0.5);
         }
@@ -944,6 +963,66 @@ export const generateAlerts = async (
       console.log(
         '⚠️ Alert generation completed successfully, but case creation failed',
       );
+    }
+  }
+
+  // Generate correlated process events for Visual Event Analyzer
+  if (visualAnalyzer && typeof globalThis !== 'undefined' && globalThis.correlatedProcessEvents) {
+    console.log(`\n🔗 Generating ${globalThis.correlatedProcessEvents.length} correlated process events for Visual Event Analyzer...`);
+    
+    try {
+      const esClient = getEsClient();
+      const processOps: BulkOperationContainer[] = [];
+      
+      for (const correlatedEvent of globalThis.correlatedProcessEvents) {
+        const processLog = {
+          '@timestamp': correlatedEvent.timestamp,
+          'agent.type': 'endpoint',
+          'agent.version': '8.15.0',
+          'data_stream.dataset': 'endpoint.events.process',
+          'data_stream.namespace': _namespace,
+          'data_stream.type': 'logs',
+          'ecs.version': '8.11.0',
+          'event.action': correlatedEvent.event.action,
+          'event.category': ['process'],
+          'event.dataset': 'endpoint.events.process',
+          'event.kind': 'event',
+          'event.module': 'endpoint',
+          'event.type': ['start'],
+          'host.name': correlatedEvent.hostName,
+          'host.os.family': 'linux',
+          'host.os.name': 'Ubuntu',
+          'host.os.version': '20.04',
+          'process.command_line': correlatedEvent.event.command_line,
+          'process.executable': '/usr/bin/security-alert',
+          'process.name': correlatedEvent.event.process_name,
+          'process.pid': correlatedEvent.event.process_pid,
+          'process.entity_id': correlatedEvent.entityId,
+          'process.start': correlatedEvent.event.timestamp,
+          'process.user.name': correlatedEvent.event.user_name,
+          'user.domain': faker.internet.domainName(),
+          'user.name': correlatedEvent.userName,
+          'related.user': [correlatedEvent.userName, correlatedEvent.event.user_name],
+          message: `Correlated process event for Visual Event Analyzer: ${correlatedEvent.event.process_name}`,
+        };
+
+        processOps.push({
+          create: {
+            _index: `logs-endpoint.events.process-${_namespace}`,
+          },
+        });
+        processOps.push(processLog);
+      }
+
+      if (processOps.length > 0) {
+        await esClient.bulk({ body: processOps });
+        console.log(`✅ Generated ${globalThis.correlatedProcessEvents.length} correlated process events`);
+      }
+      
+      // Clear the global correlation data
+      globalThis.correlatedProcessEvents = [];
+    } catch (error) {
+      console.error('❌ Error generating correlated process events:', error);
     }
   }
 

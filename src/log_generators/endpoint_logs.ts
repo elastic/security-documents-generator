@@ -4,7 +4,10 @@ import {
   SessionViewGenerator,
   createProcessWithSessionView,
 } from '../services/session_view_generator';
-import { createProcessEventWithVisualAnalyzer } from '../services/visual_event_analyzer';
+import {
+  createProcessEventWithVisualAnalyzer,
+  generateLinuxProcessHierarchy,
+} from '../services/visual_event_analyzer';
 
 export interface EndpointLogConfig {
   hostName?: string;
@@ -381,7 +384,7 @@ export const generateMemoryPatternLog = (config: EndpointLogConfig = {}) => {
     'data_stream.type': 'logs',
     'ecs.version': '8.11.0',
     'event.action': 'memory-scan',
-    'event.category': ['process'],
+    'event.category': ['host'],
     'event.dataset': 'endpoint.events.memory',
     'event.kind': 'event',
     'event.module': 'endpoint',
@@ -769,7 +772,9 @@ export const generateLateralMovementLog = (config: EndpointLogConfig = {}) => {
 };
 
 // Enhanced Session View Attack Scenario Generator
-export const generateEnhancedSessionViewLog = (config: EndpointLogConfig = {}) => {
+export const generateEnhancedSessionViewLog = (
+  config: EndpointLogConfig = {},
+) => {
   const {
     hostName = faker.internet.domainName(),
     userName = faker.internet.username(),
@@ -780,10 +785,17 @@ export const generateEnhancedSessionViewLog = (config: EndpointLogConfig = {}) =
   const sessionGenerator = new SessionViewGenerator(hostName);
 
   // Generate different attack scenarios
-  const scenarios = ['lateral_movement', 'privilege_escalation', 'persistence', 'discovery', 'data_exfiltration'] as const;
+  const scenarios = [
+    'lateral_movement',
+    'privilege_escalation',
+    'persistence',
+    'discovery',
+    'data_exfiltration',
+  ] as const;
   const selectedScenario = faker.helpers.arrayElement(scenarios);
 
-  const attackProcesses = sessionGenerator.generateAttackScenario(selectedScenario);
+  const attackProcesses =
+    sessionGenerator.generateAttackScenario(selectedScenario);
   const logs = [];
 
   // Create logs for each process in the attack chain
@@ -811,9 +823,15 @@ export const generateEnhancedSessionViewLog = (config: EndpointLogConfig = {}) =
       'event.module': 'endpoint',
       'event.type': ['start'],
       'host.name': hostName,
-      'host.os.family': process.executable.includes('cmd.exe') ? 'windows' : 'linux',
-      'host.os.name': process.executable.includes('cmd.exe') ? 'Windows 10' : 'Ubuntu',
-      'host.os.version': process.executable.includes('cmd.exe') ? '10.0' : '20.04',
+      'host.os.family': process.executable.includes('cmd.exe')
+        ? 'windows'
+        : 'linux',
+      'host.os.name': process.executable.includes('cmd.exe')
+        ? 'Windows 10'
+        : 'Ubuntu',
+      'host.os.version': process.executable.includes('cmd.exe')
+        ? '10.0'
+        : '20.04',
       message: `${selectedScenario.replace(/_/g, ' ')} step ${i + 1}: ${process.name}`,
       'process.command_line': process.command_line,
       'process.executable': process.executable,
@@ -879,7 +897,9 @@ function getMitreTechnique(scenario: string, processName: string): string[] {
 
   const scenarioMappings = mappings[scenario];
   if (scenarioMappings) {
-    return scenarioMappings[processName] || scenarioMappings.default || ['T1059'];
+    return (
+      scenarioMappings[processName] || scenarioMappings.default || ['T1059']
+    );
   }
   return ['T1059']; // Command and Scripting Interpreter
 }
@@ -1075,6 +1095,88 @@ export const generateSessionViewProcessTree = (
   return logs;
 };
 
+// Generate Linux Process Hierarchy for Visual Event Analyzer
+export const generateLinuxProcessHierarchyLog = (
+  config: EndpointLogConfig = {},
+) => {
+  const {
+    hostName = faker.internet.domainName(),
+    userName = faker.internet.username(),
+    timestampConfig,
+    namespace = 'default',
+  } = config;
+
+  const scenarios = [
+    'privilege_escalation',
+    'lateral_movement',
+    'persistence',
+    'discovery',
+    'data_exfiltration',
+  ] as const;
+  const selectedScenario = faker.helpers.arrayElement(scenarios);
+
+  const { events, visualAnalyzerFields } = generateLinuxProcessHierarchy({
+    scenario: selectedScenario,
+    depth: faker.number.int({ min: 2, max: 4 }),
+    hostName,
+    userName,
+  });
+
+  const logs = [];
+
+  // Generate logs for each process in the hierarchy
+  for (let i = 0; i < events.length; i++) {
+    const event = events[i];
+    const fields = visualAnalyzerFields[i];
+
+    const log = {
+      '@timestamp': generateTimestamp(timestampConfig),
+      'agent.type': 'endpoint',
+      'agent.version': '8.15.0',
+      'data_stream.dataset': 'endpoint.events.process',
+      'data_stream.namespace': namespace,
+      'data_stream.type': 'logs',
+      'ecs.version': '8.11.0',
+      'event.action': event.action,
+      'event.category': ['process'],
+      'event.dataset': 'endpoint.events.process',
+      'event.kind': 'event',
+      'event.module': 'endpoint',
+      'event.type': ['start'],
+      'host.name': hostName,
+      'host.os.family': 'linux',
+      'host.os.name': 'Ubuntu',
+      'host.os.version': '20.04',
+      message: `Linux process hierarchy: ${event.process_name} (${selectedScenario} step ${event.metadata.step})`,
+      'process.command_line': event.command_line,
+      'process.executable': event.metadata.executable_path,
+      'process.name': event.process_name,
+      'process.pid': event.process_pid,
+      'process.start': event.timestamp,
+      'process.user.name': event.user_name,
+      'process.user.id': faker.number.int({ min: 1000, max: 65535 }),
+      'process.group.name': event.user_name,
+      'process.group.id': faker.number.int({ min: 1000, max: 65535 }),
+      'process.parent.entity_id': event.parent_entity_id,
+      'user.domain': faker.internet.domainName(),
+      'user.name': userName,
+      'related.user': [userName, event.user_name],
+      // Add MITRE ATT&CK mapping based on scenario
+      'threat.technique.id': getMitreTechnique(
+        selectedScenario,
+        event.process_name,
+      ),
+      'threat.tactic.name': getMitreTactic(selectedScenario),
+      // Add Visual Event Analyzer fields
+      ...fields,
+    };
+
+    logs.push(log);
+  }
+
+  return faker.helpers.arrayElement(logs);
+};
+
 export default function createEndpointLog(
   override = {},
   config: EndpointLogConfig = {},
@@ -1096,6 +1198,8 @@ export default function createEndpointLog(
     ...(config.sessionView || config.visualAnalyzer
       ? [generateSessionViewProcessLog, generateEnhancedSessionViewLog]
       : []),
+    // Add Linux Process Hierarchy generator for Visual Event Analyzer
+    ...(config.visualAnalyzer ? [generateLinuxProcessHierarchyLog] : []),
   ];
 
   const selectedGenerator = faker.helpers.arrayElement(weightedGenerators);

@@ -118,7 +118,7 @@ export class KibanaClient {
       baseURL,
       headers,
       timeout: 30000,
-      httpsAgent: new (require('https')).Agent({
+      httpsAgent: new (require('https').Agent)({
         rejectUnauthorized: false, // Accept self-signed certificates for serverless dev
       }),
     });
