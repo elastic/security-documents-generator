@@ -271,6 +271,17 @@ interface FixLogsMappingParams {
   namespace?: string;
 }
 
+interface GenerateMLAnomalyDataParams {
+  modules?: string[];
+  jobIds?: string[];
+  theme?: string;
+  enableJobs?: boolean;
+  namespace?: string;
+  environments?: number;
+  chunkSize?: number;
+  aiEnhanced?: boolean;
+}
+
 class SecurityDataMCPServer {
   private server: Server;
   private originalConsoleLog: typeof console.log;
@@ -1453,6 +1464,67 @@ class SecurityDataMCPServer {
               },
             },
           },
+          {
+            name: 'generate_ml_anomaly_data',
+            description:
+              'Generate ML anomaly detection data with AI-enhanced patterns and theme support',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                modules: {
+                  type: 'array',
+                  items: {
+                    type: 'string',
+                    enum: [
+                      'security_auth',
+                      'security_linux',
+                      'security_windows',
+                      'security_network',
+                      'security_packetbeat',
+                      'security_cloudtrail',
+                    ],
+                  },
+                  description: 'Security modules to generate ML data for',
+                  default: ['security_auth'],
+                },
+                jobIds: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Specific ML job IDs to generate data for',
+                },
+                theme: {
+                  type: 'string',
+                  description:
+                    'Apply themed data generation (e.g., "nba", "marvel", "starwars", "tech_companies")',
+                },
+                enableJobs: {
+                  type: 'boolean',
+                  description: 'Create and enable ML jobs in Elasticsearch',
+                  default: false,
+                },
+                namespace: {
+                  type: 'string',
+                  description: 'Custom namespace for ML indices',
+                  default: 'default',
+                },
+                environments: {
+                  type: 'number',
+                  description: 'Generate across multiple environments',
+                  default: 1,
+                },
+                chunkSize: {
+                  type: 'number',
+                  description: 'Bulk indexing chunk size',
+                  default: 1000,
+                },
+                aiEnhanced: {
+                  type: 'boolean',
+                  description: 'Use AI for enhanced ML data patterns',
+                  default: false,
+                },
+              },
+            },
+          },
         ],
       };
     });
@@ -1572,6 +1644,11 @@ class SecurityDataMCPServer {
           case 'fix_logs_mapping':
             return await this.handleFixLogsMapping(
               args as FixLogsMappingParams,
+            );
+
+          case 'generate_ml_anomaly_data':
+            return await this.handleGenerateMLAnomalyData(
+              args as GenerateMLAnomalyDataParams,
             );
 
           default:
@@ -3191,6 +3268,102 @@ Next steps:
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       throw new Error(`Fix logs mapping failed: ${errorMessage}`);
+    }
+  }
+
+  private async handleGenerateMLAnomalyData(params: GenerateMLAnomalyDataParams) {
+    const {
+      modules = ['security_auth'],
+      jobIds,
+      theme,
+      enableJobs = false,
+      namespace = 'default',
+      environments = 1,
+      chunkSize = 1000,
+      aiEnhanced = false,
+    } = params;
+
+    console.error('[MCP] Generating ML anomaly data...');
+
+    try {
+      const { generateMLDataForModules, generateMLData } = await import('./commands/ml_data.js');
+
+      let results;
+      let totalDocuments = 0;
+      let totalAnomalies = 0;
+
+      if (environments > 1) {
+        console.error(`[MCP] Multi-environment ML generation: ${environments} environments`);
+        
+        for (let i = 1; i <= environments; i++) {
+          const envNamespace = `${namespace}-env-${i.toString().padStart(3, '0')}`;
+          
+          const params = {
+            modules: modules,
+            jobIds: jobIds,
+            enableJobs,
+            namespace: envNamespace,
+            theme,
+            chunkSize,
+          };
+
+          if (jobIds && jobIds.length > 0) {
+            await generateMLData(params);
+          } else {
+            await generateMLDataForModules(params);
+          }
+        }
+      } else {
+        const params = {
+          modules: modules,
+          jobIds: jobIds,
+          enableJobs,
+          namespace,
+          theme,
+          chunkSize,
+        };
+
+        if (jobIds && jobIds.length > 0) {
+          await generateMLData(params);
+        } else {
+          await generateMLDataForModules(params);
+        }
+      }
+
+      const moduleList = modules.join(', ');
+      const envText = environments > 1 ? ` across ${environments} environments` : '';
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `🤖 Successfully generated ML anomaly data!
+
+📊 ML Generation Summary:
+• Modules: ${moduleList}
+• Specific Jobs: ${jobIds ? jobIds.join(', ') : 'All module jobs'}
+• Theme: ${theme || 'Default'}
+• ML Jobs Created: ${enableJobs ? 'Yes' : 'No'}
+• Namespace: ${namespace}
+• Environments: ${environments}${envText}
+• Chunk Size: ${chunkSize}
+• AI Enhanced: ${aiEnhanced ? 'Yes' : 'No'}
+
+✅ Generated realistic ML training data with anomaly patterns
+✅ Context-aware field generation for security domains
+${theme ? `✅ Applied ${theme} theme for consistent entity naming` : ''}
+${enableJobs ? '✅ Created and started ML jobs in Elasticsearch' : ''}
+
+🎯 Next steps:
+1. Check ML indices in Kibana: test_* pattern
+2. ${enableJobs ? 'View ML jobs in Kibana Machine Learning interface' : 'Create ML jobs with --enable-jobs flag'}
+3. Run detection rules with ML integration for complete workflow`,
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`ML anomaly data generation failed: ${errorMessage}`);
     }
   }
 

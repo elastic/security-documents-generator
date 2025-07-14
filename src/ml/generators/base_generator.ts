@@ -60,9 +60,30 @@ export abstract class BaseMLGenerator {
 
   /**
    * Generate field value based on field type and index
-   * Enhanced context-aware field generation matching Python patterns
+   * Enhanced context-aware field generation with theme support
    */
   protected getFieldValue(field: string, num: number): string | number {
+    // Use themed data if available
+    if (this.options.themedData) {
+      if (field.includes('user.name') && this.options.themedData.usernames) {
+        return this.options.themedData.usernames[num % this.options.themedData.usernames.length];
+      }
+      if (field.includes('host.name') && this.options.themedData.hostnames) {
+        return this.options.themedData.hostnames[num % this.options.themedData.hostnames.length];
+      }
+      if (field.includes('process.name') && this.options.themedData.processNames) {
+        return this.options.themedData.processNames[num % this.options.themedData.processNames.length];
+      }
+      if ((field.includes('domain') || field.includes('url')) && this.options.themedData.domains) {
+        if (num === 1) {
+          // Anomalous: suspicious domains
+          return `${this.getRandomString(12)}.tk`;
+        } else {
+          // Normal: themed domains
+          return this.options.themedData.domains[num % this.options.themedData.domains.length];
+        }
+      }
+    }
     // IP address patterns
     if (field.includes('.ip')) {
       return `0.0.0.${num}`;

@@ -15,6 +15,7 @@ import {
   MLJobModule 
 } from './types/ml_types';
 import { getEsClient, indexCheck } from '../commands/utils/indices';
+import { parseThemeConfig, getThemedData, type ParsedThemeConfig } from '../utils/theme_service';
 
 export interface MLDataGenerationOptions {
   enableJobs?: boolean;
@@ -36,8 +37,34 @@ export class MLDataGenerator {
   }
 
   /**
+   * Generate themed data for ML generators
+   */
+  private async getThemedDataForML(theme: string): Promise<any> {
+    try {
+      console.log(`🎨 Fetching themed data for theme: ${theme}`);
+      
+      const [usernames, hostnames, processNames, domains] = await Promise.all([
+        getThemedData(theme as any, 'usernames', 50),
+        getThemedData(theme as any, 'hostnames', 30),
+        getThemedData(theme as any, 'processNames', 20),
+        getThemedData(theme as any, 'domains', 15),
+      ]);
+
+      return {
+        usernames,
+        hostnames,
+        processNames,
+        domains,
+      };
+    } catch (error) {
+      console.warn(`⚠️  Failed to fetch themed data for ${theme}, using default patterns:`, error instanceof Error ? error.message : error);
+      return null;
+    }
+  }
+
+  /**
    * Generate ML data for specific job IDs
-   * Maintains Python generate_anomaly_data workflow
+   * Enhanced with theme support and multi-environment capabilities
    */
   public async generateMLData(
     jobIds: string[],
@@ -45,13 +72,22 @@ export class MLDataGenerator {
   ): Promise<MLGenerationResult[]> {
     const results: MLGenerationResult[] = [];
     
+    // Get themed data if theme is specified
+    let themedData = null;
+    if (options.theme) {
+      const themeConfig = parseThemeConfig(options.theme);
+      if (themeConfig.usernames || themeConfig.hostnames) {
+        themedData = await this.getThemedDataForML(options.theme);
+      }
+    }
+    
     console.log(`🤖 Generating ML data for ${jobIds.length} jobs...`);
     
     for (const jobId of jobIds) {
       console.log(`\n📊 Processing ML job: ${jobId}`);
       
       try {
-        const result = await this.generateSingleJobData(jobId, options);
+        const result = await this.generateSingleJobData(jobId, options, themedData);
         results.push(result);
         
         if (result.success) {
@@ -111,7 +147,8 @@ export class MLDataGenerator {
    */
   private async generateSingleJobData(
     jobId: string,
-    options: MLDataGenerationOptions = {}
+    options: MLDataGenerationOptions = {},
+    themedData?: any
   ): Promise<MLGenerationResult> {
     const result: MLGenerationResult = {
       jobId,
@@ -140,9 +177,22 @@ export class MLDataGenerator {
       console.log(`📁 Creating index: ${indexName}`);
       await this.createMLIndex(indexName);
 
-      // 3. Generate ML data
+      // 3. Generate ML data with theme support
       console.log(`⚙️ Generating data with ${config.function} function...`);
-      const generator = MLGeneratorFactory.createGenerator(config);
+      const generatorOptions: any = {
+        anomalyRate: 0.0002,
+        timeIncrement: [1, 10],
+        burstSize: 100,
+        stringLength: [5, 10],
+      };
+      
+      // Add themed data if available
+      if (themedData) {
+        generatorOptions.themedData = themedData;
+        console.log(`🎨 Using themed data: ${Object.keys(themedData).join(', ')}`);
+      }
+      
+      const generator = MLGeneratorFactory.createGenerator(config, generatorOptions);
       const documents = await generator.generateAll();
       
       result.documentsGenerated = documents.length;

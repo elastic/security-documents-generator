@@ -2668,6 +2668,9 @@ program
   .option('--delete-existing', 'delete existing ML jobs before creating new ones', false)
   .option('--namespace <namespace>', 'custom namespace for ML indices (default: default)', 'default')
   .option('--theme <theme>', 'apply themed data generation (e.g., "nba", "marvel")')
+  .option('--claude', 'use Claude AI for enhanced ML data patterns', false)
+  .option('--mitre', 'integrate MITRE ATT&CK techniques into anomaly patterns', false)
+  .option('--multi-field', 'generate additional contextual security fields', false)
   .option('--chunk-size <size>', 'bulk indexing chunk size', '1000')
   .option('--environments <count>', 'generate across multiple environments', parseIntBase10)
   .action(async (options) => {

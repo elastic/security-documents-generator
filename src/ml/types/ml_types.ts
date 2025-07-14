@@ -57,6 +57,13 @@ export interface GeneratorOptions {
   timeIncrement?: [number, number]; // [min, max] seconds
   burstSize?: number;
   stringLength?: [number, number]; // [min, max] length
+  theme?: string;
+  themedData?: {
+    usernames?: string[];
+    hostnames?: string[];
+    processNames?: string[];
+    domains?: string[];
+  };
 }
 
 export interface MLJobModule {
