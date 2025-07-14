@@ -220,8 +220,13 @@ const alertToBatchOps = (
   alert: BaseCreateAlertsReturnType,
   index: string,
 ): unknown[] => {
+  // Alert indices are data streams that require 'create' operations
+  const isAlertIndex = index.startsWith('.alerts-security.alerts-');
+  
   return [
-    { index: { _index: index, _id: alert['kibana.alert.uuid'] } },
+    isAlertIndex 
+      ? { create: { _index: index, _id: alert['kibana.alert.uuid'] } }
+      : { index: { _index: index, _id: alert['kibana.alert.uuid'] } },
     { ...alert },
   ];
 };
@@ -238,6 +243,7 @@ const createDocuments = async (
 
   // If AI is not enabled, use the standard generation
   if (!useAI || !config.useAI) {
+    const isAlertIndex = index.startsWith('.alerts-security.alerts-');
     return Array(n)
       .fill(null)
       .reduce((acc, _, i) => {
@@ -245,13 +251,17 @@ const createDocuments = async (
           id_field: 'host.name',
           id_value: `Host ${generated + i}`,
         });
-        acc.push({ index: { _index: index } });
+        acc.push(isAlertIndex 
+          ? { create: { _index: index } }
+          : { index: { _index: index } });
         acc.push({ ...alert });
         alert = createDoc({
           id_field: 'user.name',
           id_value: `User ${generated + i}`,
         });
-        acc.push({ index: { _index: index } });
+        acc.push(isAlertIndex 
+          ? { create: { _index: index } }
+          : { index: { _index: index } });
         acc.push({ ...alert });
         return acc;
       }, []);
@@ -260,6 +270,7 @@ const createDocuments = async (
   // AI-based generation
   console.log('Using AI to generate documents...');
   const docs: unknown[] = [];
+  const isAlertIndex = index.startsWith('.alerts-security.alerts-');
 
   // Generate examples for context using the standard method
   const examples = Array(2)
@@ -302,7 +313,9 @@ const createDocuments = async (
                 })
               : createDoc({ id_field: 'host.name', id_value: hostId });
 
-          docs.push({ index: { _index: index } });
+          docs.push(isAlertIndex 
+            ? { create: { _index: index } }
+            : { index: { _index: index } });
           docs.push({ ...hostAlert });
           progress.increment(0.5);
         }
@@ -319,7 +332,9 @@ const createDocuments = async (
                 })
               : createDoc({ id_field: 'user.name', id_value: userId });
 
-          docs.push({ index: { _index: index } });
+          docs.push(isAlertIndex 
+            ? { create: { _index: index } }
+            : { index: { _index: index } });
           docs.push({ ...userAlert });
           progress.increment(0.5);
         }

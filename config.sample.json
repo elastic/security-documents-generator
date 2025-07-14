@@ -1,14 +1,14 @@
 {
+  "_comment": "API Key authentication (recommended for production and cloud deployments)",
   "elastic": {
-    "node": "http://localhost:9200",
-    "username": "elastic",
-    "password": "changeme"
+    "node": "https://your-cluster.es.region.gcp.elastic-cloud.com",
+    "apiKey": "<your-elastic-api-key-here>"
   },
   "kibana": {
-    "node": "http://localhost:5601",
-    "username": "elastic",
-    "password": "changeme"
+    "node": "https://your-kibana.kb.region.gcp.elastic-cloud.com:9243",
+    "apiKey": "<your-kibana-api-key-here>"
   },
+  "_comment_alternative": "For local development, use: 'node': 'http://localhost:9200', 'username': 'elastic', 'password': 'changeme'",
   "serverless": false,
   "eventIndex": "logs-testlogs-default",
   "eventDateOffsetHours": 24,

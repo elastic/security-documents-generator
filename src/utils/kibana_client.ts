@@ -94,8 +94,11 @@ export class KibanaClient {
       'kbn-xsrf': 'true',
     };
 
-    // Configure basic authentication (username/password only)
-    if (
+    // Configure authentication (API key or username/password)
+    if ('apiKey' in this.config.kibana && this.config.kibana.apiKey) {
+      // Use API key authentication
+      headers['Authorization'] = `ApiKey ${this.config.kibana.apiKey}`;
+    } else if (
       'username' in this.config.kibana &&
       this.config.kibana.username &&
       this.config.kibana.password
@@ -107,7 +110,7 @@ export class KibanaClient {
       headers['Authorization'] = `Basic ${credentials}`;
     } else {
       throw new Error(
-        'Kibana basic authentication required. Please set username and password in config.json',
+        'Kibana authentication required. Please set either apiKey or username/password in config.json',
       );
     }
 
@@ -115,6 +118,9 @@ export class KibanaClient {
       baseURL,
       headers,
       timeout: 30000,
+      httpsAgent: new (require('https')).Agent({
+        rejectUnauthorized: false, // Accept self-signed certificates for serverless dev
+      }),
     });
   }
 

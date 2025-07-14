@@ -10,11 +10,17 @@ export * from './create_agent_document';
 let esClient: Client;
 
 const getClientAuth = (config: ConfigType) => {
-  // Only support basic auth (username/password)
-  return {
-    username: config.elastic.username,
-    password: config.elastic.password,
-  };
+  // Support both API key and basic auth
+  if ('apiKey' in config.elastic) {
+    return {
+      apiKey: config.elastic.apiKey,
+    };
+  } else {
+    return {
+      username: config.elastic.username,
+      password: config.elastic.password,
+    };
+  }
 };
 
 export const getEsClient = () => {
@@ -26,6 +32,9 @@ export const getEsClient = () => {
   esClient = new Client({
     node: config.elastic.node,
     auth: getClientAuth(config),
+    tls: {
+      rejectUnauthorized: false, // Accept self-signed certificates for serverless dev
+    },
   });
 
   return esClient;

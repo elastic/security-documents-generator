@@ -593,9 +593,84 @@ yarn start generate-campaign ransomware --realistic --mitre --multi-field --fiel
 
 ## 🔧 Configuration
 
-Create `config.json` with your preferred AI provider:
+Create `config.json` with your connection and AI provider settings:
 
-### OpenAI
+### 🔐 Authentication Options
+
+#### API Key Authentication (Recommended - Default)
+Secure authentication for Elastic Cloud, Serverless, and production environments:
+
+```json
+{
+  "elastic": {
+    "node": "https://your-cluster.es.us-west2.gcp.elastic-cloud.com",
+    "apiKey": "VnVhQ2ZHY0JDdbkQm-e5aM..."
+  },
+  "kibana": {
+    "node": "https://your-kibana.kb.us-west2.gcp.elastic-cloud.com:9243",
+    "apiKey": "VnVhQ2ZHY0JDdbkQm-e5aM..."
+  },
+  "serverless": true
+}
+```
+
+**📝 How to obtain API keys:**
+
+1. **Elastic Cloud**: Stack Management → Security → API Keys → Create API Key
+2. **Kibana Dev Tools**: 
+   ```bash
+   POST /_security/api_key
+   {
+     "name": "security-docs-generator",
+     "role_descriptors": {
+       "security_role": {
+         "cluster": ["all"],
+         "index": [{"names": ["*"], "privileges": ["all"]}]
+       }
+     }
+   }
+   ```
+3. **Serverless**: Use the pre-configured service tokens from your serverless environment
+
+#### Username/Password Authentication
+For local development and self-hosted deployments:
+
+```json
+{
+  "elastic": {
+    "node": "http://localhost:9200",
+    "username": "elastic",
+    "password": "changeme"
+  },
+  "kibana": {
+    "node": "http://localhost:5601",
+    "username": "elastic",
+    "password": "changeme"
+  }
+}
+```
+
+#### Serverless Development
+For local serverless development (using `yarn es serverless`):
+
+```json
+{
+  "elastic": {
+    "node": "https://localhost:9200",
+    "username": "elastic_serverless",
+    "password": "changeme"
+  },
+  "kibana": {
+    "node": "https://localhost:5601",
+    "apiKey": "AAEAAWVsYXN0aWMva2liYW5hL2tpYmFuYS1kZXY6VVVVVVVVTEstKiBaNA"
+  },
+  "serverless": true
+}
+```
+
+### 🤖 AI Provider Configuration
+
+#### OpenAI
 ```json
 {
   "elastic": { "node": "https://your-cluster.com", "apiKey": "..." },
@@ -605,7 +680,7 @@ Create `config.json` with your preferred AI provider:
 }
 ```
 
-### Claude (Anthropic)
+#### Claude (Anthropic)
 ```json
 {
   "elastic": { "node": "https://your-cluster.com", "apiKey": "..." },
@@ -613,6 +688,19 @@ Create `config.json` with your preferred AI provider:
   "useAI": true,
   "useClaudeAI": true,
   "claudeApiKey": "sk-ant-..."
+}
+```
+
+#### Azure OpenAI
+```json
+{
+  "elastic": { "node": "https://your-cluster.com", "apiKey": "..." },
+  "kibana": { "node": "https://your-kibana.com", "apiKey": "..." },
+  "useAI": true,
+  "useAzureOpenAI": true,
+  "azureOpenAIApiKey": "...",
+  "azureOpenAIEndpoint": "https://your-resource.openai.azure.com/",
+  "azureOpenAIDeployment": "gpt-4"
 }
 ```
 
