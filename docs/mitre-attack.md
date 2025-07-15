@@ -1,544 +1,501 @@
-# MITRE ATT&CK Integration
+# ⚔️ MITRE ATT&CK Integration
 
-Comprehensive guide to using the MITRE ATT&CK framework for realistic security testing.
+Complete guide to MITRE ATT&CK framework integration for realistic attack technique simulation and mapping.
 
-## 🎯 Overview
+## 📋 Table of Contents
 
-The Security Documents Generator includes deep integration with the MITRE ATT&CK framework, enabling generation of realistic attack scenarios based on documented adversary tactics, techniques, and procedures (TTPs).
+- [Overview](#overview)
+- [Quick Start](#quick-start)
+- [Framework Coverage](#framework-coverage)
+- [Technique Implementation](#technique-implementation)
+- [Attack Chain Generation](#attack-chain-generation)
+- [Detection Mapping](#detection-mapping)
+- [Campaign Integration](#campaign-integration)
+- [Analytics and Reporting](#analytics-and-reporting)
+- [Use Cases](#use-cases)
+- [Best Practices](#best-practices)
+- [Troubleshooting](#troubleshooting)
 
-### Key Features
-- ✅ **Complete Framework Coverage**: All tactics, techniques, and sub-techniques
-- ✅ **Attack Chain Generation**: Multi-stage attack progression
-- ✅ **Dynamic Risk Scoring**: Severity based on technique combinations
-- ✅ **AI Enhancement**: Context-aware technique selection
-- ✅ **Temporal Correlation**: Realistic attack timing patterns
+## Overview
 
-## 📋 Configuration
+The MITRE ATT&CK integration provides comprehensive coverage of the ATT&CK framework, enabling:
 
-### Basic MITRE Setup
-```json
-{
-  "mitre": {
-    "enabled": true,
-    "tactics": ["TA0001", "TA0002", "TA0003", "TA0004", "TA0005"],
-    "probabilityOfMitreAlert": 0.6,
-    "maxTechniquesPerAlert": 2
-  }
-}
-```
+- **Complete Technique Coverage**: All 14 tactics and 200+ techniques
+- **Realistic Attack Simulation**: Accurate technique implementation
+- **Attack Chain Generation**: Multi-stage attack progressions
+- **Detection Mapping**: Link techniques to detection rules
+- **Campaign Attribution**: Associate techniques with threat actors
 
-### Advanced Configuration
-```json
-{
-  "mitre": {
-    "enabled": true,
-    "tactics": [
-      "TA0001", "TA0002", "TA0003", "TA0004", "TA0005",
-      "TA0006", "TA0007", "TA0008", "TA0009", "TA0010"
-    ],
-    "maxTechniquesPerAlert": 3,
-    "includeSubTechniques": true,
-    "probabilityOfMitreAlert": 0.8,
-    "enableAttackChains": true,
-    "maxChainLength": 5,
-    "chainProbability": 0.3,
-    "preferredTechniques": ["T1566", "T1078", "T1055"],
-    "riskWeighting": {
-      "high": ["T1055", "T1078", "T1027"],
-      "medium": ["T1566", "T1204", "T1083"],
-      "low": ["T1087", "T1069", "T1012"]
-    }
-  }
-}
-```
+## Quick Start
 
-## 🎭 Usage Examples
-
-### Basic MITRE Generation
+### Basic MITRE Integration
 ```bash
-# Enable MITRE framework
-yarn start generate-alerts -n 50 --mitre
+# Generate alerts with MITRE mapping
+yarn start generate-alerts --count 50 --mitre
 
-# Include sub-techniques for granular detection
-yarn start generate-alerts -n 100 --mitre --sub-techniques
+# Generate specific tactic alerts
+yarn start generate-alerts --count 30 --mitre --tactics initial-access,execution
 
-# Generate attack chains for realistic progression
-yarn start generate-alerts -n 150 --mitre --attack-chains
+# Generate campaign with MITRE techniques
+yarn start generate-campaign apt --mitre --count 100
 ```
 
-### Campaign-Level MITRE Integration
+### Advanced MITRE Features
 ```bash
-# APT campaign with MITRE techniques
-yarn start generate-campaign apt --mitre --sub-techniques --attack-chains --events 200
+# Generate attack chains
+yarn start generate-alerts --count 40 --mitre --attack-chains
 
-# Ransomware with specific technique focus
-yarn start generate-campaign ransomware --mitre --attack-chains --events 150
+# Generate with sub-techniques
+yarn start generate-alerts --count 25 --mitre --sub-techniques
 
-# Insider threat with behavioral techniques
-yarn start generate-campaign insider --mitre --sub-techniques --events 100
+# Generate detection rules with MITRE mapping
+yarn start generate-rules --count 20 --mitre --comprehensive
 ```
 
-### Testing Specific Tactics
-```bash
-# Test initial access techniques
-yarn start generate-alerts -n 30 --mitre --focus-tactic TA0001
-
-# Defense evasion techniques
-yarn start generate-alerts -n 40 --mitre --focus-tactic TA0005
-```
-
-## 📊 MITRE Framework Coverage
+## Framework Coverage
 
 ### Supported Tactics
+The system covers all 14 MITRE ATT&CK tactics:
 
-| Tactic ID | Name | Description | Key Techniques |
-|-----------|------|-------------|----------------|
-| **TA0001** | Initial Access | Entry vectors into network | T1566, T1190, T1078 |
-| **TA0002** | Execution | Running malicious code | T1204, T1059, T1053 |
-| **TA0003** | Persistence | Maintaining foothold | T1547, T1543, T1574 |
-| **TA0004** | Privilege Escalation | Higher-level permissions | T1068, T1055, T1134 |
-| **TA0005** | Defense Evasion | Avoiding detection | T1027, T1562, T1218 |
-| **TA0006** | Credential Access | Stealing credentials | T1110, T1003, T1555 |
-| **TA0007** | Discovery | Environment exploration | T1083, T1087, T1018 |
-| **TA0008** | Lateral Movement | Moving through network | T1021, T1550, T1563 |
-| **TA0009** | Collection | Gathering information | T1005, T1039, T1560 |
-| **TA0010** | Exfiltration | Stealing data | T1041, T1048, T1567 |
+| Tactic ID | Name | Description | Techniques Covered |
+|-----------|------|-------------|-------------------|
+| **TA0001** | Initial Access | Entry vectors into networks | 9 techniques |
+| **TA0002** | Execution | Code execution techniques | 12 techniques |
+| **TA0003** | Persistence | Maintaining foothold | 19 techniques |
+| **TA0004** | Privilege Escalation | Higher-level permissions | 13 techniques |
+| **TA0005** | Defense Evasion | Avoiding detection | 42 techniques |
+| **TA0006** | Credential Access | Stealing credentials | 15 techniques |
+| **TA0007** | Discovery | Environment reconnaissance | 29 techniques |
+| **TA0008** | Lateral Movement | Moving through networks | 9 techniques |
+| **TA0009** | Collection | Data gathering | 17 techniques |
+| **TA0010** | Command and Control | Remote communication | 16 techniques |
+| **TA0011** | Exfiltration | Data theft | 9 techniques |
+| **TA0040** | Impact | Destructive actions | 13 techniques |
+| **TA0042** | Resource Development | Infrastructure setup | 7 techniques |
+| **TA0043** | Reconnaissance | Target information gathering | 10 techniques |
 
-### High-Impact Techniques
+### Technique Implementation
+Each technique includes:
+- **Realistic Implementation**: Accurate simulation of technique characteristics
+- **Sub-Technique Support**: Detailed sub-technique variants
+- **Context Awareness**: Appropriate technique usage in different scenarios
+- **Detection Signatures**: Corresponding detection patterns
 
-#### Critical Techniques (High Priority)
-- **T1055** - Process Injection
-- **T1078** - Valid Accounts
-- **T1027** - Obfuscated Files or Information
-- **T1134** - Access Token Manipulation
-- **T1548** - Abuse Elevation Control Mechanism
+## Technique Implementation
 
-#### Common Attack Techniques
-- **T1566** - Phishing (Initial Access)
-- **T1204** - User Execution
-- **T1059** - Command and Scripting Interpreter
-- **T1021** - Remote Services
-- **T1083** - File and Directory Discovery
+### Example Technique Mappings
 
-### Sub-Techniques Examples
+#### T1566.001 - Spearphishing Attachment
+```json
+{
+  "threat": [{
+    "framework": "MITRE ATT&CK",
+    "tactic": {
+      "id": "TA0001",
+      "name": "Initial Access",
+      "reference": "https://attack.mitre.org/tactics/TA0001/"
+    },
+    "technique": [{
+      "id": "T1566.001",
+      "name": "Spearphishing Attachment",
+      "reference": "https://attack.mitre.org/techniques/T1566/001/",
+      "subtechnique": {
+        "name": "Malicious Document",
+        "description": "Document with embedded macros"
+      }
+    }]
+  }],
+  "event": {
+    "category": "file",
+    "type": "creation",
+    "action": "email_attachment_opened"
+  },
+  "file": {
+    "name": "invoice.docx",
+    "extension": "docx",
+    "size": 2048576
+  },
+  "email": {
+    "subject": "Urgent: Invoice Payment Required",
+    "sender": "finance@malicious-domain.com"
+  }
+}
+```
 
-#### T1566 - Phishing
-- **T1566.001** - Spearphishing Attachment
-- **T1566.002** - Spearphishing Link
-- **T1566.003** - Spearphishing via Service
-
-#### T1078 - Valid Accounts
-- **T1078.001** - Default Accounts
-- **T1078.002** - Domain Accounts
-- **T1078.003** - Local Accounts
-- **T1078.004** - Cloud Accounts
+#### T1059.001 - PowerShell
+```json
+{
+  "threat": [{
+    "framework": "MITRE ATT&CK",
+    "tactic": {
+      "id": "TA0002",
+      "name": "Execution",
+      "reference": "https://attack.mitre.org/tactics/TA0002/"
+    },
+    "technique": [{
+      "id": "T1059.001",
+      "name": "PowerShell",
+      "reference": "https://attack.mitre.org/techniques/T1059/001/"
+    }]
+  }],
+  "process": {
+    "name": "powershell.exe",
+    "command_line": "powershell.exe -ExecutionPolicy Bypass -EncodedCommand <base64>",
+    "parent": {
+      "name": "winword.exe"
+    }
+  },
+  "event": {
+    "category": "process",
+    "type": "start",
+    "action": "process_creation"
+  }
+}
+```
 
 #### T1055 - Process Injection
-- **T1055.001** - Dynamic-link Library Injection
-- **T1055.002** - Portable Executable Injection
-- **T1055.012** - Process Hollowing
-
-## 🔗 Attack Chain Generation
-
-### Chain Configuration
 ```json
 {
-  "attackChains": {
-    "enabled": true,
-    "maxLength": 8,
-    "probabilityOfChain": 0.4,
-    "allowCycles": false,
-    "enforceProgression": true,
-    "timeSpreadMinutes": {
-      "min": 5,
-      "max": 120
+  "threat": [{
+    "framework": "MITRE ATT&CK",
+    "tactic": {
+      "id": "TA0005",
+      "name": "Defense Evasion",
+      "reference": "https://attack.mitre.org/tactics/TA0005/"
+    },
+    "technique": [{
+      "id": "T1055",
+      "name": "Process Injection",
+      "reference": "https://attack.mitre.org/techniques/T1055/"
+    }]
+  }],
+  "process": {
+    "name": "svchost.exe",
+    "pid": 1234,
+    "injection": {
+      "target": "explorer.exe",
+      "method": "DLL Injection"
     }
+  },
+  "event": {
+    "category": "process",
+    "type": "change",
+    "action": "memory_modification"
   }
 }
 ```
 
-### Example Attack Chains
+## Attack Chain Generation
 
-#### APT Attack Chain
-```
-1. T1566.001 (Spearphishing Attachment) 
-   ↓ 15 minutes
-2. T1204.002 (Malicious File Execution)
-   ↓ 30 minutes  
-3. T1547.001 (Registry Run Keys - Persistence)
-   ↓ 45 minutes
-4. T1055.001 (DLL Injection - Privilege Escalation)
-   ↓ 60 minutes
-5. T1083 (File and Directory Discovery)
-   ↓ 30 minutes
-6. T1021.001 (Remote Desktop - Lateral Movement)
-   ↓ 90 minutes
-7. T1005 (Data from Local System - Collection)
-   ↓ 20 minutes
-8. T1041 (Exfiltration Over C2 Channel)
+### Sequential Attack Progressions
+Generate realistic attack chains following MITRE progression patterns:
+
+```bash
+# Generate complete attack chain
+yarn start generate-alerts --count 50 --mitre --attack-chains --progression realistic
 ```
 
-#### Ransomware Attack Chain
+**Example Attack Chain:**
+1. **Initial Access** (T1566.001) → Spearphishing Attachment
+2. **Execution** (T1059.001) → PowerShell execution
+3. **Persistence** (T1053.005) → Scheduled Task creation
+4. **Defense Evasion** (T1055) → Process Injection
+5. **Discovery** (T1082) → System Information Discovery
+6. **Lateral Movement** (T1021.001) → Remote Desktop Protocol
+7. **Collection** (T1005) → Data from Local System
+8. **Exfiltration** (T1041) → Exfiltration Over C2 Channel
+
+### Campaign-Specific Chains
+Different attack campaigns use characteristic technique patterns:
+
+#### APT Campaign Chain
+```bash
+yarn start generate-campaign apt --mitre --attack-chains
 ```
-1. T1190 (Exploit Public-Facing Application)
-   ↓ 10 minutes
-2. T1059.003 (Windows Command Shell)
-   ↓ 20 minutes
-3. T1562.001 (Disable or Modify Tools)
-   ↓ 15 minutes
-4. T1083 (File and Directory Discovery)
-   ↓ 30 minutes
-5. T1486 (Data Encrypted for Impact)
+- **Focus**: Stealth, persistence, long-term access
+- **Techniques**: T1566.001 → T1059.001 → T1547.001 → T1070.004 → T1083
+
+#### Ransomware Campaign Chain
+```bash
+yarn start generate-campaign ransomware --mitre --attack-chains
 ```
+- **Focus**: Speed, impact, data encryption
+- **Techniques**: T1566.002 → T1059.003 → T1486 → T1490 → T1491
 
 #### Insider Threat Chain
-```
-1. T1078.002 (Domain Accounts - Legitimate Access)
-   ↓ 2 hours
-2. T1087.002 (Domain Account Discovery)
-   ↓ 30 minutes
-3. T1069.002 (Domain Groups Discovery)
-   ↓ 45 minutes
-4. T1005 (Data from Local System)
-   ↓ 1 hour
-5. T1048.003 (Exfiltration Over Unencrypted Protocol)
-```
-
-## 📊 Generated Alert Structure
-
-### MITRE-Enhanced Alert Example
-```json
-{
-  "@timestamp": "2025-06-10T14:30:00.000Z",
-  "kibana.alert.rule.name": "MITRE T1566.001 Spearphishing Attachment Detection",
-  "kibana.alert.rule.description": "Detected spearphishing attachment delivery matching T1566.001",
-  "kibana.alert.severity": "high",
-  "kibana.alert.risk_score": 85,
-  
-  "threat.technique.id": ["T1566.001"],
-  "threat.technique.name": ["Spearphishing Attachment"],
-  "threat.tactic.id": ["TA0001"],
-  "threat.tactic.name": ["Initial Access"],
-  
-  "threat.attack_chain.id": "chain-apt-2025-001",
-  "threat.attack_chain.severity": "high",
-  "threat.attack_chain.length": 5,
-  "threat.attack_chain.position": 1,
-  
-  "event.category": ["malware"],
-  "event.action": "email_attachment_opened",
-  "event.outcome": "success",
-  
-  "host.name": "workstation-01",
-  "user.name": "john.doe",
-  "user.domain": "corporate.local",
-  
-  "file.name": "invoice.pdf.exe",
-  "file.hash.sha256": "abc123...",
-  "file.size": 2048576,
-  
-  "process.name": "outlook.exe",
-  "process.pid": 1234,
-  "process.parent.name": "explorer.exe"
-}
-```
-
-### Attack Chain Correlation Fields
-```json
-{
-  "threat.attack_chain.id": "chain-apt-2025-001",
-  "threat.attack_chain.stage": "initial_access",
-  "threat.attack_chain.sequence": 1,
-  "threat.attack_chain.total_stages": 8,
-  "threat.attack_chain.next_expected": ["T1204.002", "T1059.003"],
-  "threat.attack_chain.timeline": {
-    "expected_next_min": 5,
-    "expected_next_max": 30
-  }
-}
-```
-
-## 🎯 Risk Scoring
-
-### Dynamic Risk Calculation
-The generator uses sophisticated risk scoring based on:
-
-1. **Technique Severity**
-   - Critical: T1055, T1078, T1027 (Score: 85-100)
-   - High: T1566, T1204, T1021 (Score: 65-84)
-   - Medium: T1083, T1087, T1069 (Score: 35-64)
-   - Low: T1012, T1082, T1016 (Score: 1-34)
-
-2. **Attack Chain Context**
-   - Chain length multiplier
-   - Tactic progression bonus
-   - Temporal correlation factor
-
-3. **Environmental Factors**
-   - Asset criticality
-   - User privilege level
-   - Time of activity
-
-### Risk Scoring Examples
-```json
-{
-  "single_technique": {
-    "technique": "T1566.001",
-    "base_score": 70,
-    "final_score": 70,
-    "severity": "high"
-  },
-  "attack_chain": {
-    "techniques": ["T1566.001", "T1055.001", "T1027"],
-    "base_score": 85,
-    "chain_multiplier": 1.2,
-    "final_score": 102,
-    "capped_score": 100,
-    "severity": "critical"
-  }
-}
-```
-
-## 🔍 Detection Testing
-
-### Coverage Analysis
 ```bash
-# Generate comprehensive technique coverage
-yarn start generate-alerts -n 500 --mitre --sub-techniques
+yarn start generate-campaign insider --mitre --attack-chains
+```
+- **Focus**: Privilege abuse, data collection
+- **Techniques**: T1078 → T1087.001 → T1083 → T1005 → T1041
 
-# Test specific tactic coverage
-for tactic in TA0001 TA0002 TA0003 TA0004 TA0005; do
-  yarn start generate-alerts -n 50 --mitre --focus-tactic $tactic
-done
+## Detection Mapping
+
+### Technique-to-Detection Mapping
+Link MITRE techniques to specific detection approaches:
+
+```json
+{
+  "detection_mapping": {
+    "technique_id": "T1059.001",
+    "detection_methods": [
+      {
+        "method": "Process Monitoring",
+        "query": "process.name:powershell.exe AND process.command_line:*-EncodedCommand*",
+        "confidence": "High"
+      },
+      {
+        "method": "Command Line Analysis",
+        "query": "process.command_line:*-ExecutionPolicy* AND process.command_line:*Bypass*",
+        "confidence": "Medium"
+      },
+      {
+        "method": "Parent Process Context",
+        "query": "process.parent.name:(winword.exe OR excel.exe) AND process.name:powershell.exe",
+        "confidence": "High"
+      }
+    ]
+  }
+}
 ```
 
-### Validation Queries
-```elasticsearch
-# Check MITRE technique coverage
-GET .alerts-security.alerts-*/_search
+### Detection Rule Integration
+Generate detection rules mapped to MITRE techniques:
+
+```bash
+# Generate MITRE-mapped detection rules
+yarn start generate-rules --count 30 --mitre --detection-mapping
+
+# Rules include technique references and detection logic
+```
+
+## Campaign Integration
+
+### Threat Actor Attribution
+Associate techniques with known threat actors:
+
+```json
 {
-  "size": 0,
-  "aggs": {
-    "techniques": {
-      "terms": {
-        "field": "threat.technique.id",
-        "size": 100
-      }
+  "threat_actor": {
+    "name": "APT29",
+    "aliases": ["Cozy Bear", "The Dukes"],
+    "preferred_techniques": [
+      "T1566.001", "T1059.001", "T1055",
+      "T1021.001", "T1041"
+    ],
+    "signature_techniques": [
+      "T1547.001", "T1070.004"
+    ]
+  }
+}
+```
+
+### Campaign Simulation
+Simulate complete threat actor campaigns:
+
+```bash
+# APT29-style campaign
+yarn start generate-campaign apt --mitre --threat-actor apt29 --count 150
+
+# Lazarus Group simulation
+yarn start generate-campaign apt --mitre --threat-actor lazarus --count 200
+```
+
+## Analytics and Reporting
+
+### MITRE Coverage Analysis
+Analyze technique coverage across generated data:
+
+```bash
+# Generate coverage report
+yarn start analyze-mitre-coverage --space production
+
+# Export coverage metrics
+yarn start export-mitre-metrics --format json --comprehensive
+```
+
+### Technique Frequency Analysis
+Track technique usage patterns:
+
+```json
+{
+  "technique_frequency": {
+    "T1059.001": {
+      "count": 47,
+      "percentage": 15.2,
+      "campaigns": ["apt", "ransomware"],
+      "detection_rate": 0.68
     },
-    "tactics": {
-      "terms": {
-        "field": "threat.tactic.id",
-        "size": 20
-      }
-    }
-  }
-}
-
-# Attack chain analysis
-GET .alerts-security.alerts-*/_search
-{
-  "query": {
-    "exists": {
-      "field": "threat.attack_chain.id"
-    }
-  },
-  "size": 0,
-  "aggs": {
-    "chain_lengths": {
-      "histogram": {
-        "field": "threat.attack_chain.length",
-        "interval": 1
-      }
+    "T1566.001": {
+      "count": 32,
+      "percentage": 10.3,
+      "campaigns": ["apt", "phishing"],
+      "detection_rate": 0.82
     }
   }
 }
 ```
 
-## 🎪 Advanced Scenarios
+### Detection Gap Analysis
+Identify techniques without detection coverage:
 
-### 1. Red Team Exercise
 ```bash
-# Comprehensive adversary simulation
-yarn start generate-campaign apt --mitre --attack-chains --sub-techniques \
-  --complexity expert --events 1000 --targets 200
+# Analyze detection gaps
+yarn start analyze-detection-gaps --mitre --comprehensive
+
+# Generate gap remediation recommendations
+yarn start recommend-detection-rules --mitre --gap-analysis
 ```
 
-### 2. SOC Training
+## Use Cases
+
+### 1. **SOC Training and Education**
+Create comprehensive MITRE-based training scenarios:
+
 ```bash
-# Progressive difficulty training
-yarn start generate-campaign apt --complexity low --events 50 --space soc-training-basic
-yarn start generate-campaign apt --complexity medium --events 100 --space soc-training-intermediate  
-yarn start generate-campaign apt --complexity high --events 200 --space soc-training-advanced
+# Progressive MITRE training
+yarn start generate-alerts --count 60 --mitre --training-mode --difficulty progressive
+
+# Specific tactic focus
+yarn start generate-alerts --count 40 --mitre --tactics defense-evasion --training
 ```
 
-### 3. Detection Rule Validation
+### 2. **Detection Rule Development**
+Develop and test detection rules against MITRE techniques:
+
 ```bash
-# Test each tactic systematically
-tactics=("TA0001" "TA0002" "TA0003" "TA0004" "TA0005")
-for tactic in "${tactics[@]}"; do
-  yarn start generate-alerts -n 100 --mitre --sub-techniques \
-    --space "detection-testing-${tactic}"
-done
+# Rule development dataset
+yarn start generate-alerts --count 100 --mitre --rule-development --comprehensive
+
+# Technique-specific testing
+yarn start generate-alerts --count 50 --mitre --techniques T1059.001,T1055,T1082
 ```
 
-### 4. Threat Hunt Training
+### 3. **Purple Team Exercises**
+Conduct purple team exercises with MITRE framework alignment:
+
 ```bash
-# Generate subtle attack indicators
-yarn start generate-campaign insider --mitre --sub-techniques \
-  --complexity high --events 300 --time-pattern business_hours
+# Purple team simulation
+yarn start generate-campaign apt --mitre --purple-team --realistic --count 200
+
+# Red team technique simulation
+yarn start generate-alerts --count 75 --mitre --red-team-tactics --stealth
 ```
 
-## 📈 Extending MITRE Coverage
+### 4. **Compliance and Assessment**
+Generate data for compliance and security assessments:
 
-### Adding New Techniques
-Edit `src/mappings/mitre_attack.json`:
+```bash
+# Compliance assessment data
+yarn start generate-alerts --count 80 --mitre --compliance-assessment --frameworks NIST,ISO27001
 
-```json
-{
-  "techniques": {
-    "T1195": {
-      "name": "Supply Chain Compromise",
-      "description": "Adversaries may compromise third-party software",
-      "tactics": ["TA0001"],
-      "subTechniques": ["T1195.001", "T1195.002", "T1195.003"],
-      "chainNext": ["T1059", "T1204"],
-      "riskScore": 85
-    }
-  },
-  "subTechniques": {
-    "T1195.001": {
-      "name": "Compromise Software Dependencies and Development Tools",
-      "parent": "T1195"
-    },
-    "T1195.002": {
-      "name": "Compromise Software Supply Chain",
-      "parent": "T1195"
-    }
-  }
-}
+# Security control validation
+yarn start generate-alerts --count 60 --mitre --control-validation --comprehensive
 ```
 
-### Custom Attack Chains
-```json
-{
-  "customChains": {
-    "financial_apt": {
-      "name": "Financial Sector APT",
-      "techniques": [
-        "T1566.002",
-        "T1204.001", 
-        "T1547.001",
-        "T1055.001",
-        "T1083",
-        "T1005",
-        "T1041"
-      ],
-      "timingPattern": "stealth",
-      "severity": "critical"
-    }
-  }
-}
-```
+## Best Practices
 
-## 🔧 Troubleshooting
+### Technique Selection
+1. **Realistic Combinations**: Use techniques that naturally flow together
+2. **Campaign Alignment**: Match techniques to appropriate threat actor profiles
+3. **Environment Context**: Consider organizational environment and attack surface
+4. **Detection Capability**: Balance between detectable and stealthy techniques
+5. **Current Threats**: Focus on techniques currently observed in the wild
+
+### Attack Chain Design
+1. **Logical Progression**: Ensure techniques follow realistic attack progression
+2. **Time Distribution**: Spread techniques across realistic timeframes
+3. **Persistence Integration**: Include persistence mechanisms throughout chains
+4. **Evasion Techniques**: Integrate defense evasion at appropriate stages
+5. **Impact Alignment**: Ensure techniques align with campaign objectives
+
+### Detection Strategy
+1. **Layered Detection**: Implement multiple detection methods per technique
+2. **Behavioral Analysis**: Include behavioral indicators alongside technical indicators
+3. **Context Awareness**: Consider technique context in detection logic
+4. **False Positive Management**: Account for legitimate technique usage
+5. **Continuous Improvement**: Regularly update detection based on new intelligence
+
+## Troubleshooting
 
 ### Common Issues
 
-#### Missing MITRE Fields
-```bash
-# Verify MITRE data loading
-yarn start test-mitre -n 5
+#### Missing MITRE Mappings
+**Issue**: Generated alerts lack MITRE technique mappings
+**Solutions**:
+- Always use `--mitre` flag when generating alerts
+- Verify MITRE data files are properly loaded
+- Check that technique selection is working correctly
+- Validate JSON structure of MITRE mappings
 
-# Check configuration
-cat config.json | grep -A 10 "mitre"
+#### Unrealistic Technique Combinations
+**Issue**: Generated techniques don't represent realistic attack patterns
+**Solutions**:
+- Use `--attack-chains` for logical technique progressions
+- Specify appropriate campaign types for technique selection
+- Review threat actor technique preferences
+- Implement technique validation logic
+
+#### Detection Coverage Gaps
+**Issue**: Generated techniques don't align with detection capabilities
+**Solutions**:
+- Analyze current detection rule coverage
+- Generate techniques that complement existing detection
+- Focus on techniques with proven detection methods
+- Implement detection gap analysis workflows
+
+### Debug and Analysis
+```bash
+# Debug MITRE technique selection
+yarn start generate-alerts --count 10 --mitre --debug-techniques
+
+# Analyze technique distribution
+yarn start analyze-mitre-distribution --comprehensive
+
+# Validate attack chains
+yarn start validate-attack-chains --mitre --logical-analysis
 ```
 
-#### Invalid Technique IDs
-```bash
-# Validate technique IDs against MITRE framework
-# Check src/mappings/mitre_attack.json for valid IDs
-```
+## Advanced Features
 
-#### Attack Chain Errors
-```bash
-# Debug attack chain generation
-DEBUG_AI_RESPONSES=true yarn start generate-alerts -n 5 --mitre --attack-chains
-```
+### Custom Technique Profiles
+Define organization-specific technique profiles:
 
-### Performance Issues
 ```json
 {
-  "mitre": {
-    "enableCaching": true,
-    "maxCacheSize": 1000,
-    "optimizeChainGeneration": true,
-    "limitTechniquesPerAlert": 3
-  }
-}
-```
-
-## 📊 Analytics and Reporting
-
-### MITRE Coverage Report
-```bash
-# Generate comprehensive coverage testing
-yarn start generate-alerts -n 1000 --mitre --sub-techniques
-```
-
-### Chain Analysis
-```bash
-# Generate attack chain scenarios for analysis
-yarn start generate-campaign apt --mitre --attack-chains --events 500
-```
-
-### Detection Gaps
-```elasticsearch
-# Identify techniques with low detection rates
-GET .alerts-security.alerts-*/_search
-{
-  "size": 0,
-  "aggs": {
-    "techniques_by_detection": {
-      "terms": {
-        "field": "threat.technique.id",
-        "size": 100
-      },
-      "aggs": {
-        "detected": {
-          "filter": {
-            "term": {
-              "kibana.alert.workflow_status": "acknowledged"
-            }
-          }
-        }
-      }
+  "custom_technique_profiles": {
+    "organization_apt": {
+      "preferred_initial_access": ["T1566.001", "T1190"],
+      "common_persistence": ["T1053.005", "T1547.001"],
+      "signature_evasion": ["T1055", "T1070.004"],
+      "exfiltration_methods": ["T1041", "T1567.002"]
     }
   }
 }
 ```
 
-## 🎯 Best Practices
+### Technique Evolution Tracking
+Track how techniques evolve over time:
 
-### 1. Gradual Implementation
-- Start with basic MITRE integration
-- Add sub-techniques progressively
-- Enable attack chains for advanced testing
-- Monitor performance and adjust
+```bash
+# Historical technique analysis
+yarn start analyze-technique-evolution --mitre --timeframe 12months
 
-### 2. Comprehensive Testing
-- Cover all relevant tactics
-- Test attack chain progressions
-- Validate detection rule coverage
-- Regular technique updates
+# Emerging technique detection
+yarn start detect-emerging-techniques --mitre --threat-landscape
+```
 
-### 3. Realistic Scenarios
-- Use appropriate complexity levels
-- Enable temporal correlation
-- Match threat actor behaviors
-- Include environmental context
+### Integration with Threat Intelligence
+Integrate MITRE techniques with threat intelligence:
 
-### 4. Continuous Improvement
-- Regular MITRE framework updates
-- Feedback-driven enhancements
-- Detection gap analysis
-- Community contribution
+```bash
+# TI-enhanced MITRE generation
+yarn start generate-alerts --count 50 --mitre --threat-intelligence --current
+
+# Attribution-based technique selection
+yarn start generate-campaign apt --mitre --attribution-guided --threat-actor apt29
+```
+
+---
+
+*Ready to implement comprehensive MITRE ATT&CK coverage? Start with `yarn start generate-alerts --count 50 --mitre --attack-chains` for realistic technique simulation and detection testing!*

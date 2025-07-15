@@ -1,307 +1,290 @@
-# Realistic Attack Campaign Generation
+# 🏴‍☠️ Attack Campaign Generation
 
-Generate complete security scenarios with forensic evidence chains that simulate real-world cyber attacks from source logs to triggered alerts.
+Complete guide to generating realistic multi-stage attack campaigns with AI-powered narrative generation.
 
-## 🎭 Realistic Campaign Mode ⭐ NEW
+## 📋 Table of Contents
 
-### **Complete Log→Alert Pipeline**
-Generate source logs that trigger realistic security alerts, creating complete forensic scenarios for training and testing.
+- [Overview](#overview)
+- [Quick Start](#quick-start)
+- [Campaign Types](#campaign-types)
+- [AI-Powered Features](#ai-powered-features)
+- [Realistic Campaign Mode](#realistic-campaign-mode)
+- [MITRE ATT&CK Integration](#mitre-attck-integration)
+- [Configuration](#configuration)
+- [Use Cases](#use-cases)
+- [Troubleshooting](#troubleshooting)
+
+## Overview
+
+The attack campaign generator creates sophisticated, multi-stage attack scenarios that simulate real-world threat actor behavior with:
+
+- **4 Campaign Types**: APT, Ransomware, Insider Threats, Supply Chain
+- **AI-Powered Narratives**: Contextual attack stories and motivations
+- **MITRE ATT&CK Mapping**: Complete technique coverage
+- **Realistic Mode**: Simulates actual detection rates and defensive responses
+- **Theme Integration**: Consistent entity naming across campaign events
+
+## Quick Start
+
+### Basic Campaign Generation
+```bash
+# Generate APT campaign with MITRE mapping
+yarn start generate-campaign apt --mitre --count 100
+
+# Generate ransomware campaign with theme
+yarn start generate-campaign ransomware --theme marvel --count 150
+
+# Generate realistic insider threat campaign
+yarn start generate-campaign insider --realistic --count 75
+
+# Generate supply chain attack campaign
+yarn start generate-campaign supply_chain --count 200
+```
+
+### Advanced Campaign Generation
+```bash
+# Realistic APT with AI narratives and MITRE mapping
+yarn start generate-campaign apt --realistic --ai --mitre --count 200
+
+# Themed ransomware campaign with session view support
+yarn start generate-campaign ransomware --theme marvel --session-view --count 100
+
+# Complex supply chain attack with visual analysis
+yarn start generate-campaign supply_chain --visual-analyzer --mitre --count 150
+```
+
+## Campaign Types
+
+### 1. **APT (Advanced Persistent Threat)**
+Simulates nation-state and advanced threat actor campaigns:
+
+**Attack Stages:**
+- **Initial Access**: Spear phishing, watering hole attacks
+- **Persistence**: Registry modification, scheduled tasks
+- **Lateral Movement**: Network reconnaissance, credential theft
+- **Data Exfiltration**: File collection and C2 communication
+
+**Example:**
+```bash
+yarn start generate-campaign apt --realistic --mitre --count 200
+```
+
+### 2. **Ransomware**
+Simulates ransomware deployment and encryption campaigns:
+
+**Attack Stages:**
+- **Initial Compromise**: Malicious attachments, RDP brute force
+- **Reconnaissance**: Network discovery, file enumeration
+- **Encryption**: File encryption, shadow copy deletion
+- **Extortion**: Ransom note deployment, payment demands
+
+**Example:**
+```bash
+yarn start generate-campaign ransomware --theme marvel --realistic --count 150
+```
+
+### 3. **Insider Threat**
+Simulates malicious insider activities:
+
+**Attack Stages:**
+- **Privilege Abuse**: Accessing unauthorized resources
+- **Data Collection**: Systematic file access and copying
+- **Evasion**: Covering tracks, log manipulation
+- **Exfiltration**: Data theft via various channels
+
+**Example:**
+```bash
+yarn start generate-campaign insider --realistic --count 100
+```
+
+### 4. **Supply Chain**
+Simulates supply chain compromise attacks:
+
+**Attack Stages:**
+- **Vendor Compromise**: Third-party system infiltration
+- **Code Injection**: Malicious code insertion
+- **Distribution**: Compromised software deployment
+- **Activation**: Backdoor activation and persistence
+
+**Example:**
+```bash
+yarn start generate-campaign supply_chain --mitre --count 175
+```
+
+## AI-Powered Features
+
+### Narrative Generation
+AI creates contextual attack stories and motivations:
+
+```json
+{
+  "campaign": {
+    "name": "Operation Silent Storm",
+    "description": "Sophisticated APT campaign targeting financial institutions",
+    "motivation": "Economic espionage and credential harvesting",
+    "attribution": "APT29-style tactics with novel persistence mechanisms"
+  }
+}
+```
+
+### Contextual Attack Progression
+AI ensures logical attack flow and realistic timing:
+- **Temporal Consistency**: Events follow realistic timelines
+- **Tactical Evolution**: Attacks adapt based on defensive responses
+- **Operational Security**: Attackers modify behavior to avoid detection
+
+## Realistic Campaign Mode
+
+### Detection Rate Simulation
+Realistic mode simulates actual enterprise detection capabilities:
 
 ```bash
-# Complete ransomware attack with realistic detection
-yarn start generate-campaign ransomware --realistic --mitre --detection-rate 0.8
-
-# Stealth APT with low detection rate
-yarn start generate-campaign apt --realistic --mitre --detection-rate 0.3 --logs-per-stage 5
-
-# Insider threat with gradual privilege abuse
-yarn start generate-campaign insider --realistic --mitre --logs-per-stage 4 --detection-rate 0.5
+yarn start generate-campaign apt --realistic --count 200
 ```
 
-### **Key Features:**
-- **Source Logs First**: Generate Windows/Linux logs that tell the attack story
-- **Realistic Detection**: Configure what percentage of activities get detected (0.0-1.0)
-- **Evidence Chains**: Complete forensic timeline from initial access to detection
-- **Investigation Guides**: Automated investigation steps for security analysts
-- **Missed Activities**: Realistic gaps in detection (like real SOCs)
+**Detection Characteristics:**
+- **Early Stages**: Low detection rates (10-30%)
+- **Persistence**: Medium detection rates (40-60%)
+- **Lateral Movement**: Higher detection rates (60-80%)
+- **Exfiltration**: Variable detection based on controls
 
-### **Example Output:**
-```
-🎊 Realistic Campaign Generated Successfully:
-  🎯 Attack Stages: 8
-  ⚔️  Campaign: Conti Enterprise Ransomware Campaign
-  🎭 Threat Actor: Conti
-  📋 Total Logs: 38
-  🚨 Detected Alerts: 12
-  ⚪ Missed Activities: 2
-  📅 Timeline: 45 events
+### Defensive Response Simulation
+- **Alert Fatigue**: Realistic false positive generation
+- **Investigation Delays**: Simulated response times
+- **Incomplete Visibility**: Some activities remain undetected
 
-📖 Investigation Guide:
-  1. Review initial alerts and identify affected systems
-  2. Investigate supporting logs around alert times
-  3. Look for lateral movement and persistence
+## MITRE ATT&CK Integration
 
-📍 View in Kibana space: default
-🔍 Filter logs with: logs-*
-🚨 View alerts in Security app
-📈 12 alerts triggered by 38 source logs
+### Complete Technique Coverage
+```bash
+yarn start generate-campaign apt --mitre --count 150
 ```
 
-## 🎯 Campaign Types
+**Technique Mapping:**
+- **Initial Access**: T1566 (Phishing), T1190 (Exploit Public-Facing Application)
+- **Persistence**: T1053 (Scheduled Task), T1547 (Boot or Logon Autostart)
+- **Defense Evasion**: T1055 (Process Injection), T1070 (Indicator Removal)
+- **Lateral Movement**: T1021 (Remote Services), T1078 (Valid Accounts)
 
-| Type | Attack Stages | Key Characteristics | Recommended Detection Rate |
-|------|---------------|---------------------|---------------------------|
-| **APT** | 2-4 stages | Stealth, lateral movement, long-term | Low (0.2-0.4) |
-| **Ransomware** | 8 stages | Fast progression, high impact | High (0.6-0.9) |
-| **Insider** | 3-6 stages | Privilege abuse, data exfiltration | Medium (0.3-0.6) |
-| **Supply Chain** | 4-7 stages | External compromise, multiple victims | Medium (0.4-0.7) |
+### Realistic Technique Distribution
+Each campaign type uses appropriate MITRE techniques:
+- **APT**: Heavy focus on persistence and lateral movement
+- **Ransomware**: Emphasis on impact and defense evasion
+- **Insider**: Privilege escalation and collection techniques
+- **Supply Chain**: Initial access and persistence focus
 
-### 🔒 Ransomware Campaigns
-High-impact encryption attacks with clear detection patterns.
+## Configuration
+
+### Campaign Parameters
+Customize campaign generation through various options:
 
 ```bash
-# Basic realistic ransomware (high detection rate)
-yarn start generate-campaign ransomware --realistic --mitre --detection-rate 0.8
+# Campaign type selection
+--campaign-type <apt|ransomware|insider|supply_chain>
 
-# Stealth ransomware (lower detection)
-yarn start generate-campaign ransomware --realistic --mitre --detection-rate 0.4 --logs-per-stage 6
+# Realism controls
+--realistic                    # Enable realistic detection rates
+--detection-rate 0.3          # Set custom detection rate (0.0-1.0)
+
+# Integration options
+--mitre                       # Add MITRE ATT&CK mappings
+--ai                          # Enable AI narrative generation
+--theme <theme_name>          # Apply consistent theming
+
+# Output controls
+--count <number>              # Number of events to generate
+--session-view               # Generate compatible process logs
+--visual-analyzer            # Enable visual analysis features
 ```
 
-**Attack Progression:**
-1. **Initial Access** → Email logs, DNS queries, HTTP traffic
-2. **Persistence** → Registry modifications, scheduled tasks
-3. **Discovery** → File system enumeration, network scanning
-4. **Credential Access** → LSASS dumps, password attacks
-5. **Lateral Movement** → RDP sessions, SMB connections
-6. **Collection** → File access, data compression
-7. **Exfiltration** → Network uploads, C2 communications
-8. **Impact** → File encryption, backup deletion
-
-### 🎯 APT Campaigns
-Long-term stealth attacks with minimal detection.
+### Theme Integration
+Campaigns support consistent entity naming:
 
 ```bash
-# Stealth APT with low detection
-yarn start generate-campaign apt --realistic --mitre --detection-rate 0.3 --logs-per-stage 3
+# Marvel-themed APT campaign
+yarn start generate-campaign apt --theme marvel --count 100
 
-# Well-monitored environment
-yarn start generate-campaign apt --realistic --mitre --detection-rate 0.7 --logs-per-stage 4
+# Generates entities like:
+# - Usernames: tony.stark, peter.parker
+# - Hostnames: stark-industries-web01, avengers-hq-dc01
+# - Processes: shield-security.exe, arc-reactor-monitor.exe
 ```
 
-**Attack Characteristics:**
-- Long dormancy periods
-- Minimal noise generation
-- Advanced evasion techniques
-- Targeted lateral movement
+## Use Cases
 
-### 👤 Insider Threats
-Gradual privilege abuse and data exfiltration.
-
+### 1. **SOC Training**
+Create realistic attack scenarios for analyst training:
 ```bash
-# Malicious insider scenario
-yarn start generate-campaign insider --realistic --mitre --detection-rate 0.4
-
-# Negligent insider
-yarn start generate-campaign insider --realistic --mitre --detection-rate 0.6 --logs-per-stage 2
+yarn start generate-campaign apt --realistic --mitre --count 500
 ```
 
-**Behavioral Patterns:**
-- After-hours access
-- Excessive data access
-- Privilege escalation attempts
-- Unusual file operations
-
-## 🛠️ Realistic Mode Configuration
-
-### **Detection Rate Settings**
-Controls what percentage of suspicious activities trigger alerts.
-
+### 2. **Detection Rule Testing**
+Validate detection capabilities across attack stages:
 ```bash
-# High-security environment (most activities detected)
---detection-rate 0.8
-
-# Typical SOC environment (moderate detection)
---detection-rate 0.5
-
-# Under-resourced SOC (low detection)
---detection-rate 0.3
-
-# Advanced persistent threat (minimal detection)
---detection-rate 0.2
+yarn start generate-campaign ransomware --count 200 --visual-analyzer
 ```
 
-### **Logs Per Stage**
-Controls how many source logs are generated for each attack stage.
-
+### 3. **Incident Response Exercises**
+Generate complex scenarios for IR team practice:
 ```bash
-# Minimal logging
---logs-per-stage 2
-
-# Standard logging
---logs-per-stage 4
-
-# Verbose logging
---logs-per-stage 8
-
-# Comprehensive logging
---logs-per-stage 12
+yarn start generate-campaign insider --realistic --ai --count 300
 ```
 
-### **Time Patterns**
-Realistic attack timing patterns.
-
+### 4. **SIEM Tuning**
+Test correlation rules and alert prioritization:
 ```bash
-# Attack during business hours
-yarn start generate-campaign insider --realistic --time-pattern business_hours
-
-# Weekend attack (low staffing)
-yarn start generate-campaign ransomware --realistic --time-pattern weekend_heavy
-
-# Realistic attack progression
-yarn start generate-campaign apt --realistic --time-pattern attack_simulation
+yarn start generate-campaign supply_chain --mitre --count 400
 ```
 
-## 🔍 Investigation & Analysis
+## Campaign Analytics
 
-### **In Kibana:**
-1. **Source Logs**: Filter by `logs-*` to see all generated logs
-2. **Security Alerts**: Check Security app for triggered alerts
-3. **Timeline Analysis**: View chronological attack progression
-4. **Correlation**: Follow investigation guide recommendations
+### Attack Progression Metrics
+Generated campaigns include realistic progression metrics:
+- **Dwell Time**: Average time between stages
+- **Success Rates**: Probability of stage completion
+- **Detection Probability**: Likelihood of defensive detection
+- **Impact Assessment**: Potential business impact scores
 
-### **Key Investigation Queries:**
-```
-# View all logs from affected hosts
-host.name:(ws-123 OR srv-456) AND @timestamp:[now-24h TO now]
+### Temporal Patterns
+- **Working Hours**: Higher activity during business hours
+- **Off-Hours**: Reduced but persistent background activity
+- **Weekend Patterns**: Minimal legitimate activity with anomalous events
 
-# Find authentication events around alert times
-event.category:authentication AND event.outcome:success
+## Troubleshooting
 
-# Look for lateral movement indicators
-event.category:network AND destination.ip:10.* AND source.ip:external
+### Common Issues
 
-# Process execution chains
-event.category:process AND event.type:start
+#### Campaign Continuity
+**Issue**: Events don't form coherent attack narrative
+**Solution**: Ensure sufficient event count for complete campaign (100+ events)
 
-# File modification activities
-event.category:file AND (event.type:creation OR event.type:change)
-```
+#### Missing MITRE Mappings
+**Issue**: Generated events lack MITRE technique mappings
+**Solution**: Always use `--mitre` flag for technique attribution
 
-### **Investigation Workflow:**
-1. **Review Alerts**: Start with triggered security alerts
-2. **Timeline Analysis**: Build chronological event sequence
-3. **Pivot Analysis**: Follow related logs by host/user/process
-4. **Evidence Collection**: Document the complete attack chain
-5. **Gap Analysis**: Identify what activities were missed
+#### Unrealistic Detection Patterns
+**Issue**: All campaign events trigger alerts
+**Solution**: Use `--realistic` flag to simulate actual detection rates
 
-## 📊 Training Scenarios
+### Performance Optimization
+- **Batch Processing**: Campaigns generated in batches for memory efficiency
+- **Index Management**: Automatic index pattern handling
+- **Progress Reporting**: Real-time generation status updates
 
-### **SOC Analyst Training**
+## Advanced Features
+
+### Multi-Environment Campaigns
+Generate campaigns across multiple environments:
 ```bash
-# Beginner: Clear attack with high detection
-yarn start generate-campaign ransomware --realistic --detection-rate 0.8 --logs-per-stage 3
-
-# Intermediate: Mixed visibility
-yarn start generate-campaign apt --realistic --detection-rate 0.5 --logs-per-stage 4
-
-# Advanced: Stealth attack with minimal detection
-yarn start generate-campaign apt --realistic --detection-rate 0.2 --logs-per-stage 6
+yarn start generate-campaign apt --environments 10 --count 1000
 ```
 
-### **Detection Rule Testing**
-```bash
-# Test specific MITRE techniques
-yarn start generate-campaign ransomware --realistic --mitre --sub-techniques
-
-# Validate correlation rules
-yarn start generate-campaign apt --realistic --mitre --attack-chains
-
-# Performance testing
-yarn start generate-campaign insider --realistic --events 50 --targets 20
-```
-
-### **Incident Response Exercises**
-```bash
-# Fast-moving threat (immediate response required)
-yarn start generate-campaign ransomware --realistic --detection-rate 0.9
-
-# Long-term investigation (APT hunting)
-yarn start generate-campaign apt --realistic --detection-rate 0.3 --logs-per-stage 8
-```
-
-## 🎯 Best Practices
-
-### **Realistic Scenario Design**
-1. **Match Your Environment**: Use detection rates that reflect your SOC's capabilities
-2. **Progressive Training**: Start with high detection rates, reduce over time
-3. **Diverse Scenarios**: Mix different campaign types and complexity levels
-4. **Time Correlation**: Use realistic time patterns for training exercises
-
-### **Detection Testing**
-1. **Baseline Testing**: Start with known detection capabilities
-2. **Gap Analysis**: Use low detection rates to find blind spots
-3. **Rule Validation**: Test specific MITRE techniques with targeted campaigns
-4. **Performance Impact**: Monitor system performance during large scenarios
-
-### **Investigation Training**
-1. **Complete Stories**: Use realistic mode for end-to-end scenarios
-2. **Evidence Chains**: Follow generated investigation guides
-3. **Pivot Practice**: Use Kibana queries to explore related logs
-4. **Documentation**: Record investigation findings and methodologies
-
-## 🚨 Troubleshooting
-
-### **No Alerts Generated**
-```bash
-# Increase detection rate
-yarn start generate-campaign apt --realistic --detection-rate 0.8
-
-# Increase logs per stage
-yarn start generate-campaign apt --realistic --logs-per-stage 6
-```
-
-### **Too Many Alerts**
-```bash
-# Reduce detection rate for more realistic scenario
-yarn start generate-campaign ransomware --realistic --detection-rate 0.4
-```
-
-### **Performance Issues**
-```bash
-# Reduce logs per stage for large campaigns
-yarn start generate-campaign apt --realistic --events 100 --logs-per-stage 2
-
-# Use smaller batch sizes
-yarn start generate-campaign ransomware --realistic --batch-size 50
-```
-
-## 📈 Advanced Features
-
-### **Custom Detection Scenarios**
-```bash
-# Simulate specific detection gaps
-yarn start generate-campaign apt --realistic --detection-rate 0.1 --logs-per-stage 10
-
-# Test alert fatigue scenarios
-yarn start generate-campaign ransomware --realistic --detection-rate 0.9 --events 200
-```
-
-### **Multi-Campaign Environments**
-```bash
-# Overlapping campaigns for complex scenarios
-yarn start generate-campaign apt --realistic --space training-env &
-yarn start generate-campaign insider --realistic --space training-env &
-wait
-```
-
-### **Integration with Detection Rules**
-The realistic mode generates logs that would trigger common detection rules:
-- Process execution patterns
-- Network connection anomalies
-- File system modifications
-- Authentication failures
-- Privilege escalation attempts
+### Campaign Correlation
+Link campaign events through entity relationships:
+- **Shared Infrastructure**: Common C2 servers and domains
+- **Credential Reuse**: Compromised accounts across multiple systems
+- **Tool Signatures**: Consistent malware and technique patterns
 
 ---
 
-**🎭 Transform your security testing with realistic attack scenarios!** Start with `yarn start generate-campaign ransomware --realistic --mitre` and experience complete forensic evidence chains.
+*Ready to simulate sophisticated attack campaigns? Start with `yarn start generate-campaign apt --realistic --mitre --count 200` for a comprehensive APT simulation!*

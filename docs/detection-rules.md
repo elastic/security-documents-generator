@@ -1,546 +1,455 @@
-# Detection Rules Generation
+# 🛡️ Detection Rules Generation
 
-Comprehensive guide for generating all types of Elastic Security detection rules with realistic configurations and triggered alerts.
+Complete guide to generating Elastic Security detection rules with realistic configurations and MITRE ATT&CK mappings.
+
+## 📋 Table of Contents
+
+- [Overview](#overview)
+- [Quick Start](#quick-start)
+- [Rule Types](#rule-types)
+- [MITRE ATT&CK Integration](#mitre-attck-integration)
+- [AI-Enhanced Generation](#ai-enhanced-generation)
+- [Rule Configuration](#rule-configuration)
+- [Multi-Space Generation](#multi-space-generation)
+- [Use Cases](#use-cases)
+- [Best Practices](#best-practices)
+- [Troubleshooting](#troubleshooting)
 
 ## Overview
 
-The Security Documents Generator supports **all 7 Elastic Security detection rule types**, enabling complete SOC testing, training scenarios, and detection rule development workflows.
+The detection rules generator creates production-ready Elastic Security detection rules that:
 
-### Supported Rule Types
-
-| Rule Type | Purpose | Generated Examples |
-|-----------|---------|-------------------|
-| **Query** | Basic event detection | `event.category:"process" AND process.name:"cmd.exe"` |
-| **Threshold** | Pattern detection over time | Failed logins > 50 per user |
-| **EQL** | Event sequence detection | Multi-event attack chains |
-| **Machine Learning** | Anomaly detection | Behavioral analysis (auth, DNS, processes) |
-| **Threat Match** | IOC matching | IP/domain reputation checks |
-| **New Terms** | Baseline deviation | New users, hosts, processes |
-| **ES\|QL** | Advanced analytics | Complex aggregations and correlations |
+- **Generate All Rule Types**: Query, Threshold, EQL, Machine Learning, Threat Match, New Terms, ES|QL
+- **Include MITRE Mappings**: Complete ATT&CK technique attribution
+- **Trigger Realistic Alerts**: Generated rules create alerts for testing workflows
+- **AI-Enhanced Content**: Contextual descriptions and threat intelligence
+- **Multi-Space Support**: Deploy rules across different Kibana spaces
 
 ## Quick Start
 
 ### Basic Rule Generation
-
 ```bash
-# Generate all rule types (default)
-yarn start rules -r 10 -s default
+# Generate mixed detection rules
+yarn start generate-rules --count 50
 
-# Specific rule types
-yarn start rules -r 5 -t query,threshold,eql -s production
+# Generate rules with MITRE mappings
+yarn start generate-rules --count 25 --mitre
 
-# With events for testing
-yarn start rules -r 15 -t query,threshold -e 100 -s testing
+# Generate AI-enhanced rules
+yarn start generate-rules --count 30 --ai
 ```
 
-### Multi-Environment Generation
-
+### Advanced Rule Generation
 ```bash
-# Generate rules across multiple environments
-yarn start rules -r 20 --environments 10 -s default
+# Generate specific rule types
+yarn start generate-rules --count 20 --rule-types query,threshold,eql
 
-# Production deployment simulation
-yarn start rules -r 50 --environments 25 --namespace prod -s production
+# Generate rules with triggered alerts
+yarn start generate-rules --count 15 --with-alerts
+
+# Generate themed rules with correlations
+yarn start generate-rules --theme marvel --count 40 --correlations
 ```
 
-## Command Reference
+## Rule Types
 
-### Basic Syntax
+### 1. **Query Rules**
+KQL/Lucene query-based detection rules:
+
+**Example Generation:**
 ```bash
-yarn start rules [options]
+yarn start generate-rules --count 20 --rule-types query
 ```
 
-### Options
-| Option | Description | Default | Example |
-|--------|-------------|---------|---------|
-| `-r, --rules <number>` | Number of rules to generate | 10 | `-r 20` |
-| `-e, --events <number>` | Number of events to generate | 50 | `-e 100` |
-| `-t, --rule-types <types>` | Comma-separated rule types | all types | `-t query,threshold,eql` |
-| `-s, --space <space>` | Kibana space | jgy | `-s production` |
-| `-i, --interval <string>` | Rule execution interval | 5m | `-i 1m` |
-| `-f, --from <number>` | Generate events from last N hours | 24 | `-f 48` |
-| `-g, --gaps <number>` | Amount of gaps per rule | 0 | `-g 2` |
-| `-c, --clean` | Clean existing rules before generating | false | `--clean` |
+**Generated Rule Characteristics:**
+- **Query Logic**: Realistic KQL queries targeting specific log sources
+- **Filters**: Time-based and field-specific filters
+- **Scheduling**: Appropriate run intervals (1m to 60m)
+- **Risk Scoring**: Contextual risk scores (21-99)
 
-### Rule Types
-Available values for `--rule-types`:
-- `query` - KQL/Lucene query-based detection
-- `threshold` - Field aggregation and cardinality detection
-- `eql` - Event Query Language sequences
-- `machine_learning` - Anomaly detection rules
-- `threat_match` - Threat intelligence IOC matching
-- `new_terms` - New entity detection
-- `esql` - Elasticsearch Query Language analytics
-
-## Rule Type Details
-
-### Query Rules
-
-**Purpose**: Basic event detection using KQL or Lucene queries.
-
-```bash
-yarn start rules -r 5 -t query -s default
+**Sample Output:**
+```json
+{
+  "name": "Suspicious PowerShell Execution with Encoded Commands",
+  "type": "query",
+  "query": "process.name:powershell.exe AND process.args:*-enc*",
+  "risk_score": 73,
+  "severity": "high",
+  "interval": "5m"
+}
 ```
 
-**Generated Query Examples**:
-- `event.category:"process" AND process.name:"cmd.exe"`
-- `event.category:"authentication" AND event.outcome:"failure"`
-- `event.category:"network" AND destination.port:22`
-- `user.name:"admin" OR user.name:"administrator"`
-- `event.category:"file" AND file.extension:"exe"`
+### 2. **Threshold Rules**
+Event frequency-based detection:
 
-**Configuration**:
-- **Language**: `kuery` (default)
-- **Index Patterns**: `logs-*`, `metrics-*`, `auditbeat-*`
-- **From**: `now-1h` (configurable)
-- **Interval**: `1m` (configurable)
-
-### Threshold Rules
-
-**Purpose**: Detect patterns based on field aggregation and cardinality analysis.
-
+**Example Generation:**
 ```bash
-yarn start rules -r 3 -t threshold -s default
+yarn start generate-rules --count 15 --rule-types threshold
 ```
 
-**Configuration**:
-- **Query**: `event.category:"authentication" AND event.outcome:"failure"`
-- **Threshold Field**: `user.name` (configurable)
-- **Threshold Value**: 5-50 events (randomized)
-- **Cardinality**: Source IP analysis (5 unique IPs)
-- **Language**: `kuery`
+**Generated Characteristics:**
+- **Threshold Values**: Realistic count thresholds (5-100)
+- **Time Windows**: Appropriate time frames (5m to 24h)
+- **Group-by Fields**: Logical grouping (host.name, user.name, source.ip)
+- **Cardinality Thresholds**: For distinct value counting
 
-**Use Cases**:
-- Brute force detection
-- Excessive failed logins
-- Unusual network activity patterns
-- High-volume events from single sources
-
-### EQL Rules
-
-**Purpose**: Event sequence detection and correlation across multiple events.
-
-```bash
-yarn start rules -r 4 -t eql -s default
+**Sample Output:**
+```json
+{
+  "name": "High Volume Failed Authentication Attempts",
+  "type": "threshold",
+  "query": "event.category:authentication AND event.outcome:failure",
+  "threshold": {
+    "field": ["user.name", "source.ip"],
+    "value": 50,
+    "cardinality": [{"field": "user.name", "value": 1}]
+  }
+}
 ```
 
-**Generated EQL Examples**:
-- `process where process.name == "cmd.exe"`
-- `sequence [authentication where event.outcome == "failure"] [process where process.name == "powershell.exe"]`
-- `network where destination.port == 22 and source.ip != "127.0.0.1"`
-- `file where file.extension == "exe" and file.path : "C:\\\\temp\\\\*"`
+### 3. **EQL Rules**
+Event Query Language for sequence detection:
 
-**Configuration**:
-- **Language**: `eql`
-- **Sequences**: Multi-event correlation patterns
-- **Time Windows**: Event timing relationships
-- **Field Correlations**: Cross-event field matching
-
-### Machine Learning Rules
-
-**Purpose**: Anomaly detection and behavioral analysis using ML jobs.
-
+**Example Generation:**
 ```bash
-yarn start rules -r 2 -t machine_learning -s default
+yarn start generate-rules --count 10 --rule-types eql
 ```
 
-**Configuration**:
-- **Anomaly Threshold**: 50-90% (randomized)
-- **ML Job IDs**: 
-  - `auth_rare_hour` - Authentication timing anomalies
-  - `packetbeat_rare_dns` - DNS query anomalies
-  - `rare_process_by_host` - Process execution anomalies
-- **Detection**: Behavioral baseline deviations
+**Generated Patterns:**
+- **Sequence Detection**: Multi-event attack patterns
+- **Process Chains**: Parent-child process relationships
+- **Network Sequences**: Connection patterns and data flows
+- **File Operations**: File creation, modification, and deletion sequences
 
-**Use Cases**:
-- User behavior anomalies
-- Unusual process execution patterns
-- Network communication anomalies
-- Time-based activity detection
-
-### Threat Match Rules
-
-**Purpose**: IOC matching against threat intelligence feeds.
-
-```bash
-yarn start rules -r 3 -t threat_match -s default
+**Sample Output:**
+```json
+{
+  "name": "Credential Dumping Process Chain",
+  "type": "eql",
+  "query": "sequence [process where process.name == \"lsass.exe\"] [file where file.extension == \".dmp\"]",
+  "language": "eql"
+}
 ```
 
-**Configuration**:
-- **Threat Index**: `threat-intel-*`
-- **Query**: `*:*` (all events)
-- **Language**: `kuery`
-- **Threat Mapping**:
-  - `source.ip` → `threat.indicator.ip`
-  - Field-to-field IOC correlation
-- **Threat Query**: `*:*` (all threat indicators)
+### 4. **Machine Learning Rules**
+Anomaly detection using ML jobs:
 
-**Use Cases**:
-- IP reputation checking
-- Domain blacklist matching
-- File hash correlation
-- URL reputation analysis
-
-### New Terms Rules
-
-**Purpose**: Detect new entities not seen in historical baseline.
-
+**Example Generation:**
 ```bash
-yarn start rules -r 3 -t new_terms -s default
+yarn start generate-rules --count 8 --rule-types ml
 ```
 
-**Configuration**:
-- **New Terms Fields**: 
-  - `['user.name']` - New users
-  - `['host.name']` - New hosts
-  - `['process.name']` - New processes
-  - `['user.name', 'host.name']` - New user-host combinations
-- **History Window**: `now-30d`
-- **Language**: `kuery`
-- **Query**: `*:*`
+**ML Integration:**
+- **Job Dependencies**: References to existing ML jobs
+- **Anomaly Thresholds**: Appropriate severity scores (25-100)
+- **Result Types**: Anomaly record and bucket result types
+- **Lookback Windows**: Historical analysis periods
 
-**Use Cases**:
-- New user detection
-- Unknown process identification
-- New host discovery
-- Service account monitoring
-
-### ES|QL Rules
-
-**Purpose**: Advanced analytics using Elasticsearch Query Language.
-
-```bash
-yarn start rules -r 2 -t esql -s default
+**Sample Output:**
+```json
+{
+  "name": "Unusual Network Activity Detected by ML",
+  "type": "machine_learning",
+  "anomaly_threshold": 75,
+  "machine_learning_job_id": "network-anomaly-detection"
+}
 ```
 
-**Generated ES|QL Examples**:
-- `FROM logs-* | WHERE event.category == "process" | STATS count = COUNT() BY process.name`
-- `FROM logs-* | WHERE event.category == "authentication" AND event.outcome == "failure" | STATS count = COUNT() BY user.name`
-- `FROM logs-* | WHERE event.category == "network" | STATS count = COUNT() BY destination.ip`
+### 5. **Threat Match Rules**
+IOC-based threat intelligence matching:
 
-**Configuration**:
-- **Language**: `esql`
-- **Complex Analytics**: Aggregations, correlations, statistics
-- **Multi-Index**: Cross-index analysis capabilities
-- **Advanced Functions**: Statistical and analytical functions
-
-## Advanced Usage
-
-### Mixed Rule Generation
-
+**Example Generation:**
 ```bash
-# SOC training environment
-yarn start rules -r 25 -t query,threshold,eql,new_terms -e 150 -s soc-training
-
-# Detection testing
-yarn start rules -r 15 -t machine_learning,threat_match -s ml-testing
-
-# Rule development
-yarn start rules -r 20 -t query,eql,esql -s development
+yarn start generate-rules --count 12 --rule-types threat_match
 ```
 
-### Multi-Space Deployment
+**Threat Intelligence Features:**
+- **IOC Matching**: IP addresses, domains, file hashes
+- **Threat Intel Indices**: Integration with threat intelligence indices
+- **Enrichment**: Automatic threat context addition
+- **Attribution**: Threat actor and campaign associations
 
+### 6. **New Terms Rules**
+Detect new and unusual field values:
+
+**Example Generation:**
 ```bash
-# Production environment
-yarn start rules -r 50 -t query,threshold,eql -s production
-
-# Staging environment
-yarn start rules -r 30 -t query,threshold -s staging
-
-# Development environment
-yarn start rules -r 15 -t query,eql,esql -s development
+yarn start generate-rules --count 10 --rule-types new_terms
 ```
 
-### Performance Testing
+**New Terms Detection:**
+- **Learning Periods**: Historical analysis windows
+- **Field Monitoring**: Track new values in specific fields
+- **Baseline Establishment**: Historical normal behavior
+- **Anomaly Scoring**: New term significance weighting
 
+### 7. **ES|QL Rules**
+Elasticsearch Query Language rules:
+
+**Example Generation:**
 ```bash
-# Large-scale rule deployment
-yarn start rules -r 100 -t query,threshold -e 500 -s load-test
+yarn start generate-rules --count 8 --rule-types esql
+```
 
-# Multi-environment load testing
-yarn start rules -r 200 --environments 50 -s load-test
+**ES|QL Features:**
+- **Advanced Analytics**: Statistical analysis and aggregations
+- **Cross-Index Queries**: Multi-index data correlation
+- **Performance Optimization**: Efficient query patterns
+- **Complex Logic**: Advanced filtering and transformation
+
+## MITRE ATT&CK Integration
+
+### Complete Technique Coverage
+```bash
+yarn start generate-rules --count 30 --mitre
+```
+
+**MITRE Mapping Features:**
+- **Tactic Coverage**: All 14 MITRE ATT&CK tactics
+- **Technique Attribution**: Primary and sub-technique mapping
+- **Threat Actor Context**: APT group and malware family associations
+- **Attack Chains**: Multi-stage technique sequences
+
+**Example MITRE Mapping:**
+```json
+{
+  "threat": [{
+    "framework": "MITRE ATT&CK",
+    "tactic": {
+      "id": "TA0002",
+      "name": "Execution",
+      "reference": "https://attack.mitre.org/tactics/TA0002/"
+    },
+    "technique": [{
+      "id": "T1059.001",
+      "name": "PowerShell",
+      "reference": "https://attack.mitre.org/techniques/T1059/001/"
+    }]
+  }]
+}
+```
+
+### Attack Chain Generation
+```bash
+yarn start generate-rules --count 20 --mitre --attack-chains
+```
+
+Creates correlated rules representing complete attack progressions:
+1. **Initial Access**: T1566 (Phishing)
+2. **Execution**: T1059 (Command and Scripting Interpreter)
+3. **Persistence**: T1053 (Scheduled Task/Job)
+4. **Lateral Movement**: T1021 (Remote Services)
+
+## AI-Enhanced Generation
+
+### Contextual Descriptions
+```bash
+yarn start generate-rules --count 25 --ai
+```
+
+AI generates:
+- **Detailed Descriptions**: Technical threat context and impact
+- **Investigation Guides**: Step-by-step analysis procedures
+- **False Positive Analysis**: Common FP scenarios and mitigation
+- **Threat Intelligence**: Current threat landscape context
+
+**Example AI Enhancement:**
+```json
+{
+  "description": "Detects suspicious PowerShell execution patterns commonly associated with malware deployment and credential theft. This rule identifies encoded command execution, which is frequently used by attackers to evade detection while executing malicious payloads.",
+  "note": "## Investigation Guide\n1. Examine the full PowerShell command line\n2. Decode any base64 content\n3. Check for parent process context\n4. Review network connections from the host",
+  "false_positives": ["Legitimate system administration scripts", "Software deployment tools", "Automated patch management"]
+}
 ```
 
 ## Rule Configuration
 
-### Generated Rule Properties
+### Severity and Risk Scoring
+Generated rules include realistic severity and risk scoring:
 
-Each rule includes:
-
-| Property | Description | Example |
-|----------|-------------|---------|
-| **Name** | Type-specific naming | `"Threshold Rule-abc123"` |
-| **Description** | Realistic descriptions | `"threshold rule that detects suspicious activity"` |
-| **Severity** | Randomized realistic levels | `low`, `medium`, `high`, `critical` |
-| **Risk Score** | 1-100 range | `21`, `47`, `73`, `99` |
-| **Enabled** | Active by default | `true` |
-| **Tags** | Type-appropriate tags | `[]` (empty, customizable) |
-| **MITRE Mapping** | Where applicable | ATT&CK technique references |
-
-### Language Configuration
-
-Rules use appropriate query languages:
-
-| Rule Type | Language | Purpose |
-|-----------|----------|---------|
-| Query | `kuery` | KQL query syntax |
-| Threshold | `kuery` | KQL with aggregation |
-| EQL | `eql` | Event Query Language |
-| Machine Learning | N/A | ML job configuration |
-| Threat Match | `kuery` | KQL for event matching |
-| New Terms | `kuery` | KQL for baseline analysis |
-| ES\|QL | `esql` | Elasticsearch Query Language |
-
-## Integration with Kibana Security
-
-### Rule Management
-- **Created Rules**: Appear in Security → Rules
-- **Rule Status**: Enabled by default for immediate testing
-- **Rule Categories**: Properly categorized by type
-- **Bulk Operations**: Support for bulk enable/disable
-
-### Alert Generation
-- **Triggered Alerts**: Rules generate realistic alerts when triggered
-- **Alert Correlation**: Events created to match rule criteria
-- **Alert Lifecycle**: Complete workflow from detection to investigation
-- **Security Interface**: Integration with Security → Alerts
-
-### Space Management
-```bash
-# Isolated environments
-yarn start rules -r 20 -s production      # Production space
-yarn start rules -r 15 -s staging         # Staging space
-yarn start rules -r 10 -s development     # Development space
+```json
+{
+  "severity": "high",
+  "risk_score": 73,
+  "risk_score_mapping": [{
+    "field": "event.risk_score",
+    "operator": "equals",
+    "value": ""
+  }]
+}
 ```
+
+### Scheduling and Performance
+Appropriate scheduling based on rule type and complexity:
+
+```json
+{
+  "interval": "5m",
+  "from": "now-6m",
+  "to": "now",
+  "look_back": "5m"
+}
+```
+
+### Actions and Notifications
+Rules include realistic action configurations:
+
+```json
+{
+  "actions": [{
+    "id": "webhook-action",
+    "group": "default",
+    "params": {
+      "message": "Security Alert: {{context.rule.name}}"
+    }
+  }]
+}
+```
+
+## Multi-Space Generation
+
+### Space-Specific Rules
+```bash
+# Generate rules in specific space
+yarn start generate-rules --space security-testing --count 30
+
+# Generate across multiple spaces
+yarn start generate-rules --environments 5 --count 100
+```
+
+**Multi-Space Benefits:**
+- **Environment Isolation**: Development, testing, production separation
+- **Team Segregation**: Different teams, different rule sets
+- **Use Case Specialization**: SOC training vs production monitoring
+- **Performance Testing**: Load testing without production impact
+
+## Use Cases
+
+### 1. **SOC Training and Education**
+```bash
+yarn start generate-rules --count 50 --ai --with-alerts --space training
+```
+
+**Training Features:**
+- Complete rule-to-alert workflows
+- AI-generated investigation guides
+- Realistic false positive scenarios
+- Progressive difficulty levels
+
+### 2. **SIEM Testing and Validation**
+```bash
+yarn start generate-rules --count 100 --all-types --performance-test
+```
+
+**Testing Capabilities:**
+- Rule engine performance testing
+- Alert correlation validation
+- Detection coverage assessment
+- System resource impact analysis
+
+### 3. **Detection Engineering**
+```bash
+yarn start generate-rules --count 30 --mitre --correlations --export
+```
+
+**Engineering Benefits:**
+- Rule template creation
+- MITRE coverage mapping
+- Detection gap analysis
+- Baseline rule establishment
+
+### 4. **Compliance and Auditing**
+```bash
+yarn start generate-rules --count 40 --compliance-frameworks --documentation
+```
+
+**Compliance Features:**
+- Regulatory requirement coverage
+- Audit trail documentation
+- Control effectiveness measurement
+- Risk assessment support
+
+## Best Practices
+
+### Rule Generation Strategy
+1. **Start Small**: Begin with 10-20 rules to test integration
+2. **Mix Rule Types**: Use diverse rule types for comprehensive coverage
+3. **Enable MITRE**: Always include ATT&CK mappings for context
+4. **Use AI Enhancement**: Leverage AI for detailed descriptions and guides
+5. **Test with Alerts**: Generate corresponding alerts to test workflows
+
+### Performance Considerations
+- **Batch Size**: Generate rules in batches of 25-50 for optimal performance
+- **Index Impact**: Monitor index performance with threshold and ML rules
+- **Resource Usage**: Consider CPU and memory impact of complex EQL queries
+- **Scheduling**: Distribute rule schedules to avoid resource spikes
+
+### Quality Assurance
+- **Validation**: Test generated rules in non-production environments
+- **Tuning**: Adjust thresholds based on environment noise levels
+- **Documentation**: Maintain clear rule descriptions and investigation guides
+- **Version Control**: Track rule changes and performance metrics
 
 ## Troubleshooting
 
 ### Common Issues
 
-#### 404 API Errors
-**Problem**: `Failed to fetch data from http://localhost:5601/api/detection_engine/rules, status: 404`
-
+#### Rules Not Triggering
+**Issue**: Generated rules don't create alerts
 **Solutions**:
-1. **Verify Space Name**: Ensure the correct Kibana space path
-   ```bash
-   # Check your space configuration
-   curl -X GET "http://localhost:5601/{space}/api/detection_engine/rules/_find" \
-     -H "Authorization: ApiKey {your-api-key}" \
-     -H "kbn-xsrf: true"
-   ```
+- Verify query syntax and field mappings
+- Check rule scheduling and time windows
+- Validate data source availability
+- Review index patterns and privileges
 
-2. **Check Detection Engine**: Ensure Security app is enabled
-   ```bash
-   # Initialize Detection Engine (if needed)
-   curl -X POST "http://localhost:5601/{space}/api/detection_engine/index" \
-     -H "Authorization: ApiKey {your-api-key}" \
-     -H "kbn-xsrf: true"
-   ```
-
-#### Authentication Issues
-**Problem**: Authentication failures with API calls
-
-**Solution**: Use API key authentication
-```json
-// config.json
-{
-  "kibana": {
-    "node": "http://localhost:5601",
-    "apiKey": "your-api-key-here"
-  }
-}
-```
-
-#### Space Path Issues
-**Problem**: Incorrect space URL format
-
+#### Performance Problems
+**Issue**: Rules cause system performance issues
 **Solutions**:
-- **Standard Format**: `/s/{space}/api/...`
-- **Direct Format**: `/{space}/api/...` (for some deployments)
-- Check your Kibana space configuration
+- Reduce query complexity and scope
+- Adjust scheduling intervals
+- Optimize threshold values
+- Monitor resource utilization
 
-### Performance Tips
+#### False Positive Management
+**Issue**: Too many false positive alerts
+**Solutions**:
+- Use AI-generated false positive lists
+- Implement proper rule tuning
+- Add appropriate filters and exceptions
+- Review detection logic and thresholds
 
-1. **Start Small**: Begin with 5-10 rules for testing
-2. **Specific Types**: Use targeted rule types for focused testing
-3. **Event Proportion**: Generate events proportional to rule count
-4. **Monitor Performance**: Watch Elasticsearch cluster performance
-5. **Space Isolation**: Use different spaces for different environments
-
-### Debugging
-
-#### Verbose Output
+### Debug and Monitoring
 ```bash
-# Enable debug logging
-DEBUG=* yarn start rules -r 5 -t query -s default
+# Generate rules with debug output
+yarn start generate-rules --count 10 --debug
+
+# Monitor rule performance
+yarn start monitor-rules --space production
+
+# Validate rule syntax
+yarn start validate-rules --rule-file exported-rules.json
 ```
 
-#### API Testing
+## Advanced Features
+
+### Rule Correlation and Chaining
+Generate correlated rules that work together:
 ```bash
-# Test API connectivity
-curl -X GET "http://localhost:5601/{space}/api/detection_engine/rules/_find?per_page=1" \
-  -H "Authorization: ApiKey {your-api-key}" \
-  -H "kbn-xsrf: true" \
-  -H "Content-Type: application/json"
+yarn start generate-rules --count 20 --correlations --attack-chains
 ```
 
-## Use Cases
-
-### SOC Training
-
-Create comprehensive training environments:
-
+### Custom Rule Templates
+Use custom templates for organization-specific needs:
 ```bash
-# Complete SOC training setup
-yarn start rules -r 30 -t query,threshold,eql,new_terms -e 200 -s soc-training
-
-# Add realistic attack scenarios
-yarn start generate-campaign apt --realistic --mitre -s soc-training
-
-# Generate supporting logs
-yarn start generate-logs -n 500 --types system,auth,network,endpoint -s soc-training
+yarn start generate-rules --template custom-org --count 30
 ```
 
-### Detection Testing
-
-Test rule effectiveness and tuning:
-
+### Integration with External Tools
+Export rules for use with other security tools:
 ```bash
-# ML rule testing
-yarn start rules -r 10 -t machine_learning -s ml-testing
-
-# Threat intelligence testing
-yarn start rules -r 15 -t threat_match -s threat-testing
-
-# Complex query testing
-yarn start rules -r 20 -t query,eql,esql -s query-testing
+yarn start generate-rules --count 40 --export-format sigma
 ```
 
-### Rule Development
+---
 
-Support rule development workflows:
-
-```bash
-# Development environment
-yarn start rules -r 25 -t query,eql,esql -s development
-
-# Generate test events
-yarn start generate-logs -n 1000 --types system,auth,network -s development
-
-# Performance testing
-yarn start rules -r 100 -t query,threshold -e 1000 -s performance
-```
-
-### Load Testing
-
-Enterprise-scale testing:
-
-```bash
-# Large-scale deployment
-yarn start rules -r 500 -t query,threshold,eql -s load-test
-
-# Multi-environment testing
-yarn start rules -r 200 --environments 100 -s enterprise-test
-
-# Performance benchmarking
-yarn start rules -r 1000 -t query -e 5000 -s benchmark
-```
-
-## Best Practices
-
-### Rule Generation Strategy
-
-1. **Start Simple**: Begin with query and threshold rules
-2. **Add Complexity**: Gradually introduce EQL and ML rules
-3. **Test Integration**: Verify rule-alert-case workflows
-4. **Monitor Performance**: Track cluster and rule performance
-5. **Document Results**: Maintain testing documentation
-
-### Environment Management
-
-1. **Space Isolation**: Use separate spaces for different purposes
-2. **Namespace Organization**: Logical namespace separation
-3. **Resource Monitoring**: Monitor Elasticsearch cluster health
-4. **Cleanup Strategy**: Regular cleanup of test data
-5. **Backup Procedures**: Backup important rule configurations
-
-### Testing Workflows
-
-1. **Rule Creation**: Generate rules first
-2. **Event Generation**: Create matching events
-3. **Alert Verification**: Confirm alerts are triggered
-4. **Investigation**: Test investigation workflows
-5. **Case Management**: Verify case creation and management
-
-## API Reference
-
-### Create Rule Endpoint
-```
-POST /{space}/api/detection_engine/rules
-```
-
-### List Rules Endpoint
-```
-GET /{space}/api/detection_engine/rules/_find
-```
-
-### Delete Rules Endpoint
-```
-DELETE /{space}/api/detection_engine/rules
-```
-
-### Bulk Operations Endpoint
-```
-POST /{space}/api/detection_engine/rules/_bulk_action
-```
-
-For complete API documentation, see the [Elastic Security API Reference](https://www.elastic.co/docs/api/doc/kibana/operation/operation-createrule).
-
-## Examples
-
-### Complete SOC Setup
-
-```bash
-# 1. Generate detection rules
-yarn start rules -r 25 -t query,threshold,eql,machine_learning,new_terms -s soc
-
-# 2. Create attack campaigns
-yarn start generate-campaign apt --realistic --mitre -s soc
-yarn start generate-campaign ransomware --realistic --mitre -s soc
-
-# 3. Generate supporting data
-yarn start generate-logs -n 1000 --types system,auth,network,endpoint -s soc
-yarn start generate-alerts -n 200 --mitre --multi-field -s soc
-
-# 4. Create investigation cases
-yarn start generate-cases -n 15 --mitre --attach-existing-alerts -s soc
-```
-
-### Performance Testing
-
-```bash
-# Large-scale rule deployment
-yarn start rules -r 200 -t query,threshold,eql -e 1000 -s performance
-
-# Multi-environment stress test
-yarn start rules -r 500 --environments 50 -s stress-test
-
-# Monitor with Elasticsearch
-curl -X GET "http://localhost:9200/_cluster/health?pretty"
-```
-
-### Development Workflow
-
-```bash
-# Development rules
-yarn start rules -r 15 -t query,eql,esql -s development
-
-# Test events
-yarn start generate-logs -n 500 --types system,auth -s development
-
-# Validate rules
-curl -X GET "http://localhost:5601/development/api/detection_engine/rules/_find" \
-  -H "Authorization: ApiKey your-api-key" \
-  -H "kbn-xsrf: true"
-```
+*Ready to build comprehensive detection capabilities? Start with `yarn start generate-rules --count 25 --mitre --ai` for a complete rule generation experience!*

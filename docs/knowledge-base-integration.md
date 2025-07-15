@@ -1,503 +1,457 @@
-# 🧠 AI Assistant Knowledge Base Integration
+# 📚 Knowledge Base Integration
+
+Complete guide to generating and managing security knowledge base entries for threat intelligence and incident response.
+
+## 📋 Table of Contents
+
+- [Overview](#overview)
+- [Quick Start](#quick-start)
+- [Knowledge Base Types](#knowledge-base-types)
+- [AI-Enhanced Content](#ai-enhanced-content)
+- [MITRE ATT&CK Integration](#mitre-attck-integration)
+- [Threat Intelligence](#threat-intelligence)
+- [Incident Response Playbooks](#incident-response-playbooks)
+- [Detection Rules Integration](#detection-rules-integration)
+- [Use Cases](#use-cases)
+- [Best Practices](#best-practices)
+- [Troubleshooting](#troubleshooting)
 
 ## Overview
 
-The Security Documents Generator creates comprehensive security knowledge documents specifically designed for Elastic AI Assistant integration. These documents use semantic text fields with ELSER v2 model and include AI-optimized suggested questions for enhanced security assistance.
+The knowledge base integration creates comprehensive security documentation including:
+
+- **Threat Intelligence**: IOC analysis, actor profiles, campaign documentation
+- **Incident Response**: Playbooks, procedures, and investigation guides
+- **Detection Guidance**: Rule documentation, tuning guides, and false positive analysis
+- **MITRE Mapping**: Technique descriptions, countermeasures, and detection strategies
+- **AI-Enhanced Content**: Contextual analysis and automated documentation
 
 ## Quick Start
 
 ### Basic Knowledge Base Generation
-
 ```bash
-# Generate 20 security knowledge documents
-yarn start generate-knowledge-base -n 20
+# Generate mixed knowledge base entries
+yarn start generate-knowledge-base --count 25
 
-# Generate with MITRE ATT&CK integration
-yarn start generate-knowledge-base -n 15 --mitre
+# Generate threat intelligence entries
+yarn start generate-knowledge-base --count 15 --type threat-intel
 
-# Generate specific security categories
-yarn start generate-knowledge-base -n 25 --categories threat_intelligence,incident_response
-
-# High-confidence public documents
-yarn start generate-knowledge-base -n 30 --access-level public --confidence-threshold 0.8
+# Generate AI-enhanced entries
+yarn start generate-knowledge-base --count 20 --ai
 ```
 
-### Cleanup
-
+### Advanced Knowledge Base Generation
 ```bash
-# Delete knowledge base documents
-yarn start delete-knowledge-base
+# Generate MITRE-mapped knowledge entries
+yarn start generate-knowledge-base --count 30 --mitre --type all
 
-# Delete from specific namespace
-yarn start delete-knowledge-base --namespace production
+# Generate incident response playbooks
+yarn start generate-knowledge-base --count 10 --type playbooks --ai
+
+# Generate themed security documentation
+yarn start generate-knowledge-base --theme corporate --count 40 --comprehensive
 ```
 
-## Knowledge Base Categories
+## Knowledge Base Types
 
-### Core Security Domains
+### 1. **Threat Intelligence**
+Comprehensive threat actor and campaign documentation:
 
-| Category | Subcategories | Description |
-|----------|---------------|-------------|
-| **`threat_intelligence`** | `ioc_analysis`, `apt_profiles`, `campaign_tracking`, `attribution` | IOC analysis, APT profiles, campaign tracking, threat attribution |
-| **`incident_response`** | `playbooks`, `procedures`, `escalation_matrix`, `communication` | IR playbooks, procedures, escalation matrices, communication templates |
-| **`vulnerability_management`** | `cve_analysis`, `patch_management`, `assessment_reports` | CVE analysis, patch management, vulnerability assessment reports |
-| **`network_security`** | `firewall_rules`, `ids_signatures`, `traffic_analysis`, `dns_security` | Firewall rules, IDS signatures, traffic analysis, DNS security |
-| **`endpoint_security`** | `edr_rules`, `behavioral_patterns`, `process_monitoring` | EDR rules, behavioral patterns, process monitoring |
-| **`cloud_security`** | `aws_security`, `azure_security`, `gcp_security`, `container_security` | Cloud provider security, container monitoring, serverless analytics |
-| **`compliance`** | `pci_dss`, `sox`, `gdpr`, `hipaa`, `iso27001` | Compliance frameworks and audit procedures |
-| **`forensics`** | `memory_analysis`, `disk_forensics`, `network_forensics`, `timeline_analysis` | Digital forensics analysis and procedures |
-| **`malware_analysis`** | `static_analysis`, `dynamic_analysis`, `reverse_engineering`, `sandbox_reports` | Malware analysis techniques and reports |
-| **`behavioral_analytics`** | `user_analytics`, `entity_analytics`, `anomaly_detection` | User and entity behavior analysis |
+**Generated Content:**
+- **Actor Profiles**: APT groups, cybercriminal organizations, insider threats
+- **Campaign Analysis**: Attack methodologies, tools, and infrastructure
+- **IOC Documentation**: Indicators of compromise with context and attribution
+- **Threat Landscape**: Current threats, trends, and emerging techniques
 
-## Document Schema
-
-### Core Document Fields
-
+**Example Entry:**
 ```json
 {
-  "@timestamp": "2024-12-27T14:30:00.000Z",
-  "content": "# IOC Analysis\n\nThis analysis covers newly identified indicators...",
-  "title": "IOC Analysis: MALWARE-7426",
-  "summary": "IOC analysis for threat campaign with 15 indicators identified",
-  "suggested_questions": [
-    "What IOCs should we immediately block in our environment?",
-    "How confident are we in the attribution of this threat?",
-    "What detection rules should we create based on these indicators?"
-  ],
-  "category": "threat_intelligence",
-  "subcategory": "ioc_analysis",
-  "tags": ["security", "threat", "analysis", "ioc", "malware"],
-  "source": "internal",
-  "confidence": 0.87,
-  "language": "en",
-  "version": "2.1",
-  "last_updated": "2024-12-27T14:30:00.000Z",
-  "author": "Security Analyst",
-  "access_level": "team"
-}
-```
-
-### Security Classification
-
-```json
-{
-  "security": {
-    "domain": "cybersecurity",
-    "classification": "internal",
-    "severity": "high",
-    "tlp": "amber"
+  "title": "APT29 - Cozy Bear Threat Actor Profile",
+  "type": "threat_actor",
+  "description": "Advanced persistent threat group attributed to Russian intelligence services",
+  "content": {
+    "motivation": "Intelligence gathering, political espionage",
+    "sophistication": "High",
+    "targets": ["Government", "Healthcare", "Technology"],
+    "techniques": ["T1566.001", "T1055", "T1021.001"],
+    "tools": ["Cobalt Strike", "PowerShell Empire", "Custom backdoors"],
+    "attribution_confidence": "High"
   }
 }
 ```
 
-### MITRE ATT&CK Integration
+### 2. **Incident Response Playbooks**
+Structured response procedures for security incidents:
+
+**Generated Playbooks:**
+- **Malware Incident**: Detection, containment, eradication, recovery
+- **Data Breach**: Notification, forensics, legal compliance, remediation
+- **Phishing Campaign**: Email analysis, user education, infrastructure blocking
+- **Insider Threat**: Investigation, evidence preservation, disciplinary actions
+
+**Example Playbook:**
+```json
+{
+  "title": "Ransomware Incident Response Playbook",
+  "type": "incident_playbook",
+  "severity": "Critical",
+  "steps": [
+    {
+      "phase": "Detection",
+      "actions": ["Identify affected systems", "Isolate infected hosts", "Preserve evidence"]
+    },
+    {
+      "phase": "Containment",
+      "actions": ["Network segmentation", "Disable user accounts", "Block C2 communications"]
+    },
+    {
+      "phase": "Eradication",
+      "actions": ["Remove malware", "Patch vulnerabilities", "Reset credentials"]
+    }
+  ]
+}
+```
+
+### 3. **Detection Rules Documentation**
+Comprehensive documentation for security detection rules:
+
+**Generated Documentation:**
+- **Rule Descriptions**: Technical details and detection logic
+- **Tuning Guides**: Threshold optimization and false positive reduction
+- **Investigation Procedures**: Step-by-step analysis workflows
+- **Use Case Scenarios**: When and how to apply specific rules
+
+### 4. **MITRE ATT&CK Analysis**
+Detailed analysis of attack techniques and countermeasures:
+
+**Generated Analysis:**
+- **Technique Descriptions**: Detailed breakdown of attack methods
+- **Detection Strategies**: Multiple approaches to identify techniques
+- **Mitigation Guidance**: Preventive and protective measures
+- **Real-World Examples**: Case studies and attack scenarios
+
+## AI-Enhanced Content
+
+### Contextual Analysis
+AI generates detailed contextual information:
+
+```bash
+# AI-enhanced threat intelligence
+yarn start generate-knowledge-base --count 15 --ai --type threat-intel
+
+# Detailed technical analysis
+yarn start generate-knowledge-base --count 20 --ai --technical-depth advanced
+```
+
+**AI-Generated Content:**
+- **Threat Context**: Current threat landscape and emerging risks
+- **Technical Analysis**: Deep-dive technical explanations
+- **Impact Assessment**: Business impact and risk analysis
+- **Countermeasures**: Detailed defensive recommendations
+
+### Investigation Guides
+AI creates step-by-step investigation procedures:
 
 ```json
 {
-  "mitre": {
-    "technique_ids": ["T1055", "T1027", "T1082"],
-    "tactic_ids": ["TA0005", "TA0007", "TA0011"],
-    "framework": "MITRE ATT&CK"
+  "investigation_guide": {
+    "title": "PowerShell Execution Investigation",
+    "steps": [
+      {
+        "step": 1,
+        "description": "Examine PowerShell command line arguments",
+        "queries": ["process.name:powershell.exe", "process.command_line:*"],
+        "indicators": ["Base64 encoded content", "Obfuscated scripts", "Remote execution"]
+      },
+      {
+        "step": 2,
+        "description": "Check parent process context",
+        "queries": ["process.parent.name:*"],
+        "red_flags": ["Unexpected parent processes", "Service account execution"]
+      }
+    ]
   }
 }
 ```
 
-## Elastic AI Assistant Configuration
+### Automated Documentation
+AI generates comprehensive documentation automatically:
 
-### 1. Index Configuration
+- **Executive Summaries**: High-level overviews for management
+- **Technical Details**: In-depth technical analysis for security teams
+- **Remediation Plans**: Step-by-step resolution procedures
+- **Lessons Learned**: Post-incident analysis and improvements
 
-**Index Pattern:** `knowledge-base-security-*`
+## MITRE ATT&CK Integration
 
-**Semantic Text Field:** `content` (uses ELSER v2 model)
-
-### 2. AI Assistant Setup
-
-1. Navigate to **Security → AI Assistant → Knowledge Base**
-2. Click **"Add Knowledge Base"**
-3. Configure the knowledge source:
-   - **Name:** Security Knowledge Base
-   - **Index Pattern:** `knowledge-base-security-*`
-   - **Semantic Text Field:** `content`
-   - **Data Description:** "Security knowledge documents including threat intelligence, incident response procedures, vulnerability analysis, and security best practices with AI-optimized suggested questions"
-   - **Query Instructions:** "Search for security procedures, threat analysis, IOCs, CVE information, and incident response guidance. Use suggested_questions field for enhanced AI interactions"
-
-### 3. Field Mapping
-
-| AI Assistant Field | Knowledge Base Field | Purpose |
-|-------------------|---------------------|---------|
-| **Content** | `content` | Main semantic text field for AI processing |
-| **Title** | `title` | Document identification |
-| **Summary** | `summary` | Quick reference and context |
-| **Category** | `category` | Primary security domain filtering |
-| **Tags** | `tags` | Enhanced searchability |
-| **Questions** | `suggested_questions` | AI interaction optimization |
-
-## Command Line Options
-
-### Generation Options
-
-| Option | Description | Example |
-|--------|-------------|---------|
-| `-n <count>` | Number of documents to generate | `-n 25` |
-| `--categories <list>` | Specific security categories | `--categories threat_intelligence,incident_response` |
-| `--access-level <level>` | Filter by access level | `--access-level public` |
-| `--confidence-threshold <float>` | Minimum confidence score | `--confidence-threshold 0.8` |
-| `--mitre` | Include MITRE ATT&CK mappings | `--mitre` |
-| `--namespace <namespace>` | Custom index namespace | `--namespace production` |
-| `--space <space>` | Target Kibana space | `--space security-team` |
-
-### Example Commands
+### Technique Documentation
+Generate comprehensive MITRE technique documentation:
 
 ```bash
-# Basic generation
-yarn start generate-knowledge-base -n 20
+# MITRE technique analysis
+yarn start generate-knowledge-base --count 25 --mitre --type techniques
 
-# Category-specific generation
-yarn start generate-knowledge-base -n 15 --categories threat_intelligence,incident_response,malware_analysis
-
-# High-quality public documentation
-yarn start generate-knowledge-base -n 25 --access-level public --confidence-threshold 0.9
-
-# MITRE ATT&CK integrated knowledge base
-yarn start generate-knowledge-base -n 30 --mitre --categories threat_intelligence,endpoint_security
-
-# Multi-environment knowledge base
-yarn start generate-knowledge-base -n 50 --namespace production --space soc-team
-
-# Cleanup
-yarn start delete-knowledge-base --namespace production
+# Complete tactic coverage
+yarn start generate-knowledge-base --count 50 --mitre --tactics all
 ```
 
-## AI-Optimized Suggested Questions
+**Generated Documentation:**
+- **Technique Analysis**: Detailed breakdown of attack methods
+- **Sub-Technique Coverage**: Comprehensive sub-technique documentation
+- **Detection Mappings**: Multiple detection approaches per technique
+- **Mitigation Strategies**: Preventive and detective controls
 
-Each knowledge base document includes category-specific suggested questions designed to enhance AI Assistant interactions:
+### Attack Chain Documentation
+Document complete attack progressions:
 
-### Threat Intelligence Questions
-
-- "What IOCs should we immediately block in our environment?"
-- "How confident are we in the attribution of this threat?"
-- "What detection rules should we create based on these indicators?"
-- "Are there any false positive risks with these IOCs?"
-- "What hunting queries can we run to find related activity?"
-
-### Incident Response Questions
-
-- "What are the key decision points in this incident response process?"
-- "How do we customize this playbook for our environment?"
-- "What tools and resources are required for each phase?"
-- "Who should be contacted first in different incident scenarios?"
-- "What communication templates should we prepare in advance?"
-
-### Vulnerability Management Questions
-
-- "What is the exploitability of this vulnerability in our environment?"
-- "What systems in our infrastructure are affected by this CVE?"
-- "What is the recommended patching timeline for this vulnerability?"
-- "Are there effective workarounds while patching is in progress?"
-- "How should we prioritize this vulnerability against others?"
-
-### Network Security Questions
-
-- "How do these firewall rules impact legitimate business traffic?"
-- "What is the false positive rate expected for these signatures?"
-- "What patterns in this traffic analysis indicate potential threats?"
-- "How can we automate the detection of similar traffic patterns?"
-
-## Generated Content Examples
-
-### IOC Analysis Document
-
-```markdown
-# Indicator of Compromise Analysis
-
-## Executive Summary
-This analysis covers newly identified indicators associated with APT29 campaign targeting healthcare infrastructure.
-
-## IOC Details
-- **Hash**: 7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730
-- **IP Address**: 192.168.1.100
-- **Domain**: malicious-domain.com
-- **File Path**: C:\Windows\System32\drivers\malware.sys
-
-## Analysis
-The malware sample exhibits sophisticated behavior patterns consistent with APT operations.
-Network communications indicate C2 infrastructure hosted on compromised domains.
-
-## Recommendations
-1. Block identified IOCs at network perimeter
-2. Hunt for similar patterns in environment
-3. Update detection rules with new signatures
-4. Monitor for lateral movement indicators
-
-## Attribution
-Likely associated with APT29 group based on TTPs and infrastructure overlap.
+```json
+{
+  "attack_chain": {
+    "name": "APT Lateral Movement Chain",
+    "phases": [
+      {
+        "phase": "Initial Access",
+        "technique": "T1566.001",
+        "description": "Spearphishing attachment with malicious document"
+      },
+      {
+        "phase": "Execution",
+        "technique": "T1059.001",
+        "description": "PowerShell script execution for payload deployment"
+      },
+      {
+        "phase": "Persistence",
+        "technique": "T1053.005",
+        "description": "Scheduled task creation for persistence"
+      }
+    ]
+  }
+}
 ```
 
-### Incident Response Playbook
+## Threat Intelligence
 
-```markdown
-# Incident Response Playbook
-
-## Incident Type: Ransomware Security Incident
-
-### Phase 1: Preparation
-- [ ] IR team notification
-- [ ] Evidence preservation
-- [ ] Stakeholder communication
-- [ ] Legal/compliance notification
-
-### Phase 2: Identification
-**Detection Sources:**
-- SIEM alerts
-- EDR notifications
-- User reports
-- Threat intelligence feeds
-
-### Phase 3: Containment
-**Short-term Containment:**
-- Isolate affected systems
-- Disable compromised accounts
-- Block malicious network traffic
-- Preserve evidence
-
-### Escalation Matrix
-- **L1**: John Smith - +1-555-0101
-- **L2**: Jane Doe - +1-555-0102
-- **Management**: Bob Johnson - +1-555-0103
-```
-
-## Console Output Features
-
-### Rich Information Display
-
-The knowledge base generator provides comprehensive console output showing:
-
-- **Document Titles**: Full titles for each generated document
-- **Confidence Indicators**: 🔥 (>0.9), ✅ (>0.8), ⚡ (>0.7), 📝 (<0.7)
-- **Access Level Icons**: 🌍 (public), 👥 (team), 🏢 (organization), 🔒 (restricted)
-- **Category Breakdown**: Statistics by security domain
-- **Suggested Questions**: AI-optimized questions for each document
-
-### Example Output
-
-```
-🧠 Generating 15 Knowledge Base documents...
-📚 Categories: threat_intelligence, incident_response
-🔐 Access Level: mixed
-🎯 MITRE ATT&CK Integration: enabled
-
-✅ Successfully created 15 Knowledge Base documents in index: knowledge-base-security-default
-
-📋 Generated Knowledge Base Documents:
-  1. 🔥 👥 [threat_intelligence/ioc_analysis] IOC Analysis: MALWARE-7426
-     💬 Suggested AI Assistant Questions:
-        1. What IOCs should we immediately block in our environment?
-        2. How confident are we in the attribution of this threat?
-        3. What detection rules should we create based on these indicators?
-        ... and 3 more questions
-
-  2. ✅ 🏢 [incident_response/playbooks] IR Playbook: Ransomware Incident Response
-     💬 Suggested AI Assistant Questions:
-        1. What are the key decision points in this incident response process?
-        2. How do we customize this playbook for our environment?
-        3. What tools and resources are required for each phase?
-        ... and 3 more questions
-
-📊 Category Breakdown:
-  • threat_intelligence/ioc_analysis: 8 documents
-  • incident_response/playbooks: 7 documents
-
-🔐 Access Level Distribution:
-  👥 team: 9 documents
-  🏢 organization: 6 documents
-
-🎯 MITRE ATT&CK Integration: 15/15 documents
-  • Techniques covered: 42
-
-🔍 Query in Kibana: index:"knowledge-base-security-default"
-🧠 AI Assistant: Documents are ready for knowledge base integration
-```
-
-## Kibana Queries
-
-### Basic Searches
-
-```kql
-# Find threat intelligence documents
-category: "threat_intelligence" AND confidence > 0.8
-
-# Search by MITRE technique
-mitre.technique_ids: "T1055" OR mitre.technique_ids: "T1190"
-
-# High-value security knowledge
-security.severity: "high" OR security.severity: "critical" AND access_level: "organization"
-
-# Recent incident response procedures
-category: "incident_response" AND last_updated > now-30d
-
-# Documents with suggested questions
-_exists_:suggested_questions AND confidence > 0.7
-
-# Filter by TLP level
-security.tlp: "green" OR security.tlp: "white"
-```
-
-### Aggregations
+### IOC Management
+Comprehensive indicator documentation and management:
 
 ```bash
-# Category distribution
-curl -u "user:pass" "https://your-cluster/knowledge-base-security-default/_search?size=0&aggs=categories:{terms:{field:category}}"
+# Generate IOC documentation
+yarn start generate-knowledge-base --count 30 --type iocs --comprehensive
 
-# Confidence score distribution
-curl -u "user:pass" "https://your-cluster/knowledge-base-security-default/_search?size=0&aggs=confidence_buckets:{histogram:{field:confidence,interval:0.1}}"
+# Threat actor IOC attribution
+yarn start generate-knowledge-base --count 20 --type iocs --attribution
+```
 
-# MITRE technique coverage
-curl -u "user:pass" "https://your-cluster/knowledge-base-security-default/_search?size=0&aggs=mitre_techniques:{terms:{field:mitre.technique_ids,size:100}}"
+**IOC Documentation:**
+- **Indicator Context**: Source, confidence, and attribution
+- **Related Campaigns**: Associated threat actors and operations
+- **Detection Guidance**: How to detect and hunt for indicators
+- **Lifecycle Management**: Aging, expiration, and relevance tracking
+
+### Campaign Tracking
+Document ongoing and historical threat campaigns:
+
+- **Campaign Profiles**: Objectives, tactics, and timeline
+- **Attribution Analysis**: Threat actor identification and confidence
+- **Infrastructure Mapping**: C2 servers, domains, and network indicators
+- **Evolution Tracking**: Campaign changes and adaptations over time
+
+## Incident Response Playbooks
+
+### Automated Playbook Generation
+Generate comprehensive incident response procedures:
+
+```bash
+# Generate incident response playbooks
+yarn start generate-knowledge-base --count 15 --type playbooks --ai
+
+# Specific incident types
+yarn start generate-knowledge-base --count 10 --type playbooks --incident-types malware,phishing,data_breach
+```
+
+### Playbook Components
+Each generated playbook includes:
+
+1. **Incident Classification**: Type, severity, and scope assessment
+2. **Initial Response**: Immediate containment and preservation steps
+3. **Investigation Procedures**: Evidence collection and analysis
+4. **Communication Plans**: Internal and external notification procedures
+5. **Recovery Steps**: System restoration and business continuity
+6. **Lessons Learned**: Post-incident review and improvement actions
+
+### Integration with Security Tools
+Playbooks include integration guidance for:
+
+- **SIEM Platforms**: Query examples and alert correlation
+- **EDR Tools**: Investigation procedures and response actions
+- **Threat Intelligence**: IOC enrichment and attribution analysis
+- **Communication Tools**: Notification templates and escalation procedures
+
+## Detection Rules Integration
+
+### Rule Documentation Generation
+Comprehensive documentation for detection rules:
+
+```bash
+# Generate rule documentation
+yarn start generate-knowledge-base --count 25 --type rule-docs --comprehensive
+
+# Link with existing rules
+yarn start generate-knowledge-base --count 20 --type rule-docs --link-rules
+```
+
+### Documentation Components
+- **Rule Purpose**: What the rule detects and why it's important
+- **Technical Details**: Query logic, thresholds, and conditions
+- **Tuning Guidance**: How to optimize for your environment
+- **Investigation Steps**: What to do when the rule triggers
+- **False Positive Analysis**: Common FP scenarios and mitigation
+
+## Use Cases
+
+### 1. **Security Team Training**
+Create comprehensive training materials:
+
+```bash
+# Training knowledge base
+yarn start generate-knowledge-base --count 40 --type training --ai --comprehensive
+
+# Progressive difficulty levels
+yarn start generate-knowledge-base --count 30 --type training --difficulty beginner,intermediate,advanced
+```
+
+### 2. **Compliance Documentation**
+Generate compliance and audit documentation:
+
+```bash
+# Compliance knowledge base
+yarn start generate-knowledge-base --count 35 --type compliance --frameworks SOC2,ISO27001,NIST
+
+# Audit preparation materials
+yarn start generate-knowledge-base --count 25 --type audit --comprehensive
+```
+
+### 3. **Threat Hunting**
+Create threat hunting guides and procedures:
+
+```bash
+# Threat hunting knowledge base
+yarn start generate-knowledge-base --count 30 --type hunting --mitre --ai
+
+# Hypothesis-driven hunting
+yarn start generate-knowledge-base --count 20 --type hunting --hypothesis-based
+```
+
+### 4. **Executive Reporting**
+Generate executive-level security documentation:
+
+```bash
+# Executive knowledge base
+yarn start generate-knowledge-base --count 15 --type executive --business-focus
+
+# Risk assessment documentation
+yarn start generate-knowledge-base --count 20 --type risk --impact-analysis
 ```
 
 ## Best Practices
 
-### Content Generation
+### Content Organization
+1. **Categorization**: Use clear categories and tags for easy retrieval
+2. **Version Control**: Track changes and updates to knowledge entries
+3. **Regular Updates**: Keep content current with threat landscape changes
+4. **Quality Assurance**: Review and validate generated content for accuracy
+5. **User Feedback**: Incorporate feedback from security team usage
 
-1. **Use Specific Categories**: Target specific security domains for focused knowledge bases
-2. **Set Confidence Thresholds**: Filter for high-quality content using `--confidence-threshold`
-3. **Leverage MITRE Integration**: Include `--mitre` for comprehensive threat intelligence mapping
-4. **Organize by Access Levels**: Use `--access-level` for proper information sharing
+### Knowledge Management
+1. **Search Optimization**: Use descriptive titles and comprehensive metadata
+2. **Cross-References**: Link related entries and create knowledge networks
+3. **Access Control**: Implement appropriate access controls for sensitive content
+4. **Backup Strategy**: Regular backup of knowledge base content
+5. **Migration Planning**: Plan for knowledge base platform changes
 
-### AI Assistant Integration
-
-1. **Configure Semantic Search**: Ensure ELSER v2 model is properly configured
-2. **Use Suggested Questions**: Leverage generated questions for enhanced AI interactions
-3. **Monitor Performance**: Track query performance and adjust field limits as needed
-4. **Regular Updates**: Refresh knowledge base content periodically
-
-### Index Management
-
-1. **Namespace Organization**: Use meaningful namespaces for multi-environment setups
-2. **Index Lifecycle**: Implement ILM policies for automated data management
-3. **Field Limits**: Monitor field count limits for optimal performance
-4. **Backup Strategy**: Regular backups of critical knowledge base content
+### Content Quality
+1. **Accuracy Validation**: Verify technical details and recommendations
+2. **Completeness Check**: Ensure all necessary information is included
+3. **Consistency**: Maintain consistent format and style across entries
+4. **Relevance Assessment**: Regularly review and update outdated content
+5. **Expert Review**: Have subject matter experts validate complex entries
 
 ## Troubleshooting
 
 ### Common Issues
 
-**Issue**: Documents not appearing in AI Assistant
-**Solution**: Verify semantic text field mapping and ELSER v2 configuration
+#### Content Quality Problems
+**Issue**: Generated content lacks accuracy or depth
+**Solutions**:
+- Use AI enhancement for detailed technical content
+- Specify expertise level and technical depth
+- Review and edit generated content before publication
+- Implement content validation workflows
 
-**Issue**: Low document quality
-**Solution**: Increase confidence threshold: `--confidence-threshold 0.8`
+#### Integration Challenges
+**Issue**: Difficulty integrating with existing knowledge management systems
+**Solutions**:
+- Export knowledge base in multiple formats
+- Use standardized metadata and tagging
+- Implement API integration for automated updates
+- Create migration procedures for content transfer
 
-**Issue**: Missing suggested questions
-**Solution**: Ensure the `suggested_questions` field is properly mapped in index template
+#### Performance Issues
+**Issue**: Slow knowledge base generation or retrieval
+**Solutions**:
+- Optimize database queries and indexing
+- Implement content caching strategies
+- Use batch processing for large content generation
+- Monitor system resources during generation
 
-**Issue**: MITRE data not included
-**Solution**: Add `--mitre` flag and verify MITRE ATT&CK data files are available
-
-### Performance Optimization
-
-- Use reasonable document counts (20-100) for initial testing
-- Monitor Elasticsearch cluster resources during large generations
-- Implement proper field mappings for optimal search performance
-- Consider index sharding for very large knowledge bases
-
-## Integration Examples
-
-### SOC Analyst Workflow
-
+### Debug and Monitoring
 ```bash
-# Generate comprehensive SOC knowledge base
-yarn start generate-knowledge-base -n 50 \
-  --categories threat_intelligence,incident_response,behavioral_analytics \
-  --access-level team \
-  --mitre \
-  --confidence-threshold 0.7
+# Debug knowledge base generation
+yarn start generate-knowledge-base --count 5 --debug --verbose
 
-# Query for specific threat intelligence
-curl -X GET "localhost:9200/knowledge-base-security-default/_search" \
-  -H 'Content-Type: application/json' \
-  -d'{"query": {"bool": {"must": [{"term": {"category": "threat_intelligence"}}, {"range": {"confidence": {"gte": 0.8}}}]}}}'
+# Monitor content quality
+yarn start validate-knowledge-base --quality-check --comprehensive
+
+# Performance monitoring
+yarn start monitor-knowledge-base --performance-metrics
 ```
 
-### Threat Hunting Team Setup
+## Advanced Features
 
-```bash
-# Generate threat hunting knowledge base
-yarn start generate-knowledge-base -n 30 \
-  --categories malware_analysis,forensics,endpoint_security \
-  --mitre \
-  --access-level organization \
-  --namespace threat-hunting
+### Custom Knowledge Templates
+Create organization-specific knowledge templates:
 
-# Configure for advanced hunting scenarios
-# Documents include MITRE ATT&CK mappings and forensics procedures
-```
-
-### Compliance Team Documentation
-
-```bash
-# Generate compliance-focused knowledge base
-yarn start generate-knowledge-base -n 25 \
-  --categories compliance,vulnerability_management \
-  --access-level organization \
-  --confidence-threshold 0.9 \
-  --namespace compliance-team
-
-# High-confidence documents for audit and compliance purposes
-```
-
-## API Reference
-
-### Knowledge Base Document Structure
-
-```typescript
-interface KnowledgeBaseDocument {
-  '@timestamp': string;
-  content: string;              // Semantic text field
-  title: string;
-  summary: string;
-  suggested_questions: string[];
-  category: string;
-  subcategory: string;
-  tags: string[];
-  source: string;
-  confidence: number;           // 0.6-1.0
-  language: string;
-  version: string;
-  last_updated: string;
-  author: string;
-  access_level: string;
-  security: {
-    domain: string;
-    classification: string;
-    severity: string;
-    tlp: string;
-  };
-  mitre?: {                     // Optional MITRE integration
-    technique_ids: string[];
-    tactic_ids: string[];
-    framework: string;
-  };
+```json
+{
+  "custom_templates": {
+    "organizational_playbook": {
+      "sections": ["Overview", "Responsibilities", "Procedures", "Escalation"],
+      "required_fields": ["incident_type", "severity", "owner"],
+      "approval_workflow": true
+    }
+  }
 }
 ```
 
-### Command Line Interface
+### Knowledge Base Analytics
+Track usage and effectiveness:
 
-```typescript
-interface KnowledgeBaseOptions {
-  count: number;
-  includeMitre?: boolean;
-  namespace?: string;
-  space?: string;
-  categories?: string[];
-  accessLevel?: 'public' | 'team' | 'organization' | 'restricted';
-  confidenceThreshold?: number;
-}
+- **Content Usage**: Most accessed entries and search patterns
+- **User Feedback**: Ratings and improvement suggestions
+- **Knowledge Gaps**: Identify missing content areas
+- **Performance Metrics**: Response time and system efficiency
+
+### Integration APIs
+Integrate with external systems:
+
+```bash
+# Export to external knowledge management systems
+yarn start export-knowledge-base --format json,xml,markdown --destination external-kb
+
+# Sync with threat intelligence platforms
+yarn start sync-knowledge-base --platform ThreatConnect,MISP --bidirectional
 ```
 
-## Related Documentation
+---
 
-- [Kibana Cloud Integration](kibana-cloud-integration.md) - Main integration guide
-- [MITRE ATT&CK Integration](mitre-attack.md) - MITRE framework details
-- [AI Integration](ai-integration.md) - AI provider configuration
-- [Use Cases Guide](use-cases-guide.md) - Practical implementation examples
+*Ready to build a comprehensive security knowledge base? Start with `yarn start generate-knowledge-base --count 25 --ai --mitre` for a complete knowledge management foundation!*

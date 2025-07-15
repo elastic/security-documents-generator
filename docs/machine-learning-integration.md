@@ -23,29 +23,8 @@ The ML integration provides complete anomaly detection capabilities by generatin
 - **Realistic Anomaly Injection** with production-like rates (0.02%-0.08%)
 - **Context-Aware Field Generation** specific to security domains
 - **Complete ML Workflow** from data generation to rule creation
-- **🎨 Theme Integration** with 19 supported themes for realistic entity names
-- **🖥️ MCP Server Integration** for conversational ML generation via Claude Desktop
-- **🔧 Consistent CLI Interface** aligned with repository patterns
-
-### Recent Enhancements
-
-The ML functionality has been significantly enhanced to align with existing repository patterns:
-
-#### **Theme Integration**
-- **Full theme support** using the existing theme service infrastructure
-- **19 supported themes** including Marvel, Star Wars, NBA, tech companies, etc.
-- **Context-aware themed entities** while maintaining anomaly detection patterns
-- **Consistent theming** across all security data generation types
-
-#### **CLI Consistency** 
-- **Standard options added**: `--claude`, `--mitre`, `--multi-field`
-- **Aligned interface** with existing commands across the repository
-- **Enhanced user experience** with familiar option patterns
-
-#### **MCP Server Integration**
-- **Conversational ML generation** through Claude Desktop integration
-- **Complete parameter support** for all ML functionality
-- **Multi-environment deployment** capabilities through MCP interface
+- **Theme Integration** with 19 supported themes for realistic entity names
+- **Consistent CLI Interface** aligned with repository patterns
 
 ## Quick Start
 
@@ -69,7 +48,7 @@ yarn start generate-ml-data --modules security_auth,security_windows --enable-jo
 # Generate ML-enhanced detection rules with theme consistency
 yarn start rules -r 10 -t machine_learning --generate-ml-data --ml-modules security_auth,security_windows --theme starwars
 
-# Use new standard CLI options
+# Use standard CLI options
 yarn start generate-ml-data --modules security_auth --claude --mitre --multi-field --theme nba
 ```
 
@@ -83,12 +62,12 @@ yarn start generate-ml-data --modules security_auth,security_linux,security_wind
 
 ### Realistic Themed ML Data
 
-The ML integration now supports the full theme system used across the repository, providing realistic and memorable entity names while maintaining accurate anomaly detection patterns.
+The ML integration supports the full theme system used across the repository, providing realistic and memorable entity names while maintaining accurate anomaly detection patterns.
 
 #### **Supported Themes**
 
 **Themes with Fallback Data (Reliable):**
-- `nba` - Basketball players and teams  
+- `nba` - Basketball players and teams
 - `soccer` - Soccer players and teams
 - `marvel` - Marvel superheroes and universe
 - `starwars` - Star Wars characters and universe
@@ -111,7 +90,7 @@ yarn start generate-ml-data --modules security_windows,security_linux --theme st
 # Result: Users like luke.skywalker@rebels.org, vader@empire.gov
 #         Hosts like tatooine-web-01, death-star-db-03
 
-# Tech companies for realistic corporate scenarios  
+# Tech companies for realistic corporate scenarios
 yarn start generate-ml-data --modules security_cloudtrail,security_network --theme tech_companies
 # Result: Users like tim.cook@apple.com, satya.nadella@microsoft.com
 #         Domains like apple.com, google.com, github.com
@@ -129,25 +108,6 @@ yarn start generate-ml-data --modules security_cloudtrail,security_network --the
 - **Consistent Test Data**: Same theme across ML development, staging, and testing
 - **Easy Identification**: Quickly distinguish themed test data from production
 - **Team Alignment**: Shared vocabulary across security and development teams
-
-#### **Technical Implementation**
-
-The theme integration leverages the existing sophisticated theme service:
-
-```bash
-# Theme fetching during ML generation
-🎨 Fetching themed data for theme: marvel
-🎨 Using themed data: usernames, hostnames, processNames, domains
-
-# Generated ML data maintains anomaly patterns while using themed entities
-✅ Generated 40,000 documents with themed entities
-🚨 Total anomalies: 22 (0.055% rate maintained)
-```
-
-**Context-Aware Field Generation:**
-- **Normal Values**: Use themed entities (tony.stark, spider-web-01)
-- **Anomalous Values**: Mix themed and suspicious patterns for realistic detection
-- **Domain Intelligence**: Themed domains for normal activity, suspicious TLDs for anomalies
 
 ## ML Security Modules
 
@@ -325,102 +285,6 @@ Each ML job includes:
 }
 ```
 
-## 🖥️ MCP Server Integration
-
-### Conversational ML Generation via Claude Desktop
-
-The ML functionality is fully integrated with the MCP (Model Context Protocol) server, enabling conversational ML data generation through Claude Desktop.
-
-#### **Setup**
-
-1. **Start MCP Server:**
-```bash
-yarn mcp
-```
-
-2. **Configure Claude Desktop:**
-Add to your Claude Desktop configuration:
-```json
-{
-  "mcpServers": {
-    "security-docs-generator": {
-      "command": "node",
-      "args": ["dist/mcp_server.js"]
-    }
-  }
-}
-```
-
-#### **Conversational ML Generation**
-
-**Natural Language Commands:**
-```text
-Generate ML anomaly data for authentication and Windows modules using Marvel theme across 3 environments
-
-Create ML jobs for security_auth and security_linux modules with NBA theme and enable job creation
-
-Generate comprehensive ML training data for all 6 security modules with Star Wars theme for SOC training
-```
-
-**Available Parameters:**
-- **modules**: Security modules to process
-- **jobIds**: Specific ML job IDs 
-- **theme**: Applied theme for entity generation
-- **enableJobs**: Create ML jobs in Elasticsearch
-- **namespace**: Custom namespace for indices
-- **environments**: Multi-environment generation
-- **chunkSize**: Performance optimization
-- **aiEnhanced**: Enhanced AI patterns (future)
-
-#### **MCP Tool: `generate_ml_anomaly_data`**
-
-**Example MCP Usage:**
-```json
-{
-  "modules": ["security_auth", "security_windows"],
-  "theme": "marvel", 
-  "enableJobs": true,
-  "environments": 3,
-  "chunkSize": 2000
-}
-```
-
-**Response Format:**
-```text
-🤖 Successfully generated ML anomaly data!
-
-📊 ML Generation Summary:
-• Modules: security_auth, security_windows
-• Theme: marvel
-• ML Jobs Created: Yes
-• Environments: 3 across marvel-env-001 to marvel-env-003
-• Chunk Size: 2000
-
-✅ Generated realistic ML training data with anomaly patterns
-✅ Context-aware field generation for security domains
-✅ Applied marvel theme for consistent entity naming
-✅ Created and started ML jobs in Elasticsearch
-
-🎯 Next steps:
-1. Check ML indices in Kibana: test_* pattern
-2. View ML jobs in Kibana Machine Learning interface
-3. Run detection rules with ML integration for complete workflow
-```
-
-#### **Benefits of MCP Integration**
-
-**Conversational Interface:**
-- **Natural language** ML data generation requests
-- **Parameter guidance** through Claude's understanding
-- **Complex scenarios** described in plain English
-- **Immediate feedback** on generation results
-
-**Enterprise Workflow:**
-- **Team collaboration** through shared Claude Desktop interface
-- **Documentation generation** of ML scenarios for reports
-- **Training scenario creation** through conversation
-- **Multi-environment deployment** via natural language commands
-
 ## ML-Enhanced Detection Rules
 
 ### Integration with Detection Rules
@@ -458,7 +322,7 @@ yarn start rules -r 10 -t machine_learning --generate-ml-data --ml-modules secur
 
 # Ensures ML rules only reference:
 # - v3_windows_anomalous_process_creation
-# - v3_windows_rare_user_runas_event  
+# - v3_windows_rare_user_runas_event
 # - v3_windows_anomalous_script
 # - v3_linux_anomalous_user_name
 # - v3_linux_rare_sudo_user

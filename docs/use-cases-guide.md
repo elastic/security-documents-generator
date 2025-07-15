@@ -1,419 +1,477 @@
-# Security Documents Generator - Common Use Cases Guide
+# 🎯 Use Cases Guide
 
-This comprehensive guide covers the most common use cases for the Security Documents Generator, including enterprise-scale multi-environment scenarios with advanced multi-field generation capabilities.
+Comprehensive guide to implementing the Security Documents Generator across various organizational scenarios and security use cases.
 
-## 📖 Table of Contents
+## 📋 Table of Contents
 
-1. [Quick Start Examples](#quick-start-examples)
-2. [Detection Rules Generation](#detection-rules-generation)
-3. [Enterprise Multi-Environment Scenarios](#enterprise-multi-environment-scenarios)
-4. [Campaign Generation Use Cases](#campaign-generation-use-cases)
-5. [High-Density Multi-Field Generation](#high-density-multi-field-generation)
-6. [SIEM Testing & Validation](#siem-testing--validation)
-7. [Performance & Load Testing](#performance--load-testing)
-8. [Compliance & Audit Scenarios](#compliance--audit-scenarios)
-9. [SOC Training & Red Team Exercises](#soc-training--red-team-exercises)
+- [Overview](#overview)
+- [SOC Operations](#soc-operations)
+- [Security Training](#security-training)
+- [Detection Engineering](#detection-engineering)
+- [Incident Response](#incident-response)
+- [Compliance and Auditing](#compliance-and-auditing)
+- [Research and Development](#research-and-development)
+- [Enterprise Deployments](#enterprise-deployments)
+- [Implementation Roadmaps](#implementation-roadmaps)
+- [Success Metrics](#success-metrics)
+
+## Overview
+
+The Security Documents Generator supports a wide range of security use cases, from SOC training to enterprise-scale security testing. This guide provides practical implementation strategies and real-world examples for each major use case category.
+
+## SOC Operations
+
+### 1. **Alert Triage Training**
+Train SOC analysts on effective alert triage and investigation procedures.
+
+**Implementation:**
+```bash
+# Progressive difficulty training
+yarn start generate-alerts --count 30 --false-positive-rate 0.7 --difficulty beginner
+yarn start generate-alerts --count 50 --false-positive-rate 0.4 --difficulty intermediate
+yarn start generate-alerts --count 75 --false-positive-rate 0.2 --difficulty advanced
+
+# Realistic business environment simulation
+yarn start generate-alerts --theme corporate --count 100 --false-positive-rate 0.3
+```
+
+**Training Objectives:**
+- Distinguish between true positives and false positives
+- Understand business context and normal operations
+- Develop efficient triage workflows
+- Practice escalation procedures
+
+**Success Metrics:**
+- Reduction in false positive escalations (target: <10%)
+- Improved mean time to triage (target: <15 minutes)
+- Increased analyst confidence scores
+- Better incident categorization accuracy
+
+### 2. **Incident Investigation Workflows**
+Develop and practice systematic incident investigation procedures.
+
+**Implementation:**
+```bash
+# Generate complex attack scenarios
+yarn start generate-campaign apt --realistic --mitre --count 200 --session-view
+
+# Create investigation datasets
+yarn start generate-alerts --count 100 --ai --investigation-guides --comprehensive
+```
+
+**Key Features:**
+- **Session View Integration**: Process hierarchies for investigation
+- **MITRE Mapping**: Technique attribution for threat hunting
+- **AI Investigation Guides**: Step-by-step analysis procedures
+- **Correlated Evidence**: Linked logs and alerts for complete picture
+
+### 3. **Performance Testing**
+Validate SOC processes and tools under realistic load conditions.
+
+**Implementation:**
+```bash
+# High-volume alert simulation
+yarn start generate-alerts --count 1000 --performance-test --realistic
+
+# Sustained load testing
+yarn start generate-alerts --count 500 --batch-size 25 --continuous-mode
+```
+
+**Testing Scenarios:**
+- Peak hour simulation with realistic alert volumes
+- Alert fatigue scenarios with high false positive rates
+- Tool performance under stress conditions
+- Analyst workload capacity assessment
+
+## Security Training
+
+### 1. **Analyst Skill Development**
+Comprehensive training programs for security analysts at all levels.
+
+**Beginner Training:**
+```bash
+# Basic threat identification
+yarn start generate-alerts --count 25 --mitre --training-mode basic
+yarn start generate-campaign phishing --simple --count 50
+
+# Clear attack patterns
+yarn start generate-alerts --count 40 --false-positive-rate 0.6 --obvious-indicators
+```
+
+**Intermediate Training:**
+```bash
+# Complex attack scenarios
+yarn start generate-campaign apt --realistic --mitre --count 150
+yarn start generate-alerts --count 75 --ai --investigation-required
+
+# Multi-stage investigations
+yarn start generate-campaign insider --realistic --count 100
+```
+
+**Advanced Training:**
+```bash
+# Sophisticated threat simulation
+yarn start generate-campaign supply_chain --realistic --mitre --count 200
+yarn start generate-alerts --count 100 --false-positive-rate 0.1 --advanced-evasion
+```
+
+### 2. **Executive Security Awareness**
+Generate data and scenarios for executive-level security briefings.
+
+**Implementation:**
+```bash
+# Business impact scenarios
+yarn start generate-campaign ransomware --business-impact --executive-summary
+
+# Risk assessment data
+yarn start generate-alerts --count 50 --risk-focus --business-context
+```
+
+### 3. **Vendor and Partner Training**
+Create training materials for external security partners.
+
+**Implementation:**
+```bash
+# Sanitized training data
+yarn start generate-alerts --count 100 --sanitized --training-safe
+
+# Partner-specific scenarios
+yarn start generate-campaign apt --partner-training --mitre --count 150
+```
+
+## Detection Engineering
+
+### 1. **Rule Development and Testing**
+Develop, test, and tune detection rules systematically.
+
+**Rule Development Cycle:**
+```bash
+# 1. Generate baseline data
+yarn start generate-logs --count 5000 --baseline --comprehensive
+
+# 2. Create rule test data
+yarn start generate-alerts --count 200 --rule-testing --technique-specific
+
+# 3. Test rule effectiveness
+yarn start generate-alerts --count 100 --false-positive-rate 0.2 --rule-validation
+
+# 4. Optimize thresholds
+yarn start generate-alerts --count 150 --threshold-testing --sensitivity-analysis
+```
+
+### 2. **MITRE ATT&CK Coverage Assessment**
+Evaluate and improve detection coverage across the MITRE framework.
+
+**Implementation:**
+```bash
+# Comprehensive technique coverage
+yarn start generate-alerts --count 500 --mitre --comprehensive-coverage
+
+# Tactic-specific assessment
+yarn start generate-alerts --count 100 --mitre --tactics initial-access,execution,persistence
+
+# Detection gap analysis
+yarn start analyze-mitre-coverage --gaps --recommendations
+```
+
+### 3. **Behavioral Analytics Development**
+Develop user and entity behavioral analytics (UEBA) use cases.
+
+**Implementation:**
+```bash
+# User behavior modeling
+yarn start generate-logs --count 10000 --user-behavior --behavioral-analytics
+
+# Anomaly detection training
+yarn start generate-alerts --count 300 --behavioral-anomalies --ml-training
+```
+
+## Incident Response
+
+### 1. **Tabletop Exercise Preparation**
+Create realistic scenarios for tabletop incident response exercises.
+
+**Exercise Scenarios:**
+```bash
+# Ransomware incident simulation
+yarn start generate-campaign ransomware --tabletop --timeline --business-impact
+
+# APT investigation exercise
+yarn start generate-campaign apt --realistic --mitre --forensic-evidence
+
+# Data breach scenario
+yarn start generate-campaign insider --data-breach --compliance-impact
+```
+
+### 2. **Playbook Development and Testing**
+Develop and validate incident response playbooks.
+
+**Implementation:**
+```bash
+# Generate playbook test scenarios
+yarn start generate-knowledge-base --count 15 --type playbooks --comprehensive
+
+# Test playbook effectiveness
+yarn start generate-campaign malware --playbook-testing --response-validation
+```
+
+### 3. **Forensic Training**
+Train incident responders on digital forensics and evidence handling.
+
+**Implementation:**
+```bash
+# Forensic evidence generation
+yarn start generate-logs --count 1000 --forensic-quality --evidence-chain
+
+# Memory analysis scenarios
+yarn start generate-alerts --count 50 --memory-artifacts --forensic-analysis
+```
+
+## Compliance and Auditing
+
+### 1. **Regulatory Compliance Testing**
+Demonstrate security controls effectiveness for regulatory compliance.
+
+**Common Frameworks:**
+```bash
+# SOX compliance testing
+yarn start generate-alerts --count 200 --sox-compliance --financial-controls
+
+# PCI DSS validation
+yarn start generate-logs --count 500 --pci-compliance --payment-data
+
+# HIPAA security controls
+yarn start generate-alerts --count 150 --hipaa-compliance --healthcare-data
+
+# GDPR data protection
+yarn start generate-logs --count 300 --gdpr-compliance --privacy-controls
+```
+
+### 2. **Audit Preparation**
+Generate comprehensive audit trails and evidence documentation.
+
+**Implementation:**
+```bash
+# Audit evidence generation
+yarn start generate-logs --count 2000 --audit-trail --comprehensive-logging
+
+# Control effectiveness demonstration
+yarn start generate-alerts --count 100 --control-validation --audit-ready
+
+# Documentation generation
+yarn start generate-knowledge-base --count 30 --audit-documentation --compliance
+```
+
+### 3. **Risk Assessment Support**
+Provide data for comprehensive security risk assessments.
+
+**Implementation:**
+```bash
+# Risk scenario modeling
+yarn start generate-campaign apt --risk-assessment --impact-analysis
+
+# Threat landscape simulation
+yarn start generate-alerts --count 300 --threat-modeling --risk-quantification
+```
+
+## Research and Development
+
+### 1. **Security Research**
+Support security research projects and academic studies.
+
+**Research Applications:**
+```bash
+# Large-scale dataset generation
+yarn start generate-logs --count 100000 --research-dataset --anonymized
+
+# Algorithm testing data
+yarn start generate-alerts --count 10000 --ml-training --algorithm-validation
+
+# Threat intelligence research
+yarn start generate-alerts --count 5000 --threat-intelligence --research-quality
+```
+
+### 2. **Tool Development and Testing**
+Generate test data for security tool development and validation.
+
+**Implementation:**
+```bash
+# API testing data
+yarn start generate-alerts --count 1000 --api-testing --structured-data
+
+# Performance benchmarking
+yarn start generate-logs --count 50000 --performance-testing --benchmark-data
+
+# Integration testing
+yarn start generate-alerts --count 500 --integration-testing --multi-format
+```
+
+### 3. **Machine Learning Development**
+Create training and validation datasets for ML security applications.
+
+**Implementation:**
+```bash
+# ML training data
+yarn start generate-ml-data --count 10000 --anomaly-types all --training-ready
+
+# Model validation data
+yarn start generate-alerts --count 2000 --ml-validation --labeled-data
+
+# Feature engineering data
+yarn start generate-logs --count 15000 --feature-engineering --ml-optimized
+```
+
+## Enterprise Deployments
+
+### 1. **Multi-Environment Testing**
+Deploy across development, staging, and production environments.
+
+**Environment Strategy:**
+```bash
+# Development environment
+yarn start generate-alerts --space development --count 100 --development-safe
+
+# Staging environment
+yarn start generate-alerts --space staging --count 500 --production-like
+
+# Production testing (limited)
+yarn start generate-alerts --space production --count 50 --production-safe
+```
+
+### 2. **Large-Scale Simulation**
+Enterprise-scale security event simulation across multiple business units.
+
+**Implementation:**
+```bash
+# Multi-environment deployment
+yarn start generate-campaign apt --environments 25 --count 5000
+
+# Business unit simulation
+yarn start generate-alerts --count 2000 --business-units finance,hr,it
+
+# Global deployment
+yarn start generate-campaign ransomware --regions us,eu,apac --count 10000
+```
+
+### 3. **Disaster Recovery Testing**
+Test security monitoring capabilities during disaster recovery scenarios.
+
+**Implementation:**
+```bash
+# DR scenario simulation
+yarn start generate-alerts --count 300 --disaster-recovery --continuity-testing
+
+# Failover testing
+yarn start generate-logs --count 1000 --failover-scenario --backup-systems
+```
+
+## Implementation Roadmaps
+
+### Phase 1: Foundation (Weeks 1-4)
+**Objectives:** Basic setup and initial use case implementation
+
+**Week 1-2: Environment Setup**
+- Install and configure Security Documents Generator
+- Establish Kibana Cloud connectivity
+- Configure basic authentication and spaces
+- Test basic alert generation
+
+**Week 3-4: Initial Use Cases**
+- Implement basic SOC training scenarios
+- Generate simple alert triage exercises
+- Test false positive identification training
+- Establish baseline performance metrics
+
+### Phase 2: Expansion (Weeks 5-12)
+**Objectives:** Advanced features and comprehensive coverage
+
+**Week 5-6: MITRE Integration**
+- Enable MITRE ATT&CK mappings
+- Generate attack chain scenarios
+- Implement technique-specific training
+- Develop coverage assessment processes
+
+**Week 7-8: Detection Engineering**
+- Implement rule development workflows
+- Generate rule testing datasets
+- Establish performance benchmarking
+- Develop tuning procedures
+
+**Week 9-12: Advanced Scenarios**
+- Implement campaign simulations
+- Generate incident response exercises
+- Develop compliance testing procedures
+- Establish continuous training programs
+
+### Phase 3: Optimization (Weeks 13-24)
+**Objectives:** Performance optimization and advanced integration
+
+**Week 13-16: Performance Optimization**
+- Optimize generation parameters
+- Implement large-scale testing
+- Establish monitoring and alerting
+- Develop automation workflows
+
+**Week 17-20: Advanced Integration**
+- Integrate with SIEM platforms
+- Implement API automation
+- Develop custom scenarios
+- Establish feedback loops
+
+**Week 21-24: Continuous Improvement**
+- Regular performance reviews
+- Update training curricula
+- Expand use case coverage
+- Develop metrics and reporting
+
+## Success Metrics
+
+### Quantitative Metrics
+
+**SOC Performance:**
+- Mean Time to Triage (MTTT): Target <15 minutes
+- False Positive Rate: Target <10%
+- Alert Escalation Accuracy: Target >90%
+- Incident Response Time: Target improvement 25%
+
+**Training Effectiveness:**
+- Analyst Skill Assessment Scores: Target >85%
+- Training Completion Rates: Target >95%
+- Knowledge Retention: Target >80% after 30 days
+- Certification Pass Rates: Target >90%
+
+**Detection Engineering:**
+- MITRE Technique Coverage: Target >80%
+- Rule Performance (True Positive Rate): Target >75%
+- Rule Tuning Cycles: Target <3 iterations
+- Detection Gap Reduction: Target 50% annually
+
+**System Performance:**
+- Generation Speed: Target >1000 events/minute
+- System Availability: Target >99.5%
+- Resource Utilization: Target <80% capacity
+- Error Rate: Target <1%
+
+### Qualitative Metrics
+
+**User Satisfaction:**
+- Training program satisfaction surveys
+- SOC analyst feedback on exercise realism
+- Management satisfaction with ROI
+- Stakeholder engagement levels
+
+**Process Improvement:**
+- Workflow efficiency improvements
+- Reduced manual effort in testing
+- Improved documentation quality
+- Enhanced collaboration between teams
+
+**Security Posture:**
+- Improved incident response capabilities
+- Better threat detection accuracy
+- Enhanced security awareness
+- Stronger compliance posture
 
 ---
 
-## 🚀 Quick Start Examples
-
-### Basic Security Data Generation
-```bash
-# Generate detection rules (all types)
-yarn start rules -r 10 -s default
-
-# Generate 100 security alerts for basic testing
-yarn start generate-alerts -n 100
-
-# Generate 500 mixed system logs
-yarn start generate-logs -n 500 --types system,auth,network
-
-# Create APT campaign with 50 events
-yarn start generate-campaign apt -e 50
-```
-
-### AI-Enhanced Generation
-```bash
-# Generate AI-powered alerts with MITRE ATT&CK integration
-yarn start generate-alerts -n 200 --mitre --claude
-
-# Create realistic ransomware campaign with detection simulation
-yarn start generate-campaign ransomware --realistic --detection-rate 0.4
-```
-
----
-
-## 🛡️ Detection Rules Generation
-
-### All Rule Types Generation
-```bash
-# Generate comprehensive detection rules (all 7 types)
-yarn start rules -r 15 -t query,threshold,eql,machine_learning,threat_match,new_terms,esql -s default
-
-# SOC training with specific rule types
-yarn start rules -r 25 -t query,threshold,eql,new_terms -e 150 -s soc-training
-
-# Machine learning and threat intelligence focus
-yarn start rules -r 10 -t machine_learning,threat_match -s ml-testing
-```
-
-### Multi-Environment Rule Deployment
-```bash
-# Deploy rules across multiple environments
-yarn start rules -r 20 --environments 10 -s production
-
-# Staging environment with specific rule types
-yarn start rules -r 15 -t query,threshold,eql -s staging --environments 5
-
-# Development environment with advanced rules
-yarn start rules -r 20 -t query,eql,esql -s development
-```
-
-### Rule Testing and Validation
-```bash
-# Generate rules with matching events for testing
-yarn start rules -r 15 -t query,threshold -e 200 -s testing
-
-# Load testing with high rule count
-yarn start rules -r 100 -t query,threshold -e 500 -s load-test
-
-# Clean existing rules and generate fresh set
-yarn start rules -r 20 -t query,threshold,eql --clean -s validation
-```
-
----
-
-## 🌍 Enterprise Multi-Environment Scenarios
-
-### Production Environment Simulation
-```bash
-# Simulate 100 production environments with comprehensive data
-yarn start generate-alerts -n 500 --environments 100 --namespace prod
-# Result: 50,000 alerts across prod-env-001 through prod-env-100
-
-# Generate system logs across multiple production datacenters
-yarn start generate-logs -n 2000 --environments 50 --namespace prod-dc --types system,endpoint
-# Result: 100,000 logs across prod-dc-env-001 through prod-dc-env-050
-```
-
-### Multi-Tenant Customer Environments
-```bash
-# Simulate 200 customer environments for SaaS platform testing
-yarn start generate-alerts -n 100 --environments 200 --namespace customer
-
-# Generate endpoint security data for managed security services
-yarn start generate-logs -n 1000 --environments 150 --namespace msp-client --types endpoint,network
-```
-
-### Geographic Distribution Testing
-```bash
-# North American regions
-yarn start generate-campaign apt --environments 25 --namespace us-east
-
-# European regions  
-yarn start generate-campaign insider --environments 20 --namespace eu-west
-
-# Asia-Pacific regions
-yarn start generate-campaign supply_chain --environments 30 --namespace apac
-```
-
-### Development Lifecycle Environments
-```bash
-# Development environments (10 environments)
-yarn start generate-logs -n 500 --environments 10 --namespace dev --types system,auth
-
-# Staging environments (5 environments) 
-yarn start generate-campaign ransomware --environments 5 --namespace staging --realistic
-
-# Production environments (50 environments)
-yarn start generate-alerts -n 1000 --environments 50 --namespace prod --mitre --sub-techniques
-```
-
----
-
-## ⚔️ Campaign Generation Use Cases
-
-### Advanced Persistent Threat (APT) Simulation
-```bash
-# Basic APT campaign
-yarn start generate-campaign apt -e 1000 -t 50 --complexity high --mitre
-
-# Multi-stage APT with realistic log generation
-yarn start generate-campaign apt --realistic --logs-per-stage 12 --detection-rate 0.3 --complexity expert
-
-# Enterprise APT across multiple environments
-yarn start generate-campaign apt --environments 25 --namespace enterprise --multi-field --field-count 10000
-```
-
-### Ransomware Attack Scenarios
-```bash
-# Standard ransomware simulation
-yarn start generate-campaign ransomware -e 2000 --complexity high --attack-chains
-
-# Realistic ransomware with forensic evidence
-yarn start generate-campaign ransomware --realistic --logs-per-stage 15 --detection-rate 0.4
-
-# Multi-environment ransomware outbreak
-yarn start generate-campaign ransomware --environments 100 --namespace global --complexity expert
-```
-
-### Insider Threat Detection
-```bash
-# Insider threat with behavioral analytics
-yarn start generate-campaign insider --multi-field --field-categories behavioral_analytics,audit_compliance
-
-# Multi-environment insider threat
-yarn start generate-campaign insider --environments 50 --namespace corp --realistic --detection-rate 0.6
-```
-
-### Supply Chain Attacks
-```bash
-# Complex supply chain attack
-yarn start generate-campaign supply_chain --complexity expert --sub-techniques --attack-chains
-
-# Multi-environment supply chain compromise
-yarn start generate-campaign supply_chain --environments 75 --namespace vendor --realistic
-```
-
----
-
-## 🔬 High-Density Multi-Field Generation
-
-### Maximum Field Density (50,000 fields per document)
-```bash
-# Ultra-high density alerts for comprehensive testing
-yarn start generate-alerts -n 100 --multi-field --field-count 50000
-
-# Performance-optimized high-density generation
-yarn start generate-logs -n 1000 --multi-field --field-count 25000 --field-performance-mode
-```
-
-### Category-Specific Field Generation
-```bash
-# Behavioral analytics focus
-yarn start generate-alerts -n 500 --multi-field --field-count 5000 --field-categories behavioral_analytics,performance_metrics
-
-# Threat intelligence enrichment
-yarn start generate-logs -n 1000 --multi-field --field-count 8000 --field-categories threat_intelligence,security_scores
-
-# Network analytics specialization
-yarn start generate-logs -n 2000 --types network --multi-field --field-count 15000 --field-categories network_analytics,performance_metrics
-```
-
-### Enterprise-Scale Multi-Field Campaigns
-```bash
-# APT campaign with comprehensive forensics (10,000 fields per event)
-yarn start generate-campaign apt --multi-field --field-count 10000 --environments 25
-
-# Ransomware with full observability data (20,000 fields per event)
-yarn start generate-campaign ransomware --multi-field --field-count 20000 --realistic --environments 50
-```
-
----
-
-## 🛡️ SIEM Testing & Validation
-
-### Detection Rule Testing
-```bash
-# Generate alerts with false positives for rule tuning
-yarn start generate-alerts -n 1000 --false-positive-rate 0.15 --mitre
-
-# Multi-environment detection rule validation
-yarn start generate-alerts -n 500 --environments 10 --false-positive-rate 0.2 --namespace test-rules
-```
-
-### SIEM Performance Testing
-```bash
-# High-volume data ingestion testing
-yarn start generate-logs -n 10000 --environments 20 --large-scale --types system,auth,network,endpoint
-
-# Sustained load testing with realistic attack patterns
-yarn start generate-campaign apt --environments 100 --realistic --complexity high
-```
-
-### Correlation Rule Testing
-```bash
-# Generate correlated events for testing detection logic
-yarn start generate-correlated -n 500 --log-volume 8 --mitre
-
-# Multi-environment correlation testing
-yarn start generate-correlated -n 200 --environments 25 --namespace correlation-test
-```
-
----
-
-## 📊 Performance & Load Testing
-
-### Massive Scale Generation
-```bash
-# Generate 1 million events across 500 environments (2,000 per environment)
-yarn start generate-logs -n 2000 --environments 500 --namespace load-test --large-scale
-
-# Stress test with 100,000 alerts across 200 environments
-yarn start generate-alerts -n 500 --environments 200 --namespace stress-test --large-scale
-```
-
-### Throughput Benchmarking
-```bash
-# High-throughput generation with performance monitoring
-yarn start generate-logs -n 5000 --multi-field --field-count 30000 --field-performance-mode --large-scale
-
-# Campaign throughput testing
-yarn start generate-campaign scale-test --performance-test --enable-analytics
-```
-
-### Memory & Resource Testing
-```bash
-# Memory-intensive multi-field generation
-yarn start generate-alerts -n 1000 --multi-field --field-count 40000 --environments 50
-
-# Resource optimization testing
-yarn start generate-campaign apt --environments 200 --multi-field --field-count 15000 --performance-test
-```
-
----
-
-## 📋 Compliance & Audit Scenarios
-
-### Regulatory Compliance Testing
-```bash
-# Generate audit-compliant security logs
-yarn start generate-logs -n 5000 --multi-field --field-categories audit_compliance,security_scores --types system,auth
-
-# Multi-environment compliance validation
-yarn start generate-alerts -n 1000 --environments 25 --namespace compliance --false-positive-rate 0.1
-```
-
-### Data Retention Testing
-```bash
-# Generate historical data for retention policy testing
-yarn start generate-logs -n 10000 --start-date "30d" --end-date "1d" --environments 10
-
-# Long-term data pattern generation
-yarn start generate-campaign apt --start-date "90d" --end-date "now" --realistic --environments 5
-```
-
-### Forensic Investigation Scenarios
-```bash
-# Generate comprehensive forensic evidence
-yarn start generate-campaign ransomware --realistic --multi-field --field-count 25000 --logs-per-stage 20
-
-# Multi-environment incident simulation
-yarn start generate-campaign insider --environments 10 --realistic --multi-field --field-categories forensics_analysis,behavioral_analytics
-```
-
----
-
-## 🎯 SOC Training & Red Team Exercises
-
-### SOC Analyst Training
-```bash
-# Generate detection rules for training
-yarn start rules -r 25 -t query,threshold,eql,new_terms -e 150 -s soc-training
-
-# Generate training scenarios with mixed attack types
-yarn start generate-campaign apt --realistic --detection-rate 0.5 --complexity medium
-yarn start generate-campaign insider --realistic --detection-rate 0.7 --complexity low
-
-# Multi-environment training exercise
-yarn start generate-alerts -n 200 --environments 5 --namespace training --false-positive-rate 0.3 --mitre
-```
-
-### Red Team Exercise Support
-```bash
-# Realistic attack simulation for red team exercises
-yarn start generate-campaign supply_chain --realistic --complexity expert --detection-rate 0.2
-
-# Multi-stage attack progression
-yarn start generate-campaign apt --attack-chains --sub-techniques --complexity expert --realistic
-```
-
-### Blue Team Defense Testing
-```bash
-# Generate diverse attack patterns for defense testing
-yarn start generate-campaign malware --mitre --multi-field --field-categories threat_intelligence,endpoint_analytics
-yarn start generate-campaign phishing --realistic --logs-per-stage 10
-
-# Multi-environment defense exercise
-yarn start generate-campaign ransomware --environments 20 --namespace blue-team --realistic --complexity high
-```
-
----
-
-## 🔧 Advanced Configuration Examples
-
-### Custom Time Patterns
-```bash
-# Business hours attack simulation
-yarn start generate-campaign apt --time-pattern business_hours --realistic
-
-# Weekend-heavy activity simulation  
-yarn start generate-logs -n 2000 --time-pattern weekend_heavy --environments 10
-
-# Attack-specific time patterns
-yarn start generate-campaign insider --time-pattern attack_simulation --realistic
-```
-
-### Session View & Visual Analytics
-```bash
-# Generate Session View compatible data for process tracking
-yarn start generate-logs -n 1000 --session-view --types endpoint
-
-# Visual Event Analyzer compatible data
-yarn start generate-campaign apt --visual-analyzer --realistic --complexity high
-
-# Combined Session View and Visual Analytics
-yarn start generate-logs -n 2000 --session-view --visual-analyzer --environments 5
-```
-
-### Custom Namespacing Strategies
-```bash
-# Geographic namespacing
-yarn start generate-logs -n 1000 --environments 20 --namespace us-west-datacenter
-yarn start generate-logs -n 1000 --environments 15 --namespace eu-central-datacenter
-
-# Business unit namespacing
-yarn start generate-alerts -n 500 --environments 10 --namespace finance-dept
-yarn start generate-alerts -n 500 --environments 8 --namespace engineering-dept
-
-# Environment tier namespacing
-yarn start generate-campaign apt --environments 5 --namespace dev-tier
-yarn start generate-campaign apt --environments 10 --namespace staging-tier  
-yarn start generate-campaign apt --environments 50 --namespace prod-tier
-```
-
----
-
-## 💡 Best Practices & Tips
-
-### Performance Optimization
-- Use `--large-scale` flag for datasets > 1,000 events
-- Enable `--field-performance-mode` for high-density multi-field generation
-- Batch large multi-environment operations in smaller chunks for better resource management
-
-### Resource Management
-- Monitor memory usage when generating > 10,000 fields per document
-- Use appropriate batch sizes based on your system capabilities
-- Clean up test environments regularly using delete commands
-
-### Data Quality
-- Use `--realistic` mode for higher-quality attack simulation
-- Enable `--mitre` for standardized threat intelligence integration
-- Combine multi-field generation with realistic campaigns for comprehensive testing
-
-### Environment Scaling
-- Start with smaller environment counts and scale up based on performance
-- Use meaningful namespace patterns for better data organization
-- Implement Elasticsearch ILM policies for automated data lifecycle management
-
----
-
-## 📞 Support & Resources
-
-- **Documentation**: `/docs/multi-field-generation.md` for advanced multi-field features
-- **Configuration**: `CLAUDE.md` for complete command reference  
-- **Architecture**: See Architecture section in main documentation
-- **Troubleshooting**: Check logs and use `--help` flags for command-specific guidance
-
-This guide covers the most common use cases for enterprise-scale security data generation. Adjust parameters based on your specific testing requirements and infrastructure capabilities.
+*Ready to implement comprehensive security use cases? Choose your starting point and follow the implementation roadmap for systematic deployment and maximum value realization!*

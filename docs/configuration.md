@@ -1,366 +1,498 @@
-# Configuration Guide
+# ⚙️ Configuration Guide
 
-This guide covers all configuration options for the Security Documents Generator.
+Complete configuration reference for the Security Documents Generator.
 
-## 📋 Basic Configuration
+## 📋 Table of Contents
 
-### Initial Setup
+- [Overview](#overview)
+- [Configuration File](#configuration-file)
+- [Environment Variables](#environment-variables)
+- [Kibana Integration](#kibana-integration)
+- [AI Service Configuration](#ai-service-configuration)
+- [Index Configuration](#index-configuration)
+- [Theme Configuration](#theme-configuration)
+- [Space Management](#space-management)
+- [Troubleshooting](#troubleshooting)
 
-Run the generator once to create your configuration file:
+## Overview
 
+The Security Documents Generator uses a JSON configuration file (`config.json`) to manage Kibana connections, AI services, and generation parameters. The tool creates this file automatically on first run if it doesn't exist.
+
+## Configuration File
+
+### Creating Configuration
 ```bash
-yarn start
+# Auto-generate config on first run
+yarn start generate-alerts --count 10
+
+# The tool will prompt for required values and create config.json
 ```
 
-This creates `config.json` with guided setup.
-
-### Sample Configurations
-
-#### Cloud/Serverless (API Key)
+### Configuration Structure
 ```json
 {
-  "elastic": {
-    "node": "https://your-cluster.es.us-west2.gcp.elastic-cloud.com",
-    "apiKey": "your-base64-encoded-api-key"
-  },
   "kibana": {
-    "node": "https://your-cluster.kb.us-west2.gcp.elastic-cloud.com",
-    "apiKey": "your-base64-encoded-api-key"
+    "host": "https://your-elastic-deployment.es.region.cloud.es.io:9243",
+    "username": "elastic",
+    "password": "your-password",
+    "space": "default"
+  },
+  "ai": {
+    "openai": {
+      "apiKey": "sk-your-openai-key",
+      "model": "gpt-4"
+    },
+    "claude": {
+      "apiKey": "your-claude-key",
+      "model": "claude-3-sonnet-20240229"
+    },
+    "gemini": {
+      "apiKey": "your-gemini-key",
+      "model": "gemini-pro"
+    }
+  },
+  "generation": {
+    "defaultBatchSize": 10,
+    "maxRetries": 3,
+    "timeoutMs": 30000,
+    "defaultTheme": "corporate"
+  },
+  "features": {
+    "aiGeneration": true,
+    "mitre": true,
+    "sessionView": true,
+    "visualAnalyzer": true
   }
 }
 ```
 
-#### Self-Managed (Username/Password)
+## Environment Variables
+
+### Required Variables
+```bash
+# Kibana connection
+export KIBANA_HOST="https://your-deployment.es.region.cloud.es.io:9243"
+export KIBANA_USERNAME="elastic"
+export KIBANA_PASSWORD="your-password"
+
+# AI services (at least one required for AI features)
+export OPENAI_API_KEY="sk-your-openai-key"
+export CLAUDE_API_KEY="your-claude-key"
+export GEMINI_API_KEY="your-gemini-key"
+```
+
+### Optional Variables
+```bash
+# Default space
+export KIBANA_SPACE="default"
+
+# Generation settings
+export DEFAULT_BATCH_SIZE="10"
+export DEFAULT_THEME="corporate"
+
+# Debug settings
+export DEBUG_AI_RESPONSES="true"
+export VERBOSE_LOGGING="true"
+```
+
+## Kibana Integration
+
+### Kibana Cloud Setup
+1. **Get your cloud deployment URL**:
+   - Format: `https://deployment-id.es.region.cloud.es.io:9243`
+   - Example: `https://my-deployment.es.us-central1.gcp.cloud.es.io:9243`
+
+2. **Authentication**:
+   - Use built-in `elastic` user for initial setup
+   - Create dedicated service account for production use
+
+3. **Test connection**:
+   ```bash
+   yarn start generate-alerts --count 1 --test-connection
+   ```
+
+### Self-Managed Elasticsearch
 ```json
 {
-  "elastic": {
-    "node": "http://localhost:9200",
-    "username": "elastic",
-    "password": "changeme"
-  },
   "kibana": {
-    "node": "http://localhost:5601",
+    "host": "https://your-kibana-host:5601",
+    "username": "your-username",
+    "password": "your-password",
+    "space": "default",
+    "ssl": {
+      "rejectUnauthorized": false
+    }
+  }
+}
+```
+
+### Advanced Kibana Configuration
+```json
+{
+  "kibana": {
+    "host": "https://your-deployment.cloud.es.io:9243",
     "username": "elastic",
-    "password": "changeme"
-  },
-  "eventIndex": "logs-security-events"
+    "password": "your-password",
+    "space": "security-testing",
+    "timeout": 30000,
+    "keepAlive": true,
+    "headers": {
+      "X-Custom-Header": "value"
+    }
+  }
 }
 ```
 
-## 🤖 AI Provider Configuration
+## AI Service Configuration
 
-### OpenAI
+### OpenAI Configuration
 ```json
 {
-  "useAI": true,
-  "openaiApiKey": "sk-your-openai-api-key"
+  "ai": {
+    "openai": {
+      "apiKey": "sk-your-key",
+      "model": "gpt-4",
+      "temperature": 0.7,
+      "maxTokens": 4000,
+      "timeout": 30000
+    }
+  }
 }
 ```
 
-### Azure OpenAI
+### Claude Configuration
 ```json
 {
-  "useAI": true,
-  "useAzureOpenAI": true,
-  "azureOpenAIApiKey": "your-azure-api-key",
-  "azureOpenAIEndpoint": "https://your-resource.openai.azure.com",
-  "azureOpenAIDeployment": "your-deployment-name",
-  "azureOpenAIApiVersion": "2023-05-15"
+  "ai": {
+    "claude": {
+      "apiKey": "your-claude-key",
+      "model": "claude-3-sonnet-20240229",
+      "maxTokens": 4000,
+      "temperature": 0.7
+    }
+  }
 }
 ```
 
-### Claude (Anthropic)
+### Gemini Configuration
 ```json
 {
-  "useAI": true,
-  "useClaudeAI": true,
-  "claudeApiKey": "sk-ant-your-claude-api-key",
-  "claudeModel": "claude-3-5-sonnet-20241022"
+  "ai": {
+    "gemini": {
+      "apiKey": "your-gemini-key",
+      "model": "gemini-pro",
+      "temperature": 0.7,
+      "topP": 0.8,
+      "topK": 40
+    }
+  }
 }
 ```
 
-## ⚔️ MITRE ATT&CK Configuration
+### AI Service Priority
+The tool attempts AI services in this order:
+1. **OpenAI** (if configured)
+2. **Claude** (if configured)
+3. **Gemini** (if configured)
 
+### Fallback Behavior
+- If no AI service is configured, the tool generates using templates
+- If AI service fails, automatic fallback to template generation
+- Configurable retry logic with exponential backoff
+
+## Index Configuration
+
+### Default Index Patterns
 ```json
 {
-  "mitre": {
+  "indices": {
+    "alerts": "alerts-security.alerts-{space}",
+    "logs": "logs-{type}-{space}",
+    "cases": "cases-{space}",
+    "knowledgeBase": "knowledge-base-{space}"
+  }
+}
+```
+
+### Custom Index Patterns
+```json
+{
+  "indices": {
+    "alerts": "custom-alerts-{space}-{date}",
+    "logs": "custom-logs-{type}-{space}-{date}",
+    "rollover": {
+      "enabled": true,
+      "maxSize": "50gb",
+      "maxAge": "30d"
+    }
+  }
+}
+```
+
+### Index Lifecycle Management
+```json
+{
+  "ilm": {
     "enabled": true,
-    "tactics": ["TA0001", "TA0002", "TA0003", "TA0004", "TA0005"],
-    "maxTechniquesPerAlert": 2,
-    "includeSubTechniques": false,
-    "probabilityOfMitreAlert": 0.3,
-    "enableAttackChains": false,
-    "maxChainLength": 3,
-    "chainProbability": 0.15
+    "policy": "security-data-policy",
+    "rolloverAlias": "security-data",
+    "phases": {
+      "hot": { "max_age": "7d" },
+      "warm": { "max_age": "30d" },
+      "cold": { "max_age": "90d" },
+      "delete": { "max_age": "365d" }
+    }
   }
 }
 ```
 
-### MITRE Options Explained
+## Theme Configuration
 
-| Option | Description | Default | Values |
-|--------|-------------|---------|--------|
-| `enabled` | Enable MITRE integration | `false` | `true`/`false` |
-| `tactics` | Enabled MITRE tactics | `["TA0001"]` | Array of tactic IDs |
-| `maxTechniquesPerAlert` | Max techniques per alert | `2` | `1-5` |
-| `includeSubTechniques` | Use sub-techniques | `false` | `true`/`false` |
-| `probabilityOfMitreAlert` | % of alerts with MITRE | `0.3` | `0.0-1.0` |
-| `enableAttackChains` | Chain techniques | `false` | `true`/`false` |
-| `maxChainLength` | Max chain length | `3` | `2-8` |
-| `chainProbability` | % of chains generated | `0.15` | `0.0-1.0` |
+### Built-in Themes
+- **corporate**: Business-appropriate names and scenarios
+- **marvel**: Marvel superhero universe entities
+- **starwars**: Star Wars universe entities
+- **lotr**: Lord of the Rings universe entities
 
-## ⚡ Performance Configuration
+### Custom Theme Configuration
+```json
+{
+  "themes": {
+    "custom": {
+      "users": ["john.doe", "jane.smith", "admin.user"],
+      "hosts": ["web-server-01", "db-server-02", "workstation-03"],
+      "processes": ["custom-app.exe", "security-scanner.exe"],
+      "domains": ["corporate.com", "internal.local"],
+      "description": "Custom corporate theme"
+    }
+  }
+}
+```
 
+### Theme Selection
+```bash
+# Use specific theme
+yarn start generate-alerts --theme marvel --count 100
+
+# Use default theme from config
+yarn start generate-alerts --count 100
+```
+
+## Space Management
+
+### Multiple Spaces Configuration
+```json
+{
+  "spaces": {
+    "default": {
+      "kibana": {
+        "space": "default"
+      }
+    },
+    "training": {
+      "kibana": {
+        "space": "security-training"
+      }
+    },
+    "testing": {
+      "kibana": {
+        "space": "soc-testing"
+      }
+    }
+  }
+}
+```
+
+### Space-Specific Generation
+```bash
+# Generate in specific space
+yarn start generate-alerts --space training --count 100
+
+# Generate across multiple spaces
+yarn start generate-campaign apt --environments 5 --count 200
+```
+
+## Advanced Configuration
+
+### Batch Processing
 ```json
 {
   "generation": {
-    "alerts": {
-      "defaultCount": 100,
-      "batchSize": 10,
-      "largeBatchSize": 25,
-      "maxLargeBatchSize": 50,
-      "parallelBatches": 3
+    "batchSize": 10,
+    "maxConcurrent": 3,
+    "retryPolicy": {
+      "maxRetries": 3,
+      "backoffMultiplier": 2,
+      "maxDelay": 30000
+    }
+  }
+}
+```
+
+### Performance Tuning
+```json
+{
+  "performance": {
+    "caching": {
+      "enabled": true,
+      "ttl": 3600,
+      "maxSize": 1000
     },
-    "performance": {
-      "enableLargeScale": false,
-      "largeScaleThreshold": 1000,
-      "maxConcurrentRequests": 5,
-      "requestDelayMs": 100,
-      "cacheEnabled": true,
-      "maxCacheSize": 200,
-      "progressReporting": true
+    "connection": {
+      "poolSize": 10,
+      "keepAlive": true,
+      "timeout": 30000
     }
   }
 }
 ```
 
-### Performance Options
-
-| Option | Description | Default | Recommended |
-|--------|-------------|---------|-------------|
-| `enableLargeScale` | Auto-enable for >1000 events | `false` | Auto |
-| `largeScaleThreshold` | Threshold for large-scale | `1000` | `500-2000` |
-| `maxConcurrentRequests` | Parallel API requests | `5` | `3-10` |
-| `requestDelayMs` | Delay between requests | `100` | `50-200` |
-| `maxCacheSize` | Cache size limit | `200` | `100-500` |
-
-## 📅 Timestamp Configuration
-
-```json
-{
-  "timestamps": {
-    "startDate": "7d",
-    "endDate": "now",
-    "pattern": "business_hours",
-    "enableMultiDay": true,
-    "daySpread": 7
-  }
-}
-```
-
-### Date Formats
-
-| Format | Example | Description |
-|--------|---------|-------------|
-| Relative | `"7d"`, `"1w"`, `"1M"` | Days/weeks/months ago |
-| Absolute | `"2024-01-01"` | Specific date |
-| ISO | `"2024-01-01T00:00:00Z"` | Full timestamp |
-| Special | `"now"` | Current time |
-
-### Time Patterns
-
-| Pattern | Description | When to Use |
-|---------|-------------|-------------|
-| `uniform` | Even distribution | Baseline testing |
-| `business_hours` | 9 AM - 6 PM, Mon-Fri | Corporate environments |
-| `random` | High variance | Stress testing |
-| `attack_simulation` | Burst patterns, late night | Security incidents |
-| `weekend_heavy` | 60% weekend activity | Anomaly detection |
-
-## 🎭 Campaign Configuration
-
-```json
-{
-  "campaigns": {
-    "enabled": true,
-    "defaultType": "apt",
-    "complexity": "medium",
-    "enableCorrelation": true,
-    "defaultTargets": 25,
-    "defaultUsers": 15,
-    "simulationEngine": {
-      "networkComplexity": "high",
-      "enableCorrelation": true,
-      "enablePerformanceOptimization": false
-    }
-  }
-}
-```
-
-## 🔍 Index Configuration
-
-```json
-{
-  "eventIndex": "logs-security-events",
-  "alertIndex": ".alerts-security.alerts-default",
-  "customIndices": {
-    "campaigns": "security-campaigns",
-    "mitre": "security-mitre-data"
-  }
-}
-```
-
-## 🛡️ Security Configuration
-
-```json
-{
-  "security": {
-    "validateCertificates": true,
-    "requestTimeout": 30000,
-    "maxRetries": 3,
-    "retryDelay": 1000
-  }
-}
-```
-
-## 📊 Logging Configuration
-
+### Logging Configuration
 ```json
 {
   "logging": {
     "level": "info",
-    "enableDebug": false,
-    "logFile": "logs/generator.log",
-    "enableAIResponseLogging": false
-  }
-}
-```
-
-### Log Levels
-- `error`: Errors only
-- `warn`: Warnings and errors
-- `info`: General information (default)
-- `debug`: Detailed debugging info
-
-## 🔧 Advanced Configuration
-
-### Custom Field Generation
-```json
-{
-  "customFields": {
-    "organization": "Acme Corp",
-    "environment": "production",
-    "region": "us-west-2",
-    "additionalTags": ["security-test", "generated"]
-  }
-}
-```
-
-### Rate Limiting
-```json
-{
-  "rateLimiting": {
-    "requestsPerSecond": 10,
-    "burstLimit": 20,
-    "backoffMultiplier": 2
-  }
-}
-```
-
-### Validation Rules
-```json
-{
-  "validation": {
-    "enableFieldValidation": true,
-    "requireMandatoryFields": true,
-    "allowCustomFields": true,
-    "maxFieldLength": 1000
-  }
-}
-```
-
-## 📋 Complete Configuration Example
-
-```json
-{
-  "elastic": {
-    "node": "https://your-cluster.com",
-    "apiKey": "your-api-key"
-  },
-  "kibana": {
-    "node": "https://your-kibana.com",
-    "apiKey": "your-api-key"
-  },
-  "useAI": true,
-  "useClaudeAI": true,
-  "claudeApiKey": "sk-ant-your-key",
-  "claudeModel": "claude-3-5-sonnet-20241022",
-  "mitre": {
-    "enabled": true,
-    "tactics": ["TA0001", "TA0002", "TA0003", "TA0004", "TA0005"],
-    "includeSubTechniques": true,
-    "enableAttackChains": true,
-    "probabilityOfMitreAlert": 0.6
-  },
-  "generation": {
-    "performance": {
-      "enableLargeScale": true,
-      "maxConcurrentRequests": 5,
-      "requestDelayMs": 100,
-      "maxCacheSize": 300
-    }
-  },
-  "timestamps": {
-    "pattern": "business_hours",
-    "enableMultiDay": true,
-    "daySpread": 14
-  },
-  "campaigns": {
-    "enabled": true,
-    "enableCorrelation": true,
-    "simulationEngine": {
-      "networkComplexity": "high",
-      "enableCorrelation": true
+    "file": {
+      "enabled": true,
+      "path": "./logs/generator.log",
+      "maxSize": "100mb",
+      "maxFiles": 5
+    },
+    "console": {
+      "enabled": true,
+      "colorize": true
     }
   }
 }
 ```
 
-## 🔍 Environment Variables
+## Security Configuration
 
-You can override configuration with environment variables:
-
-```bash
-export ES_NODE="https://your-cluster.com"
-export ES_API_KEY="your-api-key"
-export OPENAI_API_KEY="sk-your-key"
-export CLAUDE_API_KEY="sk-ant-your-key"
+### API Key Management
+```json
+{
+  "security": {
+    "apiKeys": {
+      "rotation": {
+        "enabled": true,
+        "intervalDays": 30
+      },
+      "encryption": {
+        "enabled": true,
+        "algorithm": "aes-256-gcm"
+      }
+    }
+  }
+}
 ```
 
-## 🚨 Troubleshooting
-
-### Common Issues
-
-1. **Connection errors**: Check Elasticsearch/Kibana URLs and credentials
-2. **AI API errors**: Verify API keys and quota limits
-3. **Performance issues**: Adjust batch sizes and concurrent requests
-4. **Memory errors**: Enable large-scale optimizations
-
-### Debug Mode
-```bash
-DEBUG_AI_RESPONSES=true yarn start generate-alerts -n 10
+### Network Security
+```json
+{
+  "network": {
+    "proxy": {
+      "enabled": true,
+      "host": "proxy.company.com",
+      "port": 8080,
+      "auth": {
+        "username": "proxy-user",
+        "password": "proxy-pass"
+      }
+    },
+    "ssl": {
+      "verify": true,
+      "ca": "/path/to/ca.pem"
+    }
+  }
+}
 ```
 
-## 📝 Configuration Validation
+## Validation and Testing
 
-The tool validates your configuration on startup. Common validation errors:
+### Configuration Validation
+```bash
+# Validate configuration
+yarn start validate-config
 
-- Missing required fields (elastic.node, kibana.node)
-- Invalid API keys or endpoints
-- Conflicting AI provider settings
-- Invalid MITRE tactic IDs
-- Out-of-range probability values
+# Test all connections
+yarn start test-connections
 
-## 🔄 Configuration Updates
+# Test specific service
+yarn start test-kibana
+yarn start test-ai
+```
 
-You can modify `config.json` at any time. Changes are automatically detected and applied to new generation commands.
+### Health Checks
+```bash
+# Check system health
+yarn start health-check
+
+# Check specific components
+yarn start health-check --component kibana
+yarn start health-check --component ai
+```
+
+## Troubleshooting
+
+### Common Configuration Issues
+
+#### Connection Failures
+**Issue**: Cannot connect to Kibana
+**Solutions**:
+- Verify host URL format
+- Check authentication credentials
+- Validate network connectivity
+- Review SSL/TLS settings
+
+#### AI Service Errors
+**Issue**: AI services not responding
+**Solutions**:
+- Verify API keys are valid
+- Check service quotas and limits
+- Review timeout settings
+- Test fallback services
+
+#### Index Mapping Conflicts
+**Issue**: Field mapping conflicts
+**Solutions**:
+- Run setup-mappings command
+- Check existing index templates
+- Verify field type consistency
+
+### Debug Configuration
+```json
+{
+  "debug": {
+    "enabled": true,
+    "components": ["kibana", "ai", "generation"],
+    "logLevel": "debug",
+    "tracing": {
+      "enabled": true,
+      "sampleRate": 0.1
+    }
+  }
+}
+```
+
+### Performance Monitoring
+```json
+{
+  "monitoring": {
+    "metrics": {
+      "enabled": true,
+      "interval": 60000
+    },
+    "alerts": {
+      "enabled": true,
+      "thresholds": {
+        "errorRate": 0.05,
+        "responseTime": 5000
+      }
+    }
+  }
+}
+```
+
+---
+
+*Need help with configuration? Start with the auto-generated config and customize as needed for your environment!*
