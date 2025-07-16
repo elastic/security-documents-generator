@@ -6,9 +6,32 @@ import { uploadPrivmonCsv } from '../../utils/kibana_api';
 
 const CSV_FILE_NAME = 'privileged_users.csv';
 
+// generate a predictable label for each user based on the username, a label is a role which makes the user a
+// privileged user, e.g. "admin", "superuser", "Administrator", etc.
+const generateLabelForUser = (user: User): string => {
+  const LABELS = [
+    'admin',
+    'superuser',
+    'Administrator',
+    'root',
+    'privileged',
+    'power user',
+    'system administrator',
+    'IT support',
+    'security officer',
+    'network engineer',
+    'database administrator',
+    'cloud engineer',
+  ];
+  const index = user.userName.length % LABELS.length;
+  return LABELS[index];
+};
+
 export const generateCSVFile = async ({ users }: { users: User[] }) => {
   try {
-    const csvContent = users.map((user) => user.userName).join('\n');
+    const csvContent = users
+      .map((user) => user.userName + ',' + generateLabelForUser(user))
+      .join('\n');
     const outputDirectory = resolve(srcDirectory, `../output`);
     const csvFilePath = resolve(outputDirectory, `./${CSV_FILE_NAME}`);
     await fs.mkdir(outputDirectory, { recursive: true });
