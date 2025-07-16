@@ -214,7 +214,7 @@ export const createRandomGenericEntity = (): GenericEntity => {
   const taxonomy =
     genericTypes[Math.floor(Math.random() * genericTypes.length)];
 
-  const resourceName = `${taxonomy.subType.toLowerCase().replace(/\s+/g, "-")}-${faker.string.alphanumeric(8)}`;
+  const resourceName = `${taxonomy.subType.toLowerCase().replace(/\s+/g, '-')}-${faker.string.alphanumeric(8)}`;
   const regions = [
     'us-east-1',
     'us-west-2',
@@ -231,22 +231,22 @@ export const createRandomGenericEntity = (): GenericEntity => {
     resourceId = `arn:aws:s3:::${resourceName}`;
   } else if (taxonomy.subType.includes('EC2')) {
     resourceId = `arn:aws:ec2:${region}:${accountId}:instance/${faker.string.alphanumeric(17)}`;
-  } else if (taxonomy.subType.includes("RDS")) {
+  } else if (taxonomy.subType.includes('RDS')) {
     resourceId = `arn:aws:rds:${region}:${accountId}:db:${resourceName}`;
-  } else if (taxonomy.subType.includes("Lambda")) {
+  } else if (taxonomy.subType.includes('Lambda')) {
     resourceId = `arn:aws:lambda:${region}:${accountId}:function:${resourceName}`;
-  } else if (taxonomy.subType.includes("VPC")) {
+  } else if (taxonomy.subType.includes('VPC')) {
     resourceId = `arn:aws:ec2:${region}:${accountId}:vpc/${faker.string.alphanumeric(17)}`;
-  } else if (taxonomy.subType.includes("EBS")) {
+  } else if (taxonomy.subType.includes('EBS')) {
     resourceId = `arn:aws:ec2:${region}:${accountId}:volume/${faker.string.alphanumeric(17)}`;
-  } else if (taxonomy.subType.includes("DynamoDB")) {
+  } else if (taxonomy.subType.includes('DynamoDB')) {
     resourceId = `arn:aws:dynamodb:${region}:${accountId}:table/${resourceName}`;
-  } else if (taxonomy.subType.includes("ECS")) {
+  } else if (taxonomy.subType.includes('ECS')) {
     resourceId = `arn:aws:ecs:${region}:${accountId}:service/${resourceName}`;
-  } else if (taxonomy.subType.includes("Load Balancer")) {
+  } else if (taxonomy.subType.includes('Load Balancer')) {
     resourceId = `arn:aws:elasticloadbalancing:${region}:${accountId}:loadbalancer/${resourceName}`;
   } else {
-    resourceId = `arn:aws:${taxonomy.subType.toLowerCase().replace(/\s+/g, "-")}:${region}:${accountId}:${resourceName}`;
+    resourceId = `arn:aws:${taxonomy.subType.toLowerCase().replace(/\s+/g, '-')}:${region}:${accountId}:${resourceName}`;
   }
 
   return {
@@ -328,7 +328,7 @@ export const createRandomEventForService = (
 });
 
 const createRandomEventForGenericEntity = (
-  entity: GenericEntity
+  entity: GenericEntity,
 ): GenericEntityEvent => {
   // Always use AWS since we're generating AWS resources
   const cloudProvider = 'aws';
@@ -361,7 +361,7 @@ const createRandomEventForGenericEntity = (
       provider: cloudProvider,
       region: region,
       account: {
-        name: faker.company.name().toLowerCase().replace(/\s+/g, "-"),
+        name: faker.company.name().toLowerCase().replace(/\s+/g, '-'),
         id: faker.string.numeric(12),
       },
     },
@@ -374,10 +374,8 @@ const createRandomEventForGenericEntity = (
   };
 };
 
-
 const ingestEvents = async (events: Event[]) =>
   ingest(EVENT_INDEX_NAME, events, auditbeatMappings as MappingTypeMapping);
-
 
 type TDocument = object;
 type TPartialDocument = Partial<TDocument>;
@@ -385,12 +383,11 @@ type TPartialDocument = Partial<TDocument>;
 const ingestAgents = async (agents: Agent[]) =>
   ingest(AGENT_INDEX_NAME, agents);
 
-
 const ingest = async (
   index: string,
   documents: Array<object>,
   mapping?: MappingTypeMapping,
-  skipIndexCheck = false
+  skipIndexCheck = false,
 ) => {
   if (!skipIndexCheck) {
     await indexCheck(index, { mappings: mapping });
