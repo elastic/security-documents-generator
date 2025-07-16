@@ -6,8 +6,6 @@ import { uploadPrivmonCsv } from '../../utils/kibana_api';
 
 const CSV_FILE_NAME = 'privileged_users.csv';
 
-// generate a predictable label for each user based on the username, a label is a role which makes the user a
-// privileged user, e.g. "admin", "superuser", "Administrator", etc.
 const generateLabelForUser = (user: User): string => {
   const LABELS = [
     'admin',
