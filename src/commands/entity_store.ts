@@ -41,7 +41,7 @@ const getOffset = () => {
 
     return config.eventDateOffsetHours;
   }
-  return faker.number.int({ max: 1000 });
+  return faker.number.int({ max: 10 });
 };
 
 type Agent = ReturnType<typeof createAgentDocument>;
