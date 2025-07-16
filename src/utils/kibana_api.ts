@@ -469,6 +469,15 @@ export const uploadPrivmonCsv = async (
     const formData = new FormData();
     formData.append('file', fs.createReadStream(csvFilePath));
     const config = getConfig();
+
+    if (
+      'apiKey' in config.kibana ||
+      !config.kibana?.username ||
+      !config.kibana?.password
+    ) {
+      throw new Error('CSV upload only works with Kibana Basic Auth for now');
+    }
+
     const response = await fetch(
       buildKibanaUrl({
         path: '/api/entity_analytics/monitoring/users/_csv',
@@ -498,6 +507,7 @@ export const uploadPrivmonCsv = async (
     return { success: true };
   } catch (error) {
     console.error('Error uploading CSV:', error);
+    // @ts-expect-error to have a message property
     return { success: false, message: error.message };
   }
 };
