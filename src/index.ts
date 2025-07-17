@@ -204,6 +204,12 @@ program
       default: '10',
     });
 
+    const offsetHours = await input({
+      message:
+        'Event date offset in hours (how many hours ago events should be generated)',
+      default: '1',
+    });
+
     const seed = generateNewSeed() + '';
 
     let seedAnswer = seed;
@@ -224,6 +230,7 @@ program
       genericEntities: parseIntBase10(genericEntitiesCount),
       seed: parseIntBase10(seedAnswer),
       options: entityStoreAnswers,
+      offsetHours: parseIntBase10(offsetHours),
     });
   });
 
@@ -246,6 +253,7 @@ program
         ENTITY_STORE_OPTIONS.riskEngine,
         ENTITY_STORE_OPTIONS.rule,
       ],
+      offsetHours: 1,
     });
   });
 
