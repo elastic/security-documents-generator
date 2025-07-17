@@ -41,11 +41,11 @@ const getOffset = (offsetHours?: number) => {
 
     return config.eventDateOffsetHours;
   }
-  
+
   if (offsetHours !== undefined) {
     return offsetHours;
   }
-  
+
   return faker.number.int({ max: 10 });
 };
 
@@ -272,7 +272,10 @@ export const createRandomGenericEntity = (): GenericEntity => {
   };
 };
 
-export const createRandomEventForHost = (host: Host, offsetHours?: number): HostEvent => ({
+export const createRandomEventForHost = (
+  host: Host,
+  offsetHours?: number,
+): HostEvent => ({
   '@timestamp': moment()
     .subtract(getOffset(offsetHours), 'h')
     .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
@@ -291,7 +294,10 @@ export const createRandomEventForHost = (host: Host, offsetHours?: number): Host
   },
 });
 
-export const createRandomEventForUser = (user: User, offsetHours?: number): UserEvent => ({
+export const createRandomEventForUser = (
+  user: User,
+  offsetHours?: number,
+): UserEvent => ({
   '@timestamp': moment()
     .subtract(getOffset(offsetHours), 'h')
     .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
@@ -438,9 +444,12 @@ export const generateEvents = <E extends BaseEntity, EV = BaseEvent>(
   const eventsPerEntity = 10;
   const acc: EV[] = [];
   return entities.reduce((acc, entity) => {
-    const events = faker.helpers.multiple(() => createEvent(entity, offsetHours), {
-      count: eventsPerEntity,
-    });
+    const events = faker.helpers.multiple(
+      () => createEvent(entity, offsetHours),
+      {
+        count: eventsPerEntity,
+      },
+    );
     acc.push(...events);
     return acc;
   }, acc);
