@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Security Event Schema",
+  "description": "Schema for AI-generated security events",
+  "required": ["@timestamp"],
+  "properties": {
+    "@timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Event timestamp in ISO 8601 format"
+    },
+    "event.kind": {
+      "type": "string",
+      "enum": ["event", "signal", "metric", "state"],
+      "description": "Event kind"
+    },
+    "event.category": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["authentication", "network", "process", "file", "registry", "security", "malware", "web"]
+      },
+      "maxItems": 3,
+      "description": "Event categories"
+    },
+    "event.action": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Specific action taken"
+    },
+    "host.name": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Host name where the event occurred"
+    },
+    "user.name": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Username associated with the event"
+    },
+    "process.name": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Process name"
+    },
+    "file.name": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "File name"
+    },
+    "source.ip": {
+      "type": "string",
+      "format": "ipv4",
+      "description": "Source IP address"
+    },
+    "destination.ip": {
+      "type": "string",
+      "format": "ipv4",
+      "description": "Destination IP address"
+    }
+  },
+  "additionalProperties": false
+}

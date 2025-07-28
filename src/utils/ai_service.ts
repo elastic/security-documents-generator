@@ -4,6 +4,11 @@ import { readFileSync } from 'fs';
 import path from 'path';
 import { faker } from '@faker-js/faker';
 
+// Import security schemas for Structured Outputs
+import securityAlertCoreSchema from '../schemas/security_alert_core_schema.json' assert { type: 'json' };
+import securityAlertCoreBatchSchema from '../schemas/security_alert_core_batch_schema.json' assert { type: 'json' };
+import securityEventSchema from '../schemas/security_event_schema.json' assert { type: 'json' };
+
 // Local imports
 import { getConfig } from '../get_config';
 import { generateTimestamp, TimestampConfig } from './timestamp_utils';
@@ -461,7 +466,7 @@ Generate an alert that shows CLEAR CORRELATION to this attack campaign stage. In
             );
           }
         } else if (openai) {
-          // Use OpenAI API
+          // Use OpenAI API with Structured Outputs
           const modelName =
             config.useAzureOpenAI && config.azureOpenAIDeployment
               ? config.azureOpenAIDeployment
@@ -473,14 +478,19 @@ Generate an alert that shows CLEAR CORRELATION to this attack campaign stage. In
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt },
             ],
-            response_format: { type: 'json_object' },
+            response_format: {
+              type: 'json_schema',
+              json_schema: {
+                name: 'security_alert',
+                schema: securityAlertCoreSchema,
+                strict: true
+              }
+            },
             temperature: 0.7,
           });
 
-          generatedAlert = safeJsonParse(
-            response.choices[0].message.content || '{}',
-            'OpenAI response parsing',
-          );
+          // With Structured Outputs, no need for safeJsonParse - response is guaranteed to be valid JSON
+          generatedAlert = JSON.parse(response.choices[0].message.content || '{}');
         }
 
         // Create a default template with required fields
@@ -609,7 +619,7 @@ export const generateAIEvent = async (
             );
           }
         } else if (openai) {
-          // Use OpenAI API
+          // Use OpenAI API with Structured Outputs
           const modelName =
             config.useAzureOpenAI && config.azureOpenAIDeployment
               ? config.azureOpenAIDeployment
@@ -621,14 +631,19 @@ export const generateAIEvent = async (
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt },
             ],
-            response_format: { type: 'json_object' },
+            response_format: {
+              type: 'json_schema',
+              json_schema: {
+                name: 'security_event',
+                schema: securityEventSchema,
+                strict: true
+              }
+            },
             temperature: 0.7,
           });
 
-          generatedEvent = safeJsonParse(
-            response.choices[0].message.content || '{}',
-            'OpenAI event response parsing',
-          );
+          // With Structured Outputs, no need for safeJsonParse - response is guaranteed to be valid JSON
+          generatedEvent = JSON.parse(response.choices[0].message.content || '{}');
         }
 
         // Ensure timestamp is present
@@ -739,7 +754,7 @@ export const generateAIAlertBatch = async (
               temperature: 0.7,
             });
           } else if (openai) {
-            // Use OpenAI API
+            // Use OpenAI API with Structured Outputs for batch generation
             const modelName =
               config.useAzureOpenAI && config.azureOpenAIDeployment
                 ? config.azureOpenAIDeployment
@@ -751,14 +766,22 @@ export const generateAIAlertBatch = async (
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userPrompt },
               ],
-              response_format: { type: 'json_object' },
+              response_format: {
+                type: 'json_schema',
+                json_schema: {
+                  name: 'security_alert_batch',
+                  schema: securityAlertCoreBatchSchema,
+                  strict: true
+                }
+              },
               temperature: 0.7,
             });
           }
 
           let generatedAlerts = [];
           try {
-            let rawContent = '[]';
+            let content: any;
+            
             if (
               claude &&
               response &&
@@ -766,10 +789,10 @@ export const generateAIAlertBatch = async (
               response.content &&
               response.content[0]
             ) {
-              rawContent =
-                response.content[0].type === 'text'
-                  ? response.content[0].text || '[]'
-                  : '[]';
+              const rawContent = response.content[0].type === 'text'
+                ? response.content[0].text || '{}'
+                : '{}';
+              content = safeJsonParse(rawContent, 'Claude batch response parsing');
             } else if (
               openai &&
               response &&
@@ -777,68 +800,28 @@ export const generateAIAlertBatch = async (
               response.choices &&
               response.choices[0]
             ) {
-              rawContent = response.choices[0].message.content || '[]';
+              // With Structured Outputs, response is guaranteed valid JSON matching our schema
+              const rawContent = response.choices[0].message.content || '{"alerts": []}';
+              content = JSON.parse(rawContent);
             }
 
-            // Debug logging for AI responses (always enabled for debugging)
-            console.log(
-              `🔍 AI Raw Response (first 500 chars): ${rawContent.substring(0, 500)}...`,
-            );
-
-            // Clean and validate the JSON content
-            const cleanedContent = sanitizeJSONResponse(rawContent);
-            console.log(
-              `🧹 Cleaned Content: ${cleanedContent.substring(0, 300)}...`,
-            );
-
-            const content = safeJsonParse(
-              cleanedContent,
-              'Batch response parsing',
-            );
-
-            // Debug logging for parsed content
-            console.log(
-              `📊 Parsed Content Type: ${typeof content}, Array: ${Array.isArray(content)}`,
-            );
-            console.log(
-              `🔑 Content Keys: ${content && typeof content === 'object' ? Object.keys(content) : 'N/A'}`,
-            );
-
-            if (content && typeof content === 'object') {
-              console.log(
-                '🏗️ Content structure:',
-                JSON.stringify(content, null, 2).substring(0, 1000),
-              );
-            }
-
-            // Enhanced response format handling
-            if (Array.isArray(content)) {
-              console.log(
-                `✅ Direct array response found with ${content.length} items`,
-              );
+            // With Structured Outputs, we know the exact format
+            if (content && typeof content === 'object' && 'alerts' in content) {
+              console.log(`✅ Structured Outputs response with ${(content.alerts as unknown[]).length} alerts`);
+              generatedAlerts = content.alerts as unknown[];
+            } else if (Array.isArray(content)) {
+              // Fallback for Claude or direct array responses
+              console.log(`✅ Direct array response found with ${content.length} items`);
               generatedAlerts = content;
             } else if (content && typeof content === 'object') {
+              // Legacy fallback handling
               const contentObj = content as Record<string, unknown>;
-              console.log(
-                `🔍 Object response detected, checking for array properties...`,
-              );
-
-              // Priority order for common response patterns
-              const possibleArrayKeys = [
-                'alerts',
-                'alert',
-                'data',
-                'kibana.alerts',
-                'response',
-                'results',
-              ];
+              const possibleArrayKeys = ['alerts', 'alert', 'data', 'response', 'results'];
               let foundArray = false;
 
               for (const key of possibleArrayKeys) {
                 if (contentObj[key] && Array.isArray(contentObj[key])) {
-                  console.log(
-                    `✅ Found array in property '${key}' with ${(contentObj[key] as unknown[]).length} items`,
-                  );
+                  console.log(`✅ Found array in property '${key}' with ${(contentObj[key] as unknown[]).length} items`);
                   generatedAlerts = contentObj[key] as unknown[];
                   foundArray = true;
                   break;
@@ -846,30 +829,8 @@ export const generateAIAlertBatch = async (
               }
 
               if (!foundArray) {
-                // Check for any array property in the object
-                const arrayKeys = Object.keys(contentObj).filter((key) =>
-                  Array.isArray(contentObj[key]),
-                );
-
-                if (arrayKeys.length > 0) {
-                  console.log(
-                    `✅ Found array in property '${arrayKeys[0]}' with ${(contentObj[arrayKeys[0]] as unknown[]).length} items`,
-                  );
-                  generatedAlerts = contentObj[arrayKeys[0]] as unknown[];
-                } else {
-                  console.log(
-                    `⚠️ No array found, treating as single object response`,
-                  );
-                  // Single object response - replicate it for each entity if we need multiple
-                  if (batch.length > 1) {
-                    console.log(
-                      `🔄 Replicating single object for ${batch.length} entities`,
-                    );
-                    generatedAlerts = batch.map(() => ({ ...content }));
-                  } else {
-                    generatedAlerts = [content];
-                  }
-                }
+                console.log(`⚠️ No array found, using fallback individual generation`);
+                generatedAlerts = [];
               }
             } else {
               console.warn(
@@ -1209,7 +1170,7 @@ export const generateMITREAlert = async (
             );
           }
         } else if (openai) {
-          // Use OpenAI API
+          // Use OpenAI API with Structured Outputs
           const modelName =
             config.useAzureOpenAI && config.azureOpenAIDeployment
               ? config.azureOpenAIDeployment
@@ -1221,14 +1182,19 @@ export const generateMITREAlert = async (
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt },
             ],
-            response_format: { type: 'json_object' },
+            response_format: {
+              type: 'json_schema',
+              json_schema: {
+                name: 'security_alert',
+                schema: securityAlertCoreSchema,
+                strict: true
+              }
+            },
             temperature: 0.8,
           });
 
-          generatedAlert = safeJsonParse(
-            response.choices[0].message.content || '{}',
-            'OpenAI MITRE response parsing',
-          );
+          // With Structured Outputs, no need for safeJsonParse - response is guaranteed to be valid JSON
+          generatedAlert = JSON.parse(response.choices[0].message.content || '{}');
         }
 
         // Create default template

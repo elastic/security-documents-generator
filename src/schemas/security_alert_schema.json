@@ -1,0 +1,245 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Security Alert Schema",
+  "description": "Schema for AI-generated security alerts compatible with Elasticsearch Kibana Security",
+  "required": [
+    "@timestamp",
+    "kibana.alert.uuid",
+    "kibana.alert.rule.name",
+    "kibana.alert.severity",
+    "kibana.alert.risk_score",
+    "host.name",
+    "user.name",
+    "event.kind",
+    "event.category"
+  ],
+  "properties": {
+    "@timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Event timestamp in ISO 8601 format"
+    },
+    "kibana.alert.uuid": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique alert identifier"
+    },
+    "kibana.alert.rule.name": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Name of the detection rule"
+    },
+    "kibana.alert.rule.description": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Description of what the rule detects"
+    },
+    "kibana.alert.severity": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"],
+      "description": "Alert severity level"
+    },
+    "kibana.alert.risk_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Risk score from 0-100"
+    },
+    "kibana.alert.reason": {
+      "type": "string",
+      "maxLength": 300,
+      "description": "Human readable reason for the alert"
+    },
+    "host.name": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Host name where the event occurred"
+    },
+    "host.ip": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "ipv4"
+      },
+      "maxItems": 5,
+      "description": "Host IP addresses"
+    },
+    "user.name": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Username associated with the event"
+    },
+    "event.kind": {
+      "type": "string",
+      "enum": ["signal", "event", "alert"],
+      "description": "Event kind"
+    },
+    "event.category": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["authentication", "network", "process", "file", "registry", "security", "malware"]
+      },
+      "maxItems": 3,
+      "description": "Event categories"
+    },
+    "event.action": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Specific action taken"
+    },
+    "source.ip": {
+      "type": "string",
+      "format": "ipv4",
+      "description": "Source IP address"
+    },
+    "destination.ip": {
+      "type": "string",
+      "format": "ipv4", 
+      "description": "Destination IP address"
+    },
+    "process.name": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Process name"
+    },
+    "process.command_line": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Full command line"
+    },
+    "file.name": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "File name"
+    },
+    "file.path": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Full file path"
+    },
+    "threat.technique.id": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^T[0-9]{4}(\\.[0-9]{3})?$"
+      },
+      "maxItems": 3,
+      "description": "MITRE ATT&CK technique IDs"
+    },
+    "threat.technique.name": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "maxItems": 3,
+      "description": "MITRE ATT&CK technique names"
+    },
+    "threat.tactic.id": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^TA[0-9]{4}$"
+      },
+      "maxItems": 3,
+      "description": "MITRE ATT&CK tactic IDs"
+    },
+    "threat.tactic.name": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 50
+      },
+      "maxItems": 3,
+      "description": "MITRE ATT&CK tactic names"
+    },
+    "kibana.alert.start": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Alert start time"
+    },
+    "kibana.alert.last_detected": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Alert last detected time"
+    },
+    "kibana.alert.status": {
+      "type": "string",
+      "enum": ["active", "closed", "acknowledged"],
+      "description": "Alert status"
+    },
+    "kibana.alert.workflow_status": {
+      "type": "string",
+      "enum": ["open", "acknowledged", "closed"],
+      "description": "Alert workflow status"
+    },
+    "kibana.version": {
+      "type": "string",
+      "description": "Kibana version"
+    },
+    "kibana.space_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 5,
+      "description": "Kibana space IDs"
+    },
+    "kibana.alert.depth": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Alert depth"
+    },
+    "rule.name": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Rule name"
+    },
+    "kibana.alert.rule.category": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Rule category"
+    },
+    "kibana.alert.rule.consumer": {
+      "type": "string",
+      "maxLength": 50,
+      "description": "Rule consumer"
+    },
+    "kibana.alert.rule.execution.uuid": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Rule execution UUID"
+    },
+    "kibana.alert.rule.producer": {
+      "type": "string",
+      "maxLength": 50,
+      "description": "Rule producer"
+    },
+    "kibana.alert.rule.rule_type_id": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Rule type ID"
+    },
+    "kibana.alert.rule.uuid": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Rule UUID"
+    },
+    "kibana.alert.rule.tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 10,
+      "description": "Rule tags"
+    },
+    "kibana.alert.original_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Original alert time"
+    }
+  },
+  "additionalProperties": false
+}

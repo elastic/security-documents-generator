@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Security Alert Core Schema",
+  "description": "Core schema for AI-generated security alert fields (merged with template)",
+  "required": [
+    "kibana.alert.rule.name",
+    "kibana.alert.rule.description", 
+    "kibana.alert.severity",
+    "kibana.alert.risk_score",
+    "kibana.alert.reason",
+    "event.action"
+  ],
+  "properties": {
+    "kibana.alert.rule.name": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Name of the detection rule"
+    },
+    "kibana.alert.rule.description": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Description of what the rule detects"
+    },
+    "kibana.alert.severity": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"],
+      "description": "Alert severity level"
+    },
+    "kibana.alert.risk_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Risk score from 0-100"
+    },
+    "kibana.alert.reason": {
+      "type": "string",
+      "maxLength": 300,
+      "description": "Human readable reason for the alert"
+    },
+    "event.action": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Specific action taken"
+    }
+  },
+  "additionalProperties": false
+}
