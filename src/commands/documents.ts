@@ -227,7 +227,7 @@ interface DocumentCreator {
   (descriptor: { id_field: string; id_value: string }): object;
 }
 
-const alertToBatchOps = (
+export const alertToBatchOps = (
   alert: BaseCreateAlertsReturnType,
   index: string,
 ): unknown[] => {

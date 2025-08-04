@@ -22,6 +22,7 @@ import { initializeSpace } from './utils';
 import { getConfig } from './get_config';
 import { faker } from '@faker-js/faker';
 import { setGlobalTheme } from './utils/universal_theme_generator';
+import { executeBulkWithErrorHandling } from './utils/error_handling';
 
 await createConfigFileOnFirstRun();
 
@@ -1787,6 +1788,7 @@ program
         const { getEsClient } = await import('./commands/utils/indices');
 
         // Convert alerts to bulk operations with environment-specific space
+        const { alertToBatchOps } = await import('./commands/documents');
         const alertIndex = getAlertIndex(targetSpace);
         const bulkOps: unknown[] = [];
 
@@ -1794,21 +1796,35 @@ program
           // Update alert space IDs for multi-environment
           alert['kibana.space_ids'] = [targetSpace];
 
-          bulkOps.push(
-            { index: { _index: alertIndex, _id: alert['kibana.alert.uuid'] } },
-            { ...alert },
-          );
+          // Use the proper alertToBatchOps function that handles data streams correctly
+          bulkOps.push(...alertToBatchOps(alert, alertIndex));
         }
 
-        // Bulk index to Elasticsearch
+        // Bulk index to Elasticsearch with enhanced error handling
         const client = getEsClient();
         try {
-          await client.bulk({ operations: bulkOps, refresh: true });
-          console.log(
-            `✅ Successfully indexed ${result.length} events to ${alertIndex}`,
+          const bulkResult = await executeBulkWithErrorHandling(
+            client, 
+            bulkOps, 
+            {
+              context: `Campaign generation (${result.length} events)`,
+              refresh: true,
+              timeout: '120s',
+              showAllErrors: false,
+              throwOnPartialFailure: false // Don't fail completely on partial failures
+            }
           );
+          
+          console.log(
+            `✅ Campaign indexing complete: ${bulkResult.success} successful, ${bulkResult.failed} failed (${alertIndex})`,
+          );
+          
+          // Log a warning if there were failures but don't throw
+          if (bulkResult.failed > 0) {
+            console.log(`⚠️  Some events failed to index. Check the error details above.`);
+          }
         } catch (err) {
-          console.error('❌ Error indexing events:', err);
+          console.error('❌ Fatal error during campaign indexing:', err);
           throw err;
         }
 

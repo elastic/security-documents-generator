@@ -249,3 +249,187 @@ export const formatErrorForLogging = (
     message: String(error),
   };
 };
+
+// Elasticsearch bulk operation error handling
+export class ElasticsearchBulkError extends Error implements AIServiceError {
+  code = 'ELASTICSEARCH_BULK_ERROR';
+  details?: Record<string, unknown>;
+
+  constructor(message: string, details?: Record<string, unknown>) {
+    super(message);
+    this.name = 'ElasticsearchBulkError';
+    this.details = details;
+  }
+}
+
+// Enhanced bulk response analysis with detailed error reporting
+export const analyzeBulkResponse = (
+  response: any,
+  context = 'Bulk operation',
+): { success: number; failed: number; errors: any[] } => {
+  if (!response || !response.items) {
+    throw new ElasticsearchBulkError(
+      `${context}: Invalid bulk response - missing items array`,
+      { response }
+    );
+  }
+
+  const results = {
+    success: 0,
+    failed: 0,
+    errors: [] as any[]
+  };
+
+  // Analyze each item in the bulk response
+  response.items.forEach((item: any, index: number) => {
+    const operation = item.create || item.index || item.update || item.delete;
+    
+    if (!operation) {
+      results.failed++;
+      results.errors.push({
+        index,
+        error: 'Unknown operation type',
+        item
+      });
+      return;
+    }
+
+    if (operation.error) {
+      results.failed++;
+      results.errors.push({
+        index,
+        operation: Object.keys(item)[0], // create, index, update, delete
+        _index: operation._index,
+        _id: operation._id,
+        status: operation.status,
+        error: {
+          type: operation.error.type,
+          reason: operation.error.reason,
+          caused_by: operation.error.caused_by
+        }
+      });
+    } else {
+      results.success++;
+    }
+  });
+
+  return results;
+};
+
+// Log bulk operation results with detailed error analysis
+export const logBulkResults = (
+  results: { success: number; failed: number; errors: any[] },
+  context = 'Bulk operation',
+  showAllErrors = false
+): void => {
+  const total = results.success + results.failed;
+  
+  if (results.failed === 0) {
+    console.log(`✅ ${context}: Successfully processed ${results.success}/${total} documents`);
+    return;
+  }
+
+  // Show summary
+  console.log(`⚠️  ${context}: ${results.success}/${total} successful, ${results.failed} failed`);
+  
+  // Group errors by type for better analysis
+  const errorsByType = results.errors.reduce((acc, error) => {
+    const errorType = error.error?.type || 'unknown_error';
+    if (!acc[errorType]) {
+      acc[errorType] = [];
+    }
+    acc[errorType].push(error);
+    return acc;
+  }, {} as Record<string, any[]>);
+
+  // Show error summary
+  Object.entries(errorsByType).forEach(([errorType, errors]) => {
+    console.log(`   📊 ${errorType}: ${errors.length} occurrences`);
+    
+    // Show first few examples of each error type
+    const examples = errors.slice(0, showAllErrors ? errors.length : 2);
+    examples.forEach((error, idx) => {
+      console.log(`   ${idx + 1}. Index: ${error._index || 'unknown'}, Reason: ${error.error?.reason || 'unknown'}`);
+      if (error.error?.caused_by) {
+        console.log(`      Caused by: ${error.error.caused_by.reason}`);
+      }
+    });
+    
+    if (!showAllErrors && errors.length > 2) {
+      console.log(`   ... and ${errors.length - 2} more similar errors`);
+    }
+  });
+};
+
+// Enhanced bulk operation wrapper with comprehensive error handling
+export const executeBulkWithErrorHandling = async (
+  client: any,
+  operations: unknown[],
+  options: {
+    context?: string;
+    refresh?: boolean | string;
+    timeout?: string;
+    showAllErrors?: boolean;
+    throwOnPartialFailure?: boolean;
+  } = {}
+): Promise<{ success: number; failed: number; response: any }> => {
+  const {
+    context = 'Bulk operation',
+    refresh = true,
+    timeout = '60s',
+    showAllErrors = false,
+    throwOnPartialFailure = false
+  } = options;
+
+  if (!operations || operations.length === 0) {
+    throw new ElasticsearchBulkError(`${context}: No operations provided`);
+  }
+
+  try {
+    console.log(`📤 ${context}: Indexing ${operations.length / 2} documents...`);
+    
+    const response = await client.bulk({
+      operations,
+      refresh,
+      timeout
+    });
+
+    // Analyze the response
+    const results = analyzeBulkResponse(response, context);
+    
+    // Log results
+    logBulkResults(results, context, showAllErrors);
+
+    // Throw error if partial failures and configured to do so
+    if (results.failed > 0 && throwOnPartialFailure) {
+      throw new ElasticsearchBulkError(
+        `${context}: Bulk operation had ${results.failed} failures`,
+        {
+          totalDocuments: operations.length / 2,
+          successful: results.success,
+          failed: results.failed,
+          errors: results.errors.slice(0, 10) // First 10 errors for context
+        }
+      );
+    }
+
+    return {
+      success: results.success,
+      failed: results.failed,
+      response
+    };
+    
+  } catch (error) {
+    if (error instanceof ElasticsearchBulkError) {
+      throw error;
+    }
+    
+    throw new ElasticsearchBulkError(
+      `${context}: Bulk operation failed with exception`,
+      {
+        originalError: error instanceof Error ? error.message : String(error),
+        operationCount: operations.length / 2
+      }
+    );
+  }
+};
