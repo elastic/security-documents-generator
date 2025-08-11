@@ -3,18 +3,18 @@
 
 
 "@elastic/elasticsearch@^9.0.0":
-  version "9.0.3"
-  resolved "https://registry.yarnpkg.com/@elastic/elasticsearch/-/elasticsearch-9.0.3.tgz#96302c6dfae27503d5271aba318883fdef4051bd"
-  integrity sha512-aagnssrVQi538wExO0Au169amtq68sXSwQMyzblQVAsqcmbqRTtzmGhKOjnDP0LK3ml0Mtje1uX+Vda7RhqDsA==
+  version "9.1.1"
+  resolved "https://registry.yarnpkg.com/@elastic/elasticsearch/-/elasticsearch-9.1.1.tgz#b51cf99664f930dd598490917684e4b7687273f6"
+  integrity sha512-s/JZtHZjtbAYC2gdSzm4LLOSReR724e7cf7ZauIAZlGvAyMgZPZCJpq7xHazSy4rZZhule4ubMs4vepBgWvKQA==
   dependencies:
     "@elastic/transport" "^9.0.1"
-    apache-arrow "18.x - 19.x"
+    apache-arrow "18.x - 20.x"
     tslib "^2.4.0"
 
 "@elastic/transport@^9.0.1":
-  version "9.1.0"
-  resolved "https://registry.yarnpkg.com/@elastic/transport/-/transport-9.1.0.tgz#baedc378c78f2a19031c9221a94753e6bd88924f"
-  integrity sha512-PogTXSIAuoB7QiD5BnZHIlLCiGIAEsxr1jHL6UWNnlDZp5YvfuwGy2IGiE/lBIjt5FsG+eHnEPj/I71Bw6MWJA==
+  version "9.1.1"
+  resolved "https://registry.yarnpkg.com/@elastic/transport/-/transport-9.1.1.tgz#bfeb7b129374fe08ce6f4935cc74c104a6e9ba4f"
+  integrity sha512-lI5N3fvGKy6ALfzUsmHw47Ew7mLrEUFu4NLmhwaNTqbERlBTRqkdDNciKSEc28/amCZGAMw/LkN5ctYpvap5tA==
   dependencies:
     "@opentelemetry/api" "1.x"
     "@opentelemetry/core" "2.x"
@@ -23,7 +23,7 @@
     ms "^2.1.3"
     secure-json-parse "^4.0.0"
     tslib "^2.8.1"
-    undici "^7.11.0"
+    undici "^7.12.0"
 
 "@esbuild/aix-ppc64@0.25.5":
   version "0.25.5"
@@ -565,9 +565,9 @@
     "@opentelemetry/semantic-conventions" "^1.29.0"
 
 "@opentelemetry/semantic-conventions@^1.29.0":
-  version "1.34.0"
-  resolved "https://registry.yarnpkg.com/@opentelemetry/semantic-conventions/-/semantic-conventions-1.34.0.tgz#8b6a46681b38a4d5947214033ac48128328c1738"
-  integrity sha512-aKcOkyrorBGlajjRdVoJWHTxfxO1vCNHLJVlSDaRHDIdjU+pX8IYQPvPDkYiujKLbRnWU+1TBwEt0QRgSm4SGA==
+  version "1.36.0"
+  resolved "https://registry.yarnpkg.com/@opentelemetry/semantic-conventions/-/semantic-conventions-1.36.0.tgz#149449bd4df4d0464220915ad4164121e0d75d4d"
+  integrity sha512-TtxJSRD8Ohxp6bKkhrm27JRHAxPczQA7idtcTOMYI+wQRRrfgqxHv1cFbCApcSnNjtXkmzFozn6jQtFrOmbjPQ==
 
 "@pkgr/core@^0.2.4":
   version "0.2.4"
@@ -638,9 +638,9 @@
     undici-types "~5.26.4"
 
 "@types/node@^20.13.0":
-  version "20.19.4"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-20.19.4.tgz#c4b8ce51a0f675a354225c58980ccacfe0af5d74"
-  integrity sha512-OP+We5WV8Xnbuvw0zC2m4qfB/BJvjyCwtNjhHdJxV1639SGSKrLmJkc3fMnp2Qy8nJyHp8RO6umxELN/dS1/EA==
+  version "20.19.10"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-20.19.10.tgz#8bee5d6fa97221d50d767fa5707a3dd6503e8f19"
+  integrity sha512-iAFpG6DokED3roLSP0K+ybeDdIX6Bc0Vd3mLW5uDqThPWtNos3E+EqOM11mPQHKzfWHqEBuLjIlsBQQ8CsISmQ==
   dependencies:
     undici-types "~6.21.0"
 
@@ -808,10 +808,10 @@ ansi-styles@^4.0.0, ansi-styles@^4.1.0:
   dependencies:
     color-convert "^2.0.1"
 
-"apache-arrow@18.x - 19.x":
-  version "19.0.1"
-  resolved "https://registry.yarnpkg.com/apache-arrow/-/apache-arrow-19.0.1.tgz#aeac6922102e3274f57d97ec72da69d20e55b15c"
-  integrity sha512-APmMLzS4qbTivLrPdQXexGM4JRr+0g62QDaobzEvip/FdQIrv2qLy0mD5Qdmw4buydtVJgbFeKR8f59I6PPGDg==
+"apache-arrow@18.x - 20.x":
+  version "20.0.0"
+  resolved "https://registry.yarnpkg.com/apache-arrow/-/apache-arrow-20.0.0.tgz#c79dea09b798778f28558d18b6860c5030e991d0"
+  integrity sha512-JUeK0jFRUd7rbmrhhzR3O2KXjLaZ4YYYFOptyUfxOsMIoZCPi6bZR58gVi/xi3HTBMPseXm9PXyQ2V916930pA==
   dependencies:
     "@swc/helpers" "^0.5.11"
     "@types/command-line-args" "^5.2.3"
@@ -819,7 +819,7 @@ ansi-styles@^4.0.0, ansi-styles@^4.1.0:
     "@types/node" "^20.13.0"
     command-line-args "^6.0.1"
     command-line-usage "^7.0.1"
-    flatbuffers "^24.3.25"
+    flatbuffers "^25.1.24"
     json-bignum "^0.0.3"
     tslib "^2.6.2"
 
@@ -1821,10 +1821,10 @@ flat-cache@^4.0.0:
     flatted "^3.2.9"
     keyv "^4.5.4"
 
-flatbuffers@^24.3.25:
-  version "24.12.23"
-  resolved "https://registry.yarnpkg.com/flatbuffers/-/flatbuffers-24.12.23.tgz#6eea59d2bcda0c5d59bcacefd6216348b3086883"
-  integrity sha512-dLVCAISd5mhls514keQzmEG6QHmUUsNuWsb4tFafIUwvvgDjXhtfAYSKOzt5SWOy+qByV5pbsDZ+Vb7HUOBEdA==
+flatbuffers@^25.1.24:
+  version "25.2.10"
+  resolved "https://registry.yarnpkg.com/flatbuffers/-/flatbuffers-25.2.10.tgz#308b750545f62db670ca4c9d7dbc66161420a95e"
+  integrity sha512-7JlN9ZvLDG1McO3kbX0k4v+SUAg48L1rIwEvN6ZQl/eCtgJz9UylTMzE9wrmYrcorgxm3CX/3T/w5VAub99UUw==
 
 flatted@^3.2.9:
   version "3.3.1"
@@ -3179,10 +3179,10 @@ undici-types@~6.21.0:
   resolved "https://registry.yarnpkg.com/undici-types/-/undici-types-6.21.0.tgz#691d00af3909be93a7faa13be61b3a5b50ef12cb"
   integrity sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==
 
-undici@^7.11.0:
-  version "7.11.0"
-  resolved "https://registry.yarnpkg.com/undici/-/undici-7.11.0.tgz#8e13a54f62afa756666c0590c38b3866e286d0b3"
-  integrity sha512-heTSIac3iLhsmZhUCjyS3JQEkZELateufzZuBaVM5RHXdSBMb1LPMQf5x+FH7qjsZYDP0ttAc3nnVpUB+wYbOg==
+undici@^7.12.0:
+  version "7.13.0"
+  resolved "https://registry.yarnpkg.com/undici/-/undici-7.13.0.tgz#9331f99fc42970dcbdf54199e6604755ba54433a"
+  integrity sha512-l+zSMssRqrzDcb3fjMkjjLGmuiiK2pMIcV++mJaAc9vhjSGpvM7h43QgP+OAMb1GImHmbPyG2tBXeuyG5iY4gA==
 
 uri-js@^4.2.2:
   version "4.4.1"
