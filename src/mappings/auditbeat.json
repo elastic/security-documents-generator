@@ -1075,6 +1075,33 @@
           }
         }
       },
+      "entity": {
+        "properties": {
+          "sub_type": {
+            "ignore_above": 1024,
+            "type": "keyword"
+          },
+          "name": {
+            "ignore_above": 1024,
+            "type": "keyword"
+          },
+          "raw": {
+            "type": "flattened"
+          },
+          "id": {
+            "ignore_above": 1024,
+            "type": "keyword"
+          },
+          "source": {
+            "ignore_above": 1024,
+            "type": "keyword"
+          },
+          "type": {
+            "ignore_above": 1024,
+            "type": "keyword"
+          }
+        }
+      },
       "error": {
         "properties": {
           "code": {

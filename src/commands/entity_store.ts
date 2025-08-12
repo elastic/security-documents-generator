@@ -29,7 +29,7 @@ const getClient = () => {
   return client;
 };
 
-const getOffset = () => {
+const getOffset = (offsetHours?: number) => {
   const config = getConfig();
 
   if (config.eventDateOffsetHours !== undefined) {
@@ -41,7 +41,12 @@ const getOffset = () => {
 
     return config.eventDateOffsetHours;
   }
-  return faker.number.int({ max: 1000 });
+
+  if (offsetHours !== undefined) {
+    return offsetHours;
+  }
+
+  return faker.number.int({ max: 10 });
 };
 
 type Agent = ReturnType<typeof createAgentDocument>;
@@ -71,6 +76,16 @@ enum EntityTypes {
 interface BaseEntity {
   name: string;
   assetCriticality: AssetCriticality;
+  entity?: {
+    EngineMetadata: {
+      Type: string;
+    };
+    source: string;
+    type: string;
+    sub_type: string;
+    name: string;
+    id: string;
+  };
 }
 interface User extends BaseEntity {
   type: EntityTypes.User;
@@ -87,13 +102,12 @@ interface Service extends BaseEntity {
 interface GenericEntity extends BaseEntity {
   id: string;
   type: string;
-  sub_type: string;
 }
 
 interface BaseEvent {
   '@timestamp': string;
   message: string;
-  service: {
+  service?: {
     type: string;
   };
 }
@@ -101,7 +115,6 @@ interface BaseEvent {
 interface EventUser {
   name: string;
   id: number;
-  entity_id: string;
 }
 
 interface EventHost {
@@ -132,12 +145,24 @@ interface ServiceEvent extends BaseEvent {
 }
 
 interface GenericEntityEvent extends BaseEvent {
-  entity: {
-    id: string;
-    name: string;
+  event: {
+    ingested: string;
+    dataset: string;
+    module: string;
+  };
+  cloud: {
+    provider: string;
+    region: string;
+    account: {
+      name: string;
+      id: string;
+    };
+  };
+  entity?: {
     type: string;
-    sub_type: string;
-    address: string;
+    sub_type?: string;
+    name: string;
+    id: string;
   };
 }
 
@@ -178,27 +203,81 @@ export const createRandomService = (): Service => {
 };
 
 const genericTypes = [
-  { type: 'user', subType: 'aws_iam_user' },
-  { type: 'host', subType: 'aws_ec2_instance' },
-  { type: 'database', subType: 'aws_redshift_instance' },
-  { type: 'network', subType: 'aws_ec2_vpc' },
+  { type: 'Messaging Service', subType: 'AWS SNS Topic' },
+  { type: 'Storage Service', subType: 'AWS S3 Bucket' },
+  { type: 'Compute Service', subType: 'AWS EC2 Instance' },
+  { type: 'Database Service', subType: 'AWS RDS Instance' },
+  { type: 'Compute Service', subType: 'AWS Lambda Function' },
+  { type: 'Network Service', subType: 'AWS VPC' },
+  { type: 'Storage Service', subType: 'AWS EBS Volume' },
+  { type: 'Database Service', subType: 'AWS DynamoDB Table' },
+  { type: 'Compute Service', subType: 'AWS ECS Service' },
+  { type: 'Network Service', subType: 'AWS Load Balancer' },
 ];
+
 export const createRandomGenericEntity = (): GenericEntity => {
   const taxonomy =
     genericTypes[Math.floor(Math.random() * genericTypes.length)];
 
+  const resourceName = `${taxonomy.subType.toLowerCase().replace(/\s+/g, '-')}-${faker.string.alphanumeric(8)}`;
+  const regions = [
+    'us-east-1',
+    'us-west-2',
+    'eu-west-1',
+    'eu-central-1',
+    'ap-southeast-1',
+  ];
+  const region = faker.helpers.arrayElement(regions);
+  const accountId = faker.string.numeric(12); // Generate AWS ARN-style ID based on service type
+  let resourceId: string;
+  if (taxonomy.subType.includes('SNS')) {
+    resourceId = `arn:aws:sns:${region}:${accountId}:${resourceName}`;
+  } else if (taxonomy.subType.includes('S3')) {
+    resourceId = `arn:aws:s3:::${resourceName}`;
+  } else if (taxonomy.subType.includes('EC2')) {
+    resourceId = `arn:aws:ec2:${region}:${accountId}:instance/${faker.string.alphanumeric(17)}`;
+  } else if (taxonomy.subType.includes('RDS')) {
+    resourceId = `arn:aws:rds:${region}:${accountId}:db:${resourceName}`;
+  } else if (taxonomy.subType.includes('Lambda')) {
+    resourceId = `arn:aws:lambda:${region}:${accountId}:function:${resourceName}`;
+  } else if (taxonomy.subType.includes('VPC')) {
+    resourceId = `arn:aws:ec2:${region}:${accountId}:vpc/${faker.string.alphanumeric(17)}`;
+  } else if (taxonomy.subType.includes('EBS')) {
+    resourceId = `arn:aws:ec2:${region}:${accountId}:volume/${faker.string.alphanumeric(17)}`;
+  } else if (taxonomy.subType.includes('DynamoDB')) {
+    resourceId = `arn:aws:dynamodb:${region}:${accountId}:table/${resourceName}`;
+  } else if (taxonomy.subType.includes('ECS')) {
+    resourceId = `arn:aws:ecs:${region}:${accountId}:service/${resourceName}`;
+  } else if (taxonomy.subType.includes('Load Balancer')) {
+    resourceId = `arn:aws:elasticloadbalancing:${region}:${accountId}:loadbalancer/${resourceName}`;
+  } else {
+    resourceId = `arn:aws:${taxonomy.subType.toLowerCase().replace(/\s+/g, '-')}:${region}:${accountId}:${resourceName}`;
+  }
+
   return {
-    name: `GenericEntity-${faker.internet.domainName()}`,
+    name: resourceName,
     assetCriticality: faker.helpers.arrayElement(ASSET_CRITICALITY),
-    id: faker.string.nanoid(),
+    id: resourceId,
     type: taxonomy.type,
-    sub_type: taxonomy.subType,
+    entity: {
+      EngineMetadata: {
+        Type: EntityTypes.Generic,
+      },
+      source: resourceId,
+      type: taxonomy.type,
+      sub_type: taxonomy.subType,
+      name: resourceName,
+      id: resourceId,
+    },
   };
 };
 
-export const createRandomEventForHost = (host: Host): HostEvent => ({
+export const createRandomEventForHost = (
+  host: Host,
+  offsetHours?: number,
+): HostEvent => ({
   '@timestamp': moment()
-    .subtract(getOffset(), 'h')
+    .subtract(getOffset(offsetHours), 'h')
     .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
   message: `Host ${faker.hacker.phrase()}`,
   service: {
@@ -215,9 +294,12 @@ export const createRandomEventForHost = (host: Host): HostEvent => ({
   },
 });
 
-export const createRandomEventForUser = (user: User): UserEvent => ({
+export const createRandomEventForUser = (
+  user: User,
+  offsetHours?: number,
+): UserEvent => ({
   '@timestamp': moment()
-    .subtract(getOffset(), 'h')
+    .subtract(getOffset(offsetHours), 'h')
     .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
   message: `User ${faker.hacker.phrase()}`,
   service: {
@@ -226,15 +308,15 @@ export const createRandomEventForUser = (user: User): UserEvent => ({
   user: {
     name: user.name,
     id: faker.number.int({ max: 10000 }),
-    entity_id: faker.string.nanoid(),
   },
 });
 
 export const createRandomEventForService = (
   service: Service,
+  offsetHours?: number,
 ): ServiceEvent => ({
   '@timestamp': moment()
-    .subtract(getOffset(), 'h')
+    .subtract(getOffset(offsetHours), 'h')
     .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
   message: `Service ${faker.hacker.phrase()}`,
   service: {
@@ -257,21 +339,53 @@ export const createRandomEventForService = (
   },
 });
 
-export const createRandomEventFoGenericEntity = (
+const createRandomEventForGenericEntity = (
   entity: GenericEntity,
-): GenericEntityEvent => ({
-  '@timestamp': moment()
-    .subtract(getOffset(), 'h')
-    .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
-  message: `Service ${faker.hacker.phrase()}`,
-  service: {
-    type: 'system',
-  },
-  entity: {
-    ...entity,
-    address: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  },
-});
+  offsetHours?: number,
+): GenericEntityEvent => {
+  // Always use AWS since we're generating AWS resources
+  const cloudProvider = 'aws';
+
+  const service = {
+    type: entity.type,
+    subType: entity.entity?.sub_type,
+  };
+
+  const regions = [
+    'us-east-1',
+    'us-west-2',
+    'eu-west-1',
+    'eu-central-1',
+    'ap-southeast-1',
+  ];
+  const region = faker.helpers.arrayElement(regions);
+
+  return {
+    '@timestamp': moment()
+      .subtract(getOffset(offsetHours), 'h')
+      .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+    message: `${service.subType} entity discovered`,
+    event: {
+      ingested: moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+      dataset: 'cloud_asset_inventory.asset_inventory',
+      module: 'cloud_asset_inventory',
+    },
+    cloud: {
+      provider: cloudProvider,
+      region: region,
+      account: {
+        name: faker.company.name().toLowerCase().replace(/\s+/g, '-'),
+        id: faker.string.numeric(12),
+      },
+    },
+    entity: {
+      type: service.type,
+      sub_type: service.subType,
+      name: entity.name,
+      id: entity.id,
+    },
+  };
+};
 
 const ingestEvents = async (events: Event[]) =>
   ingest(EVENT_INDEX_NAME, events, auditbeatMappings as MappingTypeMapping);
@@ -286,8 +400,11 @@ const ingest = async (
   index: string,
   documents: Array<object>,
   mapping?: MappingTypeMapping,
+  skipIndexCheck = false,
 ) => {
-  await indexCheck(index, { mappings: mapping });
+  if (!skipIndexCheck) {
+    await indexCheck(index, { mappings: mapping });
+  }
 
   const chunks = chunk(documents, 10000);
 
@@ -321,14 +438,18 @@ const ingest = async (
 // E = Entity, EV = Event
 export const generateEvents = <E extends BaseEntity, EV = BaseEvent>(
   entities: E[],
-  createEvent: (entity: E) => EV,
+  createEvent: (entity: E, offsetHours?: number) => EV,
+  offsetHours?: number,
 ): EV[] => {
   const eventsPerEntity = 10;
   const acc: EV[] = [];
   return entities.reduce((acc, entity) => {
-    const events = faker.helpers.multiple(() => createEvent(entity), {
-      count: eventsPerEntity,
-    });
+    const events = faker.helpers.multiple(
+      () => createEvent(entity, offsetHours),
+      {
+        count: eventsPerEntity,
+      },
+    );
     acc.push(...events);
     return acc;
   }, acc);
@@ -368,6 +489,7 @@ export const generateEntityStore = async ({
   seed = generateNewSeed(),
   space,
   options,
+  offsetHours = 10,
 }: {
   users: number;
   hosts: number;
@@ -376,6 +498,7 @@ export const generateEntityStore = async ({
   seed: number;
   space?: string;
   options: string[];
+  offsetHours?: number;
 }) => {
   if (options.includes(ENTITY_STORE_OPTIONS.seed)) {
     faker.seed(seed);
@@ -399,10 +522,12 @@ export const generateEntityStore = async ({
     const eventsForUsers: UserEvent[] = generateEvents(
       generatedUsers,
       createRandomEventForUser,
+      offsetHours,
     );
     const eventsForHosts: HostEvent[] = generateEvents(
       generatedHosts,
       createRandomEventForHost,
+      offsetHours,
     );
 
     const generatedServices: Service[] = faker.helpers.multiple(
@@ -415,11 +540,13 @@ export const generateEntityStore = async ({
     const eventsForServices: ServiceEvent[] = generateEvents(
       generatedServices,
       createRandomEventForService,
+      offsetHours,
     );
 
     const eventsForGenericEntities: GenericEntityEvent[] = generateEvents(
       generatedGenericEntities,
-      createRandomEventFoGenericEntity,
+      createRandomEventForGenericEntity,
+      offsetHours,
     );
 
     const relational = matchUsersAndHosts(eventsForUsers, eventsForHosts);
