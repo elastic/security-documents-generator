@@ -19,7 +19,7 @@
   "license": "ISC",
   "dependencies": {
     "@elastic/elasticsearch": "^9.0.0",
-    "@faker-js/faker": "^9.0.0",
+    "@faker-js/faker": "^10.0.0",
     "@inquirer/prompts": "^7.3.1",
     "chalk": "^5.2.0",
     "cli-progress": "^3.12.0",
