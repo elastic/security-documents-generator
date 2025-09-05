@@ -528,3 +528,33 @@ export const enablePrivmon = async (space?: string) => {
     throw error;
   }
 };
+
+// #!/bin/bash
+// KIBANA_URL='http://elastic:changeme@localhost:5601/mark'
+
+// curl "${KIBANA_URL}/internal/kibana/settings" \
+//   -H 'Content-Type: application/json' \
+//   -H 'x-elastic-internal-origin: Kibana' \
+//   -H 'kbn-xsrf: true' \
+//   --data-raw '{"changes":{"securitySolution:enablePrivilegedUserMonitoring":true}}'%
+
+export const enablePrivmonAdvancedSetting = async (space?: string) => {
+  try {
+    const response = await kibanaFetch(
+      '/internal/kibana/settings',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          changes: {
+            'securitySolution:enablePrivilegedUserMonitoring': true,
+          },
+        }),
+      },
+      { apiVersion: API_VERSIONS.internal.v1, space },
+    );
+    return response;
+  } catch (error) {
+    console.error('Error enabling Privileged User Monitoring:', error);
+    throw error;
+  }
+};

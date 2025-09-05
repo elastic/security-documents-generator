@@ -13,6 +13,7 @@ import { User } from '../privileged_access_detection_ml/event_generator';
 import {
   createRule,
   enablePrivmon,
+  enablePrivmonAdvancedSetting,
   enableRiskScore,
 } from '../../utils/kibana_api';
 
@@ -86,6 +87,7 @@ export const generatePrivilegedUserMonitoringData = async ({
   users: User[];
 }) => {
   try {
+    await enablePrivmonAdvancedSetting();
     await createRule();
     await deleteDataStream(endpointLogsDataStreamName);
     await createDataStream(endpointLogsDataStreamName);
