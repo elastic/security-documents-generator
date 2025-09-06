@@ -81,26 +81,17 @@ export const generatePrivilegedUserMonitoringData = async ({
   users: User[];
 }) => {
   try {
-    await deleteDataStream(endpointLogsDataStreamName);
-    await createDataStream(endpointLogsDataStreamName);
-    await ingestIntoSourceIndex(endpointLogsDataStreamName, [
+    await reinitializeDataStream(endpointLogsDataStreamName, [
       ...getSampleEndpointLogs(users),
       ...getSampleEndpointAccountSwitchLogs(users),
     ]);
 
-    await deleteDataStream(systemLogsDataStreamName);
-    await createDataStream(systemLogsDataStreamName);
-    await ingestIntoSourceIndex(
-      systemLogsDataStreamName,
-      getSampleSystemLogs(users),
-    );
+    await reinitializeDataStream(systemLogsDataStreamName, getSampleSystemLogs(users));
 
-    await deleteDataStream(oktaLogsDataStreamName);
-    await createDataStream(oktaLogsDataStreamName);
-    await ingestIntoSourceIndex(oktaLogsDataStreamName, [
+    await reinitializeDataStream(oktaLogsDataStreamName, [
       ...getSampleOktaLogs(users),
-      ...getSampleOktaAuthenticationLogs(users),
-    ]);
+      ...getSampleOktaAuthenticationLogs(users)]); 
+
   } catch (e) {
     console.log(e);
   }
@@ -125,3 +116,9 @@ const deleteDataStream = async (indexName: string) => {
   // Wait in order to ensure no race conditions after deletion
   await new Promise((r) => setTimeout(r, 1000));
 };
+
+const reinitializeDataStream = async(indexName: string, documents: Array<object>)=>{ 
+  await deleteDataStream(indexName);
+  await createDataStream(indexName);
+  await ingestIntoSourceIndex(indexName, documents);  
+}
