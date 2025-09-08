@@ -11,9 +11,12 @@ import {
 import { TimeWindows } from '../utils/time_windows';
 import { User } from '../privileged_access_detection_ml/event_generator';
 
+import { makeDoc } from '../utils/okta_utils';
+
 const endpointLogsDataStreamName = 'logs-endpoint.events.process-default';
 const systemLogsDataStreamName = 'logs-system.security-default';
 const oktaLogsDataStreamName = 'logs-okta.system-default';
+const oktaLogsUsersDataStreamName = 'logs-entityanalytics_okta.user-default';
 
 const getSampleEndpointLogs = (users: User[]) => {
   return faker.helpers.multiple(
@@ -63,6 +66,16 @@ const getSampleOktaLogs = (users: User[]) => {
   );
 };
 
+export function getSampleOktaUsersLogs(count: number) {
+  const adminCount = Math.round((50 / 100) * count);
+  const nonAdminCount = Math.max(0, count - adminCount);
+  console.log(`Generating ${adminCount} admin users and ${nonAdminCount} non-admin users (total ${count})`);
+  const adminDocs = Array.from({ length: adminCount }, () => makeDoc(true));
+  const userDocs  = Array.from({ length: nonAdminCount }, () => makeDoc(false));
+  const docs = adminDocs.concat(userDocs);
+  return docs;
+}
+
 const getSampleOktaAuthenticationLogs = (users: User[]) => {
   return faker.helpers.multiple(
     () => {
@@ -90,8 +103,24 @@ export const generatePrivilegedUserMonitoringData = async ({
 
     await reinitializeDataStream(oktaLogsDataStreamName, [
       ...getSampleOktaLogs(users),
-      ...getSampleOktaAuthenticationLogs(users)]); 
+      ...getSampleOktaAuthenticationLogs(users)]);    
+  } catch (e) {
+    console.log(e);
+  }
+};
 
+/**
+ * Generate data for integrations sync only. 
+ * Currently okta data only. 
+ */
+export const generatePrivilegedUserIntegrationsSyncData = async ({
+  usersCount,
+}: {
+  usersCount: number;
+}) => {
+  try {
+    const sampleDocuments = getSampleOktaUsersLogs(usersCount);
+    await reinitializeDataStream(oktaLogsUsersDataStreamName, sampleDocuments);
   } catch (e) {
     console.log(e);
   }
@@ -117,8 +146,8 @@ const deleteDataStream = async (indexName: string) => {
   await new Promise((r) => setTimeout(r, 1000));
 };
 
-const reinitializeDataStream = async(indexName: string, documents: Array<object>)=>{ 
+const reinitializeDataStream = async (indexName: string, documents: Array<object>) => {
   await deleteDataStream(indexName);
   await createDataStream(indexName);
-  await ingestIntoSourceIndex(indexName, documents);  
+  await ingestIntoSourceIndex(indexName, documents);
 }

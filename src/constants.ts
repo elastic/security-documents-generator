@@ -12,6 +12,10 @@ export const PRIVILEGED_USER_MONITORING_OPTIONS = {
   csvFile: 'csvFile',
 } as const;
 
+export const PRIVILEGED_USER_INTEGRATIONS_SYNC_OPTIONS = {
+  sourceEventData: 'sourceEventData',
+} as const;
+
 export const generateNewSeed = () => {
   return Math.round(Math.random() * 100000);
 };

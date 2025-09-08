@@ -21,6 +21,7 @@ import { checkbox, input } from '@inquirer/prompts';
 import {
   ENTITY_STORE_OPTIONS,
   generateNewSeed,
+  PRIVILEGED_USER_INTEGRATIONS_SYNC_OPTIONS,
   PRIVILEGED_USER_MONITORING_OPTIONS,
 } from './constants';
 import { initializeSpace } from './utils';
@@ -30,7 +31,7 @@ import { createConfigFileOnFirstRun } from './utils/create_config_on_first_run';
 import { generatePrivilegedAccessDetectionData } from './commands/privileged_access_detection_ml/privileged_access_detection_ml';
 import { promptForFileSelection } from './commands/utils/cli_utils';
 import { UserGenerator } from './commands/privileged_access_detection_ml/event_generator';
-import { generatePrivilegedUserMonitoringData } from './commands/privileged_user_monitoring/privileged_user_monitoring';
+import { generatePrivilegedUserIntegrationsSyncData, generatePrivilegedUserMonitoringData } from './commands/privileged_user_monitoring/privileged_user_monitoring';
 import { generateCSVFile } from './commands/privileged_user_monitoring/generate_csv_file';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -358,6 +359,11 @@ program
           value: PRIVILEGED_USER_MONITORING_OPTIONS.csvFile,
           checked: true,
         },
+        {
+          name: 'Whether to create integrations source events for okta users - AD coming soon.',
+          value: PRIVILEGED_USER_INTEGRATIONS_SYNC_OPTIONS.sourceEventData,
+          checked: true,
+        },
       ],
     });
 
@@ -368,7 +374,17 @@ program
       }),
     );
 
-    const users = UserGenerator.getUsers(userCount);
+    const users = UserGenerator.getUsers(userCount);    
+    if (
+      privilegedUserMonitoringAnswers.includes(
+        PRIVILEGED_USER_INTEGRATIONS_SYNC_OPTIONS.sourceEventData,
+      )
+    ) {      
+            
+      await generatePrivilegedUserIntegrationsSyncData({
+        usersCount: userCount
+      });
+    }
 
     if (
       privilegedUserMonitoringAnswers.includes(
@@ -387,7 +403,7 @@ program
         PRIVILEGED_USER_MONITORING_OPTIONS.csvFile,
       )
     )
-      await generateCSVFile({ users });
+      await generateCSVFile({ users }); 
   });
 
 program.parse();
