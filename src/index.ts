@@ -31,7 +31,10 @@ import { createConfigFileOnFirstRun } from './utils/create_config_on_first_run';
 import { generatePrivilegedAccessDetectionData } from './commands/privileged_access_detection_ml/privileged_access_detection_ml';
 import { promptForFileSelection } from './commands/utils/cli_utils';
 import { UserGenerator } from './commands/privileged_access_detection_ml/event_generator';
-import { generatePrivilegedUserIntegrationsSyncData, generatePrivilegedUserMonitoringData } from './commands/privileged_user_monitoring/privileged_user_monitoring';
+import {
+  generatePrivilegedUserIntegrationsSyncData,
+  generatePrivilegedUserMonitoringData,
+} from './commands/privileged_user_monitoring/privileged_user_monitoring';
 import { generateCSVFile } from './commands/privileged_user_monitoring/generate_csv_file';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
