@@ -428,170 +428,157 @@ export const GRANTED_RIGHTS_WINDOWS_SAMPLE_DOCUMENT = (
   };
 };
 
-
-export const OKTA_USERS_SAMPLE_DOCUMENT = (oktaSampleUser: OktaSampleUser, timestamp: string, roles: string[] ) => { 
-  const { email, firstName, lastName, userId, userName } = oktaSampleUser
-  return  {
-          "agent": {
-            "name": "test-ea-april-2025",
-            "id": "38ea09b4-0b3c-4c71-81ef-0342fdd249a8",
-            "type": "filebeat",
-            "ephemeral_id": "4aae04bb-75fd-42a6-bf52-c0b0a1823dc6",
-            "version": "8.18.3"
-          },
-          "elastic_agent": {
-            "id": "38ea09b4-0b3c-4c71-81ef-0342fdd249a8",
-            "version": "8.18.3",
-            "snapshot": true
-          },
-          "entityanalytics_okta": {
-            "roles": [
-              {
-                "last_updated": "2023-02-22T17:44:08.000Z",
-                "_links": {
-                  "assignee": {
-                    "href": "https://dev-36006609.okta.com/api/v1/users/00u8fgtuln5yWODnG5d7"
-                  }
-                },
-                "created": "2023-02-22T17:44:08Z",
-                "assignment_type": "USER",
-                "id": "ra18fgz9a0OfCQOyn5d7",
-                "label": "Super Administrator",
-                "type": "SUPER_ADMIN",
-                "status": "ACTIVE"
-              }
-            ],
-            "groups": [
-              {
-                "profile": {
-                  "name": "Everyone",
-                  "description": "All users in your organization"
-                },
-                "id": "00gf1r6hcrcl7gaTH5d6"
-              }
-            ],
-            "user": {
-              "credentials": {
-                "recovery_question": {
-                  "is_set": false
-                }
-              },
-              "_links": {
-                "self": {
-                  "href": "https://dev-36006609.okta.com/api/v1/users/00u8fgtuln5yWODnG5d7"
-                }
-              },
-              "type": {
-                "id": "otyf1r6hlGf9AXhZ95d6"
-              }
-            }
-          },
-          "labels": {
-            "identity_source": "entity-analytics-entityanalytics_okta.entity-db4f0fd2-9dbc-47a8-8f72-c7bee68c2ce3"
-          },
-          "tags": [
-            "forwarded",
-            "entityanalytics_okta-entity"
-          ],
-          "cloud": {
-            "availability_zone": "us-east1-b",
-            "instance": {
-              "name": "test-ea-april-2025",
-              "id": "2595859665373623247"
+export const OKTA_USERS_SAMPLE_DOCUMENT = (
+  oktaSampleUser: OktaSampleUser,
+  timestamp: string,
+  roles: string[],
+) => {
+  const { email, firstName, lastName, userId, userName } = oktaSampleUser;
+  return {
+    agent: {
+      name: 'test-ea-april-2025',
+      id: '38ea09b4-0b3c-4c71-81ef-0342fdd249a8',
+      type: 'filebeat',
+      ephemeral_id: '4aae04bb-75fd-42a6-bf52-c0b0a1823dc6',
+      version: '8.18.3',
+    },
+    elastic_agent: {
+      id: '38ea09b4-0b3c-4c71-81ef-0342fdd249a8',
+      version: '8.18.3',
+      snapshot: true,
+    },
+    entityanalytics_okta: {
+      roles: [
+        {
+          last_updated: '2023-02-22T17:44:08.000Z',
+          _links: {
+            assignee: {
+              href: 'https://dev-36006609.okta.com/api/v1/users/00u8fgtuln5yWODnG5d7',
             },
-            "provider": "gcp",
-            "machine": {
-              "type": "e2-medium"
-            },
-            "service": {
-              "name": "GCE"
-            },
-            "project": {
-              "id": "elastic-security-dev"
-            },
-            "region": "us-east1",
-            "account": {
-              "id": "elastic-security-dev"
-            }
           },
-          "input": {
-            "type": "entity-analytics"
+          created: '2023-02-22T17:44:08Z',
+          assignment_type: 'USER',
+          id: 'ra18fgz9a0OfCQOyn5d7',
+          label: 'Super Administrator',
+          type: 'SUPER_ADMIN',
+          status: 'ACTIVE',
+        },
+      ],
+      groups: [
+        {
+          profile: {
+            name: 'Everyone',
+            description: 'All users in your organization',
           },
-          "@timestamp": timestamp,
-          "ecs": {
-            "version": "8.11.0"
+          id: '00gf1r6hcrcl7gaTH5d6',
+        },
+      ],
+      user: {
+        credentials: {
+          recovery_question: {
+            is_set: false,
           },
-          "related": {
-            "user": [
-              userId,
-              email,
-              firstName,
-              lastName
-            ]
+        },
+        _links: {
+          self: {
+            href: 'https://dev-36006609.okta.com/api/v1/users/00u8fgtuln5yWODnG5d7',
           },
-          "data_stream": {
-            "namespace": "default",
-            "type": "logs",
-            "dataset": "entityanalytics_okta.user"
-          },
-          "host": {
-            "name": "dev-36006609.okta.com"
-          },
-          "event": {
-            "agent_id_status": "verified",
-            "ingested": "2025-08-19T10:55:06Z",
-            "kind": "asset",
-            "category": [
-              "iam"
-            ],
-            "type": [
-              "user",
-              "info"
-            ],
-            "dataset": "entityanalytics_okta.user"
-          },
-          "asset": {
-            "last_updated": "2023-02-22T17:32:00.000Z",
-            "last_status_change_date": "2023-02-22T17:32:00.000Z",
-            "id": "00u8fgtuln5yWODnG5d7",
-            "category": "entity",
-            "type": "okta_user",
-            "create_date": "2023-02-22T17:32:00.000Z",
-            "status": "PROVISIONED"
-          },
-          "user": {
-            "profile": {
-              "last_name": lastName,
-              "first_name": firstName,
-              "status": "PROVISIONED"
-            },
-            "roles": roles,
-            "name": userName,
-            "id": "00u8fgtuln5yWODnG5d7",
-            "account": {
-              "change_date": "2023-02-22T17:32:00.000Z",
-              "activated_date": "2023-02-22T17:32:00.000Z",
-              "create_date": "2023-02-22T17:32:00.000Z",
-              "status": {
-                "password_expired": false,
-                "deprovisioned": false,
-                "locked_out": false,
-                "recovery": false,
-                "suspended": false
-              }
-            },
-            "email": email,
-            "group": {
-              "name": [
-                "Everyone"
-              ],
-              "id": [
-                "00gf1r6hcrcl7gaTH5d6"
-              ]
-            }
-          }
-      }
-}
+        },
+        type: {
+          id: 'otyf1r6hlGf9AXhZ95d6',
+        },
+      },
+    },
+    labels: {
+      identity_source:
+        'entity-analytics-entityanalytics_okta.entity-db4f0fd2-9dbc-47a8-8f72-c7bee68c2ce3',
+    },
+    tags: ['forwarded', 'entityanalytics_okta-entity'],
+    cloud: {
+      availability_zone: 'us-east1-b',
+      instance: {
+        name: 'test-ea-april-2025',
+        id: '2595859665373623247',
+      },
+      provider: 'gcp',
+      machine: {
+        type: 'e2-medium',
+      },
+      service: {
+        name: 'GCE',
+      },
+      project: {
+        id: 'elastic-security-dev',
+      },
+      region: 'us-east1',
+      account: {
+        id: 'elastic-security-dev',
+      },
+    },
+    input: {
+      type: 'entity-analytics',
+    },
+    '@timestamp': timestamp,
+    ecs: {
+      version: '8.11.0',
+    },
+    related: {
+      user: [userId, email, firstName, lastName],
+    },
+    data_stream: {
+      namespace: 'default',
+      type: 'logs',
+      dataset: 'entityanalytics_okta.user',
+    },
+    host: {
+      name: 'dev-36006609.okta.com',
+    },
+    event: {
+      agent_id_status: 'verified',
+      ingested: '2025-08-19T10:55:06Z',
+      kind: 'asset',
+      category: ['iam'],
+      type: ['user', 'info'],
+      dataset: 'entityanalytics_okta.user',
+    },
+    asset: {
+      last_updated: '2023-02-22T17:32:00.000Z',
+      last_status_change_date: '2023-02-22T17:32:00.000Z',
+      id: '00u8fgtuln5yWODnG5d7',
+      category: 'entity',
+      type: 'okta_user',
+      create_date: '2023-02-22T17:32:00.000Z',
+      status: 'PROVISIONED',
+    },
+    user: {
+      profile: {
+        last_name: lastName,
+        first_name: firstName,
+        status: 'PROVISIONED',
+      },
+      roles: roles,
+      name: userName,
+      id: '00u8fgtuln5yWODnG5d7',
+      account: {
+        change_date: '2023-02-22T17:32:00.000Z',
+        activated_date: '2023-02-22T17:32:00.000Z',
+        create_date: '2023-02-22T17:32:00.000Z',
+        status: {
+          password_expired: false,
+          deprovisioned: false,
+          locked_out: false,
+          recovery: false,
+          suspended: false,
+        },
+      },
+      email: email,
+      group: {
+        name: ['Everyone'],
+        id: ['00gf1r6hcrcl7gaTH5d6'],
+      },
+    },
+  };
+};
 
 export const GRANTED_RIGHTS_OKTA_SAMPLE_DOCUMENT = (
   userName: string,
@@ -1264,4 +1251,3 @@ export const OKTA_AUTHENTICATION = (userName: string, timestamp: string) => {
     },
   };
 };
-

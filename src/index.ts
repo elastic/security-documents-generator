@@ -377,15 +377,14 @@ program
       }),
     );
 
-    const users = UserGenerator.getUsers(userCount);    
+    const users = UserGenerator.getUsers(userCount);
     if (
       privilegedUserMonitoringAnswers.includes(
         PRIVILEGED_USER_INTEGRATIONS_SYNC_OPTIONS.sourceEventData,
       )
-    ) {      
-            
+    ) {
       await generatePrivilegedUserIntegrationsSyncData({
-        usersCount: userCount
+        usersCount: userCount,
       });
     }
 
@@ -406,7 +405,7 @@ program
         PRIVILEGED_USER_MONITORING_OPTIONS.csvFile,
       )
     )
-      await generateCSVFile({ users }); 
+      await generateCSVFile({ users });
   });
 
 program.parse();
