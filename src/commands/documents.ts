@@ -62,7 +62,7 @@ const alertToBatchOps = (
   index: string,
 ): unknown[] => {
   return [
-    { index: { _index: index, _id: alert['kibana.alert.uuid'] } },
+    { create: { _index: index, _id: alert['kibana.alert.uuid'] } },
     { ...alert },
   ];
 };
