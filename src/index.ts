@@ -38,6 +38,7 @@ import {
 import { generateCSVFile } from './commands/privileged_user_monitoring/generate_csv_file';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { generateInsights } from './commands/insights';
 
 await createConfigFileOnFirstRun();
 
@@ -265,6 +266,17 @@ program
   .command('clean-entity-store')
   .description('clean entity store')
   .action(cleanEntityStore);
+
+program
+  .command('generate-entity-insights')
+  .description('Generate entities vulnerabilities and misconfigurations')
+  .action(async (options) => {
+    const users = parseInt(options.u || '10');
+    const hosts = parseInt(options.h || '10');
+    const space = options.s || 'default';
+
+    generateInsights({ users, hosts, space });
+  });
 
 program
   .command('generate-asset-criticality')
