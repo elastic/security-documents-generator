@@ -40,6 +40,7 @@ import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { generateInsights } from './commands/insights';
 import { stressTest } from './risk_engine/esql_stress_test';
+import { generateInsights } from './commands/insights';
 
 import fs from 'fs';
 
