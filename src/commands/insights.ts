@@ -1,20 +1,21 @@
 import { generateNewSeed } from '../constants';
 import { faker } from '@faker-js/faker';
-import { indexCheck, ingest } from './utils/indices';
+import { ingest } from './utils/indices';
 import createVulnerabilities, {
   CreateVulnerabilitiesParams,
 } from '../create_vulnerability';
 import createMisconfigurations, {
   CreateMisconfigurationsParams,
 } from '../create_misconfigurations';
-import eventMappings from '../mappings/misconfigurations.json' assert { type: 'json' };
-import { MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
+import { installPackage } from '../utils/kibana_api';
 
 const VULNERABILITY_INDEX_NAME =
   'logs-cloud_security_posture.vulnerabilities_latest-default';
 
 const MISCONFIGURATION_INDEX_NAME =
   'security_solution-cloud_security_posture.misconfiguration_latest';
+
+const PACKAGE_TO_INSTALL = 'cloud_security_posture';
 
 export const generateInsights = async ({
   users,
@@ -36,6 +37,9 @@ export const generateInsights = async ({
     hostname: faker.internet.domainName(),
   }));
 
+  console.log('Installing cloud posture package');
+  await installPackage({ packageName: PACKAGE_TO_INSTALL, space });
+
   await ingest(
     VULNERABILITY_INDEX_NAME,
     generateDocs(usersData, space, createVulnerabilities),
@@ -45,10 +49,6 @@ export const generateInsights = async ({
     generateDocs(hostsData, space, createVulnerabilities),
   );
 
-  await indexCheck(MISCONFIGURATION_INDEX_NAME, {
-    mappings: eventMappings as MappingTypeMapping,
-  });
-
   await ingest(
     MISCONFIGURATION_INDEX_NAME,
     generateDocs(usersData, space, createMisconfigurations),
@@ -57,8 +57,6 @@ export const generateInsights = async ({
     MISCONFIGURATION_INDEX_NAME,
     generateDocs(hostsData, space, createMisconfigurations),
   );
-
-  console.log('Finished generating insights');
 };
 
 interface EntityData {

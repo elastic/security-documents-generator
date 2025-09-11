@@ -12,21 +12,22 @@ export default function createMisconfigurations({
   hostname = 'host-1',
   space = 'default',
 }: CreateMisconfigurationsParams) {
+  const now = moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
   return {
-    '@timestamp': moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+    '@timestamp': now,
     agent: {
       name: 'elastic-agent-cspm',
-      id: 'd7c58767-1876-4280-a4e8-30964416f321',
+      id: faker.string.uuid(),
       type: 'cloudbeat',
-      ephemeral_id: '1f267d3b-a7d3-4f8d-8078-daf448d3321',
+      ephemeral_id: faker.string.uuid(),
       version: '9.0.0',
     },
     resource: {
-      account_id: '439975565321',
+      account_id: faker.string.numeric(12),
       sub_type: 'gcp-iam-service-account-key',
-      account_name: 'elastic-security-test',
-      organization_id: '992493199321',
-      name: 'projects/elastic-security-test/serviceAccounts/sa-cspm-gcp-ci-test-69-sa@elastic-security-test.iam.gserviceaccount.com/keys/8ecb2cefb745f244fdb28b284cc1e36ca6ef2321',
+      account_name: 'test',
+      organization_id: faker.string.numeric(12),
+      name: `projects/test/serviceAccounts/sa-cspm-gcp-test-91@test.iam.gserviceaccount.com/keys/${faker.string.uuid()}`,
       raw: {
         AccessContextPolicy: null,
         update_time: {
@@ -37,36 +38,36 @@ export default function createMisconfigurations({
             keyAlgorithm: 'KEY_ALG_RSA_2048',
             privateKeyType: 'TYPE_GOOGLE_CREDENTIALS_FILE',
             validBeforeTime: '9999-12-31T23:59:59Z',
-            name: 'projects/elastic-security-test/serviceAccounts/sa-cspm-gcp-ci-test-69-sa@elastic-security-test.iam.gserviceaccount.com/keys/8ecb2cefb745f244fdb28b284cc1e36ca6ef2321',
+            name: `projects/test/serviceAccounts/sa-cspm-gcp-test-73@test.iam.gserviceaccount.com/keys/${faker.string.uuid()}`,
             keyType: 'USER_MANAGED',
             keyOrigin: 'GOOGLE_PROVIDED',
             validAfterTime: '2025-07-30T15:29:08Z',
           },
-          discovery_name: 'ServiceAccountKey',
+          discovery_name: 'TestAccountKey',
           version: 'v1',
           discovery_document_uri: 'https://iam.googleapis.com/$discovery/rest',
         },
         asset_type: 'iam.googleapis.com/ServiceAccountKey',
-        name: '//iam.googleapis.com/projects/elastic-security-test/serviceAccounts/112527839030691826455/keys/8ecb2cefb745f244fdb28b284cc1e36ca6ef321',
+        name: `//iam.googleapis.com/projects/test/serviceAccounts/${faker.string.numeric(22)}/keys/${faker.string.uuid()}`,
         ancestors: [
-          'projects/439975565321',
-          'folders/889741080321',
-          'folders/964038702321',
-          'folders/903110296321',
-          'organizations/992493199321',
+          `projects/${faker.string.numeric(12)}`,
+          `folders/${faker.string.numeric(12)}`,
+          `folders/${faker.string.numeric(12)}`,
+          `folders/${faker.string.numeric(12)}`,
+          `organizations/${faker.string.numeric(12)}`,
         ],
       },
-      id: '//iam.googleapis.com/projects/elastic-security-test/serviceAccounts/112527839030691826455/keys/8ecb2cefb745f244fdb28b284cc1e36ca6ef321',
+      id: `//iam.googleapis.com/projects/test/serviceAccounts/${faker.string.numeric(22)}/keys/${faker.string.uuid()}`,
       type: 'identity-management',
     },
     cloud_security_posture: {
       package_policy: {
-        id: 'db29df55-f5ab-4758-a69a-eb1012460321',
+        id: faker.string.uuid(),
         revision: 11,
       },
     },
     elastic_agent: {
-      id: 'd7c58767-1876-4280-a4e8-30964416f321',
+      id: faker.string.uuid(),
       version: '9.0.0',
       snapshot: false,
     },
@@ -95,24 +96,24 @@ export default function createMisconfigurations({
       audit:
         '**From Google Cloud Console**\n\n1. Go to `APIs & Services\\Credentials` using `https://console.cloud.google.com/apis/credentials`\n\n2. In the section `Service Account Keys`, for every External (user-managed) service account key listed ensure the `creation date` is within the past 90 days.\n\n**From Google Cloud CLI**\n\n3. List all Service accounts from a project.\n\n```\ngcloud iam service-accounts list\n```\n\n4. For every service account list service account keys.\n\n```\ngcloud iam service-accounts keys list --iam-account [Service_Account_Email_Id] --format=json\n```\n\n5. Ensure every service account key for a service account has a `"validAfterTime"` value within the past 90 days.',
       name: 'Ensure User-Managed/External Keys for Service Accounts Are Rotated Every 90 Days or Fewer',
-      id: 'fdff0b83-dc73-5d60-9ad3-b98ed139a1b4',
+      id: faker.string.uuid(),
       profile_applicability: '* Level 1',
     },
     message:
       'Rule "Ensure User-Managed/External Keys for Service Accounts Are Rotated Every 90 Days or Fewer": passed',
     result: {
       evaluation: faker.helpers.arrayElement(['passed', 'failed']),
-      evidence: '2025-07-30T15:29:08Z',
+      evidence: now,
       expected: null,
     },
     cloud: {
       Organization: {
-        id: '992493199321',
+        id: faker.string.numeric(12),
       },
       provider: 'gcp',
       account: {
-        name: 'elastic-security-test',
-        id: '439975565321',
+        name: 'test',
+        id: faker.string.numeric(12),
       },
     },
     observer: {
@@ -131,7 +132,7 @@ export default function createMisconfigurations({
     },
     related: {
       entity: [
-        '//iam.googleapis.com/projects/elastic-security-test/serviceAccounts/112527839030691826455/keys/8ecb2cefb745f244fdb28b284cc1e36ca6ef321',
+        `//iam.googleapis.com/projects/test/serviceAccounts/${faker.string.numeric(21)}/keys/${faker.string.uuid()}`,
       ],
     },
     data_stream: {
@@ -142,10 +143,9 @@ export default function createMisconfigurations({
     event: {
       agent_id_status: 'verified',
       sequence: 1753889443,
-      ingested: '2025-07-30T15:31:13Z',
-      created: '2025-07-30T15:31:00.569150843Z',
+      created: now,
       kind: 'state',
-      id: '91ce88ea-892b-4e95-b1f5-70c4f38c321',
+      id: faker.string.uuid(),
       category: ['configuration'],
       type: ['info'],
       dataset: 'cloud_security_posture.findings',
@@ -154,8 +154,8 @@ export default function createMisconfigurations({
     user: {
       name: username,
       effective: {
-        name: 'projects/elastic-security-test/serviceAccounts/sa-cspm-gcp-ci-test-69-sa@elastic-security-test.iam.gserviceaccount.com/keys/8ecb2cefb745f244fdb28b284cc1e36ca6ef321',
-        id: '//iam.googleapis.com/projects/elastic-security-test/serviceAccounts/112527839030691826455/keys/8ecb2cefb745f244fdb28b284cc1e36ca6ef321',
+        name: `projects/test/serviceAccounts/sa-cspm-gcp-test-85-sa@test.iam.gserviceaccount.com/keys/${faker.string.uuid()}`,
+        id: `//iam.googleapis.com/projects/test/serviceAccounts/${faker.string.numeric(21)}/keys/${faker.string.uuid()}`,
       },
     },
     host: {
