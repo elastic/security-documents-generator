@@ -48,6 +48,7 @@ import fs from 'fs';
 import * as RiskEngine from './risk_engine/generate_perf_data';
 import * as RiskEngineIngest from './risk_engine/ingest';
 import * as Pain from './risk_engine/scripted_metrics_stress_test';
+
 await createConfigFileOnFirstRun();
 
 export const parseIntBase10 = (input: string) => parseInt(input, 10);
