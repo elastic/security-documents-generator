@@ -541,13 +541,8 @@ program
   .description('Show a concise summary of available commands')
   .action(() => {
     const pad = (s: string, n: number) => (s + ' '.repeat(n)).slice(0, n);
-
     const lines = program.commands
-      // exclude this custom help command itself if you like
-      .filter((c) => c.name() !== 'help')
       .map((c) => {
-        // Try to show arguments like <name> [optional]
-        // `_args` is internal but stable across recent commander versions
         let argList = '';
         try {
           const maybeArgs = (c as unknown as { _args?: unknown })._args;
@@ -569,7 +564,7 @@ program
         const desc = c.description() || '';
         return `  ${pad(name, 40)} ${desc}`;
       })
-      .sort((a, b) => a.localeCompare(b)) // keep it tidy
+      .sort((a, b) => a.localeCompare(b))
       .join('\n');
 
     console.log(`
@@ -586,7 +581,6 @@ Tip:
 `);
   });
 
-// Optional: make the standard --help even nicer with examples
 program.addHelpText(
   'afterAll',
   `
