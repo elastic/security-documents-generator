@@ -8,6 +8,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck": "tsc --noEmit",
     "start": "NODE_OPTIONS=--max-old-space-size=8192 tsx src/index",
+    "help": "yarn start -- --help",
     "lint": "eslint",
     "checks": "yarn typecheck && yarn lint"
   },

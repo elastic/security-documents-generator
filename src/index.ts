@@ -535,4 +535,67 @@ program
       await generateCSVFile({ users });
   });
 
+// --- Concise summary command (lists all top-level commands) ---
+program
+  .command('help', { isDefault: false })
+  .description('Show a concise summary of available commands')
+  .action(() => {
+    const pad = (s: string, n: number) => (s + ' '.repeat(n)).slice(0, n);
+
+    const lines = program.commands
+      // exclude this custom help command itself if you like
+      .filter((c) => c.name() !== 'help')
+      .map((c) => {
+        // Try to show arguments like <name> [optional]
+        // `_args` is internal but stable across recent commander versions
+        let argList = '';
+        try {
+          const maybeArgs = (c as unknown as { _args?: unknown })._args;
+          if (Array.isArray(maybeArgs) && maybeArgs.length) {
+            argList =
+              ' ' +
+              maybeArgs
+                .map((a) => {
+                  const token = a.variadic ? `${a.name}...` : a.name;
+                  return a.required ? `<${token}>` : `[${token}]`;
+                })
+                .join(' ');
+          }
+        } catch {
+          // ignore
+        }
+
+        const name = c.name() + argList;
+        const desc = c.description() || '';
+        return `  ${pad(name, 40)} ${desc}`;
+      })
+      .sort((a, b) => a.localeCompare(b)) // keep it tidy
+      .join('\n');
+
+    console.log(`
+security-documents-generator — command summary
+
+Usage:
+  yarn start -- <command> [options]
+
+Commands:
+${lines}
+
+Tip:
+  Use "yarn start -- <command> --help" for full details of a command.
+`);
+  });
+
+// Optional: make the standard --help even nicer with examples
+program.addHelpText(
+  'afterAll',
+  `
+Examples:
+  yarn start -- generate-alerts -n 100 -h 20 -u 20 -s demo
+  yarn start -- entity-store --space demo
+  yarn start -- rules -r 25 -e 200 -i 1m -f 12 -g 2
+  yarn start -- upload-perf-data --delete --index logs-entity
+`,
+);
+
 program.parse();
