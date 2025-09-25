@@ -147,6 +147,7 @@ export const run = async (
     .then((response) => {
       console.log(`Esql query executed successfully in run ${n}`);
       console.log('Results found:', response.values.length);
+      console.log('Sample result:', JSON.stringify(response.values[0]));
       report[n] = {
         ok: { scoresCalculated: response.values.length, rangeClause, query },
       };
