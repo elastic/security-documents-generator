@@ -3,10 +3,7 @@ import createEvents from '../create_events';
 import eventMappings from '../mappings/eventMappings.json' assert { type: 'json' };
 import { getEsClient, indexCheck } from './utils/indices';
 import { getConfig } from '../get_config';
-import {
-  MappingTypeMapping,
-  BulkOperationContainer,
-} from '@elastic/elasticsearch/lib/api/types';
+import { MappingTypeMapping, BulkOperationContainer } from '@elastic/elasticsearch/lib/api/types';
 import pMap from 'p-map';
 import { chunk } from 'lodash-es';
 import cliProgress from 'cli-progress';
@@ -26,12 +23,7 @@ const generateDocs = async ({
   let generated = 0;
 
   while (generated < amount) {
-    const docs = createDocuments(
-      Math.min(limit, amount),
-      generated,
-      createDocs,
-      index,
-    );
+    const docs = createDocuments(Math.min(limit, amount), generated, createDocs, index);
     try {
       const result = await bulkUpsert(docs);
       generated += result.items.length / 2;
@@ -57,21 +49,15 @@ interface DocumentCreator {
   (descriptor: { id_field: string; id_value: string }): object;
 }
 
-const alertToBatchOps = (
-  alert: BaseCreateAlertsReturnType,
-  index: string,
-): unknown[] => {
-  return [
-    { index: { _index: index, _id: alert['kibana.alert.uuid'] } },
-    { ...alert },
-  ];
+const alertToBatchOps = (alert: BaseCreateAlertsReturnType, index: string): unknown[] => {
+  return [{ index: { _index: index, _id: alert['kibana.alert.uuid'] } }, { ...alert }];
 };
 
 const createDocuments = (
   n: number,
   generated: number,
   createDoc: DocumentCreator,
-  index: string,
+  index: string
 ): unknown[] => {
   return Array(n)
     .fill(null)
@@ -96,7 +82,7 @@ export const generateAlerts = async (
   alertCount: number,
   hostCount: number,
   userCount: number,
-  space: string,
+  space: string
 ) => {
   if (userCount > alertCount) {
     console.log('User count should be less than alert count');
@@ -109,31 +95,21 @@ export const generateAlerts = async (
   }
 
   console.log(
-    `Generating ${alertCount} alerts containing ${hostCount} hosts and ${userCount} users in space ${space}`,
+    `Generating ${alertCount} alerts containing ${hostCount} hosts and ${userCount} users in space ${space}`
   );
   const concurrency = 10; // how many batches to send in parallel
   const batchSize = 2500; // number of alerts in a batch
   const no_overrides = {};
 
-  const batchOpForIndex = ({
-    userName,
-    hostName,
-  }: {
-    userName: string;
-    hostName: string;
-  }) =>
+  const batchOpForIndex = ({ userName, hostName }: { userName: string; hostName: string }) =>
     alertToBatchOps(
       createAlerts(no_overrides, { userName, hostName, space }),
-      getAlertIndex(space),
+      getAlertIndex(space)
     );
 
   console.log('Generating entity names...');
-  const userNames = Array.from({ length: userCount }, () =>
-    faker.internet.username(),
-  );
-  const hostNames = Array.from({ length: hostCount }, () =>
-    faker.internet.domainName(),
-  );
+  const userNames = Array.from({ length: userCount }, () => faker.internet.username());
+  const hostNames = Array.from({ length: hostCount }, () => faker.internet.domainName());
 
   console.log('Assigning entity names...');
   const alertEntityNames = Array.from({ length: alertCount }, (_, i) => ({
@@ -143,18 +119,15 @@ export const generateAlerts = async (
 
   console.log('Entity names assigned. Batching...');
   const operationBatches = chunk(alertEntityNames, batchSize).map((batch) =>
-    batch.flatMap(batchOpForIndex),
+    batch.flatMap(batchOpForIndex)
   );
 
   console.log('Batching complete. Sending to ES...');
 
   console.log(
-    `Sending in ${operationBatches.length} batches of ${batchSize} alerts, with up to ${concurrency} batches in parallel\n\n`,
+    `Sending in ${operationBatches.length} batches of ${batchSize} alerts, with up to ${concurrency} batches in parallel\n\n`
   );
-  const progress = new cliProgress.SingleBar(
-    {},
-    cliProgress.Presets.shades_classic,
-  );
+  const progress = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
 
   progress.start(operationBatches.length, 0);
 
@@ -164,7 +137,7 @@ export const generateAlerts = async (
       await bulkUpsert(operations);
       progress.increment();
     },
-    { concurrency },
+    { concurrency }
   );
 
   progress.stop();
@@ -203,9 +176,7 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
    * The type you can pass to the bulk API, if you're working with Fake Alerts.
    * This accepts partial docs, full docs, and other docs that indicate _index, _id, and such
    */
-  type FakeAlertBulkOperations =
-    | BulkOperationContainer
-    | Partial<AlertOverride>;
+  type FakeAlertBulkOperations = BulkOperationContainer | Partial<AlertOverride>;
 
   const alerts: FakeAlertBulkOperations[] = [];
   for (let i = 0; i < users; i++) {
@@ -224,9 +195,7 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
     clusters.push(userCluster);
   }
 
-  let lastAlertFromCluster:
-    | (ReturnType<typeof createAlerts> & AlertOverride)
-    | null = null;
+  let lastAlertFromCluster: (ReturnType<typeof createAlerts> & AlertOverride) | null = null;
   clusters.forEach((cluster) => {
     if (lastAlertFromCluster) {
       const alert = createAlerts({

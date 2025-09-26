@@ -1,8 +1,6 @@
 import { getEsClient, indexCheck, ingest } from '../utils/indices';
 
-export const createPrivilegedAccessDetectionSourceIndex = async (
-  index: string,
-) => {
+export const createPrivilegedAccessDetectionSourceIndex = async (index: string) => {
   try {
     await indexCheck(index, {
       mappings: {
@@ -92,7 +90,7 @@ export const createPrivilegedAccessDetectionSourceIndex = async (
   } catch (error) {
     console.log(
       'There was an error creating the source data index. This is likely a field mapping issue: ',
-      error,
+      error
     );
     throw error;
   }
@@ -108,12 +106,10 @@ export const deleteSourceIndex = async (index: string) => {
   } catch (error) {
     console.log(
       'There was an error deleting the source index. Will continue, and attempt to recreate the index: ',
-      error,
+      error
     );
   }
 };
 
-export const ingestIntoSourceIndex = async (
-  index: string,
-  documents: Array<object>,
-) => await ingest(index, documents);
+export const ingestIntoSourceIndex = async (index: string, documents: Array<object>) =>
+  await ingest(index, documents);
