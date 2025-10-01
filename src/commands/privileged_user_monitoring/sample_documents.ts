@@ -580,6 +580,25 @@ export const OKTA_USERS_SAMPLE_DOCUMENT = (
   };
 };
 
+export const AD_USERS_SAMPLE_DOCUMENT = (
+  adSampleUser: { firstName: string; lastName: string },
+  timestamp: string,
+  roles: string[],
+) => {
+  const { firstName, lastName } = adSampleUser;
+  const userName = userNameWhitespaceRemoved(`${firstName}.${lastName}`);
+  return {
+    // TODO: fill in here pls
+    user: {
+      id: '00u8fgtuln5yWODnG5d7',
+      email: userNameAsEmail(userName),
+      name: userName,
+      roles: roles,
+    },
+    '@timestamp': timestamp,
+  };
+};
+
 export const GRANTED_RIGHTS_OKTA_SAMPLE_DOCUMENT = (
   userName: string,
   timestamp: string,

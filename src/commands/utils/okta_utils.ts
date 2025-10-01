@@ -1,4 +1,7 @@
-import { OKTA_USERS_SAMPLE_DOCUMENT } from '../privileged_user_monitoring/sample_documents';
+import {
+  AD_USERS_SAMPLE_DOCUMENT,
+  OKTA_USERS_SAMPLE_DOCUMENT,
+} from '../privileged_user_monitoring/sample_documents';
 import {
   userNameAsEmail,
   userNameWhitespaceRemoved,
@@ -27,12 +30,29 @@ export const OKTA_NON_ADMIN_USER_ROLES: string[] = [
   'Temp',
 ];
 
+export const AD_ADMIN_USER_ROLES: string[] = [
+  'Domain Admins',
+  'Enterprise Admins',
+];
+
+export const AD_NON_ADMIN_USER_ROLES: string[] = [
+  'Domain Users',
+  'Account Operators',
+  'Backup Operators',
+  'Guests',
+];
+
 export type OktaSampleUser = {
   email: string;
   firstName: string;
   lastName: string;
   userId: string;
   userName: string;
+};
+
+export type AdSampleUser = {
+  firstName: string;
+  lastName: string;
 };
 
 export const createOktaSampleUser = (): OktaSampleUser => {
@@ -50,11 +70,24 @@ export const createOktaSampleUser = (): OktaSampleUser => {
   };
 };
 
-// okta helpers for admin roles split
+export const createAdSampleUser = (): AdSampleUser => {
+  const firstName = faker.person.firstName();
+  const lastName = faker.person.lastName();
+  // TODO: fill in here pls
+  return { firstName, lastName };
+};
+
+// integrations helpers for admin roles split
 export const pick = <T>(a: T[]) => a[Math.floor(Math.random() * a.length)];
 export const makeDoc = (isAdmin: boolean) =>
   OKTA_USERS_SAMPLE_DOCUMENT(
     createOktaSampleUser(), // new user each doc
     TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow()),
     [isAdmin ? pick(OKTA_ADMIN_USER_ROLES) : pick(OKTA_NON_ADMIN_USER_ROLES)],
+  );
+export const makeAdDoc = (isAdmin: boolean) =>
+  AD_USERS_SAMPLE_DOCUMENT(
+    createAdSampleUser(), // new user each doc
+    TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow()),
+    [isAdmin ? pick(AD_ADMIN_USER_ROLES) : pick(AD_NON_ADMIN_USER_ROLES)],
   );

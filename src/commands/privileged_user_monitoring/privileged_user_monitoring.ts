@@ -13,10 +13,16 @@ import { User } from '../privileged_access_detection_ml/event_generator';
 
 import { makeDoc } from '../utils/okta_utils';
 
+//end point logs
 const endpointLogsDataStreamName = 'logs-endpoint.events.process-default';
+
+// system logs
 const systemLogsDataStreamName = 'logs-system.security-default';
 const oktaLogsDataStreamName = 'logs-okta.system-default';
+
+// integrations sync user logs
 const oktaLogsUsersDataStreamName = 'logs-entityanalytics_okta.user-default';
+const adLogsUsersDataStreamName = 'logs-entityanalytics_ad.user-default';
 
 const getSampleEndpointLogs = (users: User[]) => {
   return faker.helpers.multiple(
@@ -64,6 +70,22 @@ const getSampleOktaLogs = (users: User[]) => {
     },
     { count: 100 },
   );
+};
+
+// starting with DRY here, will refactor later
+const getSampleAdUsersLogs = (count: number) => {
+  // implement here pls
+  const adminCount = Math.round((50 / 100) * count);
+  const nonAdminCount = Math.max(0, count - adminCount);
+  console.log(
+    `Generating ${adminCount} admin users and ${nonAdminCount} non-admin users (total ${count})`,
+  );
+  const adminDocs = Array.from({ length: adminCount }, () => makeADdDoc(true));
+  const userDocs = Array.from({ length: nonAdminCount }, () =>
+    makeADdDoc(false),
+  );
+  const docs = adminDocs.concat(userDocs);
+  return docs;
 };
 
 export function getSampleOktaUsersLogs(count: number) {
@@ -127,6 +149,21 @@ export const generatePrivilegedUserIntegrationsSyncData = async ({
   try {
     const sampleDocuments = getSampleOktaUsersLogs(usersCount);
     await reinitializeDataStream(oktaLogsUsersDataStreamName, sampleDocuments);
+  } catch (e) {
+    console.log(e);
+  }
+};
+
+export const generateADPrivilegedUserMonitoringData = async ({
+  usersCount,
+}: {
+  usersCount: number;
+}) => {
+  try {
+    await reinitializeDataStream(
+      adLogsUsersDataStreamName,
+      getSampleAdUsersLogs(usersCount),
+    );
   } catch (e) {
     console.log(e);
   }
