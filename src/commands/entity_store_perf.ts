@@ -440,7 +440,7 @@ export const createPerfDataFile = ({
   });
 };
 
-const uploadFile = async ({
+export const uploadFile = async ({
   filePath,
   index,
   lineCount,

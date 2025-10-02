@@ -1,6 +1,9 @@
 output
+data/
+reports/
 node_modules
 config.json
+config.dev.json
 logs/*.log
 *.DS_Store
 .vscode

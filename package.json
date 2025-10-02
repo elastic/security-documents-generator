@@ -7,7 +7,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck": "tsc --noEmit",
-    "start": "tsx src/index",
+    "start": "NODE_OPTIONS=--max-old-space-size=8192 tsx src/index",
     "lint": "eslint",
     "checks": "yarn typecheck && yarn lint"
   },
