@@ -47,7 +47,7 @@ export const getFileLineCount = async (filePath: string): Promise<number> => {
 
       if (isNaN(count)) {
         console.log(
-          `Failed to parse line count, line count: "${stdout}", split result: "${stdout.split(' ')}"`,
+          `Failed to parse line count, line count: "${stdout}", split result: "${stdout.split(' ')}"`
         );
         reject();
       }
@@ -56,10 +56,7 @@ export const getFileLineCount = async (filePath: string): Promise<number> => {
   });
 };
 
-export const indexCheck = async (
-  index: string,
-  body?: Omit<IndicesCreateRequest, 'index'>,
-) => {
+export const indexCheck = async (index: string, body?: Omit<IndicesCreateRequest, 'index'>) => {
   const client = getEsClient();
   if (!client) {
     throw new Error();
@@ -99,7 +96,7 @@ export const ingest = async (index: string, documents: Array<object>) => {
       const results = await esClient.bulk({ index, operations, refresh: true });
       if (results.errors) {
         console.log(
-          'The errors below occurred when bulk creating documents. Continuing with the potential for partial data.',
+          'The errors below occurred when bulk creating documents. Continuing with the potential for partial data.'
         );
         results.items.forEach((each) => {
           console.log(each);

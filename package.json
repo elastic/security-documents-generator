@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "start": "tsx src/index",
     "lint": "eslint",
+    "format": "prettier --write \"src/**/*.ts\" \"*.json\" \"*.mjs\" \"src/**/*.json\"",
     "checks": "yarn typecheck && yarn lint"
   },
   "engines": {

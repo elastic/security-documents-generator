@@ -137,10 +137,7 @@ const getVariantType = (index: number) => {
 };
 type MaybeStringArray = string | string[];
 
-const getEmailVariant = (
-  email: string | string[],
-  index: number,
-): MaybeStringArray => {
+const getEmailVariant = (email: string | string[], index: number): MaybeStringArray => {
   try {
     if (Array.isArray(email)) {
       // this means there are already variants
@@ -199,12 +196,7 @@ const bulkUpsert = async (docs: unknown[]) => {
   }
 };
 
-const PACKAGES_TO_INSTALL = [
-  'entityanalytics_okta',
-  'okta',
-  'system',
-  'entityanalytics_entra_id',
-];
+const PACKAGES_TO_INSTALL = ['entityanalytics_okta', 'okta', 'system', 'entityanalytics_entra_id'];
 
 const installPackages = async (space: string) => {
   console.log('Installing packages...');
@@ -212,7 +204,7 @@ const installPackages = async (space: string) => {
     {
       clearOnComplete: true,
     },
-    cliProgress.Presets.shades_classic,
+    cliProgress.Presets.shades_classic
   );
   progress.start(PACKAGES_TO_INSTALL.length, 0);
   await pMap(
@@ -221,7 +213,7 @@ const installPackages = async (space: string) => {
       await installPackage({ packageName, space });
       progress.increment();
     },
-    { concurrency: 1 },
+    { concurrency: 1 }
   );
   progress.stop();
 };
@@ -231,7 +223,7 @@ const jsonlFileToBatchGenerator = (
   filePath: string,
   batchSize: number,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  lineToOperation: (line: any, index: number) => [any, any],
+  lineToOperation: (line: any, index: number) => [any, any]
 ): AsyncGenerator<unknown[], void, void> => {
   const rl = readline.createInterface({
     input: fs.createReadStream(filePath),
@@ -261,10 +253,7 @@ const jsonlFileToBatchGenerator = (
 };
 
 const getFilePath = (fileName: string, mini: boolean) => {
-  return (
-    directoryName +
-    `/../../data/entity_resolution_data/${mini ? 'mini_' : ''}${fileName}`
-  );
+  return directoryName + `/../../data/entity_resolution_data/${mini ? 'mini_' : ''}${fileName}`;
 };
 
 const importLogData = async ({
@@ -286,9 +275,7 @@ const importLogData = async ({
       const index = dataStreamFieldsToIndexName(line.data_stream);
       line['@timestamp'] = getTimeStamp();
       if (line.user && line.user.email) {
-        line.user.email = keepEmails
-          ? line.user.email
-          : getEmailVariant(line.user.email, i);
+        line.user.email = keepEmails ? line.user.email : getEmailVariant(line.user.email, i);
       }
       return [{ create: { _index: index } }, line];
     } else {
@@ -322,9 +309,7 @@ const importOktaSystemData = async ({
     line['@timestamp'] = getTimeStamp();
     line.user = {
       name: line.actor.display_name,
-      email: keepEmails
-        ? line.actor.alternate_id
-        : getEmailVariant(line.actor.alternate_id, i),
+      email: keepEmails ? line.actor.alternate_id : getEmailVariant(line.actor.alternate_id, i),
     };
     return [{ create: { _index: index } }, line];
   };
@@ -384,9 +369,7 @@ const importEntraIdUserData = async ({
     line['@timestamp'] = getTimeStamp();
     line.user = {
       name: line.azure_ad.displayName,
-      email: keepEmails
-        ? line.azure_ad.mail
-        : getEmailVariant(line.azure_ad.mail, i),
+      email: keepEmails ? line.azure_ad.mail : getEmailVariant(line.azure_ad.mail, i),
     };
     return [{ create: { _index: index } }, line];
   };
@@ -397,14 +380,10 @@ const importEntraIdUserData = async ({
 const importFile = async (
   filePath: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  lineToOperation: (line: any, index: number) => [any, any],
+  lineToOperation: (line: any, index: number) => [any, any]
 ) => {
   const lineCountInFile = await getFileLineCount(filePath);
-  const batchGenerator = jsonlFileToBatchGenerator(
-    filePath,
-    BATCH_SIZE,
-    lineToOperation,
-  );
+  const batchGenerator = jsonlFileToBatchGenerator(filePath, BATCH_SIZE, lineToOperation);
   await batchIndexDocsWithProgress(batchGenerator, lineCountInFile);
 };
 
@@ -425,13 +404,13 @@ const createMatchAllRule = async (space: string) => {
 
 const batchIndexDocsWithProgress = async (
   generator: AsyncGenerator<unknown[], void, void>,
-  docCount: number,
+  docCount: number
 ) => {
   const progress = new cliProgress.SingleBar(
     {
       clearOnComplete: true,
     },
-    cliProgress.Presets.shades_classic,
+    cliProgress.Presets.shades_classic
   );
   progress.start(docCount, 0);
   await pMap(
@@ -445,7 +424,7 @@ const batchIndexDocsWithProgress = async (
       }
       progress.increment(operations.length / 2);
     },
-    { concurrency: CONCURRENCY },
+    { concurrency: CONCURRENCY }
   );
 
   progress.stop();

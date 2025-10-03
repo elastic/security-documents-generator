@@ -23,7 +23,7 @@ export class TimeWindows {
       faker.date.between({
         from: timeWindow.start.toDate(),
         to: timeWindow.end.toDate(),
-      }),
+      })
     ).format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
   };
 }
