@@ -332,27 +332,27 @@ program
       message: 'Select options',
       choices: [
         {
-          name: 'Generate basic source events for users',
+          name: 'Basic events',
           value: PRIVILEGED_USER_MONITORING_OPTIONS.sourceEventData,
           checked: true,
         },
         {
-          name: 'Generate anomalous source events for users, matching the privileged access detection jobs',
+          name: 'Anomaly events',
           value: PRIVILEGED_USER_MONITORING_OPTIONS.anomalyData,
           checked: true,
         },
         {
-          name: 'Upload CSV file to Kibana containing all privileged users',
+          name: 'Upload CSV (skip onboarding)',
           value: PRIVILEGED_USER_MONITORING_OPTIONS.csvFile,
           checked: true,
         },
         {
-          name: 'Create integrations source events for okta users - AD coming soon.',
+          name: 'Integration data',
           value: PRIVILEGED_USER_MONITORING_OPTIONS.integrationSyncSourceEventData,
           checked: true,
         },
         {
-          name: 'Enable risk engine + create match all risk rule',
+          name: 'Enable risk engine',
           value: PRIVILEGED_USER_MONITORING_OPTIONS.riskEngineAndRule,
           checked: true,
         },
