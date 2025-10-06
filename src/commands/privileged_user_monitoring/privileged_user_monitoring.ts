@@ -9,10 +9,16 @@ import {
   OKTA_AUTHENTICATION,
 } from './sample_documents';
 import { TimeWindows } from '../utils/time_windows';
-import { User } from '../privileged_access_detection_ml/event_generator';
-import { createRule, enablePrivmon, enableRiskScore } from '../../utils/kibana_api';
+import { User, UserGenerator } from '../privileged_access_detection_ml/event_generator';
+import { createRule, enableRiskScore } from '../../utils/kibana_api';
 
 import { createSampleFullSyncEvents, makeDoc } from '../utils/integrations_sync_utils';
+import {
+  PRIVILEGED_USER_MONITORING_OPTIONS,
+  PrivilegedUserMonitoringOption,
+} from '../../constants';
+import { generatePrivilegedAccessDetectionData } from '../privileged_access_detection_ml/privileged_access_detection_ml';
+import { generateCSVFile } from './generate_csv_file';
 
 const endpointLogsDataStreamName = 'logs-endpoint.events.process-default';
 const systemLogsDataStreamName = 'logs-system.security-default';
@@ -68,7 +74,7 @@ const getSampleOktaLogs = (users: User[]) => {
   );
 };
 
-export const getSampleOktaUsersLogs = (count: number) => {
+const getSampleOktaUsersLogs = (count: number) => {
   const adminCount = Math.round((50 / 100) * count);
   const nonAdminCount = Math.max(0, count - adminCount);
   console.log(
@@ -80,7 +86,7 @@ export const getSampleOktaUsersLogs = (count: number) => {
   return docs;
 };
 
-export const getSampleOktaEntityLogs = (count: number, syncInterval: number) => {
+const getSampleOktaEntityLogs = (count: number, syncInterval: number) => {
   const docs = createSampleFullSyncEvents({
     count,
     syncWindowMs: syncInterval,
@@ -100,11 +106,17 @@ const getSampleOktaAuthenticationLogs = (users: User[]) => {
   );
 };
 
-export const generatePrivilegedUserMonitoringData = async ({ users }: { users: User[] }) => {
+const quickEnableRiskEngineAndRule = async () => {
   try {
     await createRule();
-    await deleteDataStream(endpointLogsDataStreamName);
-    await createDataStream(endpointLogsDataStreamName);
+    await enableRiskScore();
+  } catch (e) {
+    console.log(e);
+  }
+};
+
+const generatePrivilegedUserMonitoringData = async ({ users }: { users: User[] }) => {
+  try {
     await reinitializeDataStream(endpointLogsDataStreamName, [
       ...getSampleEndpointLogs(users),
       ...getSampleEndpointAccountSwitchLogs(users),
@@ -116,9 +128,6 @@ export const generatePrivilegedUserMonitoringData = async ({ users }: { users: U
       ...getSampleOktaLogs(users),
       ...getSampleOktaAuthenticationLogs(users),
     ]);
-
-    await enablePrivmon();
-    await enableRiskScore();
   } catch (e) {
     console.log(e);
   }
@@ -128,7 +137,7 @@ export const generatePrivilegedUserMonitoringData = async ({ users }: { users: U
  * Generate data for integrations sync only.
  * Currently okta data only.
  */
-export const generatePrivilegedUserIntegrationsSyncData = async ({
+const generatePrivilegedUserIntegrationsSyncData = async ({
   usersCount,
   syncEventsCount = 10,
 }: {
@@ -172,4 +181,36 @@ const reinitializeDataStream = async (indexName: string, documents: Array<object
   await deleteDataStream(indexName);
   await createDataStream(indexName);
   await ingestIntoSourceIndex(indexName, documents);
+};
+
+export const privmonCommand = async ({
+  options,
+  userCount,
+}: {
+  options: PrivilegedUserMonitoringOption[];
+  userCount: number;
+}) => {
+  const users = UserGenerator.getUsers(userCount);
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.integrationSyncSourceEventData)) {
+    await generatePrivilegedUserIntegrationsSyncData({
+      usersCount: userCount,
+    });
+  }
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.sourceEventData)) {
+    await generatePrivilegedUserMonitoringData({ users });
+  }
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.anomalyData)) {
+    await generatePrivilegedAccessDetectionData({ users });
+  }
+
+  await generateCSVFile({
+    users,
+    upload: options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.csvFile),
+  });
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.riskEngineAndRule)) {
+    await quickEnableRiskEngineAndRule();
+  }
 };

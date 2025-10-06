@@ -10,11 +10,11 @@ export const PRIVILEGED_USER_MONITORING_OPTIONS = {
   anomalyData: 'anomalyData',
   sourceEventData: 'sourceEventData',
   csvFile: 'csvFile',
+  riskEngineAndRule: 'riskEngineAndRule',
+  integrationSyncSourceEventData: 'integrationSyncSourceEventData',
 } as const;
 
-export const PRIVILEGED_USER_INTEGRATIONS_SYNC_OPTIONS = {
-  sourceEventData: 'sourceEventData',
-} as const;
+export type PrivilegedUserMonitoringOption = keyof typeof PRIVILEGED_USER_MONITORING_OPTIONS;
 
 export const generateNewSeed = () => {
   return Math.round(Math.random() * 100000);
