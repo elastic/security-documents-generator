@@ -25,7 +25,7 @@ const generateLabelForUser = (user: User): string => {
   return LABELS[index];
 };
 
-export const generateCSVFile = async ({ users }: { users: User[] }) => {
+export const generateCSVFile = async ({ users, upload }: { users: User[]; upload: boolean }) => {
   try {
     const csvContent = users
       .map((user) => user.userName + ',' + generateLabelForUser(user))
@@ -34,7 +34,9 @@ export const generateCSVFile = async ({ users }: { users: User[] }) => {
     const csvFilePath = resolve(outputDirectory, `./${CSV_FILE_NAME}`);
     await fs.mkdir(outputDirectory, { recursive: true });
     await fs.writeFile(csvFilePath, csvContent);
-    await uploadPrivmonCsv(csvFilePath);
+    if (upload) {
+      await uploadPrivmonCsv(csvFilePath);
+    }
     console.log(`A CSV file containing all of the privileged users was written to ${csvFilePath}`);
   } catch (e) {
     console.log(

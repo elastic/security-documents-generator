@@ -339,22 +339,22 @@ program
       message: 'Select options',
       choices: [
         {
-          name: 'Whether to generate basic source events for users',
+          name: 'Generate basic source events for users',
           value: PRIVILEGED_USER_MONITORING_OPTIONS.sourceEventData,
           checked: true,
         },
         {
-          name: 'Whether to generate anomalous source events for users, matching the privileged access detection jobs',
+          name: 'Generate anomalous source events for users, matching the privileged access detection jobs',
           value: PRIVILEGED_USER_MONITORING_OPTIONS.anomalyData,
           checked: true,
         },
         {
-          name: 'Whether to create a CSV file with the user names, in order to upload during onboarding.',
+          name: 'Upload CSV file to Kibana containing all privileged users',
           value: PRIVILEGED_USER_MONITORING_OPTIONS.csvFile,
           checked: true,
         },
         {
-          name: 'Whether to create integrations source events for okta users - AD coming soon.',
+          name: 'Create integrations source events for okta users - AD coming soon.',
           value: PRIVILEGED_USER_INTEGRATIONS_SYNC_OPTIONS.sourceEventData,
           checked: true,
         },
@@ -381,12 +381,18 @@ program
 
     if (
       privilegedUserMonitoringAnswers.includes(PRIVILEGED_USER_MONITORING_OPTIONS.sourceEventData)
-    )
+    ) {
       await generatePrivilegedUserMonitoringData({ users });
-    if (privilegedUserMonitoringAnswers.includes(PRIVILEGED_USER_MONITORING_OPTIONS.anomalyData))
+    }
+
+    if (privilegedUserMonitoringAnswers.includes(PRIVILEGED_USER_MONITORING_OPTIONS.anomalyData)) {
       await generatePrivilegedAccessDetectionData({ users });
-    if (privilegedUserMonitoringAnswers.includes(PRIVILEGED_USER_MONITORING_OPTIONS.csvFile))
-      await generateCSVFile({ users });
+    }
+
+    await generateCSVFile({
+      users,
+      upload: privilegedUserMonitoringAnswers.includes(PRIVILEGED_USER_MONITORING_OPTIONS.csvFile),
+    });
   });
 
 program.parse();
