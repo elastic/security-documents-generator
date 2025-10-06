@@ -502,28 +502,3 @@ export const enablePrivmon = async (space?: string) => {
     throw error;
   }
 };
-
-export const enablePrivmonAdvancedSetting = async (space?: string) => {
-  return setAdvancedSetting('entityAnalytics:enablePrivilegedMonitoring', true, space);
-};
-
-const setAdvancedSetting = async (key: string, value: unknown, space?: string) => {
-  try {
-    const response = await kibanaFetch(
-      '/internal/kibana/settings',
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          changes: {
-            [key]: value,
-          },
-        }),
-      },
-      { apiVersion: API_VERSIONS.internal.v1, space }
-    );
-    return response;
-  } catch (error) {
-    console.error(`Error enabling advanced setting ${key}:`, error);
-    throw error;
-  }
-};
