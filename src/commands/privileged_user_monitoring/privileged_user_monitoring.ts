@@ -26,6 +26,7 @@ import {
 import { generatePrivilegedAccessDetectionData } from '../privileged_access_detection_ml/privileged_access_detection_ml';
 import { generateCSVFile } from './generate_csv_file';
 import { chunk } from 'lodash-es';
+import { initializeSpace } from '../../utils';
 
 const endpointLogsDataStreamName = 'logs-endpoint.events.process-default';
 const systemLogsDataStreamName = 'logs-system.security-default';
@@ -236,7 +237,11 @@ export const privmonCommand = async ({
   space: string;
 }) => {
   console.log('Starting Privileged User Monitoring data generation in space:', space);
+
+  await initializeSpace(space);
+
   const users = UserGenerator.getUsers(userCount);
+
   if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.integrationSyncSourceEventData)) {
     await generatePrivilegedUserIntegrationsSyncData({
       usersCount: userCount,
