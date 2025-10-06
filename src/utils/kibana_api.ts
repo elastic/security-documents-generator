@@ -503,16 +503,11 @@ export const enablePrivmon = async (space?: string) => {
   }
 };
 
-// #!/bin/bash
-// KIBANA_URL='http://elastic:changeme@localhost:5601/mark'
-
-// curl "${KIBANA_URL}/internal/kibana/settings" \
-//   -H 'Content-Type: application/json' \
-//   -H 'x-elastic-internal-origin: Kibana' \
-//   -H 'kbn-xsrf: true' \
-//   --data-raw '{"changes":{"securitySolution:enablePrivilegedUserMonitoring":true}}'%
-
 export const enablePrivmonAdvancedSetting = async (space?: string) => {
+  return setAdvancedSetting('entityAnalytics:enablePrivilegedMonitoring', true, space);
+};
+
+const setAdvancedSetting = async (key: string, value: unknown, space?: string) => {
   try {
     const response = await kibanaFetch(
       '/internal/kibana/settings',
@@ -520,7 +515,7 @@ export const enablePrivmonAdvancedSetting = async (space?: string) => {
         method: 'POST',
         body: JSON.stringify({
           changes: {
-            'securitySolution:enablePrivilegedUserMonitoring': true,
+            [key]: value,
           },
         }),
       },
@@ -528,7 +523,7 @@ export const enablePrivmonAdvancedSetting = async (space?: string) => {
     );
     return response;
   } catch (error) {
-    console.error('Error enabling Privileged User Monitoring:', error);
+    console.error(`Error enabling advanced setting ${key}:`, error);
     throw error;
   }
 };
