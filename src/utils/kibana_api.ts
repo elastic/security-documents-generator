@@ -31,6 +31,17 @@ export const buildKibanaUrl = (opts: { path: string; space?: string }) => {
 
 type ResponseError = Error & { statusCode: number; responseData: unknown };
 
+const getAuthorizationHeader = () => {
+  const config = getConfig();
+  if ('apiKey' in config.kibana) {
+    return 'ApiKey ' + config.kibana.apiKey;
+  } else
+    return (
+      'Basic ' +
+      Buffer.from(config.kibana.username + ':' + config.kibana.password).toString('base64')
+    );
+};
+
 const throwResponseError = (message: string, statusCode: number, response: unknown) => {
   const error = new Error(message) as ResponseError;
   error.statusCode = statusCode;
@@ -54,15 +65,7 @@ export const kibanaFetch = async <T>(
   const headers = new Headers();
   headers.append('Content-Type', 'application/json');
   headers.append('kbn-xsrf', 'true');
-  if ('apiKey' in config.kibana) {
-    headers.set('Authorization', 'ApiKey ' + config.kibana.apiKey);
-  } else {
-    headers.set(
-      'Authorization',
-      'Basic ' +
-        Buffer.from(config.kibana.username + ':' + config.kibana.password).toString('base64')
-    );
-  }
+  headers.append('Authorization', getAuthorizationHeader());
 
   headers.set('x-elastic-internal-origin', 'kibana');
   headers.set('elastic-api-version', apiVersion);
@@ -448,11 +451,6 @@ export const uploadPrivmonCsv = async (
   try {
     const formData = new FormData();
     formData.append('file', fs.createReadStream(csvFilePath));
-    const config = getConfig();
-
-    if ('apiKey' in config.kibana || !config.kibana?.username || !config.kibana?.password) {
-      throw new Error('CSV upload only works with Kibana Basic Auth for now');
-    }
 
     const response = await fetch(
       buildKibanaUrl({
@@ -464,10 +462,8 @@ export const uploadPrivmonCsv = async (
         headers: {
           'kbn-xsrf': 'true',
           'elastic-api-version': API_VERSIONS.public.v1,
-          ...formData.getHeaders(), // Include form-data headers
-          Authorization:
-            'Basic ' +
-            Buffer.from(config.kibana.username + ':' + config.kibana.password).toString('base64'),
+          ...formData.getHeaders(),
+          Authorization: getAuthorizationHeader(),
         },
         body: formData,
       }
