@@ -10,14 +10,17 @@ import {
 } from './sample_documents';
 import { TimeWindows } from '../utils/time_windows';
 import { User, UserGenerator } from '../privileged_access_detection_ml/event_generator';
-import { createRule, enableRiskScore } from '../../utils/kibana_api';
+import { assignAssetCriticality, createRule, enableRiskScore } from '../../utils/kibana_api';
 import { createSampleFullSyncEvents, makeDoc } from '../utils/integrations_sync_utils';
 import {
+  ASSET_CRITICALITY,
+  AssetCriticality,
   PRIVILEGED_USER_MONITORING_OPTIONS,
   PrivilegedUserMonitoringOption,
 } from '../../constants';
 import { generatePrivilegedAccessDetectionData } from '../privileged_access_detection_ml/privileged_access_detection_ml';
 import { generateCSVFile } from './generate_csv_file';
+import { chunk } from 'lodash-es';
 
 const endpointLogsDataStreamName = 'logs-endpoint.events.process-default';
 const systemLogsDataStreamName = 'logs-system.security-default';
@@ -183,6 +186,41 @@ const reinitializeDataStream = async (indexName: string, documents: Array<object
   await ingestIntoSourceIndex(indexName, documents);
 };
 
+const assignAssetCriticalityToUsers = async (opts: { users: User[]; space?: string }) => {
+  const { users, space } = opts;
+  const chunks = chunk(users, 1000);
+
+  console.log(`Assigning asset criticality to ${users.length} users in ${chunks.length} chunks...`);
+
+  const countMap: Record<AssetCriticality, number> = {
+    unknown: 0,
+    low_impact: 0,
+    medium_impact: 0,
+    high_impact: 0,
+    extreme_impact: 0,
+  };
+
+  for (const chunk of chunks) {
+    const records = chunk
+      .map(({ userName }) => {
+        const criticalityLevel = faker.helpers.arrayElement(ASSET_CRITICALITY);
+        countMap[criticalityLevel]++;
+        return {
+          id_field: 'user.name',
+          id_value: userName,
+          criticality_level: criticalityLevel,
+        };
+      })
+      .filter((r) => r.criticality_level !== 'unknown');
+
+    if (records.length > 0) {
+      await assignAssetCriticality(records, space);
+    }
+  }
+
+  console.log('Assigned asset criticality counts:', countMap);
+};
+
 export const privmonCommand = async ({
   options,
   userCount,
@@ -209,6 +247,10 @@ export const privmonCommand = async ({
     users,
     upload: options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.csvFile),
   });
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.assetCriticality)) {
+    await assignAssetCriticalityToUsers({ users });
+  }
 
   if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.riskEngineAndRule)) {
     await quickEnableRiskEngineAndRule();

@@ -356,6 +356,11 @@ program
           value: PRIVILEGED_USER_MONITORING_OPTIONS.riskEngineAndRule,
           checked: true,
         },
+        {
+          name: 'Assign asset criticality',
+          value: PRIVILEGED_USER_MONITORING_OPTIONS.assetCriticality,
+          checked: true,
+        },
       ],
     });
 

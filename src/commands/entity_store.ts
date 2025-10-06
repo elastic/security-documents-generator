@@ -4,7 +4,12 @@ import { chunk, once } from 'lodash-es';
 import moment from 'moment';
 import auditbeatMappings from '../mappings/auditbeat.json' assert { type: 'json' };
 import { assignAssetCriticality, enableRiskScore, createRule } from '../utils/kibana_api';
-import { ENTITY_STORE_OPTIONS, generateNewSeed } from '../constants';
+import {
+  ASSET_CRITICALITY,
+  AssetCriticality,
+  ENTITY_STORE_OPTIONS,
+  generateNewSeed,
+} from '../constants';
 import {
   BulkOperationContainer,
   BulkUpdateAction,
@@ -42,21 +47,6 @@ const getOffset = (offsetHours?: number) => {
 };
 
 type Agent = ReturnType<typeof createAgentDocument>;
-
-type AssetCriticality =
-  | 'low_impact'
-  | 'medium_impact'
-  | 'high_impact'
-  | 'extreme_impact'
-  | 'unknown';
-
-const ASSET_CRITICALITY: AssetCriticality[] = [
-  'low_impact',
-  'medium_impact',
-  'high_impact',
-  'extreme_impact',
-  'unknown',
-];
 
 enum EntityTypes {
   User = 'user',
