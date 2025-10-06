@@ -253,6 +253,11 @@ export const privmonCommand = async ({
   }
 
   if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.riskEngineAndRule)) {
-    await quickEnableRiskEngineAndRule();
+    await quickEnableRiskEngineAndRule({ space });
+  }
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.installPad)) {
+    console.log('Installing PAD...');
+    await installPad(space);
   }
 };

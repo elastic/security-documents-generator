@@ -13,6 +13,7 @@ export const PRIVILEGED_USER_MONITORING_OPTIONS = {
   riskEngineAndRule: 'riskEngineAndRule',
   integrationSyncSourceEventData: 'integrationSyncSourceEventData',
   assetCriticality: 'assetCriticality',
+  installPad: 'installPad',
 } as const;
 
 export type PrivilegedUserMonitoringOption = keyof typeof PRIVILEGED_USER_MONITORING_OPTIONS;

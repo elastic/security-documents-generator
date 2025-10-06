@@ -497,3 +497,20 @@ export const enablePrivmon = async (space?: string) => {
     throw error;
   }
 };
+
+export const installPad = async (space?: string) => {
+  try {
+    const response = await kibanaFetch(
+      '/api/entity_analytics/privileged_user_monitoring/pad/install',
+      {
+        method: 'POST',
+        body: JSON.stringify({}),
+      },
+      { apiVersion: API_VERSIONS.public.v1, space }
+    );
+    return response;
+  } catch (error) {
+    console.error('Error installing PAD:', error);
+    throw error;
+  }
+};

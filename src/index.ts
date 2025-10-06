@@ -361,6 +361,11 @@ program
           value: PRIVILEGED_USER_MONITORING_OPTIONS.assetCriticality,
           checked: true,
         },
+        {
+          name: 'Install PAD',
+          value: PRIVILEGED_USER_MONITORING_OPTIONS.installPad,
+          checked: false,
+        },
       ],
     });
 
@@ -374,6 +379,7 @@ program
     await privmonCommand({
       options: answers,
       userCount,
+      space: 'default',
     });
   });
 
@@ -385,6 +391,7 @@ program
     await privmonCommand({
       options: [...Object.values(PRIVILEGED_USER_MONITORING_OPTIONS)],
       userCount: 100,
+      space: 'default',
     });
   });
 
