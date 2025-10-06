@@ -11,7 +11,6 @@ import {
 import { TimeWindows } from '../utils/time_windows';
 import { User, UserGenerator } from '../privileged_access_detection_ml/event_generator';
 import { createRule, enableRiskScore } from '../../utils/kibana_api';
-
 import { createSampleFullSyncEvents, makeDoc } from '../utils/integrations_sync_utils';
 import {
   PRIVILEGED_USER_MONITORING_OPTIONS,
