@@ -107,6 +107,7 @@ const getSampleOktaAuthenticationLogs = (users: User[]) => {
 
 const quickEnableRiskEngineAndRule = async () => {
   try {
+    console.log('Enabling risk engine and rule...');
     await createRule();
     await enableRiskScore();
   } catch (e) {

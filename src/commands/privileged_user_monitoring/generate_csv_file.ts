@@ -35,8 +35,12 @@ export const generateCSVFile = async ({ users, upload }: { users: User[]; upload
     await fs.mkdir(outputDirectory, { recursive: true });
     await fs.writeFile(csvFilePath, csvContent);
     if (upload) {
+      console.log('Uploading CSV file to Privileged User Monitoring...');
+      console.log('First, enabling Privileged User Monitoring...');
       await enablePrivmon();
+      console.log('Now, uploading the CSV file...');
       await uploadPrivmonCsv(csvFilePath);
+      console.log('Upload complete.');
     }
     console.log(`A CSV file containing all of the privileged users was written to ${csvFilePath}`);
   } catch (e) {
