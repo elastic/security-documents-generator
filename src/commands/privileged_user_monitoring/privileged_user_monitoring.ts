@@ -17,12 +17,13 @@ import {
   enableRiskScore,
 } from '../../utils/kibana_api';
 
-import { makeDoc } from '../utils/okta_utils';
+import { createSampleFullSyncEvents, makeDoc } from '../utils/integrations_sync_utils';
 
 const endpointLogsDataStreamName = 'logs-endpoint.events.process-default';
 const systemLogsDataStreamName = 'logs-system.security-default';
 const oktaLogsDataStreamName = 'logs-okta.system-default';
 const oktaLogsUsersDataStreamName = 'logs-entityanalytics_okta.user-default';
+const oktaLogsEntityDataStreamName = 'logs-entityanalytics_okta.entity-default';
 
 const getSampleEndpointLogs = (users: User[]) => {
   return faker.helpers.multiple(
@@ -72,7 +73,7 @@ const getSampleOktaLogs = (users: User[]) => {
   );
 };
 
-export function getSampleOktaUsersLogs(count: number) {
+export const getSampleOktaUsersLogs = (count: number) => {
   const adminCount = Math.round((50 / 100) * count);
   const nonAdminCount = Math.max(0, count - adminCount);
   console.log(
@@ -82,7 +83,15 @@ export function getSampleOktaUsersLogs(count: number) {
   const userDocs = Array.from({ length: nonAdminCount }, () => makeDoc(false));
   const docs = adminDocs.concat(userDocs);
   return docs;
-}
+};
+
+export const getSampleOktaEntityLogs = (count: number, syncInterval: number) => {
+  const docs = createSampleFullSyncEvents({
+    count,
+    syncWindowMs: syncInterval,
+  });
+  return docs;
+};
 
 const getSampleOktaAuthenticationLogs = (users: User[]) => {
   return faker.helpers.multiple(
@@ -127,12 +136,19 @@ export const generatePrivilegedUserMonitoringData = async ({ users }: { users: U
  */
 export const generatePrivilegedUserIntegrationsSyncData = async ({
   usersCount,
+  syncEventsCount = 10,
 }: {
   usersCount: number;
+  syncEventsCount?: number;
 }) => {
   try {
     const sampleDocuments = getSampleOktaUsersLogs(usersCount);
+    const sampleEntityDocuments = getSampleOktaEntityLogs(
+      syncEventsCount,
+      24 * 60 * 60 * 1000 // 1 day interval
+    );
     await reinitializeDataStream(oktaLogsUsersDataStreamName, sampleDocuments);
+    await reinitializeDataStream(oktaLogsEntityDataStreamName, sampleEntityDocuments);
   } catch (e) {
     console.log(e);
   }

@@ -9,7 +9,9 @@
     "typecheck": "tsc --noEmit",
     "start": "tsx src/index",
     "lint": "eslint",
-    "checks": "yarn typecheck && yarn lint"
+    "format": "prettier --write \"src/**/*.ts\" \"*.json\" \"*.mjs\" \"src/**/*.json\"",
+    "checks": "yarn typecheck && yarn lint && yarn prettier --check \"src/**/*.ts\" \"*.json\" \"*.mjs\" \"src/**/*.json\" || { echo \"‼️ run yarn fix to automatically fix issues ‼️\"; exit 1; }",
+    "fix": "yarn lint --fix && yarn prettier --write \"src/**/*.ts\" \"*.json\" \"*.mjs\" \"src/**/*.json\""
   },
   "engines": {
     "node": "23.11.1",
@@ -41,11 +43,11 @@
   "devDependencies": {
     "@types/cli-progress": "3.11.6",
     "@types/lodash-es": "4.17.12",
-    "@types/uuid": "10.0.0",
-    "@typescript-eslint/eslint-plugin": "8.43.0",
-    "@typescript-eslint/parser": "8.43.0",
-    "esbuild": "0.25.9",
-    "eslint": "9.35.0",
+    "@types/uuid": "11.0.0",
+    "@typescript-eslint/eslint-plugin": "8.44.0",
+    "@typescript-eslint/parser": "8.44.0",
+    "esbuild": "0.25.10",
+    "eslint": "9.36.0",
     "eslint-config-airbnb": "19.0.4",
     "eslint-config-airbnb-typescript": "18.0.0",
     "eslint-config-prettier": "10.1.8",

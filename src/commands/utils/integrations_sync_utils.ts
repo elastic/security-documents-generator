@@ -1,0 +1,131 @@
+import { OKTA_USERS_SAMPLE_DOCUMENT } from '../privileged_user_monitoring/sample_documents';
+import { userNameAsEmail, userNameWhitespaceRemoved } from './sample_data_helpers';
+import { TimeWindows } from './time_windows';
+import { faker } from '@faker-js/faker';
+
+export const OKTA_ADMIN_USER_ROLES: string[] = [
+  'Super Administrator',
+  'Organization Administrator',
+  'Group Administrator',
+  'Application Administrator',
+  'Mobile Administrator',
+  'Help Desk Administrator',
+  'Report Administrator',
+  'API Access Management Administrator',
+  'Group Membership Administrator',
+  'Read-only Administrator',
+];
+
+export const OKTA_NON_ADMIN_USER_ROLES: string[] = [
+  'Guest',
+  'Employee',
+  'Contractor',
+  'Intern',
+  'Temp',
+];
+
+export type FullSyncEntityEventDoc = {
+  event: {
+    agent_id_status: 'verified';
+    kind: 'asset';
+    dataset: string;
+    action: 'started' | 'completed';
+    start?: string;
+    end?: string;
+    ingested?: string;
+  };
+};
+
+export type OktaSampleUser = {
+  email: string;
+  firstName: string;
+  lastName: string;
+  userId: string;
+  userName: string;
+};
+
+export const createOktaSampleUser = (): OktaSampleUser => {
+  const firstName = faker.person.firstName();
+  const lastName = faker.person.lastName();
+  const userId = faker.string.uuid();
+  const userName = userNameWhitespaceRemoved(`${firstName}.${lastName}`);
+  const email = userNameAsEmail(userName);
+  return {
+    email,
+    firstName,
+    lastName,
+    userId,
+    userName,
+  };
+};
+
+// okta helpers for admin roles split
+export const pick = <T>(a: T[]) => a[Math.floor(Math.random() * a.length)];
+export const makeDoc = (isAdmin: boolean) =>
+  OKTA_USERS_SAMPLE_DOCUMENT(
+    createOktaSampleUser(), // new user each doc
+    TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow()),
+    [isAdmin ? pick(OKTA_ADMIN_USER_ROLES) : pick(OKTA_NON_ADMIN_USER_ROLES)]
+  );
+
+// helpers for entity sync events
+export const makeEntityFullSyncEventPair = ({
+  dataSet = 'entityanalytics_okta.entity',
+  baseIso,
+  gaps = 25000,
+  ingestedDelay = 3000,
+}: {
+  dataSet?: string;
+  baseIso: string;
+  gaps?: number;
+  ingestedDelay?: number;
+}) => {
+  const startTs = new Date(baseIso).toISOString();
+  const endTs = new Date(new Date(baseIso).getTime() + gaps).toISOString();
+  const startIngested = new Date(new Date(baseIso).getTime() + ingestedDelay).toISOString();
+  const endIngested = new Date(new Date(baseIso).getTime() + gaps + ingestedDelay).toISOString();
+  const started: FullSyncEntityEventDoc = {
+    event: {
+      agent_id_status: 'verified',
+      kind: 'asset',
+      dataset: dataSet,
+      action: 'started',
+      start: startTs,
+      ingested: startIngested,
+    },
+  };
+  const completed: FullSyncEntityEventDoc = {
+    event: {
+      agent_id_status: 'verified',
+      kind: 'asset',
+      dataset: 'entityanalytics_okta.entity',
+      action: 'completed',
+      end: endTs,
+      ingested: endIngested,
+    },
+  };
+  return [started, completed];
+};
+export const createSampleFullSyncEvents = ({
+  count,
+  syncWindowMs, // e.g. 24h = 24 * 60 * 60 * 1000
+  base = new Date(), // starting anchor (defaults to "now")
+}: {
+  count: number;
+  syncWindowMs: number;
+  base?: Date | string;
+}): FullSyncEntityEventDoc[] => {
+  const baseMs = typeof base === 'string' ? new Date(base).getTime() : base.getTime();
+  const out: FullSyncEntityEventDoc[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const startIso = new Date(baseMs + i * syncWindowMs).toISOString();
+    out.push(
+      ...makeEntityFullSyncEventPair({
+        baseIso: startIso,
+      })
+    );
+  }
+
+  return out; // [start, completed, start, completed, ...] in order
+};
