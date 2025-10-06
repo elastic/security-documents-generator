@@ -365,7 +365,7 @@ program
         {
           name: 'Install PAD',
           value: PRIVILEGED_USER_MONITORING_OPTIONS.installPad,
-          checked: false,
+          checked: true,
         },
       ],
     });

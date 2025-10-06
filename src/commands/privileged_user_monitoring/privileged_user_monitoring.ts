@@ -235,6 +235,7 @@ export const privmonCommand = async ({
   userCount: number;
   space: string;
 }) => {
+  console.log('Starting Privileged User Monitoring data generation in space:', space);
   const users = UserGenerator.getUsers(userCount);
   if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.integrationSyncSourceEventData)) {
     await generatePrivilegedUserIntegrationsSyncData({
