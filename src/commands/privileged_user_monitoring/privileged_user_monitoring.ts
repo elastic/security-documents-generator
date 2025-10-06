@@ -10,7 +10,12 @@ import {
 } from './sample_documents';
 import { TimeWindows } from '../utils/time_windows';
 import { User, UserGenerator } from '../privileged_access_detection_ml/event_generator';
-import { assignAssetCriticality, createRule, enableRiskScore } from '../../utils/kibana_api';
+import {
+  assignAssetCriticality,
+  createRule,
+  enableRiskScore,
+  installPad,
+} from '../../utils/kibana_api';
 import { createSampleFullSyncEvents, makeDoc } from '../utils/integrations_sync_utils';
 import {
   ASSET_CRITICALITY,
@@ -108,11 +113,11 @@ const getSampleOktaAuthenticationLogs = (users: User[]) => {
   );
 };
 
-const quickEnableRiskEngineAndRule = async () => {
+const quickEnableRiskEngineAndRule = async (space: string) => {
   try {
     console.log('Enabling risk engine and rule...');
-    await createRule();
-    await enableRiskScore();
+    await createRule({ space });
+    await enableRiskScore(space);
   } catch (e) {
     console.log(e);
   }
@@ -224,9 +229,11 @@ const assignAssetCriticalityToUsers = async (opts: { users: User[]; space?: stri
 export const privmonCommand = async ({
   options,
   userCount,
+  space = 'default',
 }: {
   options: PrivilegedUserMonitoringOption[];
   userCount: number;
+  space: string;
 }) => {
   const users = UserGenerator.getUsers(userCount);
   if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.integrationSyncSourceEventData)) {
@@ -246,18 +253,21 @@ export const privmonCommand = async ({
   await generateCSVFile({
     users,
     upload: options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.csvFile),
+    space,
   });
 
   if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.assetCriticality)) {
-    await assignAssetCriticalityToUsers({ users });
+    await assignAssetCriticalityToUsers({ users, space });
   }
 
   if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.riskEngineAndRule)) {
-    await quickEnableRiskEngineAndRule({ space });
+    await quickEnableRiskEngineAndRule(space);
   }
 
   if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.installPad)) {
     console.log('Installing PAD...');
     await installPad(space);
   }
+
+  console.log('Privileged User Monitoring data generation complete.');
 };

@@ -25,7 +25,15 @@ const generateLabelForUser = (user: User): string => {
   return LABELS[index];
 };
 
-export const generateCSVFile = async ({ users, upload }: { users: User[]; upload: boolean }) => {
+export const generateCSVFile = async ({
+  users,
+  upload,
+  space,
+}: {
+  users: User[];
+  upload: boolean;
+  space: string;
+}) => {
   try {
     const csvContent = users
       .map((user) => user.userName + ',' + generateLabelForUser(user))
@@ -37,9 +45,9 @@ export const generateCSVFile = async ({ users, upload }: { users: User[]; upload
     if (upload) {
       console.log('Uploading CSV file to Privileged User Monitoring...');
       console.log('First, enabling Privileged User Monitoring...');
-      await enablePrivmon();
+      await enablePrivmon(space);
       console.log('Now, uploading the CSV file...');
-      await uploadPrivmonCsv(csvFilePath);
+      await uploadPrivmonCsv(csvFilePath, space);
       console.log('Upload complete.');
     }
     console.log(`A CSV file containing all of the privileged users was written to ${csvFilePath}`);

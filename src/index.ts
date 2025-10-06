@@ -327,7 +327,8 @@ program
   .description(
     `Generate source events and anomalous source data for privileged user monitoring and the privileged access detection ML jobs.`
   )
-  .action(async () => {
+  .option('--space <space>', 'Space to use', 'default')
+  .action(async (options) => {
     const answers = await checkbox<PrivilegedUserMonitoringOption>({
       message: 'Select options',
       choices: [
@@ -379,7 +380,7 @@ program
     await privmonCommand({
       options: answers,
       userCount,
-      space: 'default',
+      space: options.space,
     });
   });
 
@@ -387,11 +388,12 @@ program
   .command('privmon-quick')
   .alias('privileged-user-monitoring-quick')
   .alias('quickmon')
-  .action(async () => {
+  .option('--space <space>', 'Space to use', 'default')
+  .action(async (options) => {
     await privmonCommand({
       options: [...Object.values(PRIVILEGED_USER_MONITORING_OPTIONS)],
       userCount: 100,
-      space: 'default',
+      space: options.space,
     });
   });
 
