@@ -6,7 +6,7 @@ export const createProgressBar = (indexName: string) => {
     {
       format: `Progress indexing into ${indexName} | {value}/{total} docs`,
     },
-    cliProgress.Presets.shades_classic,
+    cliProgress.Presets.shades_classic
   );
 };
 

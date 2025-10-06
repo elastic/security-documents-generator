@@ -1,8 +1,5 @@
 import { OKTA_USERS_SAMPLE_DOCUMENT } from '../privileged_user_monitoring/sample_documents';
-import {
-  userNameAsEmail,
-  userNameWhitespaceRemoved,
-} from './sample_data_helpers';
+import { userNameAsEmail, userNameWhitespaceRemoved } from './sample_data_helpers';
 import { TimeWindows } from './time_windows';
 import { faker } from '@faker-js/faker';
 
@@ -56,5 +53,5 @@ export const makeDoc = (isAdmin: boolean) =>
   OKTA_USERS_SAMPLE_DOCUMENT(
     createOktaSampleUser(), // new user each doc
     TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow()),
-    [isAdmin ? pick(OKTA_ADMIN_USER_ROLES) : pick(OKTA_NON_ADMIN_USER_ROLES)],
+    [isAdmin ? pick(OKTA_ADMIN_USER_ROLES) : pick(OKTA_NON_ADMIN_USER_ROLES)]
   );

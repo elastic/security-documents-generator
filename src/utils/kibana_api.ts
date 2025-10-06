@@ -31,11 +31,7 @@ export const buildKibanaUrl = (opts: { path: string; space?: string }) => {
 
 type ResponseError = Error & { statusCode: number; responseData: unknown };
 
-const throwResponseError = (
-  message: string,
-  statusCode: number,
-  response: unknown,
-) => {
+const throwResponseError = (message: string, statusCode: number, response: unknown) => {
   const error = new Error(message) as ResponseError;
   error.statusCode = statusCode;
   error.responseData = response;
@@ -49,14 +45,12 @@ export const kibanaFetch = async <T>(
     ignoreStatuses?: number[] | number;
     apiVersion?: string;
     space?: string;
-  } = {},
+  } = {}
 ): Promise<T> => {
   const config = getConfig();
   const { ignoreStatuses, apiVersion = '1', space } = opts;
   const url = buildKibanaUrl({ path, space });
-  const ignoreStatusesArray = Array.isArray(ignoreStatuses)
-    ? ignoreStatuses
-    : [ignoreStatuses];
+  const ignoreStatusesArray = Array.isArray(ignoreStatuses) ? ignoreStatuses : [ignoreStatuses];
   const headers = new Headers();
   headers.append('Content-Type', 'application/json');
   headers.append('kbn-xsrf', 'true');
@@ -66,9 +60,7 @@ export const kibanaFetch = async <T>(
     headers.set(
       'Authorization',
       'Basic ' +
-        Buffer.from(
-          config.kibana.username + ':' + config.kibana.password,
-        ).toString('base64'),
+        Buffer.from(config.kibana.username + ':' + config.kibana.password).toString('base64')
     );
   }
 
@@ -89,7 +81,7 @@ export const kibanaFetch = async <T>(
     throwResponseError(
       `Failed to fetch data from ${url}, status: ${result.status}`,
       result.status,
-      data,
+      data
     );
   }
   return data;
@@ -102,7 +94,7 @@ export const fetchRiskScore = async (space?: string) => {
       method: 'POST',
       body: JSON.stringify({}),
     },
-    { space },
+    { space }
   );
 };
 
@@ -115,7 +107,7 @@ export const enableRiskScore = async (space?: string) => {
     },
     {
       space,
-    },
+    }
   );
 };
 
@@ -125,7 +117,7 @@ export const assignAssetCriticality = async (
     id_value: string;
     criticality_level: string;
   }>,
-  space?: string,
+  space?: string
 ) => {
   return kibanaFetch(
     ASSET_CRITICALITY_BULK_URL,
@@ -133,7 +125,7 @@ export const assignAssetCriticality = async (
       method: 'POST',
       body: JSON.stringify({ records: assetCriticalityRecords }),
     },
-    { apiVersion: API_VERSIONS.public.v1, space },
+    { apiVersion: API_VERSIONS.public.v1, space }
   );
 };
 
@@ -182,7 +174,7 @@ export const createRule = ({
         interval: interval || '1m',
       }),
     },
-    { apiVersion: API_VERSIONS.public.v1, space },
+    { apiVersion: API_VERSIONS.public.v1, space }
   );
 };
 
@@ -194,7 +186,7 @@ export const getRule = async (ruleId: string, space?: string) => {
       {
         method: 'GET',
       },
-      { apiVersion: API_VERSIONS.public.v1, space },
+      { apiVersion: API_VERSIONS.public.v1, space }
     );
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
@@ -209,7 +201,7 @@ export const deleteRule = async (ruleId: string, space?: string) => {
     {
       method: 'DELETE',
     },
-    { apiVersion: API_VERSIONS.public.v1, space },
+    { apiVersion: API_VERSIONS.public.v1, space }
   );
 };
 
@@ -237,7 +229,7 @@ export const createComponentTemplate = async ({
         },
       }),
     },
-    { apiVersion: API_VERSIONS.public.v1, ignoreStatuses: [409], space },
+    { apiVersion: API_VERSIONS.public.v1, ignoreStatuses: [409], space }
   );
 };
 export const installPackage = async ({
@@ -256,7 +248,7 @@ export const installPackage = async ({
     {
       method: 'POST',
     },
-    { apiVersion: API_VERSIONS.public.v1, space },
+    { apiVersion: API_VERSIONS.public.v1, space }
   );
 };
 
@@ -271,21 +263,15 @@ export const installLegacyRiskScore = async () => {
     body: JSON.stringify({ riskScoreEntity: 'host' }),
   });
 
-  const userDashboardsResponse = await kibanaFetch(
-    RISK_SCORE_DASHBOARD_URL('user'),
-    {
-      method: 'POST',
-      body: JSON.stringify({}),
-    },
-  );
+  const userDashboardsResponse = await kibanaFetch(RISK_SCORE_DASHBOARD_URL('user'), {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
 
-  const hostDashboardsResponse = await kibanaFetch(
-    RISK_SCORE_DASHBOARD_URL('host'),
-    {
-      method: 'POST',
-      body: JSON.stringify({}),
-    },
-  );
+  const hostDashboardsResponse = await kibanaFetch(RISK_SCORE_DASHBOARD_URL('host'), {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
 
   return {
     userResponse,
@@ -309,7 +295,7 @@ export const createSpace = async (space: string) => {
     },
     {
       apiVersion: API_VERSIONS.public.v1,
-    },
+    }
   );
 };
 
@@ -320,7 +306,7 @@ export const doesSpaceExist = async (space: string): Promise<boolean> => {
       {
         method: 'GET',
       },
-      { apiVersion: API_VERSIONS.public.v1 },
+      { apiVersion: API_VERSIONS.public.v1 }
     );
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
@@ -336,7 +322,7 @@ const _initEngine = (engineType: string, space?: string) => {
       method: 'POST',
       body: JSON.stringify({}),
     },
-    { apiVersion: API_VERSIONS.public.v1, space },
+    { apiVersion: API_VERSIONS.public.v1, space }
   );
 };
 
@@ -346,16 +332,13 @@ const _deleteEngine = (engineType: string, space?: string) => {
     {
       method: 'DELETE',
     },
-    { apiVersion: API_VERSIONS.public.v1, space },
+    { apiVersion: API_VERSIONS.public.v1, space }
   );
 };
 
-export const deleteEngines = async (
-  entityTypes: string[] = ['host', 'user'],
-  space?: string,
-) => {
+export const deleteEngines = async (entityTypes: string[] = ['host', 'user'], space?: string) => {
   const responses = await Promise.all(
-    entityTypes.map((entityType) => _deleteEngine(entityType, space)),
+    entityTypes.map((entityType) => _deleteEngine(entityType, space))
   );
   console.log('Delete responses:', responses);
 };
@@ -366,7 +349,7 @@ const _listEngines = (space?: string) => {
     {
       method: 'GET',
     },
-    { apiVersion: API_VERSIONS.public.v1, space },
+    { apiVersion: API_VERSIONS.public.v1, space }
   );
 
   return res as Promise<{ engines: Array<{ status: string }> }>;
@@ -382,15 +365,13 @@ const allEnginesAreStarted = async (space?: string) => {
 
 export const initEntityEngineForEntityTypes = async (
   entityTypes: string[] = ['host', 'user'],
-  space?: string,
+  space?: string
 ) => {
   if (await allEnginesAreStarted(space)) {
     console.log('All engines are already started');
     return;
   }
-  await Promise.all(
-    entityTypes.map((entityType) => _initEngine(entityType, space)),
-  );
+  await Promise.all(entityTypes.map((entityType) => _initEngine(entityType, space)));
   const attempts = 20;
   const delay = 2000;
 
@@ -413,8 +394,7 @@ export const getAllRules = async (space?: string) => {
 
   try {
     while (true) {
-      const url =
-        DETECTION_ENGINE_RULES_URL + `/_find?page=${page}&per_page=${perPage}`;
+      const url = DETECTION_ENGINE_RULES_URL + `/_find?page=${page}&per_page=${perPage}`;
       const response = await kibanaFetch<{
         data: Array<{ rule_id: string; name: string; id: string }>;
         total: number;
@@ -423,7 +403,7 @@ export const getAllRules = async (space?: string) => {
         {
           method: 'GET',
         },
-        { apiVersion: API_VERSIONS.public.v1, space },
+        { apiVersion: API_VERSIONS.public.v1, space }
       );
 
       if (!response.data || response.data.length === 0) {
@@ -457,24 +437,20 @@ export const bulkDeleteRules = async (ruleIds: string[], space?: string) => {
         ids: ruleIds,
       }),
     },
-    { apiVersion: API_VERSIONS.public.v1, space },
+    { apiVersion: API_VERSIONS.public.v1, space }
   );
 };
 
 export const uploadPrivmonCsv = async (
   csvFilePath: string,
-  space?: string,
+  space?: string
 ): Promise<{ success: boolean; message?: string }> => {
   try {
     const formData = new FormData();
     formData.append('file', fs.createReadStream(csvFilePath));
     const config = getConfig();
 
-    if (
-      'apiKey' in config.kibana ||
-      !config.kibana?.username ||
-      !config.kibana?.password
-    ) {
+    if ('apiKey' in config.kibana || !config.kibana?.username || !config.kibana?.password) {
       throw new Error('CSV upload only works with Kibana Basic Auth for now');
     }
 
@@ -491,12 +467,10 @@ export const uploadPrivmonCsv = async (
           ...formData.getHeaders(), // Include form-data headers
           Authorization:
             'Basic ' +
-            Buffer.from(
-              config.kibana.username + ':' + config.kibana.password,
-            ).toString('base64'),
+            Buffer.from(config.kibana.username + ':' + config.kibana.password).toString('base64'),
         },
         body: formData,
-      },
+      }
     );
 
     if (!response.ok) {
@@ -520,7 +494,7 @@ export const enablePrivmon = async (space?: string) => {
         method: 'POST',
         body: JSON.stringify({}),
       },
-      { apiVersion: API_VERSIONS.public.v1, space },
+      { apiVersion: API_VERSIONS.public.v1, space }
     );
     return response;
   } catch (error) {
@@ -550,7 +524,7 @@ export const enablePrivmonAdvancedSetting = async (space?: string) => {
           },
         }),
       },
-      { apiVersion: API_VERSIONS.internal.v1, space },
+      { apiVersion: API_VERSIONS.internal.v1, space }
     );
     return response;
   } catch (error) {

@@ -50,7 +50,7 @@ export const getConfig = (): ConfigType => {
 
   if (validationResult._tag === 'Left') {
     console.error(
-      `There was a config validation error. Fix issues below in the ${CONFIG_FILE_NAME} file, and try again.`,
+      `There was a config validation error. Fix issues below in the ${CONFIG_FILE_NAME} file, and try again.`
     );
     console.log(PathReporter.report(validationResult));
     process.exit(1);
