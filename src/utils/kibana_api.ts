@@ -58,7 +58,6 @@ export const kibanaFetch = async <T>(
     space?: string;
   } = {}
 ): Promise<T> => {
-  const config = getConfig();
   const { ignoreStatuses, apiVersion = '1', space } = opts;
   const url = buildKibanaUrl({ path, space });
   const ignoreStatusesArray = Array.isArray(ignoreStatuses) ? ignoreStatuses : [ignoreStatuses];
