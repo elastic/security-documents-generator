@@ -11,7 +11,6 @@ import {
 import { TimeWindows } from '../utils/time_windows';
 import { User } from '../privileged_access_detection_ml/event_generator';
 import {
-  createRule,
   enablePrivmon,
   enablePrivmonAdvancedSetting,
   enableRiskScore,
@@ -108,9 +107,6 @@ const getSampleOktaAuthenticationLogs = (users: User[]) => {
 export const generatePrivilegedUserMonitoringData = async ({ users }: { users: User[] }) => {
   try {
     await enablePrivmonAdvancedSetting();
-    await createRule();
-    await deleteDataStream(endpointLogsDataStreamName);
-    await createDataStream(endpointLogsDataStreamName);
     await reinitializeDataStream(endpointLogsDataStreamName, [
       ...getSampleEndpointLogs(users),
       ...getSampleEndpointAccountSwitchLogs(users),
