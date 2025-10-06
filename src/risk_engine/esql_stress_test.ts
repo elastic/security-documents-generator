@@ -8,10 +8,7 @@ import { sleep } from '../utils/sleep';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Report = Record<number, { ok?: any; error?: any; delay?: number }>;
 const identifierField = 'host.name';
-export const stressTest = async (
-  runs: number,
-  opts: { outputFile?: string; pageSize: number },
-) => {
+export const stressTest = async (runs: number, opts: { outputFile?: string; pageSize: number }) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pagination: any = await getPagination({
     pageSize: opts.pageSize,
@@ -22,9 +19,7 @@ export const stressTest = async (
   const delays = [250, 500, 1000];
   const seqReport: Report = {};
   for (let ms of delays) {
-    console.log(
-      '\n--------------------------------------------------------------------\n',
-    );
+    console.log('\n--------------------------------------------------------------------\n');
     console.log(`Starting sequential execution with ${ms}ms delay`);
 
     for (let i = 0; i < runs; i++) {
@@ -34,14 +29,14 @@ export const stressTest = async (
           pageSize: opts.pageSize,
           afterKeys,
         },
-        seqReport,
+        seqReport
       );
       console.log(`Run ${i + 1} of ${runs} completed. Sleeping ${ms}ms...`);
       await sleep(ms);
     }
 
     console.log(
-      `Sequential execution with ${ms}ms delay completed. Sleeping 5s to allow ES to recover...`,
+      `Sequential execution with ${ms}ms delay completed. Sleeping 5s to allow ES to recover...`
     );
 
     if (Object.values(seqReport).every((r) => r.ok)) {
@@ -57,11 +52,9 @@ export const stressTest = async (
   const entityTypesNo = 3;
   const batches = Math.floor(runs / entityTypesNo);
   const multiReport: Report = {};
+  console.log('\n--------------------------------------------------------------------\n');
   console.log(
-    '\n--------------------------------------------------------------------\n',
-  );
-  console.log(
-    `Starting parallel execution with ${entityTypesNo} parallel runs, total ${batches} batches...`,
+    `Starting parallel execution with ${entityTypesNo} parallel runs, total ${batches} batches...`
   );
   for (let i = 0; i < batches; i++) {
     await Promise.all(
@@ -72,9 +65,9 @@ export const stressTest = async (
             pageSize: opts.pageSize,
             afterKeys,
           },
-          multiReport,
-        ),
-      ),
+          multiReport
+        )
+      )
     );
 
     console.log(`Batch ${i + 1} of ${batches} completed`);
@@ -83,14 +76,12 @@ export const stressTest = async (
 
   try {
     const seqFile =
-      opts?.outputFile ??
-      path.join(process.cwd(), `reports/esql_seq_stress_results.json`);
+      opts?.outputFile ?? path.join(process.cwd(), `reports/esql_seq_stress_results.json`);
     await fs.writeFile(seqFile, JSON.stringify(seqReport, null, 2), 'utf8');
     console.log('Sequential results written to', seqFile);
 
     const multiFile =
-      opts?.outputFile ??
-      path.join(process.cwd(), `reports/esql_multi_stress_results.json`);
+      opts?.outputFile ?? path.join(process.cwd(), `reports/esql_multi_stress_results.json`);
     await fs.writeFile(multiFile, JSON.stringify(multiReport, null, 2), 'utf8');
     console.log('Parallel results written to', multiFile);
   } catch (e) {
@@ -106,7 +97,7 @@ export const run = async (
       upper?: string;
     };
   },
-  report: Report,
+  report: Report
 ) => {
   const client = getEsClient();
 
@@ -117,9 +108,7 @@ export const run = async (
     ? `${identifierField} <= ${params.afterKeys.upper}`
     : undefined;
   if (!lower && !upper) {
-    throw new Error(
-      'Either lower or upper after key must be provided for pagination',
-    );
+    throw new Error('Either lower or upper after key must be provided for pagination');
   }
   const rangeClause = [lower, upper].filter(Boolean).join(' and ');
 

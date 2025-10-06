@@ -42,7 +42,7 @@ export const createPerfDataFile = ({
       ` - Max per file: 250MB`,
       ` - Alerts per file (est.): ${alertsPerFile}`,
       ` - Files needed: ${filesNumber}`,
-    ].join('\n'),
+    ].join('\n')
   );
   if (filesNumber > 1) {
     console.log('Multiple files will be written to stay under 250MB per file.');
@@ -68,7 +68,7 @@ export const createPerfDataFile = ({
       hideCursor: true,
       format: '{label} {bar} {value}/{total}',
     },
-    cliProgress.Presets.shades_classic,
+    cliProgress.Presets.shades_classic
   );
 
   const fileBar = multiBar.create(filesNumber, 0, { label: 'files    ' });
@@ -137,9 +137,7 @@ export const createPerfDataFile = ({
     alertBar.stop();
     multiBar.stop();
 
-    console.log(
-      `Created ${filesNumber} files for ${name} (${totalWritten} alerts total).`,
-    );
+    console.log(`Created ${filesNumber} files for ${name} (${totalWritten} alerts total).`);
   };
 
   return generateAlerts().catch((err) => {
@@ -147,14 +145,8 @@ export const createPerfDataFile = ({
   });
 };
 
-export const uploadPerfData = async (
-  file: string,
-  interval: number,
-  uploadCount: number,
-) => {
-  console.log(
-    `Uploading performance data file ${file} every ${interval}ms ${uploadCount} times`,
-  );
+export const uploadPerfData = async (file: string, interval: number, uploadCount: number) => {
+  console.log(`Uploading performance data file ${file} every ${interval}ms ${uploadCount} times`);
   const filePath = getFilePath(file);
   if (!fs.existsSync(filePath)) {
     console.log(`Data file ${file} does not exist`);

@@ -101,10 +101,10 @@ const generateEvent = (from: number): Event => ({
     id: faker.string.uuid(),
   },
   event: {
-    category: faker.helpers.arrayElements(
-      ['authentication', 'process', 'network', 'file'],
-      { min: 1, max: 2 },
-    ),
+    category: faker.helpers.arrayElements(['authentication', 'process', 'network', 'file'], {
+      min: 1,
+      max: 2,
+    }),
     type: faker.helpers.arrayElements(['start', 'end', 'info'], {
       min: 1,
       max: 2,
@@ -117,26 +117,23 @@ const generateNonOverlappingGapEvents = (
   ruleId: string,
   ruleName: string,
   fromHours: number,
-  gapCount: number,
+  gapCount: number
 ): GapEvent[] => {
   const totalMinutes = fromHours * 60;
   // Calculate maximum duration for each gap including spacing
   const maxTimePerGap = Math.floor(totalMinutes / gapCount);
 
   // Ensure minimum values are at least 1
-  const minGapDuration = Math.max(
-    1,
-    Math.min(5, Math.floor(maxTimePerGap * 0.6)),
-  ); // 60% of available time
+  const minGapDuration = Math.max(1, Math.min(5, Math.floor(maxTimePerGap * 0.6))); // 60% of available time
   const maxGapDuration = Math.max(
     minGapDuration + 1,
-    Math.min(30, Math.floor(maxTimePerGap * 0.8)),
+    Math.min(30, Math.floor(maxTimePerGap * 0.8))
   ); // 80% of available time
   const maxSpaceBetweenGaps = Math.max(1, Math.floor(maxTimePerGap * 0.2)); // 20% of available time
 
   if (maxTimePerGap < 2) {
     console.warn(
-      `Warning: Time window too small for ${gapCount} gaps. Each gap will be very short (${maxTimePerGap} minutes or less)`,
+      `Warning: Time window too small for ${gapCount} gaps. Each gap will be very short (${maxTimePerGap} minutes or less)`
     );
   }
 
@@ -236,10 +233,7 @@ const ingestEvents = async (events: Event[]) => {
 
   for (const chunk of chunks) {
     try {
-      const operations = chunk.flatMap((doc) => [
-        { index: { _index: EVENTS_INDEX } },
-        doc,
-      ]);
+      const operations = chunk.flatMap((doc) => [{ index: { _index: EVENTS_INDEX } }, doc]);
 
       await client.bulk({ operations, refresh: true });
     } catch (err) {
@@ -281,10 +275,7 @@ const deleteGapEvents = async () => {
       refresh: true,
       query: {
         bool: {
-          must: [
-            { term: { 'event.action': 'gap' } },
-            { term: { 'event.provider': 'alerting' } },
-          ],
+          must: [{ term: { 'event.action': 'gap' } }, { term: { 'event.provider': 'alerting' } }],
         },
       },
     });
@@ -300,18 +291,13 @@ const deleteGapEvents = async () => {
 export const generateRulesAndAlerts = async (
   ruleCount: number,
   eventCount: number,
-  options: RuleGenerationOptions,
+  options: RuleGenerationOptions
 ) => {
   // Create rules through Kibana API
   const ruleResults = await Promise.all(
     Array.from({ length: ruleCount }, () => {
       const ruleName = `Rule-${faker.string.alphanumeric(8)}`;
-      const severity = faker.helpers.arrayElement([
-        'low',
-        'medium',
-        'high',
-        'critical',
-      ]);
+      const severity = faker.helpers.arrayElement(['low', 'medium', 'high', 'critical']);
       const riskScore = faker.number.int({ min: 1, max: 100 });
 
       return createRule({
@@ -326,13 +312,11 @@ export const generateRulesAndAlerts = async (
         from: `now-${options.from}h`,
         interval: options.interval,
       });
-    }),
+    })
   );
 
   // Generate events that rules can match against
-  const events = Array.from({ length: eventCount }, () =>
-    generateEvent(options.from),
-  );
+  const events = Array.from({ length: eventCount }, () => generateEvent(options.from));
 
   let gapEvents: GapEvent[] = [];
   if (options.gapsPerRule > 0) {
@@ -342,7 +326,7 @@ export const generateRulesAndAlerts = async (
         rule.id,
         rule.name || 'Unknown Rule',
         options.from,
-        options.gapsPerRule,
+        options.gapsPerRule
       );
     });
   }
@@ -382,9 +366,7 @@ export const deleteAllRules = async (space?: string) => {
     // Delete gap events after rules are deleted
     await deleteGapEvents();
 
-    console.log(
-      `Successfully deleted ${deletedCount} rules and their gap events`,
-    );
+    console.log(`Successfully deleted ${deletedCount} rules and their gap events`);
   } catch (err) {
     console.error('Failed to delete rules:', JSON.stringify(err));
     throw err;

@@ -10,9 +10,7 @@ function baseCreateAlerts({
   space?: string;
 } = {}) {
   const risk_score = faker.number.int({ min: 0, max: 100 });
-  const severity = ['low', 'medium', 'high', 'critical'][
-    faker.number.int({ min: 0, max: 3 })
-  ];
+  const severity = ['low', 'medium', 'high', 'critical'][faker.number.int({ min: 0, max: 3 })];
   return {
     'host.name': hostName,
     'user.name': userName,
@@ -69,8 +67,7 @@ function baseCreateAlerts({
     'kibana.alert.status': 'active',
     'kibana.alert.workflow_status': 'open',
     'kibana.alert.depth': 1,
-    'kibana.alert.reason':
-      'event on ' + hostName + ' created alert with severity ' + severity,
+    'kibana.alert.reason': 'event on ' + hostName + ' created alert with severity ' + severity,
     'kibana.alert.severity': severity,
     'kibana.alert.risk_score': risk_score,
     'kibana.alert.rule.actions': [],
@@ -98,8 +95,7 @@ function baseCreateAlerts({
     'kibana.alert.rule.updated_by': 'elastic',
     'kibana.alert.rule.version': 3,
     'kibana.alert.rule.meta.from': '1m',
-    'kibana.alert.rule.meta.kibana_siem_app_url':
-      'http://localhost:5601/app/security',
+    'kibana.alert.rule.meta.kibana_siem_app_url': 'http://localhost:5601/app/security',
     'kibana.alert.rule.risk_score': risk_score,
     'kibana.alert.rule.severity': severity,
     'kibana.alert.uuid': faker.string.uuid(),
@@ -118,7 +114,7 @@ export default function createAlerts<O extends object>(
     userName?: string;
     hostName?: string;
     space?: string;
-  } = {},
+  } = {}
 ): O & BaseCreateAlertsReturnType {
   return { ...baseCreateAlerts({ userName, hostName, space }), ...override };
 }

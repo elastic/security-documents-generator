@@ -20,10 +20,7 @@ export const ingestData = async (params: {
   const index = getAlertIndex('default');
 
   const MAX_BYTES = batchMBytesSize * 1024 * 1024;
-  const bytesPerAlert = Buffer.byteLength(
-    JSON.stringify(createAlerts({})),
-    'utf8',
-  );
+  const bytesPerAlert = Buffer.byteLength(JSON.stringify(createAlerts({})), 'utf8');
   const alertsPerBatch = Math.max(1, Math.floor(MAX_BYTES / bytesPerAlert));
   let runs = Math.ceil((entityCount * alertsPerEntity) / alertsPerBatch);
 
@@ -32,7 +29,7 @@ export const ingestData = async (params: {
       `Ingesting batch, approx. ${alertsPerBatch} alerts (~${(
         (alertsPerBatch * bytesPerAlert) /
         (1024 * 1024)
-      ).toFixed(2)}MB), ${runs} batches remaining...`,
+      ).toFixed(2)}MB), ${runs} batches remaining...`
     );
     runs--;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -87,25 +84,15 @@ export async function* alertsGenerator(params: {
 }
 
 export const getCmd = (root: Command) => {
-  const riskEngine = root
-    .command('risk-engine')
-    .description('Risk engine utilities');
+  const riskEngine = root.command('risk-engine').description('Risk engine utilities');
 
   riskEngine
     .command('ingest')
     .description('Generate and immediately ingest data into the risk engine')
     .argument('<number of entities>', 'number of entities', parseIntBase10)
-    .option(
-      '-n <n>',
-      'number of alerts per entity (default: 50)',
-      parseIntBase10,
-    )
+    .option('-n <n>', 'number of alerts per entity (default: 50)', parseIntBase10)
     .option('-b <b>', 'batch size in MB (default: 250MB)', parseIntBase10)
-    .option(
-      '-i <i>',
-      'interval between batches in ms (default: 500ms)',
-      parseIntBase10,
-    )
+    .option('-i <i>', 'interval between batches in ms (default: 500ms)', parseIntBase10)
     .option('-s <s>', 'space (will be created if it does not exist)')
     .description('Generate fake alerts')
     .action(async (entityCount, options) => {
@@ -125,7 +112,7 @@ export const getCmd = (root: Command) => {
 
       await deleteAllAlerts();
       console.log(
-        `Ingesting data for ${entityCount} entities, ${alertsPerEntity} alerts each, in batches of ~${batchMBytesSize}MB every ${intervalMs}ms into space "${space}"...`,
+        `Ingesting data for ${entityCount} entities, ${alertsPerEntity} alerts each, in batches of ~${batchMBytesSize}MB every ${intervalMs}ms into space "${space}"...`
       );
 
       await ingestData({

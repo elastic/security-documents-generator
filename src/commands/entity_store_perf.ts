@@ -3,10 +3,7 @@ import fs from 'fs';
 import cliProgress from 'cli-progress';
 import { getEsClient, getFileLineCount } from './utils/indices';
 import readline from 'readline';
-import {
-  deleteEngines,
-  initEntityEngineForEntityTypes,
-} from '../utils/kibana_api';
+import { deleteEngines, initEntityEngineForEntityTypes } from '../utils/kibana_api';
 import { get } from 'lodash-es';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -171,10 +168,7 @@ const changeUserName = (doc: Record<string, any>, addition: string) => {
   return doc;
 };
 
-const generateUserFields = ({
-  idPrefix,
-  entityIndex,
-}: GeneratorOptions): UserFields => {
+const generateUserFields = ({ idPrefix, entityIndex }: GeneratorOptions): UserFields => {
   const id = `${idPrefix}-user-${entityIndex}`;
   return {
     entity: {
@@ -221,7 +215,7 @@ const deleteLogsIndex = async (index: string) => {
     {
       index,
     },
-    { ignore: [404] },
+    { ignore: [404] }
   );
 };
 
@@ -258,7 +252,7 @@ const countEntitiesUntil = async (name: string, count: number) => {
     {
       format: 'Progress | {value}/{total} Entities',
     },
-    cliProgress.Presets.shades_classic,
+    cliProgress.Presets.shades_classic
   );
   progress.start(count, 0);
 
@@ -278,10 +272,7 @@ const countEntitiesUntil = async (name: string, count: number) => {
   return total;
 };
 
-const logClusterHealthEvery = (
-  name: string,
-  interval: number,
-): (() => void) => {
+const logClusterHealthEvery = (name: string, interval: number): (() => void) => {
   if (config.serverless) {
     console.log('Skipping cluster health on serverless cluster');
     return () => {};
@@ -319,10 +310,7 @@ const logClusterHealthEvery = (
   return stopCallback;
 };
 
-const logTransformStatsEvery = (
-  name: string,
-  interval: number,
-): (() => void) => {
+const logTransformStatsEvery = (name: string, interval: number): (() => void) => {
   const TRANSFORM_NAMES = [
     'entities-v1-latest-security_host_default',
     'entities-v1-latest-security_user_default',
@@ -378,7 +366,7 @@ export const createPerfDataFile = ({
 }) => {
   const filePath = getFilePath(name);
   console.log(
-    `Creating performance data file ${name} at with ${entityCount} entities and ${logsPerEntity} logs per entity. Starting at index ${startIndex}`,
+    `Creating performance data file ${name} at with ${entityCount} entities and ${logsPerEntity} logs per entity. Starting at index ${startIndex}`
   );
 
   if (fs.existsSync(filePath)) {
@@ -387,10 +375,7 @@ export const createPerfDataFile = ({
   }
 
   console.log(`Generating ${entityCount * logsPerEntity} logs...`);
-  const progress = new cliProgress.SingleBar(
-    {},
-    cliProgress.Presets.shades_classic,
-  );
+  const progress = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
 
   progress.start(entityCount * logsPerEntity, 0);
   // we could be generating up to 1 million entities, so we need to be careful with memory
@@ -459,7 +444,7 @@ export const uploadFile = async ({
     {
       format: '{bar} | {percentage}% | {value}/{total} Documents Uploaded',
     },
-    cliProgress.Presets.shades_classic,
+    cliProgress.Presets.shades_classic
   );
   progress.start(lineCount, 0);
 
@@ -518,7 +503,7 @@ const getFileStats = async (filePath: string) => {
 export const uploadPerfDataFile = async (
   name: string,
   indexOverride?: string,
-  deleteEntities?: boolean,
+  deleteEntities?: boolean
 ) => {
   const index = indexOverride || `logs-perftest.${name}-default`;
 
@@ -544,18 +529,15 @@ export const uploadPerfDataFile = async (
   await initEntityEngineForEntityTypes(['host', 'user']);
   console.log('entity engines initialised');
 
-  const { lineCount, logsPerEntity, entityCount } =
-    await getFileStats(filePath);
+  const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
   console.log(
-    `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`,
+    `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`
   );
   const startTime = Date.now();
 
   await uploadFile({ filePath, index, lineCount });
   const ingestTook = Date.now() - startTime;
-  console.log(
-    `Data file ${name} uploaded to index ${index} in ${ingestTook}ms`,
-  );
+  console.log(`Data file ${name} uploaded to index ${index} in ${ingestTook}ms`);
 
   await countEntitiesUntil(name, entityCount);
 
@@ -569,7 +551,7 @@ export const uploadPerfDataFileInterval = async (
   intervalMs: number,
   uploadCount: number,
   deleteEntities?: boolean,
-  doDeleteEngines?: boolean,
+  doDeleteEngines?: boolean
 ) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addIdPrefix = (prefix: string) => (doc: Record<string, any>) => {
@@ -586,7 +568,7 @@ export const uploadPerfDataFileInterval = async (
   const filePath = getFilePath(name);
 
   console.log(
-    `Uploading performance data file ${name} every ${intervalMs}ms ${uploadCount} times to index ${index}`,
+    `Uploading performance data file ${name} every ${intervalMs}ms ${uploadCount} times to index ${index}`
   );
 
   if (doDeleteEngines) {
@@ -615,11 +597,10 @@ export const uploadPerfDataFileInterval = async (
 
   console.log('entity engines initialised');
 
-  const { lineCount, logsPerEntity, entityCount } =
-    await getFileStats(filePath);
+  const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
 
   console.log(
-    `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`,
+    `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`
   );
 
   const startTime = Date.now();
@@ -638,9 +619,7 @@ export const uploadPerfDataFileInterval = async (
       uploadCompleted = true;
     };
     const intervalS = intervalMs / 1000;
-    console.log(
-      `Uploading ${i + 1} of ${uploadCount}, next upload in ${intervalS}s...`,
-    );
+    console.log(`Uploading ${i + 1} of ${uploadCount}, next upload in ${intervalS}s...`);
     previousUpload = previousUpload.then(() =>
       uploadFile({
         onComplete,
@@ -648,7 +627,7 @@ export const uploadPerfDataFileInterval = async (
         index,
         lineCount,
         modifyDoc: addIdPrefix(i.toString()),
-      }),
+      })
     );
     let progress: cliProgress.SingleBar | null = null;
     for (let j = 0; j < intervalS; j++) {
@@ -661,7 +640,7 @@ export const uploadPerfDataFileInterval = async (
             {
               format: '{bar} | {value}s | waiting {total}s until next upload',
             },
-            cliProgress.Presets.shades_classic,
+            cliProgress.Presets.shades_classic
           );
 
           progress.start(intervalS, j + 1);
@@ -678,9 +657,7 @@ export const uploadPerfDataFileInterval = async (
   await previousUpload;
 
   const ingestTook = Date.now() - startTime;
-  console.log(
-    `Data file ${name} uploaded to index ${index} in ${ingestTook}ms`,
-  );
+  console.log(`Data file ${name} uploaded to index ${index} in ${ingestTook}ms`);
 
   await countEntitiesUntil(name, entityCount * uploadCount);
 

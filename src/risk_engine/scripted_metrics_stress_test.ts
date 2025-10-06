@@ -7,16 +7,11 @@ type Report = Record<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   { ok?: any; error?: any; delay?: number; query?: any }
 >;
-export const stressTest = async (
-  runs: number,
-  opts: { outputFile?: string; pageSize: number },
-) => {
+export const stressTest = async (runs: number, opts: { outputFile?: string; pageSize: number }) => {
   const ms = 250;
   const seqReport: Report = {};
 
-  console.log(
-    '\n--------------------------------------------------------------------\n',
-  );
+  console.log('\n--------------------------------------------------------------------\n');
   console.log(`Starting sequential execution with ${ms}ms delay`);
 
   for (let i = 0; i < runs; i++) {
@@ -31,7 +26,7 @@ export const stressTest = async (
   }
 
   console.log(
-    `Sequential execution with ${ms}ms delay completed. Sleeping 5s to allow ES to recover...`,
+    `Sequential execution with ${ms}ms delay completed. Sleeping 5s to allow ES to recover...`
   );
 };
 
@@ -46,10 +41,7 @@ const run = async (n: number, pageSize: number, report: Report) => {
       report[n] = { ok: true };
     })
     .catch((e) => {
-      console.log(
-        `Error executing Scripted Metrics query in run ${n}:`,
-        e.message,
-      );
+      console.log(`Error executing Scripted Metrics query in run ${n}:`, e.message);
       report[n] = { error: e, query };
     });
 };
