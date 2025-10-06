@@ -11,7 +11,7 @@ import {
 import { TimeWindows } from '../utils/time_windows';
 import { User } from '../privileged_access_detection_ml/event_generator';
 
-import { makeDoc } from '../utils/okta_utils';
+import { makeAdUserDoc, makeDoc } from '../utils/integrations_utils';
 
 //end point logs
 const endpointLogsDataStreamName = 'logs-endpoint.events.process-default';
@@ -78,11 +78,13 @@ const getSampleAdUsersLogs = (count: number) => {
   const adminCount = Math.round((50 / 100) * count);
   const nonAdminCount = Math.max(0, count - adminCount);
   console.log(
-    `Generating ${adminCount} admin users and ${nonAdminCount} non-admin users (total ${count})`,
+    `Generating ${adminCount} admin users and ${nonAdminCount} non-admin Active Directory users (total ${count})`,
   );
-  const adminDocs = Array.from({ length: adminCount }, () => makeADdDoc(true));
-  const userDocs = Array.from({ length: nonAdminCount }, () =>
-    makeADdDoc(false),
+  const userDocs = Array.from({ length: nonAdminCount }, (_, i) =>
+    makeAdUserDoc(false, i),
+  );
+  const adminDocs = Array.from({ length: nonAdminCount }, () =>
+    makeAdUserDoc(false),
   );
   const docs = adminDocs.concat(userDocs);
   return docs;
@@ -92,7 +94,7 @@ export function getSampleOktaUsersLogs(count: number) {
   const adminCount = Math.round((50 / 100) * count);
   const nonAdminCount = Math.max(0, count - adminCount);
   console.log(
-    `Generating ${adminCount} admin users and ${nonAdminCount} non-admin users (total ${count})`,
+    `Generating ${adminCount} admin users and ${nonAdminCount} non-admin Okta users (total ${count})`,
   );
   const adminDocs = Array.from({ length: adminCount }, () => makeDoc(true));
   const userDocs = Array.from({ length: nonAdminCount }, () => makeDoc(false));

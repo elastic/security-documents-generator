@@ -375,7 +375,7 @@ program
           checked: true,
         },
         {
-          name: 'Whether to create integrations source events for okta users - AD coming soon.',
+          name: 'Whether to create integrations source events for integrations users: OKTA & AD.',
           value: PRIVILEGED_USER_INTEGRATIONS_SYNC_OPTIONS.sourceEventData,
           checked: true,
         },

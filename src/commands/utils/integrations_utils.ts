@@ -1,4 +1,5 @@
 import {
+  AD_USERS_SAMPLE_ADMIN_DOCUMENT,
   AD_USERS_SAMPLE_DOCUMENT,
   OKTA_USERS_SAMPLE_DOCUMENT,
 } from '../privileged_user_monitoring/sample_documents';
@@ -30,12 +31,12 @@ export const OKTA_NON_ADMIN_USER_ROLES: string[] = [
   'Temp',
 ];
 
-export const AD_ADMIN_USER_ROLES: string[] = [
+export const AD_ADMIN_USER_GROUPS: string[] = [
   'Domain Admins',
   'Enterprise Admins',
 ];
 
-export const AD_NON_ADMIN_USER_ROLES: string[] = [
+export const AD_NON_ADMIN_USER_GROUPS: string[] = [
   'Domain Users',
   'Account Operators',
   'Backup Operators',
@@ -51,8 +52,7 @@ export type OktaSampleUser = {
 };
 
 export type AdSampleUser = {
-  firstName: string;
-  lastName: string;
+  userName: string;
 };
 
 export const createOktaSampleUser = (): OktaSampleUser => {
@@ -73,8 +73,10 @@ export const createOktaSampleUser = (): OktaSampleUser => {
 export const createAdSampleUser = (): AdSampleUser => {
   const firstName = faker.person.firstName();
   const lastName = faker.person.lastName();
-  // TODO: fill in here pls
-  return { firstName, lastName };
+  const userName = userNameWhitespaceRemoved(`${firstName}.${lastName}`);
+  return {
+    userName: userName,
+  };
 };
 
 // integrations helpers for admin roles split
@@ -85,9 +87,26 @@ export const makeDoc = (isAdmin: boolean) =>
     TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow()),
     [isAdmin ? pick(OKTA_ADMIN_USER_ROLES) : pick(OKTA_NON_ADMIN_USER_ROLES)],
   );
-export const makeAdDoc = (isAdmin: boolean) =>
-  AD_USERS_SAMPLE_DOCUMENT(
-    createAdSampleUser(), // new user each doc
-    TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow()),
-    [isAdmin ? pick(AD_ADMIN_USER_ROLES) : pick(AD_NON_ADMIN_USER_ROLES)],
+
+export const makeAdUserDoc = (isAdmin: boolean, increment?: number) => {
+  const adSampleUser = createAdSampleUser();
+  const timestamp = TimeWindows.toRandomTimestamp(
+    TimeWindows.last30DayWindow(),
   );
+  const isAdminGroup = pick(
+    isAdmin ? AD_ADMIN_USER_GROUPS : AD_NON_ADMIN_USER_GROUPS,
+  );
+
+  if (isAdmin) {
+    return AD_USERS_SAMPLE_ADMIN_DOCUMENT(adSampleUser, timestamp, [
+      isAdminGroup,
+    ]);
+  } else {
+    return AD_USERS_SAMPLE_DOCUMENT(
+      adSampleUser,
+      timestamp,
+      [isAdminGroup],
+      increment ?? 0, // fallback to 0 if not provided
+    );
+  }
+};
