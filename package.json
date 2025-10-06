@@ -10,7 +10,8 @@
     "start": "tsx src/index",
     "lint": "eslint",
     "format": "prettier --write \"src/**/*.ts\" \"*.json\" \"*.mjs\" \"src/**/*.json\"",
-    "checks": "yarn typecheck && yarn lint"
+    "checks": "yarn typecheck && yarn lint && yarn prettier --check \"src/**/*.ts\" \"*.json\" \"*.mjs\" \"src/**/*.json\"",
+    "fix": "yarn lint --fix && yarn prettier --write \"src/**/*.ts\" \"*.json\" \"*.mjs\" \"src/**/*.json\""
   },
   "engines": {
     "node": "23.11.1",
