@@ -11,10 +11,7 @@ import {
 import { TimeWindows } from '../utils/time_windows';
 import { User } from '../privileged_access_detection_ml/event_generator';
 
-import {
-  createSampleFullSyncEvents,
-  makeDoc,
-} from '../utils/integrations_sync_utils';
+import { createSampleFullSyncEvents, makeDoc } from '../utils/integrations_sync_utils';
 
 const endpointLogsDataStreamName = 'logs-endpoint.events.process-default';
 const systemLogsDataStreamName = 'logs-system.security-default';
@@ -82,10 +79,7 @@ export const getSampleOktaUsersLogs = (count: number) => {
   return docs;
 };
 
-export const getSampleOktaEntityLogs = (
-  count: number,
-  syncInterval: number,
-) => {
+export const getSampleOktaEntityLogs = (count: number, syncInterval: number) => {
   const docs = createSampleFullSyncEvents({
     count,
     syncWindowMs: syncInterval,
@@ -138,13 +132,10 @@ export const generatePrivilegedUserIntegrationsSyncData = async ({
     const sampleDocuments = getSampleOktaUsersLogs(usersCount);
     const sampleEntityDocuments = getSampleOktaEntityLogs(
       syncEventsCount,
-      24 * 60 * 60 * 1000, // 1 day interval
+      24 * 60 * 60 * 1000 // 1 day interval
     );
     await reinitializeDataStream(oktaLogsUsersDataStreamName, sampleDocuments);
-    await reinitializeDataStream(
-      oktaLogsEntityDataStreamName,
-      sampleEntityDocuments,
-    );
+    await reinitializeDataStream(oktaLogsEntityDataStreamName, sampleEntityDocuments);
   } catch (e) {
     console.log(e);
   }
