@@ -32,6 +32,7 @@ import { generatePrivilegedAccessDetectionData } from './commands/privileged_acc
 import { promptForFileSelection } from './commands/utils/cli_utils';
 import { UserGenerator } from './commands/privileged_access_detection_ml/event_generator';
 import {
+  generateADPrivilegedUserMonitoringData,
   generatePrivilegedUserIntegrationsSyncData,
   generatePrivilegedUserMonitoringData,
 } from './commands/privileged_user_monitoring/privileged_user_monitoring';
@@ -398,6 +399,7 @@ program
       await generatePrivilegedUserIntegrationsSyncData({
         usersCount: userCount,
       });
+      await generateADPrivilegedUserMonitoringData({ usersCount: userCount });
     }
 
     if (

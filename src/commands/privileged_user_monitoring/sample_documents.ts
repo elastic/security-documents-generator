@@ -12,13 +12,15 @@ const GROUP_SID_MAP: Record<string, string> = {
   Administrators: 'S-1-5-32-544',
   'Domain Admins': 'S-1-5-21-123456789-234567890-345678901-512',
   'Enterprise Admins': 'S-1-5-21-123456789-234567890-345678901-519',
-  'Schema Admins': 'S-1-5-21-123456789-234567890-345678901-518',
+  // below are other options showing in test data but we don't need them for our testing
+  // more just in case - future reference?
+  /*'Schema Admins': 'S-1-5-21-123456789-234567890-345678901-518',
   'Group Policy Creator Owners': 'S-1-5-21-123456789-234567890-345678901-520',
   'Domain Users': 'S-1-5-21-123456789-234567890-345678901-513',
   'Domain Guests': 'S-1-5-21-123456789-234567890-345678901-514',
   Helpdesk: 'S-1-5-21-123456789-234567890-345678901-1100',
   Developers: 'S-1-5-21-123456789-234567890-345678901-1101',
-  'IT Support': 'S-1-5-21-123456789-234567890-345678901-1102',
+  'IT Support': 'S-1-5-21-123456789-234567890-345678901-1102',*/
 };
 
 const getGroupId = (name: string): string => {

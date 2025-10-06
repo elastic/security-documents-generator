@@ -83,8 +83,8 @@ const getSampleAdUsersLogs = (count: number) => {
   const userDocs = Array.from({ length: nonAdminCount }, (_, i) =>
     makeAdUserDoc(false, i),
   );
-  const adminDocs = Array.from({ length: nonAdminCount }, () =>
-    makeAdUserDoc(false),
+  const adminDocs = Array.from({ length: adminCount }, () =>
+    makeAdUserDoc(true),
   );
   const docs = adminDocs.concat(userDocs);
   return docs;
