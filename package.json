@@ -9,7 +9,9 @@
     "typecheck": "tsc --noEmit",
     "start": "tsx src/index",
     "lint": "eslint",
-    "checks": "yarn typecheck && yarn lint"
+    "format": "prettier --write \"src/**/*.ts\" \"*.json\" \"*.mjs\" \"src/**/*.json\"",
+    "checks": "yarn typecheck && yarn lint && yarn prettier --check \"src/**/*.ts\" \"*.json\" \"*.mjs\" \"src/**/*.json\" || { echo \"‼️ run yarn fix to automatically fix issues ‼️\"; exit 1; }",
+    "fix": "yarn lint --fix && yarn prettier --write \"src/**/*.ts\" \"*.json\" \"*.mjs\" \"src/**/*.json\""
   },
   "engines": {
     "node": "23.11.1",

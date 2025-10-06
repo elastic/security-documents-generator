@@ -72,20 +72,11 @@ program
   .description('Generate events')
   .action(generateEvents);
 
-program
-  .command('generate-graph')
-  .description('Generate fake graph')
-  .action(generateGraph);
+program.command('generate-graph').description('Generate fake graph').action(generateGraph);
 
-program
-  .command('delete-alerts')
-  .description('Delete all alerts')
-  .action(deleteAllAlerts);
+program.command('delete-alerts').description('Delete all alerts').action(deleteAllAlerts);
 
-program
-  .command('delete-events')
-  .description('Delete all events')
-  .action(deleteAllEvents);
+program.command('delete-events').description('Delete all events').action(deleteAllEvents);
 
 program
   .command('test-risk-score')
@@ -97,12 +88,7 @@ program
   .argument('<name>', 'name of the file')
   .argument('<entity-count>', 'number of entities', parseIntBase10)
   .argument('<logs-per-entity>', 'number of logs per entity', parseIntBase10)
-  .argument(
-    '[start-index]',
-    'for sequential data, which index to start at',
-    parseIntBase10,
-    0,
-  )
+  .argument('[start-index]', 'for sequential data, which index to start at', parseIntBase10, 0)
   .description('Create performance data')
   .action((name, entityCount, logsPerEntity, startIndex) => {
     createPerfDataFile({ name, entityCount, logsPerEntity, startIndex });
@@ -118,7 +104,7 @@ program
     await uploadPerfDataFile(
       file ?? (await promptForFileSelection(listPerfDataFiles())),
       options.index,
-      options.delete,
+      options.delete
     );
   });
 
@@ -136,7 +122,7 @@ program
       options.interval * 1000,
       options.count,
       options.deleteData,
-      options.deleteEngines,
+      options.deleteEngines
     );
   });
 
@@ -156,9 +142,7 @@ program
   .description('Generate entity store')
   .option('--space <space>', 'Space to create entity store in')
   .action(async (options) => {
-    const entityStoreAnswers = await checkbox<
-      keyof typeof ENTITY_STORE_OPTIONS
-    >({
+    const entityStoreAnswers = await checkbox<keyof typeof ENTITY_STORE_OPTIONS>({
       message: 'Select options',
       choices: [
         {
@@ -210,8 +194,7 @@ program
     });
 
     const offsetHours = await input({
-      message:
-        'Event date offset in hours (how many hours ago events should be generated)',
+      message: 'Event date offset in hours (how many hours ago events should be generated)',
       default: '1',
     });
 
@@ -221,8 +204,7 @@ program
 
     if (entityStoreAnswers.includes(ENTITY_STORE_OPTIONS.seed)) {
       seedAnswer = await input({
-        message:
-          'Enter seed to generate stable random data or <enter> to use a new seed',
+        message: 'Enter seed to generate stable random data or <enter> to use a new seed',
         default: seed,
       });
     }
@@ -262,10 +244,7 @@ program
     });
   });
 
-program
-  .command('clean-entity-store')
-  .description('clean entity store')
-  .action(cleanEntityStore);
+program.command('clean-entity-store').description('clean entity store').action(cleanEntityStore);
 
 program
   .command('generate-entity-insights')
@@ -351,7 +330,7 @@ program
 program
   .command('privileged-user-monitoring')
   .description(
-    `Generate source events and anomalous source data for privileged user monitoring and the privileged access detection ML jobs.`,
+    `Generate source events and anomalous source data for privileged user monitoring and the privileged access detection ML jobs.`
   )
   .action(async () => {
     const privilegedUserMonitoringAnswers = await checkbox<
@@ -386,13 +365,13 @@ program
       await input({
         message: 'How many users',
         default: '10',
-      }),
+      })
     );
 
     const users = UserGenerator.getUsers(userCount);
     if (
       privilegedUserMonitoringAnswers.includes(
-        PRIVILEGED_USER_INTEGRATIONS_SYNC_OPTIONS.sourceEventData,
+        PRIVILEGED_USER_INTEGRATIONS_SYNC_OPTIONS.sourceEventData
       )
     ) {
       await generatePrivilegedUserIntegrationsSyncData({
@@ -401,22 +380,12 @@ program
     }
 
     if (
-      privilegedUserMonitoringAnswers.includes(
-        PRIVILEGED_USER_MONITORING_OPTIONS.sourceEventData,
-      )
+      privilegedUserMonitoringAnswers.includes(PRIVILEGED_USER_MONITORING_OPTIONS.sourceEventData)
     )
       await generatePrivilegedUserMonitoringData({ users });
-    if (
-      privilegedUserMonitoringAnswers.includes(
-        PRIVILEGED_USER_MONITORING_OPTIONS.anomalyData,
-      )
-    )
+    if (privilegedUserMonitoringAnswers.includes(PRIVILEGED_USER_MONITORING_OPTIONS.anomalyData))
       await generatePrivilegedAccessDetectionData({ users });
-    if (
-      privilegedUserMonitoringAnswers.includes(
-        PRIVILEGED_USER_MONITORING_OPTIONS.csvFile,
-      )
-    )
+    if (privilegedUserMonitoringAnswers.includes(PRIVILEGED_USER_MONITORING_OPTIONS.csvFile))
       await generateCSVFile({ users });
   });
 

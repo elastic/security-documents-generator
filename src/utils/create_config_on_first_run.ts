@@ -57,8 +57,7 @@ export const createConfigFileOnFirstRun = async () => {
     default: 'http://localhost:5601',
   });
 
-  const auth =
-    authMethod === AuthMethod.ApiKey ? { apiKey } : { username, password };
+  const auth = authMethod === AuthMethod.ApiKey ? { apiKey } : { username, password };
 
   const config: ConfigType = {
     elastic: {

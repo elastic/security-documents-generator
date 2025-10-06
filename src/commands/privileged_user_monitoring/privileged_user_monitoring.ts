@@ -11,10 +11,7 @@ import {
 import { TimeWindows } from '../utils/time_windows';
 import { User } from '../privileged_access_detection_ml/event_generator';
 
-import {
-  createSampleFullSyncEvents,
-  makeDoc,
-} from '../utils/integrations_sync_utils';
+import { createSampleFullSyncEvents, makeDoc } from '../utils/integrations_sync_utils';
 
 const endpointLogsDataStreamName = 'logs-endpoint.events.process-default';
 const systemLogsDataStreamName = 'logs-system.security-default';
@@ -27,10 +24,10 @@ const getSampleEndpointLogs = (users: User[]) => {
     () => {
       return GRANTED_RIGHTS_LINUX_SAMPLE_DOCUMENT(
         faker.helpers.arrayElement(users).userName,
-        TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow()),
+        TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow())
       );
     },
-    { count: 100 },
+    { count: 100 }
   );
 };
 
@@ -39,10 +36,10 @@ const getSampleEndpointAccountSwitchLogs = (users: User[]) => {
     () => {
       return ACCOUNT_SWITCH_LINUX_SAMPLE_DOCUMENT(
         faker.helpers.arrayElement(users).userName,
-        TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow()),
+        TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow())
       );
     },
-    { count: 100 },
+    { count: 100 }
   );
 };
 
@@ -51,10 +48,10 @@ const getSampleSystemLogs = (users: User[]) => {
     () => {
       return GRANTED_RIGHTS_WINDOWS_SAMPLE_DOCUMENT(
         faker.helpers.arrayElement(users).userName,
-        TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow()),
+        TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow())
       );
     },
-    { count: 100 },
+    { count: 100 }
   );
 };
 
@@ -63,10 +60,10 @@ const getSampleOktaLogs = (users: User[]) => {
     () => {
       return GRANTED_RIGHTS_OKTA_SAMPLE_DOCUMENT(
         faker.helpers.arrayElement(users).userName,
-        TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow()),
+        TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow())
       );
     },
-    { count: 100 },
+    { count: 100 }
   );
 };
 
@@ -74,7 +71,7 @@ export const getSampleOktaUsersLogs = (count: number) => {
   const adminCount = Math.round((50 / 100) * count);
   const nonAdminCount = Math.max(0, count - adminCount);
   console.log(
-    `Generating ${adminCount} admin users and ${nonAdminCount} non-admin users (total ${count})`,
+    `Generating ${adminCount} admin users and ${nonAdminCount} non-admin users (total ${count})`
   );
   const adminDocs = Array.from({ length: adminCount }, () => makeDoc(true));
   const userDocs = Array.from({ length: nonAdminCount }, () => makeDoc(false));
@@ -82,10 +79,7 @@ export const getSampleOktaUsersLogs = (count: number) => {
   return docs;
 };
 
-export const getSampleOktaEntityLogs = (
-  count: number,
-  syncInterval: number,
-) => {
+export const getSampleOktaEntityLogs = (count: number, syncInterval: number) => {
   const docs = createSampleFullSyncEvents({
     count,
     syncWindowMs: syncInterval,
@@ -98,28 +92,21 @@ const getSampleOktaAuthenticationLogs = (users: User[]) => {
     () => {
       return OKTA_AUTHENTICATION(
         faker.helpers.arrayElement(users).userName,
-        TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow()),
+        TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow())
       );
     },
-    { count: 100 },
+    { count: 100 }
   );
 };
 
-export const generatePrivilegedUserMonitoringData = async ({
-  users,
-}: {
-  users: User[];
-}) => {
+export const generatePrivilegedUserMonitoringData = async ({ users }: { users: User[] }) => {
   try {
     await reinitializeDataStream(endpointLogsDataStreamName, [
       ...getSampleEndpointLogs(users),
       ...getSampleEndpointAccountSwitchLogs(users),
     ]);
 
-    await reinitializeDataStream(
-      systemLogsDataStreamName,
-      getSampleSystemLogs(users),
-    );
+    await reinitializeDataStream(systemLogsDataStreamName, getSampleSystemLogs(users));
 
     await reinitializeDataStream(oktaLogsDataStreamName, [
       ...getSampleOktaLogs(users),
@@ -145,13 +132,10 @@ export const generatePrivilegedUserIntegrationsSyncData = async ({
     const sampleDocuments = getSampleOktaUsersLogs(usersCount);
     const sampleEntityDocuments = getSampleOktaEntityLogs(
       syncEventsCount,
-      24 * 60 * 60 * 1000, // 1 day interval
+      24 * 60 * 60 * 1000 // 1 day interval
     );
     await reinitializeDataStream(oktaLogsUsersDataStreamName, sampleDocuments);
-    await reinitializeDataStream(
-      oktaLogsEntityDataStreamName,
-      sampleEntityDocuments,
-    );
+    await reinitializeDataStream(oktaLogsEntityDataStreamName, sampleEntityDocuments);
   } catch (e) {
     console.log(e);
   }
@@ -177,10 +161,7 @@ const deleteDataStream = async (indexName: string) => {
   await new Promise((r) => setTimeout(r, 1000));
 };
 
-const reinitializeDataStream = async (
-  indexName: string,
-  documents: Array<object>,
-) => {
+const reinitializeDataStream = async (indexName: string, documents: Array<object>) => {
   await deleteDataStream(indexName);
   await createDataStream(indexName);
   await ingestIntoSourceIndex(indexName, documents);

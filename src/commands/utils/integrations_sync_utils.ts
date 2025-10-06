@@ -1,8 +1,5 @@
 import { OKTA_USERS_SAMPLE_DOCUMENT } from '../privileged_user_monitoring/sample_documents';
-import {
-  userNameAsEmail,
-  userNameWhitespaceRemoved,
-} from './sample_data_helpers';
+import { userNameAsEmail, userNameWhitespaceRemoved } from './sample_data_helpers';
 import { TimeWindows } from './time_windows';
 import { faker } from '@faker-js/faker';
 
@@ -68,7 +65,7 @@ export const makeDoc = (isAdmin: boolean) =>
   OKTA_USERS_SAMPLE_DOCUMENT(
     createOktaSampleUser(), // new user each doc
     TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow()),
-    [isAdmin ? pick(OKTA_ADMIN_USER_ROLES) : pick(OKTA_NON_ADMIN_USER_ROLES)],
+    [isAdmin ? pick(OKTA_ADMIN_USER_ROLES) : pick(OKTA_NON_ADMIN_USER_ROLES)]
   );
 
 // helpers for entity sync events
@@ -85,12 +82,8 @@ export const makeEntityFullSyncEventPair = ({
 }) => {
   const startTs = new Date(baseIso).toISOString();
   const endTs = new Date(new Date(baseIso).getTime() + gaps).toISOString();
-  const startIngested = new Date(
-    new Date(baseIso).getTime() + ingestedDelay,
-  ).toISOString();
-  const endIngested = new Date(
-    new Date(baseIso).getTime() + gaps + ingestedDelay,
-  ).toISOString();
+  const startIngested = new Date(new Date(baseIso).getTime() + ingestedDelay).toISOString();
+  const endIngested = new Date(new Date(baseIso).getTime() + gaps + ingestedDelay).toISOString();
   const started: FullSyncEntityEventDoc = {
     event: {
       agent_id_status: 'verified',
@@ -122,8 +115,7 @@ export const createSampleFullSyncEvents = ({
   syncWindowMs: number;
   base?: Date | string;
 }): FullSyncEntityEventDoc[] => {
-  const baseMs =
-    typeof base === 'string' ? new Date(base).getTime() : base.getTime();
+  const baseMs = typeof base === 'string' ? new Date(base).getTime() : base.getTime();
   const out: FullSyncEntityEventDoc[] = [];
 
   for (let i = 0; i < count; i++) {
@@ -131,7 +123,7 @@ export const createSampleFullSyncEvents = ({
     out.push(
       ...makeEntityFullSyncEventPair({
         baseIso: startIso,
-      }),
+      })
     );
   }
 
