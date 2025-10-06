@@ -2,6 +2,8 @@ import urlJoin from 'url-join';
 import fetch, { Headers } from 'node-fetch';
 import { getConfig } from '../get_config';
 import { faker } from '@faker-js/faker';
+import fs from 'fs';
+import FormData from 'form-data';
 import {
   RISK_SCORE_SCORES_URL,
   RISK_SCORE_ENGINE_INIT_URL,
@@ -29,6 +31,17 @@ export const buildKibanaUrl = (opts: { path: string; space?: string }) => {
 
 type ResponseError = Error & { statusCode: number; responseData: unknown };
 
+const getAuthorizationHeader = () => {
+  const config = getConfig();
+  if ('apiKey' in config.kibana) {
+    return 'ApiKey ' + config.kibana.apiKey;
+  } else
+    return (
+      'Basic ' +
+      Buffer.from(config.kibana.username + ':' + config.kibana.password).toString('base64')
+    );
+};
+
 const throwResponseError = (message: string, statusCode: number, response: unknown) => {
   const error = new Error(message) as ResponseError;
   error.statusCode = statusCode;
@@ -45,22 +58,13 @@ export const kibanaFetch = async <T>(
     space?: string;
   } = {}
 ): Promise<T> => {
-  const config = getConfig();
   const { ignoreStatuses, apiVersion = '1', space } = opts;
   const url = buildKibanaUrl({ path, space });
   const ignoreStatusesArray = Array.isArray(ignoreStatuses) ? ignoreStatuses : [ignoreStatuses];
   const headers = new Headers();
   headers.append('Content-Type', 'application/json');
   headers.append('kbn-xsrf', 'true');
-  if ('apiKey' in config.kibana) {
-    headers.set('Authorization', 'ApiKey ' + config.kibana.apiKey);
-  } else {
-    headers.set(
-      'Authorization',
-      'Basic ' +
-        Buffer.from(config.kibana.username + ':' + config.kibana.password).toString('base64')
-    );
-  }
+  headers.append('Authorization', getAuthorizationHeader());
 
   headers.set('x-elastic-internal-origin', 'kibana');
   headers.set('elastic-api-version', apiVersion);
@@ -437,4 +441,76 @@ export const bulkDeleteRules = async (ruleIds: string[], space?: string) => {
     },
     { apiVersion: API_VERSIONS.public.v1, space }
   );
+};
+
+export const uploadPrivmonCsv = async (
+  csvFilePath: string,
+  space?: string
+): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const formData = new FormData();
+    formData.append('file', fs.createReadStream(csvFilePath));
+
+    const response = await fetch(
+      buildKibanaUrl({
+        path: '/api/entity_analytics/monitoring/users/_csv',
+        space,
+      }),
+      {
+        method: 'POST',
+        headers: {
+          'kbn-xsrf': 'true',
+          'elastic-api-version': API_VERSIONS.public.v1,
+          ...formData.getHeaders(),
+          Authorization: getAuthorizationHeader(),
+        },
+        body: formData,
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to upload CSV: ${errorText}`);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error uploading CSV:', error);
+    // @ts-expect-error to have a message property
+    return { success: false, message: error.message };
+  }
+};
+
+export const enablePrivmon = async (space?: string) => {
+  try {
+    const response = await kibanaFetch(
+      '/api/entity_analytics/monitoring/engine/init',
+      {
+        method: 'POST',
+        body: JSON.stringify({}),
+      },
+      { apiVersion: API_VERSIONS.public.v1, space }
+    );
+    return response;
+  } catch (error) {
+    console.error('Error enabling Privileged User Monitoring:', error);
+    throw error;
+  }
+};
+
+export const installPad = async (space?: string) => {
+  try {
+    const response = await kibanaFetch(
+      '/api/entity_analytics/privileged_user_monitoring/pad/install',
+      {
+        method: 'POST',
+        body: JSON.stringify({}),
+      },
+      { apiVersion: API_VERSIONS.public.v1, space }
+    );
+    return response;
+  } catch (error) {
+    console.error('Error installing PAD:', error);
+    throw error;
+  }
 };

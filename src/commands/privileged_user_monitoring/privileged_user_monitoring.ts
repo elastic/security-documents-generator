@@ -9,9 +9,24 @@ import {
   OKTA_AUTHENTICATION,
 } from './sample_documents';
 import { TimeWindows } from '../utils/time_windows';
-import { User } from '../privileged_access_detection_ml/event_generator';
-
+import { User, UserGenerator } from '../privileged_access_detection_ml/event_generator';
+import {
+  assignAssetCriticality,
+  createRule,
+  enableRiskScore,
+  installPad,
+} from '../../utils/kibana_api';
 import { createSampleFullSyncEvents, makeDoc } from '../utils/integrations_sync_utils';
+import {
+  ASSET_CRITICALITY,
+  AssetCriticality,
+  PRIVILEGED_USER_MONITORING_OPTIONS,
+  PrivilegedUserMonitoringOption,
+} from '../../constants';
+import { generatePrivilegedAccessDetectionData } from '../privileged_access_detection_ml/privileged_access_detection_ml';
+import { generateCSVFile } from './generate_csv_file';
+import { chunk } from 'lodash-es';
+import { initializeSpace } from '../../utils';
 
 const endpointLogsDataStreamName = 'logs-endpoint.events.process-default';
 const systemLogsDataStreamName = 'logs-system.security-default';
@@ -67,7 +82,7 @@ const getSampleOktaLogs = (users: User[]) => {
   );
 };
 
-export const getSampleOktaUsersLogs = (count: number) => {
+const getSampleOktaUsersLogs = (count: number) => {
   const adminCount = Math.round((50 / 100) * count);
   const nonAdminCount = Math.max(0, count - adminCount);
   console.log(
@@ -79,7 +94,7 @@ export const getSampleOktaUsersLogs = (count: number) => {
   return docs;
 };
 
-export const getSampleOktaEntityLogs = (count: number, syncInterval: number) => {
+const getSampleOktaEntityLogs = (count: number, syncInterval: number) => {
   const docs = createSampleFullSyncEvents({
     count,
     syncWindowMs: syncInterval,
@@ -99,7 +114,17 @@ const getSampleOktaAuthenticationLogs = (users: User[]) => {
   );
 };
 
-export const generatePrivilegedUserMonitoringData = async ({ users }: { users: User[] }) => {
+const quickEnableRiskEngineAndRule = async (space: string) => {
+  try {
+    console.log('Enabling risk engine and rule...');
+    await createRule({ space });
+    await enableRiskScore(space);
+  } catch (e) {
+    console.log(e);
+  }
+};
+
+const generatePrivilegedUserMonitoringData = async ({ users }: { users: User[] }) => {
   try {
     await reinitializeDataStream(endpointLogsDataStreamName, [
       ...getSampleEndpointLogs(users),
@@ -121,7 +146,7 @@ export const generatePrivilegedUserMonitoringData = async ({ users }: { users: U
  * Generate data for integrations sync only.
  * Currently okta data only.
  */
-export const generatePrivilegedUserIntegrationsSyncData = async ({
+const generatePrivilegedUserIntegrationsSyncData = async ({
   usersCount,
   syncEventsCount = 10,
 }: {
@@ -165,4 +190,90 @@ const reinitializeDataStream = async (indexName: string, documents: Array<object
   await deleteDataStream(indexName);
   await createDataStream(indexName);
   await ingestIntoSourceIndex(indexName, documents);
+};
+
+const assignAssetCriticalityToUsers = async (opts: { users: User[]; space?: string }) => {
+  const { users, space } = opts;
+  const chunks = chunk(users, 1000);
+
+  console.log(`Assigning asset criticality to ${users.length} users in ${chunks.length} chunks...`);
+
+  const countMap: Record<AssetCriticality, number> = {
+    unknown: 0,
+    low_impact: 0,
+    medium_impact: 0,
+    high_impact: 0,
+    extreme_impact: 0,
+  };
+
+  for (const chunk of chunks) {
+    const records = chunk
+      .map(({ userName }) => {
+        const criticalityLevel = faker.helpers.arrayElement(ASSET_CRITICALITY);
+        countMap[criticalityLevel]++;
+        return {
+          id_field: 'user.name',
+          id_value: userName,
+          criticality_level: criticalityLevel,
+        };
+      })
+      .filter((r) => r.criticality_level !== 'unknown');
+
+    if (records.length > 0) {
+      await assignAssetCriticality(records, space);
+    }
+  }
+
+  console.log('Assigned asset criticality counts:', countMap);
+};
+
+export const privmonCommand = async ({
+  options,
+  userCount,
+  space = 'default',
+}: {
+  options: PrivilegedUserMonitoringOption[];
+  userCount: number;
+  space: string;
+}) => {
+  console.log('Starting Privileged User Monitoring data generation in space:', space);
+
+  await initializeSpace(space);
+
+  const users = UserGenerator.getUsers(userCount);
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.integrationSyncSourceEventData)) {
+    await generatePrivilegedUserIntegrationsSyncData({
+      usersCount: userCount,
+    });
+  }
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.sourceEventData)) {
+    await generatePrivilegedUserMonitoringData({ users });
+  }
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.anomalyData)) {
+    await generatePrivilegedAccessDetectionData({ users });
+  }
+
+  await generateCSVFile({
+    users,
+    upload: options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.csvFile),
+    space,
+  });
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.assetCriticality)) {
+    await assignAssetCriticalityToUsers({ users, space });
+  }
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.riskEngineAndRule)) {
+    await quickEnableRiskEngineAndRule(space);
+  }
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.installPad)) {
+    console.log('Installing PAD...');
+    await installPad(space);
+  }
+
+  console.log('Privileged User Monitoring data generation complete.');
 };

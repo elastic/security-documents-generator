@@ -10,11 +10,13 @@ export const PRIVILEGED_USER_MONITORING_OPTIONS = {
   anomalyData: 'anomalyData',
   sourceEventData: 'sourceEventData',
   csvFile: 'csvFile',
+  riskEngineAndRule: 'riskEngineAndRule',
+  integrationSyncSourceEventData: 'integrationSyncSourceEventData',
+  assetCriticality: 'assetCriticality',
+  installPad: 'installPad',
 } as const;
 
-export const PRIVILEGED_USER_INTEGRATIONS_SYNC_OPTIONS = {
-  sourceEventData: 'sourceEventData',
-} as const;
+export type PrivilegedUserMonitoringOption = keyof typeof PRIVILEGED_USER_MONITORING_OPTIONS;
 
 export const generateNewSeed = () => {
   return Math.round(Math.random() * 100000);
@@ -28,6 +30,21 @@ export const API_VERSIONS = {
     v1: '1',
   },
 };
+
+export type AssetCriticality =
+  | 'low_impact'
+  | 'medium_impact'
+  | 'high_impact'
+  | 'extreme_impact'
+  | 'unknown'; // not a valid value for assignment, signifies no criticality assigned
+
+export const ASSET_CRITICALITY: AssetCriticality[] = [
+  'low_impact',
+  'medium_impact',
+  'high_impact',
+  'extreme_impact',
+  'unknown',
+];
 
 // API Endpoint URL's for Kibana
 export const RISK_SCORE_URL = '/internal/risk_score';
