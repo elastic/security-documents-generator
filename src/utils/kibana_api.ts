@@ -514,3 +514,29 @@ export const installPad = async (space?: string) => {
     throw error;
   }
 };
+
+export const getDataView = async (dataViewId: string, space?: string) => {
+  try {
+    return await kibanaFetch(
+      `/api/data_views/data_view/${dataViewId}`,
+      {
+        method: 'GET',
+      },
+      { apiVersion: API_VERSIONS.public.v1, space }
+    );
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (e) {
+    return null;
+  }
+};
+
+export const createDataView = async (dataview: object, space?: string) => {
+  return kibanaFetch(
+    '/api/data_views/data_view',
+    {
+      method: 'POST',
+      body: JSON.stringify({ data_view: dataview }),
+    },
+    { apiVersion: API_VERSIONS.public.v1, space }
+  );
+};
