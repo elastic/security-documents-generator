@@ -14,6 +14,7 @@ export const PRIVILEGED_USER_MONITORING_OPTIONS = {
   integrationSyncSourceEventData: 'integrationSyncSourceEventData',
   assetCriticality: 'assetCriticality',
   installPad: 'installPad',
+  entityStore: 'entityStore',
 } as const;
 
 export type PrivilegedUserMonitoringOption = keyof typeof PRIVILEGED_USER_MONITORING_OPTIONS;

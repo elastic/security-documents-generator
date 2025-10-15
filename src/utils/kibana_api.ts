@@ -366,7 +366,7 @@ const allEnginesAreStarted = async (space?: string) => {
 };
 
 export const initEntityEngineForEntityTypes = async (
-  entityTypes: string[] = ['host', 'user'],
+  entityTypes: string[] = ['host', 'user', 'service'],
   space?: string
 ) => {
   if (await allEnginesAreStarted(space)) {

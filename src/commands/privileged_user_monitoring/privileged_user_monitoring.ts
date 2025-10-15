@@ -14,6 +14,7 @@ import {
   assignAssetCriticality,
   createRule,
   enableRiskScore,
+  initEntityEngineForEntityTypes,
   installPad,
 } from '../../utils/kibana_api';
 import { createSampleFullSyncEvents, makeDoc } from '../utils/integrations_sync_utils';
@@ -273,6 +274,10 @@ export const privmonCommand = async ({
   if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.installPad)) {
     console.log('Installing PAD...');
     await installPad(space);
+  }
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.entityStore)) {
+    await initEntityEngineForEntityTypes(['user', 'host', 'service'], space);
   }
 
   console.log('Privileged User Monitoring data generation complete.');
