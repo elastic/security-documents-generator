@@ -16,6 +16,7 @@ import {
   enableRiskScore,
   initEntityEngineForEntityTypes,
   installPad,
+  scheduleRiskEngineNow,
 } from '../../utils/kibana_api';
 import { createSampleFullSyncEvents, makeDoc } from '../utils/integrations_sync_utils';
 import {
@@ -229,6 +230,25 @@ const assignAssetCriticalityToUsers = async (opts: { users: User[]; space?: stri
   console.log('Assigned asset criticality counts:', countMap);
 };
 
+const runEngineEveryMinute = async (space: string) => {
+  let stop = false;
+  process.on('SIGINT', function () {
+    console.log('Stopping risk engine scheduling...');
+    stop = true;
+  });
+
+  while (!stop) {
+    try {
+      console.log('Scheduling risk engine to run now...');
+      await scheduleRiskEngineNow(space);
+      console.log('Scheduled risk engine, next run in 1 minute... (ctrl-c to stop)');
+    } catch (e) {
+      console.log('Error scheduling risk engine run:', e);
+    }
+    await new Promise((r) => setTimeout(r, 60 * 1000));
+  }
+};
+
 export const privmonCommand = async ({
   options,
   userCount,
@@ -282,4 +302,9 @@ export const privmonCommand = async ({
   }
 
   console.log('Privileged User Monitoring data generation complete.');
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.riskEngineAndRule)) {
+    console.log('Scheduling risk engine to run every minute so risk scores are generated...');
+    await runEngineEveryMinute(space);
+  }
 };

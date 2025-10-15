@@ -20,6 +20,7 @@ import {
   ENTITY_ENGINES_URL,
   DETECTION_ENGINE_RULES_BULK_ACTION_URL,
   API_VERSIONS,
+  RISK_SCORE_ENGINE_SCHEDULE_NOW_URL,
 } from '../constants';
 
 export const buildKibanaUrl = (opts: { path: string; space?: string }) => {
@@ -110,6 +111,17 @@ export const enableRiskScore = async (space?: string) => {
     {
       space,
     }
+  );
+};
+
+export const scheduleRiskEngineNow = async (space?: string) => {
+  return kibanaFetch(
+    RISK_SCORE_ENGINE_SCHEDULE_NOW_URL,
+    {
+      method: 'POST',
+      body: JSON.stringify({ runNow: true }),
+    },
+    { space, apiVersion: API_VERSIONS.public.v1 }
   );
 };
 
