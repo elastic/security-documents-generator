@@ -28,6 +28,7 @@ import { generatePrivilegedAccessDetectionData } from '../privileged_access_dete
 import { generateCSVFile } from './generate_csv_file';
 import { chunk } from 'lodash-es';
 import { initializeSpace } from '../../utils';
+import { getMetadataKQL } from '../../utils/doc_metadata';
 
 const endpointLogsDataStreamName = 'logs-endpoint.events.process-default';
 const systemLogsDataStreamName = 'logs-system.security-default';
@@ -118,7 +119,7 @@ const getSampleOktaAuthenticationLogs = (users: User[]) => {
 const quickEnableRiskEngineAndRule = async (space: string) => {
   try {
     console.log('Enabling risk engine and rule...');
-    await createRule({ space });
+    await createRule({ space, query: getMetadataKQL() });
     await enableRiskScore(space);
   } catch (e) {
     console.log(e);
