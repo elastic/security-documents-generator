@@ -174,6 +174,7 @@ export const createRule = ({
         query: query || '*:*',
         from: from || 'now-40d',
         interval: interval || '1m',
+        max_signals: 1000,
       }),
     },
     { apiVersion: API_VERSIONS.public.v1, space }
