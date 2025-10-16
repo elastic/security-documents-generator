@@ -528,6 +528,71 @@ export const installPad = async (space?: string) => {
   }
 };
 
+export const getPadStatus = async (space?: string) => {
+  try {
+    const response = await kibanaFetch(
+      '/api/entity_analytics/privileged_user_monitoring/pad/status',
+      {
+        method: 'GET',
+      },
+      { apiVersion: API_VERSIONS.public.v1, space }
+    );
+    const status = response as {
+      package_installation_status: 'complete' | 'incomplete';
+      ml_module_setup_status: 'complete' | 'incomplete';
+      jobs: Array<{
+        job_id: string;
+        description?: string;
+        state: 'closing' | 'closed' | 'opened' | 'failed' | 'opening';
+      }>;
+    };
+    return status;
+  } catch (error) {
+    console.error('Error getting PAD status:', error);
+    throw error;
+  }
+};
+
+export const setupPadMlModule = async (space?: string) => {
+  const body = {
+    indexPatternName:
+      'logs-*,ml_okta_multiple_user_sessions_pad.all,ml_windows_privilege_type_pad.all',
+    useDedicatedIndex: false,
+    startDatafeed: false,
+  };
+
+  try {
+    const response = await kibanaFetch(
+      `/internal/ml/modules/setup/pad-ml`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+      { apiVersion: API_VERSIONS.internal.v1, space }
+    );
+    return response as {
+      datafeeds: Array<{ id: string; success: boolean; error?: string; started: boolean }>;
+    };
+  } catch (error) {
+    console.error('Error setting up ML module:', error);
+    throw error;
+  }
+};
+
+export const forceStartDatafeeds = async (datafeedIds: string[], space?: string) => {
+  return kibanaFetch(
+    '/internal/ml/jobs/force_start_datafeeds',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        datafeedIds,
+        start: Date.now(),
+      }),
+    },
+    { apiVersion: API_VERSIONS.internal.v1, space }
+  );
+};
+
 export const getDataView = async (dataViewId: string, space?: string) => {
   try {
     return await kibanaFetch(
