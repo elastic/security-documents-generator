@@ -14,6 +14,7 @@ export const PRIVILEGED_USER_MONITORING_OPTIONS = {
   integrationSyncSourceEventData: 'integrationSyncSourceEventData',
   assetCriticality: 'assetCriticality',
   installPad: 'installPad',
+  entityStore: 'entityStore',
 } as const;
 
 export type PrivilegedUserMonitoringOption = keyof typeof PRIVILEGED_USER_MONITORING_OPTIONS;
@@ -52,6 +53,7 @@ export const RISK_SCORE_DASHBOARD_URL = (entityType: 'host' | 'user') =>
   `/internal/risk_score/prebuilt_content/saved_objects/_bulk_create/${entityType}RiskScoreDashboards`;
 export const RISK_SCORE_SCORES_URL = '/internal/risk_score/scores';
 export const RISK_SCORE_ENGINE_INIT_URL = '/internal/risk_score/engine/init';
+export const RISK_SCORE_ENGINE_SCHEDULE_NOW_URL = '/internal/risk_score/engine/schedule_now';
 export const ASSET_CRITICALITY_URL = '/api/asset_criticality';
 export const ASSET_CRITICALITY_BULK_URL = '/api/asset_criticality/bulk';
 export const DETECTION_ENGINE_RULES_URL = '/api/detection_engine/rules';

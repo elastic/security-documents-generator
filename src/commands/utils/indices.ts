@@ -4,6 +4,7 @@ import { IndicesCreateRequest } from '@elastic/elasticsearch/lib/api/types';
 import { exec } from 'child_process';
 import { chunk, once } from 'lodash-es';
 import { createProgressBar } from './cli_utils';
+import { addMetadataToDoc } from '../../utils/doc_metadata';
 
 export * from './create_agent_document';
 
@@ -81,7 +82,11 @@ export const indexCheck = async (index: string, body?: Omit<IndicesCreateRequest
   }
 };
 
-export const ingest = async (index: string, documents: Array<object>) => {
+export const ingest = async (
+  index: string,
+  documents: Array<object>,
+  { noMeta }: { noMeta: boolean } = { noMeta: false }
+) => {
   const esClient = getEsClient();
 
   const progressBar = createProgressBar(index);
@@ -91,7 +96,10 @@ export const ingest = async (index: string, documents: Array<object>) => {
 
   for (const chunk of chunks) {
     try {
-      const operations = chunk.flatMap((doc) => [{ create: {} }, doc]);
+      const operations = chunk.flatMap((doc) => [
+        { create: {} },
+        noMeta ? doc : addMetadataToDoc(doc),
+      ]);
 
       const results = await esClient.bulk({ index, operations, refresh: true });
       if (results.errors) {

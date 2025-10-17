@@ -14,7 +14,12 @@ import {
   assignAssetCriticality,
   createRule,
   enableRiskScore,
+  forceStartDatafeeds,
+  getPadStatus,
+  initEntityEngineForEntityTypes,
   installPad,
+  scheduleRiskEngineNow,
+  setupPadMlModule,
 } from '../../utils/kibana_api';
 import { createSampleFullSyncEvents, makeDoc } from '../utils/integrations_sync_utils';
 import {
@@ -27,6 +32,7 @@ import { generatePrivilegedAccessDetectionData } from '../privileged_access_dete
 import { generateCSVFile } from './generate_csv_file';
 import { chunk } from 'lodash-es';
 import { initializeSpace } from '../../utils';
+import { getMetadataKQL } from '../../utils/doc_metadata';
 
 const endpointLogsDataStreamName = 'logs-endpoint.events.process-default';
 const systemLogsDataStreamName = 'logs-system.security-default';
@@ -117,7 +123,7 @@ const getSampleOktaAuthenticationLogs = (users: User[]) => {
 const quickEnableRiskEngineAndRule = async (space: string) => {
   try {
     console.log('Enabling risk engine and rule...');
-    await createRule({ space });
+    await createRule({ space, query: getMetadataKQL() });
     await enableRiskScore(space);
   } catch (e) {
     console.log(e);
@@ -227,6 +233,53 @@ const assignAssetCriticalityToUsers = async (opts: { users: User[]; space?: stri
   console.log('Assigned asset criticality counts:', countMap);
 };
 
+const runEngineEveryMinute = async (space: string) => {
+  let stop = false;
+  process.on('SIGINT', function () {
+    console.log('Stopping risk engine scheduling...');
+    stop = true;
+  });
+
+  while (!stop) {
+    try {
+      console.log('Scheduling risk engine to run now...');
+      await scheduleRiskEngineNow(space);
+      console.log('Scheduled risk engine, next run in 1 minute... (ctrl-c to stop)');
+    } catch (e) {
+      console.log('Error scheduling risk engine run:', e);
+    }
+    await new Promise((r) => setTimeout(r, 60 * 1000));
+  }
+};
+
+const installPadAndStartJobs = async (space: string) => {
+  console.log('Installing PAD...');
+  const padRes = await installPad(space);
+  console.log('PAD install response:', JSON.stringify(padRes));
+
+  console.log('Setting up pad-ml module...');
+  const mlRes = await setupPadMlModule(space);
+  console.log('PAD ML setup response:', JSON.stringify(mlRes));
+
+  const datafeedIds =
+    mlRes?.datafeeds
+      .sort((a, b) => (a.id < b.id ? -1 : 1)) // sort by id to ensure consistent order
+      ?.filter((job) => job.success)
+      .map((job) => job.id) ?? [];
+
+  if (datafeedIds.length > 0) {
+    console.log('Force starting PAD ML jobs:', datafeedIds);
+    const first10DatafeedIds = datafeedIds.slice(0, 10);
+    const startRes = await forceStartDatafeeds(first10DatafeedIds, space);
+    console.log('Force start response:', JSON.stringify(startRes));
+  } else {
+    console.log('No PAD ML jobs to start');
+  }
+
+  const padStatus = await getPadStatus(space);
+  console.log('PAD status:', JSON.stringify(padStatus));
+};
+
 export const privmonCommand = async ({
   options,
   userCount,
@@ -241,6 +294,10 @@ export const privmonCommand = async ({
   await initializeSpace(space);
 
   const users = UserGenerator.getUsers(userCount);
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.entityStore)) {
+    await initEntityEngineForEntityTypes(['user', 'host', 'service'], space);
+  }
 
   if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.integrationSyncSourceEventData)) {
     await generatePrivilegedUserIntegrationsSyncData({
@@ -271,9 +328,13 @@ export const privmonCommand = async ({
   }
 
   if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.installPad)) {
-    console.log('Installing PAD...');
-    await installPad(space);
+    await installPadAndStartJobs(space);
   }
 
   console.log('Privileged User Monitoring data generation complete.');
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.riskEngineAndRule)) {
+    console.log('Scheduling risk engine to run every minute so risk scores are generated...');
+    await runEngineEveryMinute(space);
+  }
 };

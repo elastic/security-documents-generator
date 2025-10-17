@@ -20,6 +20,7 @@ import {
   ENTITY_ENGINES_URL,
   DETECTION_ENGINE_RULES_BULK_ACTION_URL,
   API_VERSIONS,
+  RISK_SCORE_ENGINE_SCHEDULE_NOW_URL,
 } from '../constants';
 
 export const buildKibanaUrl = (opts: { path: string; space?: string }) => {
@@ -113,6 +114,17 @@ export const enableRiskScore = async (space?: string) => {
   );
 };
 
+export const scheduleRiskEngineNow = async (space?: string) => {
+  return kibanaFetch(
+    RISK_SCORE_ENGINE_SCHEDULE_NOW_URL,
+    {
+      method: 'POST',
+      body: JSON.stringify({ runNow: true }),
+    },
+    { space, apiVersion: API_VERSIONS.public.v1 }
+  );
+};
+
 export const assignAssetCriticality = async (
   assetCriticalityRecords: Array<{
     id_field: string;
@@ -174,6 +186,7 @@ export const createRule = ({
         query: query || '*:*',
         from: from || 'now-40d',
         interval: interval || '1m',
+        max_signals: 1000,
       }),
     },
     { apiVersion: API_VERSIONS.public.v1, space }
@@ -366,7 +379,7 @@ const allEnginesAreStarted = async (space?: string) => {
 };
 
 export const initEntityEngineForEntityTypes = async (
-  entityTypes: string[] = ['host', 'user'],
+  entityTypes: string[] = ['host', 'user', 'service'],
   space?: string
 ) => {
   if (await allEnginesAreStarted(space)) {
@@ -513,4 +526,95 @@ export const installPad = async (space?: string) => {
     console.error('Error installing PAD:', error);
     throw error;
   }
+};
+
+export const getPadStatus = async (space?: string) => {
+  try {
+    const response = await kibanaFetch(
+      '/api/entity_analytics/privileged_user_monitoring/pad/status',
+      {
+        method: 'GET',
+      },
+      { apiVersion: API_VERSIONS.public.v1, space }
+    );
+    const status = response as {
+      package_installation_status: 'complete' | 'incomplete';
+      ml_module_setup_status: 'complete' | 'incomplete';
+      jobs: Array<{
+        job_id: string;
+        description?: string;
+        state: 'closing' | 'closed' | 'opened' | 'failed' | 'opening';
+      }>;
+    };
+    return status;
+  } catch (error) {
+    console.error('Error getting PAD status:', error);
+    throw error;
+  }
+};
+
+export const setupPadMlModule = async (space?: string) => {
+  const body = {
+    indexPatternName:
+      'logs-*,ml_okta_multiple_user_sessions_pad.all,ml_windows_privilege_type_pad.all',
+    useDedicatedIndex: false,
+    startDatafeed: false,
+  };
+
+  try {
+    const response = await kibanaFetch(
+      `/internal/ml/modules/setup/pad-ml`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+      { apiVersion: API_VERSIONS.internal.v1, space }
+    );
+    return response as {
+      datafeeds: Array<{ id: string; success: boolean; error?: string; started: boolean }>;
+    };
+  } catch (error) {
+    console.error('Error setting up ML module:', error);
+    throw error;
+  }
+};
+
+export const forceStartDatafeeds = async (datafeedIds: string[], space?: string) => {
+  return kibanaFetch(
+    '/internal/ml/jobs/force_start_datafeeds',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        datafeedIds,
+        start: Date.now(),
+      }),
+    },
+    { apiVersion: API_VERSIONS.internal.v1, space }
+  );
+};
+
+export const getDataView = async (dataViewId: string, space?: string) => {
+  try {
+    return await kibanaFetch(
+      `/api/data_views/data_view/${dataViewId}`,
+      {
+        method: 'GET',
+      },
+      { apiVersion: API_VERSIONS.public.v1, space }
+    );
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (e) {
+    return null;
+  }
+};
+
+export const createDataView = async (dataview: object, space?: string) => {
+  return kibanaFetch(
+    '/api/data_views/data_view',
+    {
+      method: 'POST',
+      body: JSON.stringify({ data_view: dataview }),
+    },
+    { apiVersion: API_VERSIONS.public.v1, space }
+  );
 };
