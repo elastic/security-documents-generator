@@ -9,9 +9,30 @@ import {
   OKTA_AUTHENTICATION,
 } from './sample_documents';
 import { TimeWindows } from '../utils/time_windows';
-import { User } from '../privileged_access_detection_ml/event_generator';
-
+import { User, UserGenerator } from '../privileged_access_detection_ml/event_generator';
+import {
+  assignAssetCriticality,
+  createRule,
+  enableRiskScore,
+  forceStartDatafeeds,
+  getPadStatus,
+  initEntityEngineForEntityTypes,
+  installPad,
+  scheduleRiskEngineNow,
+  setupPadMlModule,
+} from '../../utils/kibana_api';
 import { createSampleFullSyncEvents, makeDoc } from '../utils/integrations_sync_utils';
+import {
+  ASSET_CRITICALITY,
+  AssetCriticality,
+  PRIVILEGED_USER_MONITORING_OPTIONS,
+  PrivilegedUserMonitoringOption,
+} from '../../constants';
+import { generatePrivilegedAccessDetectionData } from '../privileged_access_detection_ml/privileged_access_detection_ml';
+import { generateCSVFile } from './generate_csv_file';
+import { chunk } from 'lodash-es';
+import { initializeSpace } from '../../utils';
+import { getMetadataKQL } from '../../utils/doc_metadata';
 
 const endpointLogsDataStreamName = 'logs-endpoint.events.process-default';
 const systemLogsDataStreamName = 'logs-system.security-default';
@@ -67,7 +88,7 @@ const getSampleOktaLogs = (users: User[]) => {
   );
 };
 
-export const getSampleOktaUsersLogs = (count: number) => {
+const getSampleOktaUsersLogs = (count: number) => {
   const adminCount = Math.round((50 / 100) * count);
   const nonAdminCount = Math.max(0, count - adminCount);
   console.log(
@@ -79,7 +100,7 @@ export const getSampleOktaUsersLogs = (count: number) => {
   return docs;
 };
 
-export const getSampleOktaEntityLogs = (count: number, syncInterval: number) => {
+const getSampleOktaEntityLogs = (count: number, syncInterval: number) => {
   const docs = createSampleFullSyncEvents({
     count,
     syncWindowMs: syncInterval,
@@ -99,7 +120,17 @@ const getSampleOktaAuthenticationLogs = (users: User[]) => {
   );
 };
 
-export const generatePrivilegedUserMonitoringData = async ({ users }: { users: User[] }) => {
+const quickEnableRiskEngineAndRule = async (space: string) => {
+  try {
+    console.log('Enabling risk engine and rule...');
+    await createRule({ space, query: getMetadataKQL() });
+    await enableRiskScore(space);
+  } catch (e) {
+    console.log(e);
+  }
+};
+
+const generatePrivilegedUserMonitoringData = async ({ users }: { users: User[] }) => {
   try {
     await reinitializeDataStream(endpointLogsDataStreamName, [
       ...getSampleEndpointLogs(users),
@@ -121,7 +152,7 @@ export const generatePrivilegedUserMonitoringData = async ({ users }: { users: U
  * Generate data for integrations sync only.
  * Currently okta data only.
  */
-export const generatePrivilegedUserIntegrationsSyncData = async ({
+const generatePrivilegedUserIntegrationsSyncData = async ({
   usersCount,
   syncEventsCount = 10,
 }: {
@@ -165,4 +196,145 @@ const reinitializeDataStream = async (indexName: string, documents: Array<object
   await deleteDataStream(indexName);
   await createDataStream(indexName);
   await ingestIntoSourceIndex(indexName, documents);
+};
+
+const assignAssetCriticalityToUsers = async (opts: { users: User[]; space?: string }) => {
+  const { users, space } = opts;
+  const chunks = chunk(users, 1000);
+
+  console.log(`Assigning asset criticality to ${users.length} users in ${chunks.length} chunks...`);
+
+  const countMap: Record<AssetCriticality, number> = {
+    unknown: 0,
+    low_impact: 0,
+    medium_impact: 0,
+    high_impact: 0,
+    extreme_impact: 0,
+  };
+
+  for (const chunk of chunks) {
+    const records = chunk
+      .map(({ userName }) => {
+        const criticalityLevel = faker.helpers.arrayElement(ASSET_CRITICALITY);
+        countMap[criticalityLevel]++;
+        return {
+          id_field: 'user.name',
+          id_value: userName,
+          criticality_level: criticalityLevel,
+        };
+      })
+      .filter((r) => r.criticality_level !== 'unknown');
+
+    if (records.length > 0) {
+      await assignAssetCriticality(records, space);
+    }
+  }
+
+  console.log('Assigned asset criticality counts:', countMap);
+};
+
+const runEngineEveryMinute = async (space: string) => {
+  let stop = false;
+  process.on('SIGINT', function () {
+    console.log('Stopping risk engine scheduling...');
+    stop = true;
+  });
+
+  while (!stop) {
+    try {
+      console.log('Scheduling risk engine to run now...');
+      await scheduleRiskEngineNow(space);
+      console.log('Scheduled risk engine, next run in 1 minute... (ctrl-c to stop)');
+    } catch (e) {
+      console.log('Error scheduling risk engine run:', e);
+    }
+    await new Promise((r) => setTimeout(r, 60 * 1000));
+  }
+};
+
+const installPadAndStartJobs = async (space: string) => {
+  console.log('Installing PAD...');
+  const padRes = await installPad(space);
+  console.log('PAD install response:', JSON.stringify(padRes));
+
+  console.log('Setting up pad-ml module...');
+  const mlRes = await setupPadMlModule(space);
+  console.log('PAD ML setup response:', JSON.stringify(mlRes));
+
+  const datafeedIds =
+    mlRes?.datafeeds
+      .sort((a, b) => (a.id < b.id ? -1 : 1)) // sort by id to ensure consistent order
+      ?.filter((job) => job.success)
+      .map((job) => job.id) ?? [];
+
+  if (datafeedIds.length > 0) {
+    console.log('Force starting PAD ML jobs:', datafeedIds);
+    const first10DatafeedIds = datafeedIds.slice(0, 10);
+    const startRes = await forceStartDatafeeds(first10DatafeedIds, space);
+    console.log('Force start response:', JSON.stringify(startRes));
+  } else {
+    console.log('No PAD ML jobs to start');
+  }
+
+  const padStatus = await getPadStatus(space);
+  console.log('PAD status:', JSON.stringify(padStatus));
+};
+
+export const privmonCommand = async ({
+  options,
+  userCount,
+  space = 'default',
+}: {
+  options: PrivilegedUserMonitoringOption[];
+  userCount: number;
+  space: string;
+}) => {
+  console.log('Starting Privileged User Monitoring data generation in space:', space);
+
+  await initializeSpace(space);
+
+  const users = UserGenerator.getUsers(userCount);
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.entityStore)) {
+    await initEntityEngineForEntityTypes(['user', 'host', 'service'], space);
+  }
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.integrationSyncSourceEventData)) {
+    await generatePrivilegedUserIntegrationsSyncData({
+      usersCount: userCount,
+    });
+  }
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.sourceEventData)) {
+    await generatePrivilegedUserMonitoringData({ users });
+  }
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.anomalyData)) {
+    await generatePrivilegedAccessDetectionData({ users });
+  }
+
+  await generateCSVFile({
+    users,
+    upload: options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.csvFile),
+    space,
+  });
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.assetCriticality)) {
+    await assignAssetCriticalityToUsers({ users, space });
+  }
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.riskEngineAndRule)) {
+    await quickEnableRiskEngineAndRule(space);
+  }
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.installPad)) {
+    await installPadAndStartJobs(space);
+  }
+
+  console.log('Privileged User Monitoring data generation complete.');
+
+  if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.riskEngineAndRule)) {
+    console.log('Scheduling risk engine to run every minute so risk scores are generated...');
+    await runEngineEveryMinute(space);
+  }
 };

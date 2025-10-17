@@ -1,10 +1,13 @@
 import { kibanaApi } from '.';
 import { getAlertIndex } from '.';
 import { getEsClient } from '../commands/utils/indices';
+import { ensureSecurityDefaultDataView } from './security_default_data_view';
 const DUMMY_RULE_ID = 'dummy-rule';
 
 export const initializeSpace = async (space: string) => {
   await ensureSpaceExists(space);
+
+  await ensureSecurityDefaultDataView(space);
 
   if (await alertIndexExistsInSpace(space)) {
     console.log('Skipping space initialization.');

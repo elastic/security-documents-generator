@@ -21,21 +21,15 @@ import { checkbox, input } from '@inquirer/prompts';
 import {
   ENTITY_STORE_OPTIONS,
   generateNewSeed,
-  PRIVILEGED_USER_INTEGRATIONS_SYNC_OPTIONS,
   PRIVILEGED_USER_MONITORING_OPTIONS,
+  PrivilegedUserMonitoringOption,
 } from './constants';
 import { initializeSpace } from './utils';
 import { generateAssetCriticality } from './commands/asset_criticality';
 import { deleteAllRules, generateRulesAndAlerts } from './commands/rules';
 import { createConfigFileOnFirstRun } from './utils/create_config_on_first_run';
-import { generatePrivilegedAccessDetectionData } from './commands/privileged_access_detection_ml/privileged_access_detection_ml';
 import { promptForFileSelection } from './commands/utils/cli_utils';
-import { UserGenerator } from './commands/privileged_access_detection_ml/event_generator';
-import {
-  generatePrivilegedUserIntegrationsSyncData,
-  generatePrivilegedUserMonitoringData,
-} from './commands/privileged_user_monitoring/privileged_user_monitoring';
-import { generateCSVFile } from './commands/privileged_user_monitoring/generate_csv_file';
+import { privmonCommand } from './commands/privileged_user_monitoring/privileged_user_monitoring';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { generateInsights } from './commands/insights';
@@ -450,33 +444,48 @@ program
 
 program
   .command('privileged-user-monitoring')
+  .alias('privmon')
   .description(
     `Generate source events and anomalous source data for privileged user monitoring and the privileged access detection ML jobs.`
   )
-  .action(async () => {
-    const privilegedUserMonitoringAnswers = await checkbox<
-      keyof typeof PRIVILEGED_USER_MONITORING_OPTIONS
-    >({
+  .option('--space <space>', 'Space to use', 'default')
+  .action(async (options) => {
+    const answers = await checkbox<PrivilegedUserMonitoringOption>({
       message: 'Select options',
       choices: [
         {
-          name: 'Whether to generate basic source events for users',
+          name: 'Basic events',
           value: PRIVILEGED_USER_MONITORING_OPTIONS.sourceEventData,
           checked: true,
         },
         {
-          name: 'Whether to generate anomalous source events for users, matching the privileged access detection jobs',
+          name: 'Anomaly events',
           value: PRIVILEGED_USER_MONITORING_OPTIONS.anomalyData,
           checked: true,
         },
         {
-          name: 'Whether to create a CSV file with the user names, in order to upload during onboarding.',
+          name: 'Upload CSV (skip onboarding)',
           value: PRIVILEGED_USER_MONITORING_OPTIONS.csvFile,
           checked: true,
         },
         {
-          name: 'Whether to create integrations source events for okta users - AD coming soon.',
-          value: PRIVILEGED_USER_INTEGRATIONS_SYNC_OPTIONS.sourceEventData,
+          name: 'Integration data',
+          value: PRIVILEGED_USER_MONITORING_OPTIONS.integrationSyncSourceEventData,
+          checked: true,
+        },
+        {
+          name: 'Enable risk engine',
+          value: PRIVILEGED_USER_MONITORING_OPTIONS.riskEngineAndRule,
+          checked: true,
+        },
+        {
+          name: 'Assign asset criticality',
+          value: PRIVILEGED_USER_MONITORING_OPTIONS.assetCriticality,
+          checked: true,
+        },
+        {
+          name: 'Install PAD',
+          value: PRIVILEGED_USER_MONITORING_OPTIONS.installPad,
           checked: true,
         },
       ],
@@ -489,25 +498,24 @@ program
       })
     );
 
-    const users = UserGenerator.getUsers(userCount);
-    if (
-      privilegedUserMonitoringAnswers.includes(
-        PRIVILEGED_USER_INTEGRATIONS_SYNC_OPTIONS.sourceEventData
-      )
-    ) {
-      await generatePrivilegedUserIntegrationsSyncData({
-        usersCount: userCount,
-      });
-    }
+    await privmonCommand({
+      options: answers,
+      userCount,
+      space: options.space,
+    });
+  });
 
-    if (
-      privilegedUserMonitoringAnswers.includes(PRIVILEGED_USER_MONITORING_OPTIONS.sourceEventData)
-    )
-      await generatePrivilegedUserMonitoringData({ users });
-    if (privilegedUserMonitoringAnswers.includes(PRIVILEGED_USER_MONITORING_OPTIONS.anomalyData))
-      await generatePrivilegedAccessDetectionData({ users });
-    if (privilegedUserMonitoringAnswers.includes(PRIVILEGED_USER_MONITORING_OPTIONS.csvFile))
-      await generateCSVFile({ users });
+program
+  .command('privmon-quick')
+  .alias('privileged-user-monitoring-quick')
+  .alias('quickmon')
+  .option('--space <space>', 'Space to use', 'default')
+  .action(async (options) => {
+    await privmonCommand({
+      options: [...Object.values(PRIVILEGED_USER_MONITORING_OPTIONS)],
+      userCount: 100,
+      space: options.space,
+    });
   });
 
 program.parse();

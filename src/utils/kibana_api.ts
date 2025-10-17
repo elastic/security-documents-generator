@@ -2,6 +2,8 @@ import urlJoin from 'url-join';
 import fetch, { Headers } from 'node-fetch';
 import { getConfig } from '../get_config';
 import { faker } from '@faker-js/faker';
+import fs from 'fs';
+import FormData from 'form-data';
 import {
   RISK_SCORE_SCORES_URL,
   RISK_SCORE_ENGINE_INIT_URL,
@@ -18,6 +20,7 @@ import {
   ENTITY_ENGINES_URL,
   DETECTION_ENGINE_RULES_BULK_ACTION_URL,
   API_VERSIONS,
+  RISK_SCORE_ENGINE_SCHEDULE_NOW_URL,
 } from '../constants';
 
 export const buildKibanaUrl = (opts: { path: string; space?: string }) => {
@@ -28,6 +31,17 @@ export const buildKibanaUrl = (opts: { path: string; space?: string }) => {
 };
 
 type ResponseError = Error & { statusCode: number; responseData: unknown };
+
+const getAuthorizationHeader = () => {
+  const config = getConfig();
+  if ('apiKey' in config.kibana) {
+    return 'ApiKey ' + config.kibana.apiKey;
+  } else
+    return (
+      'Basic ' +
+      Buffer.from(config.kibana.username + ':' + config.kibana.password).toString('base64')
+    );
+};
 
 const throwResponseError = (message: string, statusCode: number, response: unknown) => {
   const error = new Error(message) as ResponseError;
@@ -45,22 +59,13 @@ export const kibanaFetch = async <T>(
     space?: string;
   } = {}
 ): Promise<T> => {
-  const config = getConfig();
   const { ignoreStatuses, apiVersion = '1', space } = opts;
   const url = buildKibanaUrl({ path, space });
   const ignoreStatusesArray = Array.isArray(ignoreStatuses) ? ignoreStatuses : [ignoreStatuses];
   const headers = new Headers();
   headers.append('Content-Type', 'application/json');
   headers.append('kbn-xsrf', 'true');
-  if ('apiKey' in config.kibana) {
-    headers.set('Authorization', 'ApiKey ' + config.kibana.apiKey);
-  } else {
-    headers.set(
-      'Authorization',
-      'Basic ' +
-        Buffer.from(config.kibana.username + ':' + config.kibana.password).toString('base64')
-    );
-  }
+  headers.append('Authorization', getAuthorizationHeader());
 
   headers.set('x-elastic-internal-origin', 'kibana');
   headers.set('elastic-api-version', apiVersion);
@@ -106,6 +111,17 @@ export const enableRiskScore = async (space?: string) => {
     {
       space,
     }
+  );
+};
+
+export const scheduleRiskEngineNow = async (space?: string) => {
+  return kibanaFetch(
+    RISK_SCORE_ENGINE_SCHEDULE_NOW_URL,
+    {
+      method: 'POST',
+      body: JSON.stringify({ runNow: true }),
+    },
+    { space, apiVersion: API_VERSIONS.public.v1 }
   );
 };
 
@@ -170,6 +186,7 @@ export const createRule = ({
         query: query || '*:*',
         from: from || 'now-40d',
         interval: interval || '1m',
+        max_signals: 1000,
       }),
     },
     { apiVersion: API_VERSIONS.public.v1, space }
@@ -362,7 +379,7 @@ const allEnginesAreStarted = async (space?: string) => {
 };
 
 export const initEntityEngineForEntityTypes = async (
-  entityTypes: string[] = ['host', 'user'],
+  entityTypes: string[] = ['host', 'user', 'service'],
   space?: string
 ) => {
   if (await allEnginesAreStarted(space)) {
@@ -434,6 +451,169 @@ export const bulkDeleteRules = async (ruleIds: string[], space?: string) => {
         action: 'delete',
         ids: ruleIds,
       }),
+    },
+    { apiVersion: API_VERSIONS.public.v1, space }
+  );
+};
+
+export const uploadPrivmonCsv = async (
+  csvFilePath: string,
+  space?: string
+): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const formData = new FormData();
+    formData.append('file', fs.createReadStream(csvFilePath));
+
+    const response = await fetch(
+      buildKibanaUrl({
+        path: '/api/entity_analytics/monitoring/users/_csv',
+        space,
+      }),
+      {
+        method: 'POST',
+        headers: {
+          'kbn-xsrf': 'true',
+          'elastic-api-version': API_VERSIONS.public.v1,
+          ...formData.getHeaders(),
+          Authorization: getAuthorizationHeader(),
+        },
+        body: formData,
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to upload CSV: ${errorText}`);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error uploading CSV:', error);
+    // @ts-expect-error to have a message property
+    return { success: false, message: error.message };
+  }
+};
+
+export const enablePrivmon = async (space?: string) => {
+  try {
+    const response = await kibanaFetch(
+      '/api/entity_analytics/monitoring/engine/init',
+      {
+        method: 'POST',
+        body: JSON.stringify({}),
+      },
+      { apiVersion: API_VERSIONS.public.v1, space }
+    );
+    return response;
+  } catch (error) {
+    console.error('Error enabling Privileged User Monitoring:', error);
+    throw error;
+  }
+};
+
+export const installPad = async (space?: string) => {
+  try {
+    const response = await kibanaFetch(
+      '/api/entity_analytics/privileged_user_monitoring/pad/install',
+      {
+        method: 'POST',
+        body: JSON.stringify({}),
+      },
+      { apiVersion: API_VERSIONS.public.v1, space }
+    );
+    return response;
+  } catch (error) {
+    console.error('Error installing PAD:', error);
+    throw error;
+  }
+};
+
+export const getPadStatus = async (space?: string) => {
+  try {
+    const response = await kibanaFetch(
+      '/api/entity_analytics/privileged_user_monitoring/pad/status',
+      {
+        method: 'GET',
+      },
+      { apiVersion: API_VERSIONS.public.v1, space }
+    );
+    const status = response as {
+      package_installation_status: 'complete' | 'incomplete';
+      ml_module_setup_status: 'complete' | 'incomplete';
+      jobs: Array<{
+        job_id: string;
+        description?: string;
+        state: 'closing' | 'closed' | 'opened' | 'failed' | 'opening';
+      }>;
+    };
+    return status;
+  } catch (error) {
+    console.error('Error getting PAD status:', error);
+    throw error;
+  }
+};
+
+export const setupPadMlModule = async (space?: string) => {
+  const body = {
+    indexPatternName:
+      'logs-*,ml_okta_multiple_user_sessions_pad.all,ml_windows_privilege_type_pad.all',
+    useDedicatedIndex: false,
+    startDatafeed: false,
+  };
+
+  try {
+    const response = await kibanaFetch(
+      `/internal/ml/modules/setup/pad-ml`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+      { apiVersion: API_VERSIONS.internal.v1, space }
+    );
+    return response as {
+      datafeeds: Array<{ id: string; success: boolean; error?: string; started: boolean }>;
+    };
+  } catch (error) {
+    console.error('Error setting up ML module:', error);
+    throw error;
+  }
+};
+
+export const forceStartDatafeeds = async (datafeedIds: string[], space?: string) => {
+  return kibanaFetch(
+    '/internal/ml/jobs/force_start_datafeeds',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        datafeedIds,
+        start: Date.now(),
+      }),
+    },
+    { apiVersion: API_VERSIONS.internal.v1, space }
+  );
+};
+
+export const getDataView = async (dataViewId: string, space?: string) => {
+  try {
+    return await kibanaFetch(
+      `/api/data_views/data_view/${dataViewId}`,
+      {
+        method: 'GET',
+      },
+      { apiVersion: API_VERSIONS.public.v1, space }
+    );
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (e) {
+    return null;
+  }
+};
+
+export const createDataView = async (dataview: object, space?: string) => {
+  return kibanaFetch(
+    '/api/data_views/data_view',
+    {
+      method: 'POST',
+      body: JSON.stringify({ data_view: dataview }),
     },
     { apiVersion: API_VERSIONS.public.v1, space }
   );
