@@ -72,7 +72,6 @@ const getSampleOktaLogs = (users: User[]) => {
   );
 };
 
-// starting with DRY here, will refactor later
 const getSampleAdUsersLogs = (count: number) => {
   // implement here pls
   const adminCount = Math.round((50 / 100) * count);

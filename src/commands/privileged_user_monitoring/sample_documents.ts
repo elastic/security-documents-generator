@@ -610,7 +610,6 @@ export const OKTA_USERS_SAMPLE_DOCUMENT = (
   };
 };
 
-// TODO: fill in AD sample document
 export const AD_USERS_SAMPLE_ADMIN_DOCUMENT = (
   adSampleUser: AdSampleUser,
   timestamp: string,
