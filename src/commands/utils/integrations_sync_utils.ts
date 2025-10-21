@@ -37,6 +37,18 @@ export const AD_NON_ADMIN_USER_GROUPS: string[] = [
   'Guests',
 ];
 
+export type FullSyncEntityEventDoc = {
+  event: {
+    agent_id_status: 'verified';
+    kind: 'asset';
+    dataset: string;
+    action: 'started' | 'completed';
+    start?: string;
+    end?: string;
+    ingested?: string;
+  };
+};
+
 export type OktaSampleUser = {
   email: string;
   firstName: string;
@@ -97,4 +109,66 @@ export const makeAdUserDoc = (isAdmin: boolean, increment?: number) => {
       increment ?? 0 // fallback to 0 if not provided
     );
   }
+};
+
+// helpers for entity sync events
+export const makeEntityFullSyncEventPair = ({
+  dataSet = 'entityanalytics_okta.entity',
+  baseIso,
+  gaps = 25000,
+  ingestedDelay = 3000,
+}: {
+  dataSet?: string;
+  baseIso: string;
+  gaps?: number;
+  ingestedDelay?: number;
+}) => {
+  const startTs = new Date(baseIso).toISOString();
+  const endTs = new Date(new Date(baseIso).getTime() + gaps).toISOString();
+  const startIngested = new Date(new Date(baseIso).getTime() + ingestedDelay).toISOString();
+  const endIngested = new Date(new Date(baseIso).getTime() + gaps + ingestedDelay).toISOString();
+  const started: FullSyncEntityEventDoc = {
+    event: {
+      agent_id_status: 'verified',
+      kind: 'asset',
+      dataset: dataSet,
+      action: 'started',
+      start: startTs,
+      ingested: startIngested,
+    },
+  };
+  const completed: FullSyncEntityEventDoc = {
+    event: {
+      agent_id_status: 'verified',
+      kind: 'asset',
+      dataset: 'entityanalytics_okta.entity',
+      action: 'completed',
+      end: endTs,
+      ingested: endIngested,
+    },
+  };
+  return [started, completed];
+};
+export const createSampleFullSyncEvents = ({
+  count,
+  syncWindowMs, // e.g. 24h = 24 * 60 * 60 * 1000
+  base = new Date(), // starting anchor (defaults to "now")
+}: {
+  count: number;
+  syncWindowMs: number;
+  base?: Date | string;
+}): FullSyncEntityEventDoc[] => {
+  const baseMs = typeof base === 'string' ? new Date(base).getTime() : base.getTime();
+  const out: FullSyncEntityEventDoc[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const startIso = new Date(baseMs + i * syncWindowMs).toISOString();
+    out.push(
+      ...makeEntityFullSyncEventPair({
+        baseIso: startIso,
+      })
+    );
+  }
+
+  return out; // [start, completed, start, completed, ...] in order
 };

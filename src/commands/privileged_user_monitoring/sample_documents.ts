@@ -1,4 +1,8 @@
-import { AdSampleUser, OktaSampleUser } from '../utils/integrations_utils';
+import {
+  FullSyncEntityEventDoc,
+  OktaSampleUser,
+  AdSampleUser,
+} from '../utils/integrations_sync_utils';
 import { userNameAsEmail, userNameWhitespaceRemoved } from '../utils/sample_data_helpers';
 
 /**
@@ -688,6 +692,32 @@ export const AD_USERS_SAMPLE_DOCUMENT = (
       },
     },
   };
+};
+
+export const OKTA_SAMPLE_ENTITY_DOCUMENTS = (datasetName: string) => {
+  // event action should be start or completed
+  return [
+    {
+      event: {
+        agent_id_status: 'verified',
+        ingested: '2025-06-08T09:21:53Z',
+        kind: 'asset',
+        start: '2025-06-08T09:21:42.931Z',
+        action: 'started',
+        dataset: datasetName,
+      },
+    },
+    {
+      event: {
+        agent_id_status: 'verified',
+        ingested: '2025-06-08T09:16:44Z',
+        kind: 'asset',
+        action: 'completed',
+        end: '2025-06-08T09:16:42.927Z',
+        dataset: datasetName,
+      },
+    },
+  ] satisfies FullSyncEntityEventDoc[];
 };
 
 export const GRANTED_RIGHTS_OKTA_SAMPLE_DOCUMENT = (userName: string, timestamp: string) => {

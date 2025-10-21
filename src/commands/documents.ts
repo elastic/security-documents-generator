@@ -50,7 +50,7 @@ interface DocumentCreator {
 }
 
 const alertToBatchOps = (alert: BaseCreateAlertsReturnType, index: string): unknown[] => {
-  return [{ index: { _index: index, _id: alert['kibana.alert.uuid'] } }, { ...alert }];
+  return [{ create: { _index: index, _id: alert['kibana.alert.uuid'] } }, { ...alert }];
 };
 
 const createDocuments = (

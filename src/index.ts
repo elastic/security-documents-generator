@@ -21,29 +21,29 @@ import { checkbox, input } from '@inquirer/prompts';
 import {
   ENTITY_STORE_OPTIONS,
   generateNewSeed,
-  PRIVILEGED_USER_INTEGRATIONS_SYNC_OPTIONS,
   PRIVILEGED_USER_MONITORING_OPTIONS,
+  PrivilegedUserMonitoringOption,
 } from './constants';
 import { initializeSpace } from './utils';
 import { generateAssetCriticality } from './commands/asset_criticality';
 import { deleteAllRules, generateRulesAndAlerts } from './commands/rules';
 import { createConfigFileOnFirstRun } from './utils/create_config_on_first_run';
-import { generatePrivilegedAccessDetectionData } from './commands/privileged_access_detection_ml/privileged_access_detection_ml';
 import { promptForFileSelection } from './commands/utils/cli_utils';
-import { UserGenerator } from './commands/privileged_access_detection_ml/event_generator';
-import {
-  generateADPrivilegedUserMonitoringData,
-  generatePrivilegedUserIntegrationsSyncData,
-  generatePrivilegedUserMonitoringData,
-} from './commands/privileged_user_monitoring/privileged_user_monitoring';
-import { generateCSVFile } from './commands/privileged_user_monitoring/generate_csv_file';
+import { privmonCommand } from './commands/privileged_user_monitoring/privileged_user_monitoring';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { generateInsights } from './commands/insights';
+import { stressTest } from './risk_engine/esql_stress_test';
+
+import fs from 'fs';
+
+import * as RiskEngine from './risk_engine/generate_perf_data';
+import * as RiskEngineIngest from './risk_engine/ingest';
+import * as Pain from './risk_engine/scripted_metrics_stress_test';
 
 await createConfigFileOnFirstRun();
 
-const parseIntBase10 = (input: string) => parseInt(input, 10);
+export const parseIntBase10 = (input: string) => parseInt(input, 10);
 
 export const srcDirectory = dirname(fileURLToPath(import.meta.url));
 
@@ -64,7 +64,115 @@ program
       await initializeSpace(space);
     }
 
-    generateAlerts(alertsCount, userCount, hostCount, space);
+    await generateAlerts(alertsCount, userCount, hostCount, space);
+  });
+
+program
+  .command('esql-stress-test')
+  .option('-p <parallel>', 'number of parallel runs', parseIntBase10)
+  .description('Run several esql queries in parallel to stress ES')
+  .action(async (options) => {
+    const parallel = options.p || 1;
+    await stressTest(parallel, { pageSize: 3500 });
+
+    console.log(`Completed stress test with ${parallel} parallel runs`);
+  });
+
+program
+  .command('painless-stress-test')
+  .option('-r <runs>', 'number of runs', parseIntBase10)
+  .description('Run several scripted metric risk scoring queries in sequence')
+  .action(async (options) => {
+    const runs = options.r || 1;
+    await Pain.stressTest(runs, { pageSize: 3500 });
+
+    console.log(`Completed stress test with ${runs} runs`);
+  });
+
+RiskEngineIngest.getCmd(program);
+program
+  .command('create-risk-engine-data')
+  .argument('<name>', 'name of the file')
+  .argument('<entity-count>', 'number of entities', parseIntBase10)
+  .argument('<alerts-per-entity>', 'number of alerts per entity', parseIntBase10)
+  .description('Create performance data for the risk engine')
+  .action((name, entityCount, alertsPerEntity) => {
+    RiskEngine.createPerfDataFile({ name, entityCount, alertsPerEntity });
+  });
+
+program
+  .command('create-risk-engine-dataset')
+  .argument('<entity-magnitude>', 'entity magnitude to create: small, medium, large')
+  .argument('<cardinality>', 'cardinality level: low, mid, high, extreme')
+  .description('Create performance datasets for the risk engine')
+  .action(async (entityMagnitude, cardinality) => {
+    const entityCount =
+      entityMagnitude === 'small'
+        ? 100
+        : entityMagnitude === 'medium'
+          ? 1000
+          : entityMagnitude === 'large'
+            ? 10000
+            : 1000;
+    const alertsPerEntity =
+      cardinality === 'low'
+        ? 100
+        : cardinality === 'mid'
+          ? 1000
+          : cardinality === 'high'
+            ? 10000
+            : cardinality === 'extreme'
+              ? 100000
+              : 1000;
+    const name = `${entityMagnitude || 'medium'}_${cardinality || 'mid'}Cardinality`;
+
+    await RiskEngine.createPerfDataFile({ name, entityCount, alertsPerEntity });
+    console.log(`Finished ${name} dataset`);
+  });
+
+program
+  .command('upload-risk-engine-dataset')
+  .argument('[dir]', 'dir to upload')
+  .description('Upload performance data files')
+  .action(async (dataset) => {
+    const BASE = process.cwd() + '/data/risk_engine/perf';
+
+    await deleteAllAlerts();
+
+    const datasetPath = `${BASE}/${dataset}`;
+    if (!fs.existsSync(datasetPath)) {
+      console.log(`Skipping ${dataset}, directory not found: ${datasetPath}`);
+      return;
+    }
+    const files = fs
+      .readdirSync(datasetPath)
+      .filter((f) => f.endsWith('.json'))
+      .sort();
+    if (files.length === 0) {
+      console.log(`No JSON files found in ${datasetPath}, skipping.`);
+      return;
+    }
+    console.log(`Uploading dataset ${dataset} (${files.length} file(s))`);
+    for (const file of files) {
+      const fullName = `${dataset}/${file.replace(/\.json$/, '')}`; // remove extension for function arg expecting base name
+      try {
+        await RiskEngine.uploadPerfData(fullName, 0, 1);
+      } catch (e) {
+        console.error(`Failed uploading ${fullName}:`, e);
+        process.exit(1);
+      }
+    }
+    console.log(`Finished uploading dataset ${dataset}`);
+  });
+
+program
+  .command('upload-risk-engine-data-interval')
+  .argument('<file>', 'path to the file')
+  .argument('<interval>', 'upload interval in ms', parseIntBase10)
+  .argument('<count>', 'number of uploads', parseIntBase10)
+  .description('Upload performance data for the risk engine')
+  .action((file, interval, count) => {
+    RiskEngine.uploadPerfData(file, interval, count);
   });
 
 program
@@ -330,33 +438,48 @@ program
 
 program
   .command('privileged-user-monitoring')
+  .alias('privmon')
   .description(
     `Generate source events and anomalous source data for privileged user monitoring and the privileged access detection ML jobs.`
   )
-  .action(async () => {
-    const privilegedUserMonitoringAnswers = await checkbox<
-      keyof typeof PRIVILEGED_USER_MONITORING_OPTIONS
-    >({
+  .option('--space <space>', 'Space to use', 'default')
+  .action(async (options) => {
+    const answers = await checkbox<PrivilegedUserMonitoringOption>({
       message: 'Select options',
       choices: [
         {
-          name: 'Whether to generate basic source events for users',
+          name: 'Basic events',
           value: PRIVILEGED_USER_MONITORING_OPTIONS.sourceEventData,
           checked: true,
         },
         {
-          name: 'Whether to generate anomalous source events for users, matching the privileged access detection jobs',
+          name: 'Anomaly events',
           value: PRIVILEGED_USER_MONITORING_OPTIONS.anomalyData,
           checked: true,
         },
         {
-          name: 'Whether to create a CSV file with the user names, in order to upload during onboarding.',
+          name: 'Upload CSV (skip onboarding)',
           value: PRIVILEGED_USER_MONITORING_OPTIONS.csvFile,
           checked: true,
         },
         {
-          name: 'Whether to create integrations source events for integrations users: OKTA & AD.',
-          value: PRIVILEGED_USER_INTEGRATIONS_SYNC_OPTIONS.sourceEventData,
+          name: 'Integration data',
+          value: PRIVILEGED_USER_MONITORING_OPTIONS.integrationSyncSourceEventData,
+          checked: true,
+        },
+        {
+          name: 'Enable risk engine',
+          value: PRIVILEGED_USER_MONITORING_OPTIONS.riskEngineAndRule,
+          checked: true,
+        },
+        {
+          name: 'Assign asset criticality',
+          value: PRIVILEGED_USER_MONITORING_OPTIONS.assetCriticality,
+          checked: true,
+        },
+        {
+          name: 'Install PAD',
+          value: PRIVILEGED_USER_MONITORING_OPTIONS.installPad,
           checked: true,
         },
       ],
@@ -369,26 +492,24 @@ program
       })
     );
 
-    const users = UserGenerator.getUsers(userCount);
-    if (
-      privilegedUserMonitoringAnswers.includes(
-        PRIVILEGED_USER_INTEGRATIONS_SYNC_OPTIONS.sourceEventData
-      )
-    ) {
-      await generatePrivilegedUserIntegrationsSyncData({
-        usersCount: userCount,
-      });
-      await generateADPrivilegedUserMonitoringData({ usersCount: userCount });
-    }
+    await privmonCommand({
+      options: answers,
+      userCount,
+      space: options.space,
+    });
+  });
 
-    if (
-      privilegedUserMonitoringAnswers.includes(PRIVILEGED_USER_MONITORING_OPTIONS.sourceEventData)
-    )
-      await generatePrivilegedUserMonitoringData({ users });
-    if (privilegedUserMonitoringAnswers.includes(PRIVILEGED_USER_MONITORING_OPTIONS.anomalyData))
-      await generatePrivilegedAccessDetectionData({ users });
-    if (privilegedUserMonitoringAnswers.includes(PRIVILEGED_USER_MONITORING_OPTIONS.csvFile))
-      await generateCSVFile({ users });
+program
+  .command('privmon-quick')
+  .alias('privileged-user-monitoring-quick')
+  .alias('quickmon')
+  .option('--space <space>', 'Space to use', 'default')
+  .action(async (options) => {
+    await privmonCommand({
+      options: [...Object.values(PRIVILEGED_USER_MONITORING_OPTIONS)],
+      userCount: 100,
+      space: options.space,
+    });
   });
 
 program.parse();
