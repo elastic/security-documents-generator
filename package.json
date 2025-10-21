@@ -7,7 +7,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck": "tsc --noEmit",
-    "start": "NODE_OPTIONS=--max-old-space-size=8192 tsx src/index",
+    "start": "tsx src/index",
     "lint": "eslint",
     "format": "prettier --write \"src/**/*.ts\" \"*.json\" \"*.mjs\" \"src/**/*.json\"",
     "checks": "yarn typecheck && yarn lint && yarn prettier --check \"src/**/*.ts\" \"*.json\" \"*.mjs\" \"src/**/*.json\" || { echo \"‼️ run yarn fix to automatically fix issues ‼️\"; exit 1; }",

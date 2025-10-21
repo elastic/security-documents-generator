@@ -64,13 +64,7 @@ program
       await initializeSpace(space);
     }
 
-    let n = 0;
-    let runs = 500;
-    while (n < runs) {
-      console.log(`Run ${n + 1} of ${runs}`);
-      await generateAlerts(alertsCount, userCount, hostCount, space);
-      n++;
-    }
+    await generateAlerts(alertsCount, userCount, hostCount, space);
   });
 
 program

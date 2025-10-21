@@ -46,9 +46,6 @@ export const ingestData = async (params: {
       },
       flushBytes: 1024 * 1024 * 1,
       flushInterval: 3000,
-      onSuccess: () => {
-        // progress.increment();
-      },
       onDrop: (doc) => {
         console.log('Failed to index document:', doc);
         process.exit(1);
