@@ -25,17 +25,11 @@ const alertIndexExistsInSpace = async (space: string): Promise<boolean> => {
   console.log(`Checking if index ${index} exists`);
   const exists = await client.indices.exists({ index });
 
-  console.log(
-    exists ? `Index ${index} exists` : `Index ${index} does not exist`,
-  );
+  console.log(exists ? `Index ${index} exists` : `Index ${index} does not exist`);
   return exists;
 };
 
-const waitForAlertIndexMapping = async (
-  space: string,
-  attempts: number = 5,
-  waitSeconds = 5,
-) => {
+const waitForAlertIndexMapping = async (space: string, attempts: number = 5, waitSeconds = 5) => {
   const client = getEsClient();
   const index = getAlertIndex(space);
   const backingIndex = '.internal' + index + '-000001';
@@ -47,15 +41,13 @@ const waitForAlertIndexMapping = async (
   while (attempt < attempts) {
     try {
       const res = await client.indices.getMapping({ index });
-      console.log(
-        `Got mapping for index ${index} (backing index ${backingIndex})`,
-      );
+      console.log(`Got mapping for index ${index} (backing index ${backingIndex})`);
       if (res[backingIndex]?.mappings?.properties) {
         const mapping = res[backingIndex].mappings.properties;
         // I use @timestamp to detect if the mapping is correct, if it has beem automatically created it will be long
         if (mapping['@timestamp'] && mapping['@timestamp'].type === 'date') {
           console.log(
-            `Index ${index} has the correct date field mapping: ${JSON.stringify(mapping['@timestamp'])}`,
+            `Index ${index} has the correct date field mapping: ${JSON.stringify(mapping['@timestamp'])}`
           );
           return;
         } else {
@@ -74,7 +66,7 @@ const waitForAlertIndexMapping = async (
 
     if (attempt === attempts - 1) {
       throw new Error(
-        `Index ${index} does not have the correct mapping after ${attempts} attempts`,
+        `Index ${index} does not have the correct mapping after ${attempts} attempts`
       );
     }
 

@@ -3,10 +3,7 @@ import {
   AD_USERS_SAMPLE_DOCUMENT,
   OKTA_USERS_SAMPLE_DOCUMENT,
 } from '../privileged_user_monitoring/sample_documents';
-import {
-  userNameAsEmail,
-  userNameWhitespaceRemoved,
-} from './sample_data_helpers';
+import { userNameAsEmail, userNameWhitespaceRemoved } from './sample_data_helpers';
 import { TimeWindows } from './time_windows';
 import { faker } from '@faker-js/faker';
 
@@ -31,10 +28,7 @@ export const OKTA_NON_ADMIN_USER_ROLES: string[] = [
   'Temp',
 ];
 
-export const AD_ADMIN_USER_GROUPS: string[] = [
-  'Domain Admins',
-  'Enterprise Admins',
-];
+export const AD_ADMIN_USER_GROUPS: string[] = ['Domain Admins', 'Enterprise Admins'];
 
 export const AD_NON_ADMIN_USER_GROUPS: string[] = [
   'Domain Users',
@@ -85,28 +79,22 @@ export const makeDoc = (isAdmin: boolean) =>
   OKTA_USERS_SAMPLE_DOCUMENT(
     createOktaSampleUser(), // new user each doc
     TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow()),
-    [isAdmin ? pick(OKTA_ADMIN_USER_ROLES) : pick(OKTA_NON_ADMIN_USER_ROLES)],
+    [isAdmin ? pick(OKTA_ADMIN_USER_ROLES) : pick(OKTA_NON_ADMIN_USER_ROLES)]
   );
 
 export const makeAdUserDoc = (isAdmin: boolean, increment?: number) => {
   const adSampleUser = createAdSampleUser();
-  const timestamp = TimeWindows.toRandomTimestamp(
-    TimeWindows.last30DayWindow(),
-  );
-  const isAdminGroup = pick(
-    isAdmin ? AD_ADMIN_USER_GROUPS : AD_NON_ADMIN_USER_GROUPS,
-  );
+  const timestamp = TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow());
+  const isAdminGroup = pick(isAdmin ? AD_ADMIN_USER_GROUPS : AD_NON_ADMIN_USER_GROUPS);
 
   if (isAdmin) {
-    return AD_USERS_SAMPLE_ADMIN_DOCUMENT(adSampleUser, timestamp, [
-      isAdminGroup,
-    ]);
+    return AD_USERS_SAMPLE_ADMIN_DOCUMENT(adSampleUser, timestamp, [isAdminGroup]);
   } else {
     return AD_USERS_SAMPLE_DOCUMENT(
       adSampleUser,
       timestamp,
       [isAdminGroup],
-      increment ?? 0, // fallback to 0 if not provided
+      increment ?? 0 // fallback to 0 if not provided
     );
   }
 };

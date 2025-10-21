@@ -1,8 +1,5 @@
 import { AdSampleUser, OktaSampleUser } from '../utils/integrations_utils';
-import {
-  userNameAsEmail,
-  userNameWhitespaceRemoved,
-} from '../utils/sample_data_helpers';
+import { userNameAsEmail, userNameWhitespaceRemoved } from '../utils/sample_data_helpers';
 
 /**
  * Should not need all of these for our use case - should need ONLY
@@ -34,10 +31,7 @@ const getGroupIdsFromNames = (names: string[]): string[] => {
   return names.map((name) => getGroupId(name));
 };
 
-export const GRANTED_RIGHTS_LINUX_SAMPLE_DOCUMENT = (
-  userName: string,
-  timestamp: string,
-) => {
+export const GRANTED_RIGHTS_LINUX_SAMPLE_DOCUMENT = (userName: string, timestamp: string) => {
   return {
     agent: {
       id: 'f3309354-8f72-4493-98c3-f101c60ef6e1',
@@ -232,8 +226,7 @@ export const GRANTED_RIGHTS_LINUX_SAMPLE_DOCUMENT = (
       command_line: 'usermod -aG test123 john_smith',
       hash: {
         sha1: 'b9f7c38efebd437006ad7d21de50bd0099592c4a',
-        sha256:
-          'b5e9f510b42451d063b7d03baa9a6abad5a1563b77868ed16968b79435af1d46',
+        sha256: 'b5e9f510b42451d063b7d03baa9a6abad5a1563b77868ed16968b79435af1d46',
         md5: '79b65b3c8115734dbb4b45faefd3adad',
       },
       group: {
@@ -261,8 +254,7 @@ export const GRANTED_RIGHTS_LINUX_SAMPLE_DOCUMENT = (
         Ext: {
           variant: 'Debian',
         },
-        kernel:
-          '6.1.0-31-cloud-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.1.128-1 (2025-02-07)',
+        kernel: '6.1.0-31-cloud-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.1.128-1 (2025-02-07)',
         name: 'Linux',
         family: 'debian',
         type: 'linux',
@@ -314,10 +306,7 @@ export const GRANTED_RIGHTS_LINUX_SAMPLE_DOCUMENT = (
   };
 };
 
-export const GRANTED_RIGHTS_WINDOWS_SAMPLE_DOCUMENT = (
-  userName: string,
-  timestamp: string,
-) => {
+export const GRANTED_RIGHTS_WINDOWS_SAMPLE_DOCUMENT = (userName: string, timestamp: string) => {
   return {
     agent: {
       name: 'instance-20250310-095950',
@@ -461,7 +450,7 @@ export const GRANTED_RIGHTS_WINDOWS_SAMPLE_DOCUMENT = (
 export const OKTA_USERS_SAMPLE_DOCUMENT = (
   oktaSampleUser: OktaSampleUser,
   timestamp: string,
-  roles: string[],
+  roles: string[]
 ) => {
   const { email, firstName, lastName, userId, userName } = oktaSampleUser;
   return {
@@ -613,7 +602,7 @@ export const OKTA_USERS_SAMPLE_DOCUMENT = (
 export const AD_USERS_SAMPLE_ADMIN_DOCUMENT = (
   adSampleUser: AdSampleUser,
   timestamp: string,
-  groups: string[],
+  groups: string[]
 ) => {
   const { userName } = adSampleUser;
   return {
@@ -658,7 +647,7 @@ export const AD_USERS_SAMPLE_DOCUMENT = (
   adSampleUser: AdSampleUser,
   timestamp: string,
   groups: string[],
-  userIdIncrement: number,
+  userIdIncrement: number
 ) => {
   const { userName } = adSampleUser;
   // Base SID for your domain
@@ -701,10 +690,7 @@ export const AD_USERS_SAMPLE_DOCUMENT = (
   };
 };
 
-export const GRANTED_RIGHTS_OKTA_SAMPLE_DOCUMENT = (
-  userName: string,
-  timestamp: string,
-) => {
+export const GRANTED_RIGHTS_OKTA_SAMPLE_DOCUMENT = (userName: string, timestamp: string) => {
   return {
     agent: {
       name: 'test-ea-april-2025',
@@ -848,10 +834,7 @@ export const GRANTED_RIGHTS_OKTA_SAMPLE_DOCUMENT = (
   };
 };
 
-export const ACCOUNT_SWITCH_LINUX_SAMPLE_DOCUMENT = (
-  userName: string,
-  timestamp: string,
-) => {
+export const ACCOUNT_SWITCH_LINUX_SAMPLE_DOCUMENT = (userName: string, timestamp: string) => {
   return {
     agent: {
       id: '0e69acf6-97e6-418e-a4b7-281c59f10774',
@@ -1052,8 +1035,7 @@ export const ACCOUNT_SWITCH_LINUX_SAMPLE_DOCUMENT = (
       command_line: 'sudo su',
       hash: {
         sha1: '37b9a71fd9f9aa798b78277e76c70da0268f9139',
-        sha256:
-          'cafbdbfd938d25c09da67bcde78e4c4f25817e3018863f9f5ee4b3807f1bbffa',
+        sha256: 'cafbdbfd938d25c09da67bcde78e4c4f25817e3018863f9f5ee4b3807f1bbffa',
         md5: 'f25b6903acaf33aac0bb19a71628e0e0',
       },
       group: {
@@ -1081,8 +1063,7 @@ export const ACCOUNT_SWITCH_LINUX_SAMPLE_DOCUMENT = (
         Ext: {
           variant: 'Debian',
         },
-        kernel:
-          '6.1.0-31-cloud-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.1.128-1 (2025-02-07)',
+        kernel: '6.1.0-31-cloud-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.1.128-1 (2025-02-07)',
         name: 'Linux',
         family: 'debian',
         type: 'linux',
@@ -1273,31 +1254,26 @@ export const OKTA_AUTHENTICATION = (userName: string, timestamp: string) => {
         debug_data: {
           flattened: {
             traceId: '5e6efaa3-3c0c-4d7f-89c2-7434ad97e494',
-            audience:
-              'https://us-east-1.signin.aws.amazon.com/platform/saml/d-9067c18e9e',
+            audience: 'https://us-east-1.signin.aws.amazon.com/platform/saml/d-9067c18e9e',
             subject: userNameAsEmail(userName),
             signOnMode: 'SAML 2.0',
             authenticationClassRef:
               'urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport',
             authTime: timestamp,
-            requestUri:
-              '/app/dev-36006609_awstest_1/exkm44qweyWDF18z55d7/sso/saml',
+            requestUri: '/app/dev-36006609_awstest_1/exkm44qweyWDF18z55d7/sso/saml',
             issuer: 'http://www.okta.com/exkm44qweyWDF18z55d7',
             url: '/app/dev-36006609_awstest_1/exkm44qweyWDF18z55d7/sso/saml?',
             initiationType: 'IDP_INITIATED',
             authnRequestId: '3a665ed443c298a09e47991501e38a0f',
             requestId: '83a814cc78c39545daa0fb455d6a5dad',
-            dtHash:
-              '132be512dfc4bed0edbf23d7ae3c9d00093d838f6d30f629305427ac4267a672',
+            dtHash: '132be512dfc4bed0edbf23d7ae3c9d00093d838f6d30f629305427ac4267a672',
             expiryTime: timestamp,
             issuedAt: timestamp,
             jti: 'id1551895843302991298693170',
           },
-          dt_hash:
-            '132be512dfc4bed0edbf23d7ae3c9d00093d838f6d30f629305427ac4267a672',
+          dt_hash: '132be512dfc4bed0edbf23d7ae3c9d00093d838f6d30f629305427ac4267a672',
           request_id: '83a814cc78c39545daa0fb455d6a5dad',
-          request_uri:
-            '/app/dev-36006609_awstest_1/exkm44qweyWDF18z55d7/sso/saml',
+          request_uri: '/app/dev-36006609_awstest_1/exkm44qweyWDF18z55d7/sso/saml',
           url: '/app/dev-36006609_awstest_1/exkm44qweyWDF18z55d7/sso/saml?',
         },
       },

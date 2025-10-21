@@ -50,8 +50,7 @@ export const createAgentDocument = ({ hostname }: { hostname: string }) => {
     outputs: {
       'es-containerhost': {
         api_key: 'XjxH740BAG_XfFTaAmYH:AtX5ejLMRIyfcmRXTMX-Lg',
-        permissions_hash:
-          'b8bf91d03aa17d178cdd82db91a1e0e7711e8fd623ee2d5cb689f912ad5cd026',
+        permissions_hash: 'b8bf91d03aa17d178cdd82db91a1e0e7711e8fd623ee2d5cb689f912ad5cd026',
         type: 'elasticsearch',
         api_key_id: 'XjxH740BAG_XfFTaAmYH',
       },
