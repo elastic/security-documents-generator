@@ -21,7 +21,11 @@ import {
   scheduleRiskEngineNow,
   setupPadMlModule,
 } from '../../utils/kibana_api';
-import { createSampleFullSyncEvents, makeDoc } from '../utils/integrations_sync_utils';
+import {
+  createSampleFullSyncEvents,
+  makeAdUserDoc,
+  makeDoc,
+} from '../utils/integrations_sync_utils';
 import {
   ASSET_CRITICALITY,
   AssetCriticality,
@@ -34,10 +38,16 @@ import { chunk } from 'lodash-es';
 import { initializeSpace } from '../../utils';
 import { getMetadataKQL } from '../../utils/doc_metadata';
 
+//end point logs
 const endpointLogsDataStreamName = 'logs-endpoint.events.process-default';
+
+// system logs
 const systemLogsDataStreamName = 'logs-system.security-default';
 const oktaLogsDataStreamName = 'logs-okta.system-default';
+
+// integrations sync user logs
 const oktaLogsUsersDataStreamName = 'logs-entityanalytics_okta.user-default';
+const adLogsUsersDataStreamName = 'logs-entityanalytics_ad.user-default';
 const oktaLogsEntityDataStreamName = 'logs-entityanalytics_okta.entity-default';
 
 const getSampleEndpointLogs = (users: User[]) => {
@@ -86,6 +96,19 @@ const getSampleOktaLogs = (users: User[]) => {
     },
     { count: 100 }
   );
+};
+
+const getSampleAdUsersLogs = (count: number) => {
+  // implement here pls
+  const adminCount = Math.round((50 / 100) * count);
+  const nonAdminCount = Math.max(0, count - adminCount);
+  console.log(
+    `Generating ${adminCount} admin users and ${nonAdminCount} non-admin Active Directory users (total ${count})`
+  );
+  const userDocs = Array.from({ length: nonAdminCount }, (_, i) => makeAdUserDoc(false, i));
+  const adminDocs = Array.from({ length: adminCount }, () => makeAdUserDoc(true));
+  const docs = adminDocs.concat(userDocs);
+  return docs;
 };
 
 const getSampleOktaUsersLogs = (count: number) => {
@@ -167,6 +190,18 @@ const generatePrivilegedUserIntegrationsSyncData = async ({
     );
     await reinitializeDataStream(oktaLogsUsersDataStreamName, sampleDocuments);
     await reinitializeDataStream(oktaLogsEntityDataStreamName, sampleEntityDocuments);
+  } catch (e) {
+    console.log(e);
+  }
+};
+
+export const generateADPrivilegedUserMonitoringData = async ({
+  usersCount,
+}: {
+  usersCount: number;
+}) => {
+  try {
+    await reinitializeDataStream(adLogsUsersDataStreamName, getSampleAdUsersLogs(usersCount));
   } catch (e) {
     console.log(e);
   }
@@ -303,6 +338,7 @@ export const privmonCommand = async ({
     await generatePrivilegedUserIntegrationsSyncData({
       usersCount: userCount,
     });
+    await generateADPrivilegedUserMonitoringData({ usersCount: userCount });
   }
 
   if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.sourceEventData)) {

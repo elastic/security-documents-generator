@@ -66,7 +66,6 @@ export const kibanaFetch = async <T>(
   headers.append('Content-Type', 'application/json');
   headers.append('kbn-xsrf', 'true');
   headers.append('Authorization', getAuthorizationHeader());
-
   headers.set('x-elastic-internal-origin', 'kibana');
   headers.set('elastic-api-version', apiVersion);
   const result = await fetch(url, {

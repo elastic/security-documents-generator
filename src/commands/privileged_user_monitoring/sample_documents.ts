@@ -1,5 +1,39 @@
-import { FullSyncEntityEventDoc, OktaSampleUser } from '../utils/integrations_sync_utils';
+import {
+  FullSyncEntityEventDoc,
+  OktaSampleUser,
+  AdSampleUser,
+} from '../utils/integrations_sync_utils';
 import { userNameAsEmail, userNameWhitespaceRemoved } from '../utils/sample_data_helpers';
+
+/**
+ * Should not need all of these for our use case - should need ONLY
+ * DOMAIN ADMINS and ENTERPRISE ADMINS
+ */
+const GROUP_SID_MAP: Record<string, string> = {
+  Administrators: 'S-1-5-32-544',
+  'Domain Admins': 'S-1-5-21-123456789-234567890-345678901-512',
+  'Enterprise Admins': 'S-1-5-21-123456789-234567890-345678901-519',
+  // below are other options showing in test data but we don't need them for our testing
+  // more just in case - future reference?
+  /*'Schema Admins': 'S-1-5-21-123456789-234567890-345678901-518',
+  'Group Policy Creator Owners': 'S-1-5-21-123456789-234567890-345678901-520',
+  'Domain Users': 'S-1-5-21-123456789-234567890-345678901-513',
+  'Domain Guests': 'S-1-5-21-123456789-234567890-345678901-514',
+  Helpdesk: 'S-1-5-21-123456789-234567890-345678901-1100',
+  Developers: 'S-1-5-21-123456789-234567890-345678901-1101',
+  'IT Support': 'S-1-5-21-123456789-234567890-345678901-1102',*/
+};
+
+const getGroupId = (name: string): string => {
+  return (
+    GROUP_SID_MAP[name] ||
+    `S-1-5-21-123456789-234567890-345678901-${Math.floor(Math.random() * 5000 + 2000)}`
+  );
+};
+
+const getGroupIdsFromNames = (names: string[]): string[] => {
+  return names.map((name) => getGroupId(name));
+};
 
 export const GRANTED_RIGHTS_LINUX_SAMPLE_DOCUMENT = (userName: string, timestamp: string) => {
   return {
@@ -564,6 +598,97 @@ export const OKTA_USERS_SAMPLE_DOCUMENT = (
       group: {
         name: ['Everyone'],
         id: ['00gf1r6hcrcl7gaTH5d6'],
+      },
+    },
+  };
+};
+
+export const AD_USERS_SAMPLE_ADMIN_DOCUMENT = (
+  adSampleUser: AdSampleUser,
+  timestamp: string,
+  groups: string[]
+) => {
+  const { userName } = adSampleUser;
+  return {
+    '@timestamp': timestamp,
+    event: {
+      agent_id_status: 'verified',
+      ingested: '2025-08-27T11:27:26Z',
+      kind: 'asset',
+      category: ['iam'],
+      type: ['info'],
+      dataset: 'entityanalytics_ad.user',
+    },
+    asset: {
+      last_updated: '2025-08-26T15:32:31.000Z',
+      name: userName,
+      // Using a fixed SID for generated admin users.
+      // In real AD data, each user would have a unique RID (last segment),
+      // but since all our test users represent Domain/Enterprise Admins,
+      // a single consistent SID is sufficient and simplifies testing.
+      id: 'S-1-5-21-1000000000-2000000000-3000000000-1000',
+      category: 'entity',
+      type: 'activedirectory_user',
+      create_date: '2025-08-25T13:20:55.000Z',
+    },
+    user: {
+      domain: 'privmon.local',
+      name: userName,
+      id: 'S-1-5-21-1000000000-2000000000-3000000000-1000',
+      account: {
+        password_change_date: '2025-08-26T15:32:31.769Z',
+      },
+      group: {
+        name: groups,
+        id: getGroupIdsFromNames(groups),
+      },
+    },
+  };
+};
+
+// TODO: fill in here pls
+export const AD_USERS_SAMPLE_DOCUMENT = (
+  adSampleUser: AdSampleUser,
+  timestamp: string,
+  groups: string[],
+  userIdIncrement: number
+) => {
+  const { userName } = adSampleUser;
+  // Base SID for your domain
+  const BASE_SID = 'S-1-5-21-3447870734-1877674879-480511257';
+  // Start normal users at RID 1005 (so first user = 1005, next = 1006, etc.)
+  // 1005 just to make them distinct from the admin user RIDs
+  const userRid = 1005 + userIdIncrement;
+  const userSid = `${BASE_SID}-${userRid}`;
+  return {
+    '@timestamp': timestamp,
+    event: {
+      agent_id_status: 'verified',
+      ingested: '2025-08-27T11:27:26Z',
+      kind: 'asset',
+      category: ['iam'],
+      type: ['info'],
+      dataset: 'entityanalytics_ad.user',
+    },
+    asset: {
+      last_updated: '2025-08-26T15:32:31.000Z',
+      name: userName,
+      // Using a fixed SID for generated non-admin users.
+      id: userSid,
+      category: 'entity',
+      type: 'activedirectory_user',
+      create_date: '2025-08-25T13:20:55.000Z',
+    },
+    user: {
+      domain: 'privmon.local',
+      name: userName,
+      id: userSid,
+      account: {
+        password_change_date: '2025-08-26T15:32:31.769Z',
+      },
+      group: {
+        name: groups,
+        id: getGroupIdsFromNames(groups),
       },
     },
   };
