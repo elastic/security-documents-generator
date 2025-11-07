@@ -10,7 +10,12 @@ import {
 import { setupEntityResolutionDemo } from './commands/entity_resolution';
 import { generateLegacyRiskScore } from './commands/legacy_risk_score';
 import { kibanaApi } from './utils/';
-import { cleanEntityStore, generateEntityStore } from './commands/entity_store';
+
+import {
+  cleanEntityStore,
+  generateEntityStore,
+  updateEntityStoreWithAPI,
+} from './commands/entity_store';
 import {
   createPerfDataFile,
   listPerfDataFiles,
@@ -354,6 +359,18 @@ program
   });
 
 program.command('clean-entity-store').description('clean entity store').action(cleanEntityStore);
+
+program
+  .command('enhance-entity-store-with-api')
+  .description('Enhance entity store with all supported API fields')
+  .option('--space <space>', 'Space to create entity store in')
+  .option('--users <users>', 'Number of users to enhance', '10')
+  .action(async (options) => {
+    updateEntityStoreWithAPI({
+      space: options.space,
+      users: parseIntBase10(options.users),
+    });
+  });
 
 program
   .command('generate-entity-insights')

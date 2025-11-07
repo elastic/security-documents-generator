@@ -21,6 +21,8 @@ import {
   DETECTION_ENGINE_RULES_BULK_ACTION_URL,
   API_VERSIONS,
   RISK_SCORE_ENGINE_SCHEDULE_NOW_URL,
+  ENTITY_CRUD_URL_WITH_TYPE,
+  ENTITY_LIST_URL,
 } from '../constants';
 
 export const buildKibanaUrl = (opts: { path: string; space?: string }) => {
@@ -348,6 +350,52 @@ const _deleteEngine = (engineType: string, space?: string) => {
     },
     { apiVersion: API_VERSIONS.public.v1, space }
   );
+};
+
+// const lowercaseKeys = (obj: Record<string, unknown>) => {
+//   if (obj === 'false' || obj === 'true') {
+//     return Boolean(obj);
+//   }
+//   if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
+//     return obj; // return non-objects as is
+//   }
+
+//   return Object.keys(obj).reduce((acc, key) => {
+//     const lowerKey = key.toLowerCase();
+//     acc[lowerKey] = lowercaseKeys(obj[key]);
+//     return acc;
+//   }, {});
+// };
+
+const _updateEntity = (entity: Record<string, unknown>, space?: string) => {
+  return kibanaFetch(
+    ENTITY_CRUD_URL_WITH_TYPE('user'),
+    {
+      method: 'PUT',
+      body: JSON.stringify(entity),
+    },
+    { apiVersion: API_VERSIONS.public.v1, space }
+  );
+};
+
+export const listEntities = (
+  entityType: string,
+  space?: string,
+  page?: number,
+  per_page?: number
+): Promise<{ records: Array<Record<string, unknown>> }> => {
+  return kibanaFetch(
+    ENTITY_LIST_URL + `?entity_types=${entityType}&page=${page ?? 1}&per_page=${per_page ?? 100}`,
+    {
+      method: 'GET',
+    },
+    { apiVersion: API_VERSIONS.public.v1, space }
+  );
+};
+
+export const updateEntities = async (entities: Record<string, unknown>[], space?: string) => {
+  const responses = await Promise.all(entities.map((entity) => _updateEntity(entity, space)));
+  console.log('Create responses:', responses);
 };
 
 export const deleteEngines = async (entityTypes: string[] = ['host', 'user'], space?: string) => {

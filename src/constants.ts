@@ -73,3 +73,9 @@ export const ENTITY_ENGINES_URL = '/api/entity_store/engines';
 export const ENTITY_ENGINE_URL = (engineType: string) => `${ENTITY_ENGINES_URL}/${engineType}`;
 export const INIT_ENTITY_ENGINE_URL = (engineType: string) =>
   `${ENTITY_ENGINE_URL(engineType)}/init`;
+
+export const ENTITY_CRUD_URL = '/api/entity_store/entities';
+export const ENTITY_CRUD_URL_WITH_TYPE = (entityType: string) =>
+  `${ENTITY_CRUD_URL}/${entityType}?force=true`;
+
+export const ENTITY_LIST_URL = `${ENTITY_CRUD_URL}/list`;

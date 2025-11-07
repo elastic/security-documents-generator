@@ -7,3 +7,6 @@ config.dev.json
 logs/*.log
 *.DS_Store
 .vscode
+create_superuser.sh
+.gitignore
+config.json.*

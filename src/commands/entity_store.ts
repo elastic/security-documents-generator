@@ -3,13 +3,23 @@ import { getEsClient, indexCheck, createAgentDocument } from './utils/indices';
 import { chunk, once } from 'lodash-es';
 import moment from 'moment';
 import auditbeatMappings from '../mappings/auditbeat.json' assert { type: 'json' };
-import { assignAssetCriticality, enableRiskScore, createRule } from '../utils/kibana_api';
+
 import {
   ASSET_CRITICALITY,
   AssetCriticality,
   ENTITY_STORE_OPTIONS,
   generateNewSeed,
 } from '../constants';
+
+import {
+  assignAssetCriticality,
+  enableRiskScore,
+  createRule,
+  initEntityEngineForEntityTypes,
+  updateEntities,
+  listEntities,
+} from '../utils/kibana_api';
+
 import {
   BulkOperationContainer,
   BulkUpdateAction,
@@ -17,6 +27,7 @@ import {
 } from '@elastic/elasticsearch/lib/api/types';
 import { getConfig } from '../get_config';
 import { initializeSpace } from '../utils';
+import { enhanceUserEntity } from '../enhanceUserEntity';
 
 const EVENT_INDEX_NAME = 'auditbeat-8.12.0-2024.01.18-000001';
 const AGENT_INDEX_NAME = '.fleet-agents-7';
@@ -69,15 +80,15 @@ interface BaseEntity {
     id: string;
   };
 }
-interface User extends BaseEntity {
+export interface User extends BaseEntity {
   type: EntityTypes.User;
 }
 
-interface Host extends BaseEntity {
+export interface Host extends BaseEntity {
   type: EntityTypes.Host;
 }
 
-interface Service extends BaseEntity {
+export interface Service extends BaseEntity {
   type: EntityTypes.Service;
 }
 
@@ -410,6 +421,21 @@ export const generateEvents = <E extends BaseEntity, EV = BaseEvent>(
   }, acc);
 };
 
+// export const generateEntityStoreEntry = <E extends BaseEntity, EV = BaseEvent>(
+//   entities: E[],
+//   createEvent: (entityName: string) => EV,
+// ): EV[] => {
+//   const eventsPerEntity = 10;
+//   const acc: EV[] = [];
+//   return entities.reduce((acc, entity) => {
+//     const events = faker.helpers.multiple(() => createEvent(entity.name), {
+//       count: eventsPerEntity,
+//     });
+//     acc.push(...events);
+//     return acc;
+//   }, acc);
+// };
+
 export const assignAssetCriticalityToEntities = async (opts: {
   entities: BaseEntity[];
   field: string;
@@ -545,6 +571,52 @@ export const generateEntityStore = async ({
     }
 
     console.log('Finished generating entity store');
+  } catch (error) {
+    console.log('Error: ', error);
+  }
+};
+
+/**
+ * Generate entities with all supported API fields using the API.
+ */
+export const updateEntityStoreWithAPI = async ({
+  users = 10,
+  space,
+}: {
+  users: number;
+  space?: string;
+}) => {
+  try {
+    if (space && space !== 'default') {
+      await initializeSpace(space);
+    }
+
+    // console.log('initialising entity engines');
+    // await initEntityEngineForEntityTypes(['host', 'user']);
+
+    // find all users in the entity-store
+
+    const foundUsers = await listEntities('user', space, 1, users);
+    // const generatedUsers: User[] = [
+    //   {
+    //     name: `User-Golda36`,
+    //     assetCriticality: faker.helpers.arrayElement(ASSET_CRITICALITY),
+    //     type: EntityTypes.User,
+    //   },
+    // ];
+
+    console.log(
+      'Updating users: ',
+      foundUsers.records.map((user) => user.user.name)
+    );
+
+    const userEntities = foundUsers.records.map((user) => enhanceUserEntity(user));
+
+    console.log('Creating entities');
+    await updateEntities(userEntities, space);
+    console.log('Created users');
+
+    console.log('Finished generating entity store with API');
   } catch (error) {
     console.log('Error: ', error);
   }
