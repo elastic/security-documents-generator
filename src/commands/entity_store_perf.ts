@@ -2,6 +2,7 @@ import { faker } from '@faker-js/faker';
 import fs from 'fs';
 import cliProgress from 'cli-progress';
 import { getEsClient, getFileLineCount } from './utils/indices';
+import { ensureSecurityDefaultDataView } from '../utils/security_default_data_view';
 import readline from 'readline';
 import { deleteEngines, initEntityEngineForEntityTypes } from '../utils/kibana_api';
 import { get } from 'lodash-es';
@@ -214,6 +215,15 @@ const deleteLogsIndex = async (index: string) => {
   return await getEsClient().indices.delete(
     {
       index,
+    },
+    { ignore: [404] }
+  );
+};
+
+const deleteDataStream = async (index: string) => {
+  return await getEsClient().indices.deleteDataStream(
+    {
+      name: index,
     },
     { ignore: [404] }
   );
@@ -512,6 +522,10 @@ export const uploadPerfDataFile = async (
     await deleteAllEntities();
     console.log('All entities deleted');
 
+    console.log('Deleting data stream...');
+    await deleteDataStream(index);
+    console.log('Data stream deleted');
+
     console.log('Deleting logs index...');
     await deleteLogsIndex(index);
     console.log('Logs index deleted');
@@ -581,6 +595,10 @@ export const uploadPerfDataFileInterval = async (
     await deleteAllEntities();
     console.log('All entities deleted');
 
+    console.log('Deleting data stream...');
+    await deleteDataStream(index);
+    console.log('Data stream deleted');
+
     console.log('Deleting logs index...');
     await deleteLogsIndex(index);
     console.log('Logs index deleted');
@@ -592,6 +610,8 @@ export const uploadPerfDataFileInterval = async (
   }
 
   console.log('initialising entity engines');
+
+  await ensureSecurityDefaultDataView('default');
 
   await initEntityEngineForEntityTypes(['host', 'user']);
 
