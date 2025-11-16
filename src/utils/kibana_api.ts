@@ -21,6 +21,8 @@ import {
   DETECTION_ENGINE_RULES_BULK_ACTION_URL,
   API_VERSIONS,
   RISK_SCORE_ENGINE_SCHEDULE_NOW_URL,
+  KIBANA_SETTINGS_URL,
+  KIBANA_SETTINGS_INTERNAL_URL,
 } from '../constants';
 
 export const buildKibanaUrl = (opts: { path: string; space?: string }) => {
@@ -350,7 +352,10 @@ const _deleteEngine = (engineType: string, space?: string) => {
   );
 };
 
-export const deleteEngines = async (entityTypes: string[] = ['host', 'user'], space?: string) => {
+export const deleteEngines = async (
+  entityTypes: string[] = ['host', 'user', 'service', 'generic'],
+  space?: string
+) => {
   const responses = await Promise.all(
     entityTypes.map((entityType) => _deleteEngine(entityType, space))
   );
@@ -366,39 +371,216 @@ const _listEngines = (space?: string) => {
     { apiVersion: API_VERSIONS.public.v1, space }
   );
 
-  return res as Promise<{ engines: Array<{ status: string }> }>;
+  return res as Promise<{
+    engines: Array<{
+      type?: string;
+      name?: string;
+      id?: string;
+      status: string;
+      error?: string;
+      message?: string;
+    }>;
+  }>;
 };
 
-const allEnginesAreStarted = async (space?: string) => {
+const allRequestedEnginesAreStarted = async (entityTypes: string[], space?: string) => {
   const { engines } = await _listEngines(space);
   if (engines.length === 0) {
     return false;
   }
-  return engines.every((engine) => engine.status === 'started');
+
+  // Check that all requested entity types are present and started
+  for (const entityType of entityTypes) {
+    // Try to find engine by type, name, or id field
+    const engine = engines.find(
+      (e) => e.type === entityType || e.name === entityType || e.id === entityType
+    );
+    if (!engine || engine.status !== 'started') {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+const getEngineStatusDetails = async (entityTypes: string[], space?: string) => {
+  const { engines } = await _listEngines(space);
+  const missingEngines = entityTypes.filter(
+    (entityType) =>
+      !engines.find((e) => e.type === entityType || e.name === entityType || e.id === entityType)
+  );
+  const errorEngines = entityTypes.filter((entityType) => {
+    const engine = engines.find(
+      (e) => e.type === entityType || e.name === entityType || e.id === entityType
+    );
+    return engine && engine.status === 'error';
+  });
+  const notStartedEngines = entityTypes.filter((entityType) => {
+    const engine = engines.find(
+      (e) => e.type === entityType || e.name === entityType || e.id === entityType
+    );
+    return engine && engine.status !== 'started' && engine.status !== 'error';
+  });
+
+  return {
+    missingEngines,
+    errorEngines,
+    notStartedEngines,
+    availableEngines: engines.map((e) => ({
+      type: e.type,
+      name: e.name,
+      id: e.id,
+      status: e.status,
+      error: e.error,
+      message: e.message,
+    })),
+  };
+};
+
+/**
+ * Updates Kibana advanced settings.
+ *
+ * @param settings - Dictionary of settings to update in Kibana
+ * @returns The response from the Kibana settings API
+ */
+export const updateKibanaSettings = async (settings: Record<string, unknown>) => {
+  const config = getConfig();
+
+  // Use standard API endpoint by default
+  let path = KIBANA_SETTINGS_URL;
+
+  // Update to serverless endpoint if needed
+  if (config.serverless) {
+    path = KIBANA_SETTINGS_INTERNAL_URL;
+    console.log('Detected serverless deployment, switching to internal API endpoint.');
+  } else {
+    console.log('Using standard Kibana settings API endpoint.');
+  }
+
+  const payload = {
+    changes: settings,
+  };
+
+  try {
+    const response = await kibanaFetch<{ settings: Record<string, unknown> }>(
+      path,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+      {
+        // Settings API might not use API versioning
+        apiVersion: '1',
+      }
+    );
+
+    console.log('Kibana settings updated successfully.');
+    return response;
+  } catch (error) {
+    console.error('Failed to update Kibana settings:', error);
+    throw error;
+  }
+};
+
+/**
+ * Enables the Asset Inventory feature in Kibana.
+ * This is required for generic entity types to work.
+ */
+export const enableAssetInventory = async () => {
+  console.log('Enabling Asset Inventory feature...');
+  await updateKibanaSettings({
+    'securitySolution:enableAssetInventory': true,
+  });
+  console.log('Asset Inventory feature enabled.');
+  // Wait a moment for the setting to take effect
+  await new Promise((resolve) => setTimeout(resolve, 5000));
 };
 
 export const initEntityEngineForEntityTypes = async (
-  entityTypes: string[] = ['host', 'user', 'service'],
+  entityTypes: string[] = ['host', 'user', 'service', 'generic'],
   space?: string
 ) => {
-  if (await allEnginesAreStarted(space)) {
-    console.log('All engines are already started');
+  // Enable Asset Inventory if generic entities are requested
+  if (entityTypes.includes('generic')) {
+    try {
+      await enableAssetInventory();
+    } catch (error) {
+      console.warn('Failed to enable Asset Inventory feature, continuing anyway:', error);
+    }
+  }
+
+  if (await allRequestedEnginesAreStarted(entityTypes, space)) {
+    console.log('All requested engines are already started');
     return;
   }
-  await Promise.all(entityTypes.map((entityType) => _initEngine(entityType, space)));
+
+  console.log(`Initializing engines for types: ${entityTypes.join(', ')}`);
+  const initResults = await Promise.allSettled(
+    entityTypes.map((entityType) => _initEngine(entityType, space))
+  );
+
+  // Log any initialization failures
+  initResults.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      console.error(`Failed to initialize engine for '${entityTypes[index]}':`, result.reason);
+    } else {
+      console.log(`Successfully initialized engine for '${entityTypes[index]}'`);
+    }
+  });
+
   const attempts = 20;
   const delay = 2000;
 
   for (let i = 0; i < attempts; i++) {
     console.log('Checking if all engines are started attempt:', i + 1);
-    if (await allEnginesAreStarted(space)) {
+
+    // Check for engines in error state during polling
+    const statusDetails = await getEngineStatusDetails(entityTypes, space);
+    if (statusDetails.errorEngines.length > 0) {
+      console.warn(
+        `Engines in error state detected: ${statusDetails.errorEngines.join(', ')}. This may indicate a configuration issue.`
+      );
+      if (statusDetails.errorEngines.includes('generic')) {
+        console.warn(
+          'Generic engine is in error state. Ensure Asset Inventory feature is enabled in Kibana advanced settings.'
+        );
+      }
+    }
+
+    if (await allRequestedEnginesAreStarted(entityTypes, space)) {
       console.log('All engines are started');
       return;
     }
     await new Promise((resolve) => setTimeout(resolve, delay));
   }
 
-  throw new Error('Failed to start engines');
+  // Final check with detailed error message
+  const statusDetails = await getEngineStatusDetails(entityTypes, space);
+  let errorMessage = 'Failed to start engines.';
+  if (statusDetails.missingEngines.length > 0) {
+    errorMessage += ` Missing engines: ${statusDetails.missingEngines.join(', ')}.`;
+  }
+  if (statusDetails.errorEngines.length > 0) {
+    errorMessage += ` Engines in error state: ${statusDetails.errorEngines.join(', ')}.`;
+    // Log error details for engines in error state
+    statusDetails.errorEngines.forEach((entityType) => {
+      const engine = statusDetails.availableEngines.find(
+        (e) => e.type === entityType || e.name === entityType || e.id === entityType
+      );
+      if (engine) {
+        console.error(
+          `Engine '${entityType}' error details:`,
+          engine.error || engine.message || 'No error details available'
+        );
+      }
+    });
+  }
+  if (statusDetails.notStartedEngines.length > 0) {
+    errorMessage += ` Engines not started: ${statusDetails.notStartedEngines.join(', ')}.`;
+  }
+  errorMessage += ` Available engines: ${JSON.stringify(statusDetails.availableEngines)}`;
+
+  throw new Error(errorMessage);
 };
 
 export const getAllRules = async (space?: string) => {

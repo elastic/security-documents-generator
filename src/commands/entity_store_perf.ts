@@ -48,6 +48,41 @@ interface UserFields {
   };
 }
 
+interface ServiceFields {
+  entity: EntityFields;
+  service: {
+    name: string;
+    id?: string;
+    type?: string;
+    node?: {
+      roles?: string;
+      name?: string;
+    };
+    environment?: string;
+    address?: string;
+    state?: string;
+    ephemeral_id?: string;
+    version?: string;
+  };
+}
+
+interface GenericEntityFields {
+  entity: EntityFields;
+  event?: {
+    ingested?: string;
+    dataset?: string;
+    module?: string;
+  };
+  cloud?: {
+    provider?: string;
+    region?: string;
+    account?: {
+      name?: string;
+      id?: string;
+    };
+  };
+}
+
 let stop = false;
 
 process.on('SIGINT', () => {
@@ -102,10 +137,20 @@ const getLogsPerEntity = (filePath: string) => {
         if (doc.host) {
           idField = 'host.name';
           idValue = doc.host.name;
-        } else {
+        } else if (doc.user) {
           idField = 'user.name';
           idValue = doc.user.name;
+        } else if (doc.service) {
+          idField = 'service.name';
+          idValue = doc.service.name;
+        } else if (doc.entity) {
+          idField = 'entity.name';
+          idValue = doc.entity.name;
         }
+      }
+
+      if (!idField) {
+        return;
       }
 
       const docId = get(doc, idField);
@@ -169,6 +214,30 @@ const changeUserName = (doc: Record<string, any>, addition: string) => {
   return doc;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const changeServiceName = (doc: Record<string, any>, addition: string) => {
+  const newName = `${doc.service.name}-${addition}`;
+  doc.service.name = newName;
+  doc.service.id = newName;
+  doc.entity.name = newName;
+  doc.entity.id = newName;
+  return doc;
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const changeGenericEntityName = (doc: Record<string, any>, addition: string) => {
+  const newName = `${doc.entity.name}-${addition}`;
+  doc.entity.name = newName;
+  if (doc.entity.id && doc.entity.id.includes(doc.entity.name.split('-').slice(0, -1).join('-'))) {
+    // Update ARN if it contains the name
+    doc.entity.id = doc.entity.id.replace(
+      /([^:]+)$/,
+      `${newName.split('-').slice(0, -1).join('-')}-${addition}`
+    );
+  }
+  return doc;
+};
+
 const generateUserFields = ({ idPrefix, entityIndex }: GeneratorOptions): UserFields => {
   const id = `${idPrefix}-user-${entityIndex}`;
   return {
@@ -186,6 +255,104 @@ const generateUserFields = ({ idPrefix, entityIndex }: GeneratorOptions): UserFi
       domain: `example.${idPrefix}.com`,
       roles: ['admin'],
       email: [`${id}.example.${idPrefix}.com`],
+    },
+  };
+};
+
+const generateServiceFields = ({ idPrefix, entityIndex }: GeneratorOptions): ServiceFields => {
+  const id = `${idPrefix}-service-${entityIndex}`;
+  return {
+    entity: {
+      id: id,
+      name: id,
+      type: 'service',
+      sub_type: 'system',
+      address: `example.${idPrefix}.com`,
+    },
+    service: {
+      id: id,
+      name: id,
+      type: 'system',
+      node: {
+        roles: 'data',
+        name: `${id}-node`,
+      },
+      environment: 'production',
+      address: generateIpAddresses(entityIndex * FIELD_LENGTH, 1)[0],
+      state: 'running',
+      ephemeral_id: `${id}-ephemeral`,
+      version: '8.0.0',
+    },
+  };
+};
+
+const generateGenericEntityFields = ({
+  idPrefix,
+  entityIndex,
+}: GeneratorOptions): GenericEntityFields => {
+  const id = `${idPrefix}-generic-${entityIndex}`;
+  const genericTypes = [
+    { type: 'Messaging Service', subType: 'AWS SNS Topic' },
+    { type: 'Storage Service', subType: 'AWS S3 Bucket' },
+    { type: 'Compute Service', subType: 'AWS EC2 Instance' },
+    { type: 'Database Service', subType: 'AWS RDS Instance' },
+    { type: 'Compute Service', subType: 'AWS Lambda Function' },
+    { type: 'Network Service', subType: 'AWS VPC' },
+    { type: 'Storage Service', subType: 'AWS EBS Volume' },
+    { type: 'Database Service', subType: 'AWS DynamoDB Table' },
+    { type: 'Compute Service', subType: 'AWS ECS Service' },
+    { type: 'Network Service', subType: 'AWS Load Balancer' },
+  ];
+  const taxonomy = genericTypes[entityIndex % genericTypes.length];
+  const regions = ['us-east-1', 'us-west-2', 'eu-west-1', 'eu-central-1', 'ap-southeast-1'];
+  const region = regions[entityIndex % regions.length];
+  const accountId = '123456789012';
+
+  let resourceId: string;
+  if (taxonomy.subType.includes('SNS')) {
+    resourceId = `arn:aws:sns:${region}:${accountId}:${id}`;
+  } else if (taxonomy.subType.includes('S3')) {
+    resourceId = `arn:aws:s3:::${id}`;
+  } else if (taxonomy.subType.includes('EC2')) {
+    resourceId = `arn:aws:ec2:${region}:${accountId}:instance/${id}`;
+  } else if (taxonomy.subType.includes('RDS')) {
+    resourceId = `arn:aws:rds:${region}:${accountId}:db:${id}`;
+  } else if (taxonomy.subType.includes('Lambda')) {
+    resourceId = `arn:aws:lambda:${region}:${accountId}:function:${id}`;
+  } else if (taxonomy.subType.includes('VPC')) {
+    resourceId = `arn:aws:ec2:${region}:${accountId}:vpc/${id}`;
+  } else if (taxonomy.subType.includes('EBS')) {
+    resourceId = `arn:aws:ec2:${region}:${accountId}:volume/${id}`;
+  } else if (taxonomy.subType.includes('DynamoDB')) {
+    resourceId = `arn:aws:dynamodb:${region}:${accountId}:table/${id}`;
+  } else if (taxonomy.subType.includes('ECS')) {
+    resourceId = `arn:aws:ecs:${region}:${accountId}:service/${id}`;
+  } else if (taxonomy.subType.includes('Load Balancer')) {
+    resourceId = `arn:aws:elasticloadbalancing:${region}:${accountId}:loadbalancer/${id}`;
+  } else {
+    resourceId = `arn:aws:${taxonomy.subType.toLowerCase().replace(/\s+/g, '-')}:${region}:${accountId}:${id}`;
+  }
+
+  return {
+    entity: {
+      id: resourceId,
+      name: id,
+      type: taxonomy.type,
+      sub_type: taxonomy.subType,
+      address: `example.${idPrefix}.com`,
+    },
+    event: {
+      ingested: new Date().toISOString(),
+      dataset: 'cloud_asset_inventory.asset_inventory',
+      module: 'cloud_asset_inventory',
+    },
+    cloud: {
+      provider: 'aws',
+      region: region,
+      account: {
+        name: `${idPrefix}-account`,
+        id: accountId,
+      },
     },
   };
 };
@@ -244,6 +411,16 @@ const countEntities = async (baseDomainName: string) => {
           {
             term: {
               'user.domain': `example.${baseDomainName}.com`,
+            },
+          },
+          {
+            term: {
+              'service.name': `example.${baseDomainName}.com`,
+            },
+          },
+          {
+            prefix: {
+              'entity.name': `${baseDomainName}-generic`,
             },
           },
         ],
@@ -324,6 +501,8 @@ const logTransformStatsEvery = (name: string, interval: number): (() => void) =>
   const TRANSFORM_NAMES = [
     'entities-v1-latest-security_host_default',
     'entities-v1-latest-security_user_default',
+    'entities-v1-latest-security_service_default',
+    'entities-v1-latest-security_generic_default',
   ];
 
   let stopCalled = false;
@@ -353,6 +532,81 @@ const logTransformStatsEvery = (name: string, interval: number): (() => void) =>
 
   const int = setInterval(async () => {
     await logTransformStatsEvery();
+
+    if (stopCalled || stop) {
+      clearInterval(int);
+      stream.end();
+    }
+  }, interval);
+
+  return stopCallback;
+};
+
+const logNodeStatsEvery = (name: string, interval: number): (() => void) => {
+  if (config.serverless) {
+    console.log('Skipping node stats on serverless cluster');
+    return () => {};
+  }
+
+  let stopCalled = false;
+
+  const stopCallback = () => {
+    stopCalled = true;
+  };
+
+  const logFile = `${LOGS_DIRECTORY}/${name}-${new Date().toISOString()}-node-stats.log`;
+
+  const stream = fs.createWriteStream(logFile, { flags: 'a' });
+
+  const log = (message: string) => {
+    stream.write(`${new Date().toISOString()} - ${message}\n`);
+  };
+
+  const logNodeStats = async () => {
+    const esClient = getEsClient();
+    // Get node stats with CPU, JVM, and OS metrics
+    const res = await esClient.nodes.stats({
+      metric: ['process', 'jvm', 'os'],
+      human: false, // Get raw numbers, not human-readable format
+    });
+
+    // Extract CPU and performance metrics for each node
+    const nodeStats = Object.entries(res.nodes).map(([nodeId, node]) => ({
+      node_id: nodeId,
+      node_name: node.name,
+      timestamp: new Date().toISOString(),
+      cpu: {
+        percent: node.process?.cpu?.percent, // CPU usage percentage
+        total_in_millis: node.process?.cpu?.total_in_millis, // Total CPU time
+      },
+      jvm: {
+        mem: {
+          heap_used_percent: node.jvm?.mem?.heap_used_percent, // Heap usage %
+          heap_used_in_bytes: node.jvm?.mem?.heap_used_in_bytes,
+          heap_max_in_bytes: node.jvm?.mem?.heap_max_in_bytes,
+        },
+        gc: {
+          collectors: node.jvm?.gc?.collectors, // GC stats
+        },
+      },
+      os: {
+        cpu: {
+          percent: node.os?.cpu?.percent, // OS-level CPU %
+          load_average: node.os?.cpu?.load_average, // Load average (1m, 5m, 15m)
+        },
+        mem: {
+          used_percent: node.os?.mem?.used_percent, // OS memory usage %
+          total_in_bytes: node.os?.mem?.total_in_bytes,
+          free_in_bytes: node.os?.mem?.free_in_bytes,
+        },
+      },
+    }));
+
+    log(JSON.stringify({ nodes: nodeStats }));
+  };
+
+  const int = setInterval(async () => {
+    await logNodeStats();
 
     if (stopCalled || stop) {
       clearInterval(int);
@@ -394,11 +648,19 @@ export const createPerfDataFile = ({
 
   const generateLogs = async () => {
     for (let i = 0; i < entityCount; i++) {
-      // we generate 50/50 host/user entities
-      const entityType = i % 2 === 0 ? 'host' : 'user';
+      // Generate 25% each: host, user, service, generic
+      const entityTypeIndex = i % 4;
+      const entityType =
+        entityTypeIndex === 0
+          ? 'host'
+          : entityTypeIndex === 1
+            ? 'user'
+            : entityTypeIndex === 2
+              ? 'service'
+              : 'generic';
 
-      // user-0 host-0 user-1 host-1 user-2 host-2
-      const entityIndex = Math.floor(i / 2) + 1;
+      // Calculate entity index within its type
+      const entityIndex = Math.floor(i / 4) + 1;
 
       for (let j = 0; j < logsPerEntity; j++) {
         // start index for IP/MAC addresses
@@ -410,16 +672,26 @@ export const createPerfDataFile = ({
           fieldLength: FIELD_LENGTH,
           idPrefix: name,
         };
-        const doc = {
+
+        let doc;
+        if (entityType === 'host') {
+          doc = generateHostFields(generatorOpts);
+        } else if (entityType === 'user') {
+          doc = generateUserFields(generatorOpts);
+        } else if (entityType === 'service') {
+          doc = generateServiceFields(generatorOpts);
+        } else {
+          doc = generateGenericEntityFields(generatorOpts);
+        }
+
+        const finalDoc = {
           // @timestamp is generated on ingest
-          ...(entityType === 'host'
-            ? generateHostFields(generatorOpts)
-            : generateUserFields(generatorOpts)),
+          ...doc,
           message: faker.lorem.sentence(),
           tags: ['entity-store-perf'],
         };
 
-        writeStream.write(JSON.stringify(doc) + '\n');
+        writeStream.write(JSON.stringify(finalDoc) + '\n');
         progress.increment();
       }
 
@@ -540,7 +812,7 @@ export const uploadPerfDataFile = async (
   }
 
   console.log('initialising entity engines');
-  await initEntityEngineForEntityTypes(['host', 'user']);
+  await initEntityEngineForEntityTypes(['host', 'user', 'service', 'generic']);
   console.log('entity engines initialised');
 
   const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
@@ -569,13 +841,16 @@ export const uploadPerfDataFileInterval = async (
 ) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addIdPrefix = (prefix: string) => (doc: Record<string, any>) => {
-    const isHost = !!doc.host;
-
-    if (isHost) {
+    if (doc.host) {
       return changeHostName(doc, prefix);
+    } else if (doc.user) {
+      return changeUserName(doc, prefix);
+    } else if (doc.service) {
+      return changeServiceName(doc, prefix);
+    } else if (doc.entity && doc.cloud) {
+      return changeGenericEntityName(doc, prefix);
     }
-
-    return changeUserName(doc, prefix);
+    return doc;
   };
 
   const index = `logs-perftest.${name}-default`;
@@ -613,7 +888,7 @@ export const uploadPerfDataFileInterval = async (
 
   await ensureSecurityDefaultDataView('default');
 
-  await initEntityEngineForEntityTypes(['host', 'user']);
+  await initEntityEngineForEntityTypes(['host', 'user', 'service', 'generic']);
 
   console.log('entity engines initialised');
 
@@ -629,6 +904,7 @@ export const uploadPerfDataFileInterval = async (
 
   const stopHealthLogging = logClusterHealthEvery(name, 5000);
   const stopTransformsLogging = logTransformStatsEvery(name, 5000);
+  const stopNodeStatsLogging = logNodeStatsEvery(name, 5000);
 
   for (let i = 0; i < uploadCount; i++) {
     if (stop) {
@@ -685,6 +961,7 @@ export const uploadPerfDataFileInterval = async (
 
   stopHealthLogging();
   stopTransformsLogging();
+  stopNodeStatsLogging();
 
   console.log(`Total time: ${tookTotal}ms`);
 };
