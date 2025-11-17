@@ -1,6 +1,7 @@
 import { version } from '../../package.json';
-import { v4 as uuidv4 } from 'uuid';
-const RUN_ID = uuidv4();
+import { faker } from '@faker-js/faker';
+
+const RUN_ID = faker.string.uuid();
 const AUTHOR = 'security-documents-generator';
 const generateMetadata = () => {
   return {
