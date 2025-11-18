@@ -459,6 +459,104 @@ const countEntitiesUntil = async (name: string, count: number) => {
   return total;
 };
 
+const waitForTransformToComplete = async (
+  transformId: string,
+  expectedDocumentsProcessed: number,
+  timeoutMs: number = 1800000 // 30 minutes default timeout
+): Promise<void> => {
+  const esClient = getEsClient();
+  const startTime = Date.now();
+  const pollInterval = 5000; // Check every 5 seconds
+
+  console.log(
+    `Waiting for transform ${transformId} to process ${expectedDocumentsProcessed} documents (timeout: ${timeoutMs / 1000 / 60} minutes)...`
+  );
+
+  // Create progress bar similar to countEntitiesUntil
+  const progress = new cliProgress.SingleBar(
+    {
+      format: 'Progress | {value}/{total} Documents | State: {state}',
+    },
+    cliProgress.Presets.shades_classic
+  );
+  progress.start(expectedDocumentsProcessed, 0, { state: 'checking...' });
+
+  let lastDocumentsProcessed = 0;
+  let stableCount = 0;
+  const stableThreshold = 3; // Consider stable after 3 consecutive checks with same count
+
+  try {
+    while (Date.now() - startTime < timeoutMs) {
+      try {
+        const res = await esClient.transform.getTransformStats({
+          transform_id: transformId,
+        });
+
+        if (res.transforms && res.transforms.length > 0) {
+          const stats = res.transforms[0].stats;
+          const state = res.transforms[0].state;
+          const documentsProcessed = stats.documents_processed || 0;
+
+          // Update progress bar
+          progress.update(documentsProcessed, { state });
+
+          // Check if count is stable (not changing)
+          if (documentsProcessed === lastDocumentsProcessed) {
+            stableCount++;
+          } else {
+            stableCount = 0;
+            lastDocumentsProcessed = documentsProcessed;
+          }
+
+          // Transform is complete when:
+          // 1. State is "started" (not "indexing")
+          // 2. Documents processed >= expected
+          // 3. Count has been stable for a few checks (to ensure it's really done)
+          if (
+            state === 'started' &&
+            documentsProcessed >= expectedDocumentsProcessed &&
+            stableCount >= stableThreshold
+          ) {
+            progress.stop();
+            console.log(
+              `\nTransform ${transformId} completed processing ${documentsProcessed} documents`
+            );
+            return;
+          }
+
+          // If still indexing but reached expected count and stable, wait a bit more
+          if (
+            state === 'indexing' &&
+            documentsProcessed >= expectedDocumentsProcessed &&
+            stableCount >= stableThreshold
+          ) {
+            // Wait a bit more to see if it transitions to "started"
+            progress.update(documentsProcessed, {
+              state: `${state} (waiting for completion...)`,
+            });
+            await new Promise((resolve) => setTimeout(resolve, 10000));
+            continue;
+          }
+        }
+      } catch (error) {
+        console.warn(`\nError checking transform stats: ${error}`);
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+    }
+
+    progress.stop();
+    throw new Error(
+      `Timeout waiting for transform ${transformId} to process ${expectedDocumentsProcessed} documents after ${timeoutMs / 1000 / 60} minutes`
+    );
+  } finally {
+    // Ensure progress bar is stopped even if there's an error
+    if (progress) {
+      progress.stop();
+    }
+  }
+};
+
 const logClusterHealthEvery = (name: string, interval: number): (() => void) => {
   if (config.serverless) {
     console.log('Skipping cluster health on serverless cluster');
@@ -837,7 +935,9 @@ export const uploadPerfDataFileInterval = async (
   intervalMs: number,
   uploadCount: number,
   deleteEntities?: boolean,
-  doDeleteEngines?: boolean
+  doDeleteEngines?: boolean,
+  transformTimeoutMs?: number,
+  samplingIntervalMs?: number
 ) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addIdPrefix = (prefix: string) => (doc: Record<string, any>) => {
@@ -902,9 +1002,12 @@ export const uploadPerfDataFileInterval = async (
 
   let previousUpload = Promise.resolve();
 
-  const stopHealthLogging = logClusterHealthEvery(name, 5000);
-  const stopTransformsLogging = logTransformStatsEvery(name, 5000);
-  const stopNodeStatsLogging = logNodeStatsEvery(name, 5000);
+  // Use configurable sampling interval, default to 5 seconds (5000ms)
+  const samplingInterval = samplingIntervalMs ?? 5000;
+
+  const stopHealthLogging = logClusterHealthEvery(name, samplingInterval);
+  const stopTransformsLogging = logTransformStatsEvery(name, samplingInterval);
+  const stopNodeStatsLogging = logNodeStatsEvery(name, samplingInterval);
 
   for (let i = 0; i < uploadCount; i++) {
     if (stop) {
@@ -956,6 +1059,25 @@ export const uploadPerfDataFileInterval = async (
   console.log(`Data file ${name} uploaded to index ${index} in ${ingestTook}ms`);
 
   await countEntitiesUntil(name, entityCount * uploadCount);
+
+  // Wait for generic transform to finish processing all documents
+  // Generic transform processes ALL documents (host + user + service + generic)
+  const totalDocumentsIngested = lineCount * uploadCount;
+  const timeout = transformTimeoutMs ?? 1800000; // Default 30 minutes
+  console.log(
+    `Waiting for generic transform to process ${totalDocumentsIngested} documents (timeout: ${timeout / 1000 / 60} minutes)...`
+  );
+  try {
+    await waitForTransformToComplete(
+      'entities-v1-latest-security_generic_default',
+      totalDocumentsIngested,
+      timeout
+    );
+  } catch (error) {
+    console.warn(
+      `Warning: ${error instanceof Error ? error.message : 'Failed to wait for transform completion'}. Continuing...`
+    );
+  }
 
   const tookTotal = Date.now() - startTime;
 
