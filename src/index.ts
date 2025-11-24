@@ -16,6 +16,8 @@ import {
   listPerfDataFiles,
   uploadPerfDataFile,
   uploadPerfDataFileInterval,
+  ENTITY_DISTRIBUTIONS,
+  DistributionType,
 } from './commands/entity_store_perf';
 import { checkbox, input } from '@inquirer/prompts';
 import {
@@ -210,9 +212,29 @@ program
   .argument('<entity-count>', 'number of entities', parseIntBase10)
   .argument('<logs-per-entity>', 'number of logs per entity', parseIntBase10)
   .argument('[start-index]', 'for sequential data, which index to start at', parseIntBase10, 0)
+  .option(
+    '--distribution <type>',
+    `Entity distribution type: equal (25% each), standard (33/33/33/1) (default: standard)`,
+    'standard'
+  )
   .description('Create performance data')
-  .action((name, entityCount, logsPerEntity, startIndex) => {
-    createPerfDataFile({ name, entityCount, logsPerEntity, startIndex });
+  .action((name, entityCount, logsPerEntity, startIndex, options) => {
+    const distributionType = options.distribution as DistributionType;
+
+    // Validate distribution type
+    if (!ENTITY_DISTRIBUTIONS[distributionType]) {
+      console.error(`❌ Invalid distribution type: ${distributionType}`);
+      console.error(`   Available types: ${Object.keys(ENTITY_DISTRIBUTIONS).join(', ')}`);
+      process.exit(1);
+    }
+
+    createPerfDataFile({
+      name,
+      entityCount,
+      logsPerEntity,
+      startIndex,
+      distribution: distributionType,
+    });
   });
 
 program

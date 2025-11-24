@@ -27,6 +27,11 @@ interface EntityTypeMetrics {
   documentsIndexed: number;
   pagesProcessed: number;
   triggerCount: number;
+  sampleCounts?: {
+    search: number;
+    index: number;
+    processing: number;
+  };
 }
 
 export interface BaselineMetrics {
@@ -271,6 +276,59 @@ const parseTransformStats = (
     }
   > = {};
 
+  // First pass: Collect timestamps to detect sampling interval
+  // Group timestamps by sampling batch (transforms are logged together sequentially)
+  const sampleTimestamps: number[] = [];
+  let lastBatchTime: number | null = null;
+  const BATCH_TOLERANCE_MS = 100; // Consider entries within 100ms as same batch
+
+  for (const line of lines) {
+    try {
+      const match = line.match(
+        /^(\d{4}-\d{2}-\d{2}T[\d:.-]+Z)\s+-\s+Transform\s+(.+?)\s+stats:\s+(.+)$/
+      );
+      if (match) {
+        const timestamp = new Date(match[1]).getTime();
+
+        // Only add timestamp if it's from a new batch (not within tolerance of last batch)
+        // This handles the case where 4 transforms are logged sequentially in quick succession
+        if (lastBatchTime === null || Math.abs(timestamp - lastBatchTime) > BATCH_TOLERANCE_MS) {
+          sampleTimestamps.push(timestamp);
+          lastBatchTime = timestamp;
+        }
+      }
+    } catch {
+      // Skip malformed lines
+    }
+  }
+
+  // Detect average sampling interval from timestamps
+  let avgSamplingInterval = 5000; // Default to 5 seconds
+  if (sampleTimestamps.length > 1) {
+    const intervals: number[] = [];
+    for (let i = 1; i < sampleTimestamps.length; i++) {
+      const interval = sampleTimestamps[i] - sampleTimestamps[i - 1];
+      if (interval > 0 && interval < 60000) {
+        // Only consider intervals between 0 and 60 seconds (reasonable range)
+        intervals.push(interval);
+      }
+    }
+    if (intervals.length > 0) {
+      // Use median interval to avoid outliers
+      intervals.sort((a, b) => a - b);
+      avgSamplingInterval = intervals[Math.floor(intervals.length / 2)];
+    }
+  }
+
+  // Adjust thresholds based on sampling interval (normalize to 5-second baseline)
+  // For 1-second sampling (0.2x), thresholds should be 0.2x of baseline
+  // For 5-second sampling (1.0x), thresholds remain at baseline
+  const intervalMultiplier = avgSamplingInterval / 5000; // 1.0 for 5s, 0.2 for 1s
+  const searchThreshold = Math.max(1, Math.floor(5 * intervalMultiplier));
+  const indexThreshold = Math.max(1, Math.floor(10 * intervalMultiplier));
+  const processingThreshold = Math.max(1, Math.floor(5 * intervalMultiplier));
+
+  // Second pass: Process data with adaptive thresholds
   for (const line of lines) {
     try {
       const match = line.match(
@@ -325,12 +383,12 @@ const parseTransformStats = (
       }
 
       // Calculate incremental search latency
-      // Only include samples with meaningful activity (at least 5 searches) to reduce noise
+      // Use adaptive threshold based on sampling interval
       const incrementalSearchTime =
         (stats.search_time_in_ms || 0) - prevValues[transformId].searchTime;
       const incrementalSearchTotal =
         (stats.search_total || 0) - prevValues[transformId].searchTotal;
-      if (incrementalSearchTotal >= 5 && incrementalSearchTime >= 0) {
+      if (incrementalSearchTotal >= searchThreshold && incrementalSearchTime >= 0) {
         const incrementalSearchLatency = incrementalSearchTime / incrementalSearchTotal;
         searchLatencies.push(incrementalSearchLatency);
         if (entityType) {
@@ -339,11 +397,11 @@ const parseTransformStats = (
       }
 
       // Calculate incremental index latency
-      // Only include samples with meaningful activity (at least 10 index operations) to reduce noise
+      // Use adaptive threshold based on sampling interval
       const incrementalIndexTime =
         (stats.index_time_in_ms || 0) - prevValues[transformId].indexTime;
       const incrementalIndexTotal = (stats.index_total || 0) - prevValues[transformId].indexTotal;
-      if (incrementalIndexTotal >= 10 && incrementalIndexTime >= 0) {
+      if (incrementalIndexTotal >= indexThreshold && incrementalIndexTime >= 0) {
         const incrementalIndexLatency = incrementalIndexTime / incrementalIndexTotal;
         indexLatencies.push(incrementalIndexLatency);
         if (entityType) {
@@ -352,12 +410,12 @@ const parseTransformStats = (
       }
 
       // Calculate incremental processing latency
-      // Only include samples with meaningful activity (at least 5 processing operations) to reduce noise
+      // Use adaptive threshold based on sampling interval
       const incrementalProcessingTime =
         (stats.processing_time_in_ms || 0) - prevValues[transformId].processingTime;
       const incrementalProcessingTotal =
         (stats.processing_total || 0) - prevValues[transformId].processingTotal;
-      if (incrementalProcessingTotal >= 5 && incrementalProcessingTime >= 0) {
+      if (incrementalProcessingTotal >= processingThreshold && incrementalProcessingTime >= 0) {
         const incrementalProcessingLatency = incrementalProcessingTime / incrementalProcessingTotal;
         processingLatencies.push(incrementalProcessingLatency);
         if (entityType) {
@@ -735,6 +793,11 @@ export const extractBaselineMetrics = async (
       pagesProcessed:
         entityData.pagesProcessed.length > 0 ? Math.max(...entityData.pagesProcessed) : 0,
       triggerCount: entityData.triggerCounts.length > 0 ? Math.max(...entityData.triggerCounts) : 0,
+      sampleCounts: {
+        search: entityData.searchLatencies.length,
+        index: entityData.indexLatencies.length,
+        processing: entityData.processingLatencies.length,
+      },
     };
   };
 

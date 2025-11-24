@@ -362,6 +362,59 @@ const directoryName = dirname(fileURLToPath(import.meta.url));
 const DATA_DIRECTORY = directoryName + '/../../data/entity_store_perf_data';
 const LOGS_DIRECTORY = directoryName + '/../../logs';
 
+/**
+ * Predefined entity distribution presets
+ */
+export const ENTITY_DISTRIBUTIONS = {
+  // Equal distribution: 25% each
+  equal: {
+    user: 0.25,
+    host: 0.25,
+    generic: 0.25,
+    service: 0.25,
+  },
+  // Standard distribution: 33% users, 33% hosts, 33% generic, 1% service
+  standard: {
+    user: 0.33,
+    host: 0.33,
+    generic: 0.33,
+    service: 0.01,
+  },
+} as const;
+
+export type DistributionType = keyof typeof ENTITY_DISTRIBUTIONS;
+export type EntityType = 'user' | 'host' | 'service' | 'generic';
+
+export const DEFAULT_DISTRIBUTION: DistributionType = 'standard';
+
+/**
+ * Get entity distribution by type
+ */
+export const getEntityDistribution = (type: DistributionType = DEFAULT_DISTRIBUTION) => {
+  return ENTITY_DISTRIBUTIONS[type];
+};
+
+/**
+ * Calculate entity counts for each type based on total entity count and distribution
+ */
+export const calculateEntityCounts = (
+  totalEntityCount: number,
+  distribution = getEntityDistribution()
+) => {
+  const userCount = Math.floor(totalEntityCount * distribution.user);
+  const hostCount = Math.floor(totalEntityCount * distribution.host);
+  const genericCount = Math.floor(totalEntityCount * distribution.generic);
+  const serviceCount = totalEntityCount - userCount - hostCount - genericCount; // Remaining
+
+  return {
+    user: userCount,
+    host: hostCount,
+    generic: genericCount,
+    service: serviceCount,
+    total: totalEntityCount,
+  };
+};
+
 const getFilePath = (name: string) => {
   return `${DATA_DIRECTORY}/${name}${name.endsWith('.jsonl') ? '' : '.jsonl'}`;
 };
@@ -475,15 +528,16 @@ const waitForTransformToComplete = async (
   // Create progress bar similar to countEntitiesUntil
   const progress = new cliProgress.SingleBar(
     {
-      format: 'Progress | {value}/{total} Documents | State: {state}',
+      format: 'Progress | {value}/{total} Documents | Checkpoint: {checkpoint}',
     },
     cliProgress.Presets.shades_classic
   );
-  progress.start(expectedDocumentsProcessed, 0, { state: 'checking...' });
+  progress.start(expectedDocumentsProcessed, 0, { checkpoint: 0 });
 
-  let lastDocumentsProcessed = 0;
-  let stableCount = 0;
-  const stableThreshold = 3; // Consider stable after 3 consecutive checks with same count
+  let lastCheckpoint = 0;
+  let stableCheckpointCount = 0;
+  const stableCheckpointThreshold = 3; // Consider stable after 3 consecutive checks with same checkpoint
+  const checkpointStableTimeMs = 10000; // Consider stable if checkpoint hasn't changed in 10 seconds
 
   try {
     while (Date.now() - startTime < timeoutMs) {
@@ -494,48 +548,40 @@ const waitForTransformToComplete = async (
 
         if (res.transforms && res.transforms.length > 0) {
           const stats = res.transforms[0].stats;
-          const state = res.transforms[0].state;
           const documentsProcessed = stats.documents_processed || 0;
+          const checkpointing = res.transforms[0].checkpointing;
+          const currentCheckpoint = checkpointing?.last?.checkpoint || 0;
+          const checkpointTimestamp = checkpointing?.last?.timestamp_millis || 0;
 
           // Update progress bar
-          progress.update(documentsProcessed, { state });
+          progress.update(documentsProcessed, { checkpoint: currentCheckpoint });
 
-          // Check if count is stable (not changing)
-          if (documentsProcessed === lastDocumentsProcessed) {
-            stableCount++;
+          // Check if checkpoint is stable (not changing)
+          if (currentCheckpoint === lastCheckpoint) {
+            stableCheckpointCount++;
           } else {
-            stableCount = 0;
-            lastDocumentsProcessed = documentsProcessed;
+            stableCheckpointCount = 0;
+            lastCheckpoint = currentCheckpoint;
           }
 
-          // Transform is complete when:
-          // 1. State is "started" (not "indexing")
-          // 2. Documents processed >= expected
-          // 3. Count has been stable for a few checks (to ensure it's really done)
+          // Check if checkpoint has been stable for a while
+          const timeSinceLastCheckpoint = Date.now() - checkpointTimestamp;
+          const checkpointStable = timeSinceLastCheckpoint >= checkpointStableTimeMs;
+
+          // Transform has finished processing when:
+          // 1. Documents processed >= expected
+          // 2. Checkpoint has been stable for several checks (not incrementing)
+          // 3. Checkpoint timestamp indicates it's been stable for a while
           if (
-            state === 'started' &&
             documentsProcessed >= expectedDocumentsProcessed &&
-            stableCount >= stableThreshold
+            stableCheckpointCount >= stableCheckpointThreshold &&
+            checkpointStable
           ) {
             progress.stop();
             console.log(
-              `\nTransform ${transformId} completed processing ${documentsProcessed} documents`
+              `\nTransform ${transformId} completed processing ${documentsProcessed} documents (checkpoint: ${currentCheckpoint})`
             );
             return;
-          }
-
-          // If still indexing but reached expected count and stable, wait a bit more
-          if (
-            state === 'indexing' &&
-            documentsProcessed >= expectedDocumentsProcessed &&
-            stableCount >= stableThreshold
-          ) {
-            // Wait a bit more to see if it transitions to "started"
-            progress.update(documentsProcessed, {
-              state: `${state} (waiting for completion...)`,
-            });
-            await new Promise((resolve) => setTimeout(resolve, 10000));
-            continue;
           }
         }
       } catch (error) {
@@ -720,15 +766,26 @@ export const createPerfDataFile = ({
   logsPerEntity,
   startIndex,
   name,
+  distribution = DEFAULT_DISTRIBUTION,
 }: {
   name: string;
   entityCount: number;
   logsPerEntity: number;
   startIndex: number;
+  distribution?: DistributionType;
 }) => {
   const filePath = getFilePath(name);
+  const dist = getEntityDistribution(distribution);
+  const entityCounts = calculateEntityCounts(entityCount, dist);
+
   console.log(
-    `Creating performance data file ${name} at with ${entityCount} entities and ${logsPerEntity} logs per entity. Starting at index ${startIndex}`
+    `Creating performance data file ${name} with ${entityCount} entities and ${logsPerEntity} logs per entity. Starting at index ${startIndex}`
+  );
+  console.log(
+    `Distribution (${distribution}): ${entityCounts.user} users (${(dist.user * 100).toFixed(1)}%), ` +
+      `${entityCounts.host} hosts (${(dist.host * 100).toFixed(1)}%), ` +
+      `${entityCounts.service} services (${(dist.service * 100).toFixed(1)}%), ` +
+      `${entityCounts.generic} generic entities (${(dist.generic * 100).toFixed(1)}%)`
   );
 
   if (fs.existsSync(filePath)) {
@@ -744,58 +801,65 @@ export const createPerfDataFile = ({
   // we will write to the file as we generate the data to avoid running out of memory
   const writeStream = fs.createWriteStream(filePath, { flags: 'a' });
 
+  // Map entity types to their generator functions for cleaner code
+  const entityGenerators: Record<
+    EntityType,
+    (opts: GeneratorOptions) => HostFields | UserFields | ServiceFields | GenericEntityFields
+  > = {
+    host: generateHostFields,
+    user: generateUserFields,
+    service: generateServiceFields,
+    generic: generateGenericEntityFields,
+  };
+
   const generateLogs = async () => {
-    for (let i = 0; i < entityCount; i++) {
-      // Generate 25% each: host, user, service, generic
-      const entityTypeIndex = i % 4;
-      const entityType =
-        entityTypeIndex === 0
-          ? 'host'
-          : entityTypeIndex === 1
-            ? 'user'
-            : entityTypeIndex === 2
-              ? 'service'
-              : 'generic';
+    let globalEntityIndex = 0;
 
-      // Calculate entity index within its type
-      const entityIndex = Math.floor(i / 4) + 1;
+    // Generate entities in order: users, hosts, services, generic
+    const entityOrder: Array<{ type: EntityType; count: number }> = [
+      { type: 'user', count: entityCounts.user },
+      { type: 'host', count: entityCounts.host },
+      { type: 'service', count: entityCounts.service },
+      { type: 'generic', count: entityCounts.generic },
+    ];
 
-      for (let j = 0; j < logsPerEntity; j++) {
-        // start index for IP/MAC addresses
-        // host-0: 0-1, host-1: 2-3, host-2: 4-5
-        const valueStartIndex = startIndex + j * FIELD_LENGTH;
-        const generatorOpts = {
-          entityIndex,
-          valueStartIndex: valueStartIndex,
-          fieldLength: FIELD_LENGTH,
-          idPrefix: name,
-        };
+    for (const { type, count } of entityOrder) {
+      for (let i = 0; i < count; i++) {
+        const entityIndex = i + 1; // 1-based index for entity within its type
 
-        let doc;
-        if (entityType === 'host') {
-          doc = generateHostFields(generatorOpts);
-        } else if (entityType === 'user') {
-          doc = generateUserFields(generatorOpts);
-        } else if (entityType === 'service') {
-          doc = generateServiceFields(generatorOpts);
-        } else {
-          doc = generateGenericEntityFields(generatorOpts);
+        for (let j = 0; j < logsPerEntity; j++) {
+          // Fix: Calculate valueStartIndex to ensure unique IP/MAC addresses per entity
+          // Each entity gets a unique range: entity 0 uses 0-1, entity 1 uses 2-3, etc.
+          // Each log within an entity also gets unique values
+          const valueStartIndex =
+            startIndex + globalEntityIndex * logsPerEntity * FIELD_LENGTH + j * FIELD_LENGTH;
+
+          const generatorOpts = {
+            entityIndex,
+            valueStartIndex,
+            fieldLength: FIELD_LENGTH,
+            idPrefix: name,
+          };
+
+          // Use map lookup instead of if/else chain
+          const doc = entityGenerators[type](generatorOpts);
+
+          const finalDoc = {
+            ...doc,
+            message: faker.lorem.sentence(),
+            tags: ['entity-store-perf'],
+          };
+
+          writeStream.write(JSON.stringify(finalDoc) + '\n');
+          progress.increment();
         }
 
-        const finalDoc = {
-          // @timestamp is generated on ingest
-          ...doc,
-          message: faker.lorem.sentence(),
-          tags: ['entity-store-perf'],
-        };
-
-        writeStream.write(JSON.stringify(finalDoc) + '\n');
-        progress.increment();
+        globalEntityIndex++;
+        // Yield to the event loop to prevent blocking
+        await new Promise((resolve) => setImmediate(resolve));
       }
-
-      // Yield to the event loop to prevent blocking
-      await new Promise((resolve) => setImmediate(resolve));
     }
+
     progress.stop();
     console.log(`Data file ${filePath} created`);
   };
