@@ -197,4 +197,3 @@ export interface TransformStatsData {
     generic: EntityTypeData;
   };
 }
-

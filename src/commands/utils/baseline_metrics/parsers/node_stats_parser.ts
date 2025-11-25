@@ -65,4 +65,3 @@ export const parseNodeStats = (
     timestamps,
   };
 };
-

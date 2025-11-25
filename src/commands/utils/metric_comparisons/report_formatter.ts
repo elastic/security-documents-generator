@@ -19,12 +19,7 @@ const getDecimalPlaces = (baseline: number, current: number): number => {
 /**
  * Helper function to format values - integers without decimals, others with adaptive precision
  */
-const formatValue = (
-  value: number,
-  metric: string,
-  baseline: number,
-  current: number
-): string => {
+const formatValue = (value: number, metric: string, baseline: number, current: number): string => {
   // Check if this is an integer metric
   const isIntegerMetric =
     metric.includes('Documents Processed') ||
@@ -170,4 +165,3 @@ export const formatComparisonReport = (report: ComparisonReport): string => {
 
   return lines.join('\n');
 };
-

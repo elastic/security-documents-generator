@@ -41,4 +41,3 @@ export const parseClusterHealth = (
 
   return { statuses, activeShards, unassignedShards };
 };
-

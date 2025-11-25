@@ -154,4 +154,3 @@ export const loadBaselineWithPattern = (
 
   return { baseline, path: baselinePath };
 };
-

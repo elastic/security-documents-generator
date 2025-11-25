@@ -239,4 +239,3 @@ export const compareEntityMetrics = (
 
   return results;
 };
-

@@ -18,7 +18,13 @@ export const compareSystemMetrics = (
     createResult('CPU (avg)', baseline.metrics.cpu.avg, current.metrics.cpu.avg, false, thresholds)
   );
   results.push(
-    createResult('CPU (peak)', baseline.metrics.cpu.peak, current.metrics.cpu.peak, false, thresholds)
+    createResult(
+      'CPU (peak)',
+      baseline.metrics.cpu.peak,
+      current.metrics.cpu.peak,
+      false,
+      thresholds
+    )
   );
 
   // Memory metrics
@@ -181,4 +187,3 @@ export const compareSystemMetrics = (
 
   return results;
 };
-

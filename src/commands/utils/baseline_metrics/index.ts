@@ -21,7 +21,13 @@ import {
 export type { BaselineMetrics } from './types';
 
 // Re-export storage functions
-export { saveBaseline, loadBaseline, listBaselines, findBaselineByPattern, loadBaselineWithPattern };
+export {
+  saveBaseline,
+  loadBaseline,
+  listBaselines,
+  findBaselineByPattern,
+  loadBaselineWithPattern,
+};
 
 /**
  * Extract baseline metrics from log files
@@ -139,4 +145,3 @@ export const extractBaselineMetrics = async (
 
   return baseline;
 };
-

@@ -70,9 +70,7 @@ export interface KibanaMetrics {
 /**
  * Calculate Kibana metrics from Kibana stats data
  */
-export const calculateKibanaMetrics = (
-  kibanaData: KibanaStatsData | null
-): KibanaMetrics => {
+export const calculateKibanaMetrics = (kibanaData: KibanaStatsData | null): KibanaMetrics => {
   if (!kibanaData) {
     return {
       eventLoop: {
@@ -135,8 +133,7 @@ export const calculateKibanaMetrics = (
                 99
               )
             : 0,
-        max:
-          kibanaData.eventLoopDelays.length > 0 ? Math.max(...kibanaData.eventLoopDelays) : 0,
+        max: kibanaData.eventLoopDelays.length > 0 ? Math.max(...kibanaData.eventLoopDelays) : 0,
       },
       utilization: {
         avg:
@@ -171,8 +168,7 @@ export const calculateKibanaMetrics = (
         kibanaData.responseTimes.length > 0
           ? kibanaData.responseTimes.reduce((a, b) => a + b, 0) / kibanaData.responseTimes.length
           : 0,
-      max:
-        kibanaData.maxResponseTimes.length > 0 ? Math.max(...kibanaData.maxResponseTimes) : 0,
+      max: kibanaData.maxResponseTimes.length > 0 ? Math.max(...kibanaData.maxResponseTimes) : 0,
     },
     memory: {
       avgHeapBytes:
@@ -198,9 +194,7 @@ export const calculateKibanaMetrics = (
             kibanaData.requestErrorCounts.length
           : 0,
       disconnects:
-        kibanaData.requestDisconnects.length > 0
-          ? Math.max(...kibanaData.requestDisconnects)
-          : 0,
+        kibanaData.requestDisconnects.length > 0 ? Math.max(...kibanaData.requestDisconnects) : 0,
     },
     osLoad: {
       avg1m:
@@ -219,4 +213,3 @@ export const calculateKibanaMetrics = (
     },
   };
 };
-

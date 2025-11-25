@@ -233,4 +233,3 @@ export const compareKibanaMetrics = (
 
   return results;
 };
-

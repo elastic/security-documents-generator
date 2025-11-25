@@ -40,4 +40,3 @@ export const percentile = (sortedArray: number[], percentile: number): number =>
   const index = Math.ceil((percentile / 100) * sortedArray.length) - 1;
   return sortedArray[Math.max(0, index)];
 };
-

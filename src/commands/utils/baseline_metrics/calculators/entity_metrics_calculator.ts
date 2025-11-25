@@ -24,8 +24,7 @@ const calculateEntityTypeMetrics = (entityData: EntityTypeData): EntityTypeMetri
     intakeLatency: {
       avg:
         entityData.indexLatencies.length > 0
-          ? entityData.indexLatencies.reduce((a, b) => a + b, 0) /
-            entityData.indexLatencies.length
+          ? entityData.indexLatencies.reduce((a, b) => a + b, 0) / entityData.indexLatencies.length
           : 0,
       p50: percentile(sortedIndex, 50),
       p95: percentile(sortedIndex, 95),
@@ -42,9 +41,7 @@ const calculateEntityTypeMetrics = (entityData: EntityTypeData): EntityTypeMetri
       p95: percentile(sortedProcessing, 95),
       p99: percentile(sortedProcessing, 99),
       max:
-        entityData.processingLatencies.length > 0
-          ? Math.max(...entityData.processingLatencies)
-          : 0,
+        entityData.processingLatencies.length > 0 ? Math.max(...entityData.processingLatencies) : 0,
     },
     // Use MAX values (final cumulative values) instead of summing
     documentsProcessed:
@@ -80,4 +77,3 @@ export const calculateEntityMetrics = (
     generic: calculateEntityTypeMetrics(transformData.perEntityType.generic),
   };
 };
-
