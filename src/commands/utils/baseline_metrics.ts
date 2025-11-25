@@ -137,12 +137,17 @@ const percentile = (sortedArray: number[], percentile: number): number => {
   return sortedArray[Math.max(0, index)];
 };
 
-/**
- * Parse transform stats log and extract metrics
- */
-const parseTransformStats = (
-  logPath: string
-): {
+interface EntityTypeData {
+  searchLatencies: number[];
+  indexLatencies: number[];
+  processingLatencies: number[];
+  documentsProcessed: number[];
+  documentsIndexed: number[];
+  pagesProcessed: number[];
+  triggerCounts: number[];
+}
+
+interface TransformStatsData {
   searchLatencies: number[];
   indexLatencies: number[];
   processingLatencies: number[];
@@ -163,44 +168,17 @@ const parseTransformStats = (
     started: number;
   };
   perEntityType: {
-    host: {
-      searchLatencies: number[];
-      indexLatencies: number[];
-      processingLatencies: number[];
-      documentsProcessed: number[];
-      documentsIndexed: number[];
-      pagesProcessed: number[];
-      triggerCounts: number[];
-    };
-    user: {
-      searchLatencies: number[];
-      indexLatencies: number[];
-      processingLatencies: number[];
-      documentsProcessed: number[];
-      documentsIndexed: number[];
-      pagesProcessed: number[];
-      triggerCounts: number[];
-    };
-    service: {
-      searchLatencies: number[];
-      indexLatencies: number[];
-      processingLatencies: number[];
-      documentsProcessed: number[];
-      documentsIndexed: number[];
-      pagesProcessed: number[];
-      triggerCounts: number[];
-    };
-    generic: {
-      searchLatencies: number[];
-      indexLatencies: number[];
-      processingLatencies: number[];
-      documentsProcessed: number[];
-      documentsIndexed: number[];
-      pagesProcessed: number[];
-      triggerCounts: number[];
-    };
+    host: EntityTypeData;
+    user: EntityTypeData;
+    service: EntityTypeData;
+    generic: EntityTypeData;
   };
-} => {
+}
+
+/**
+ * Parse transform stats log and extract metrics
+ */
+const parseTransformStats = (logPath: string): TransformStatsData => {
   const content = fs.readFileSync(logPath, 'utf-8');
   const lines = content.split('\n').filter((line) => line.trim());
 
@@ -308,8 +286,8 @@ const parseTransformStats = (
     const intervals: number[] = [];
     for (let i = 1; i < sampleTimestamps.length; i++) {
       const interval = sampleTimestamps[i] - sampleTimestamps[i - 1];
-      if (interval > 0 && interval < 60000) {
-        // Only consider intervals between 0 and 60 seconds (reasonable range)
+      if (interval > 0 && interval < 300000) {
+        // Only consider intervals between 0 and 300 seconds (5 minutes, reasonable range)
         intervals.push(interval);
       }
     }

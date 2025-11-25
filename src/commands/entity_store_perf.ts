@@ -467,8 +467,8 @@ const countEntities = async (baseDomainName: string) => {
             },
           },
           {
-            term: {
-              'service.name': `example.${baseDomainName}.com`,
+            prefix: {
+              'service.name': `${baseDomainName}-service-`,
             },
           },
           {
@@ -828,7 +828,7 @@ export const createPerfDataFile = ({
         const entityIndex = i + 1; // 1-based index for entity within its type
 
         for (let j = 0; j < logsPerEntity; j++) {
-          // Fix: Calculate valueStartIndex to ensure unique IP/MAC addresses per entity
+          // Fix: Calculate valueStartIndex to ensure unique IP addresses per entity
           // Each entity gets a unique range: entity 0 uses 0-1, entity 1 uses 2-3, etc.
           // Each log within an entity also gets unique values
           const valueStartIndex =
