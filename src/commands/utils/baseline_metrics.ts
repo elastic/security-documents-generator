@@ -123,6 +123,10 @@ export interface BaselineMetrics {
 
 const BASELINES_DIR = path.join(process.cwd(), 'baselines');
 
+// Maximum reasonable sampling interval (5 minutes in milliseconds)
+// Used to filter out invalid intervals when detecting sampling frequency
+const MAX_REASONABLE_SAMPLING_INTERVAL_MS = 300000;
+
 // Ensure baselines directory exists
 if (!fs.existsSync(BASELINES_DIR)) {
   fs.mkdirSync(BASELINES_DIR, { recursive: true });
@@ -286,8 +290,8 @@ const parseTransformStats = (logPath: string): TransformStatsData => {
     const intervals: number[] = [];
     for (let i = 1; i < sampleTimestamps.length; i++) {
       const interval = sampleTimestamps[i] - sampleTimestamps[i - 1];
-      if (interval > 0 && interval < 300000) {
-        // Only consider intervals between 0 and 300 seconds (5 minutes, reasonable range)
+      if (interval > 0 && interval < MAX_REASONABLE_SAMPLING_INTERVAL_MS) {
+        // Only consider intervals between 0 and MAX_REASONABLE_SAMPLING_INTERVAL_MS (5 minutes, reasonable range)
         intervals.push(interval);
       }
     }

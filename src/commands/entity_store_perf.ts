@@ -13,6 +13,12 @@ import * as path from 'path';
 
 const config = getConfig();
 
+// Checkpoint stability configuration for transform completion detection
+// Consider checkpoint stable if it hasn't changed in this duration (10 seconds)
+const CHECKPOINT_STABLE_TIME_MS = 10000;
+// Consider stable after this many consecutive checks with the same checkpoint
+const STABLE_CHECKPOINT_THRESHOLD = 3;
+
 interface EntityFields {
   id: string;
   name: string;
@@ -552,8 +558,6 @@ const waitForTransformToComplete = async (
 
   let lastCheckpoint = 0;
   let stableCheckpointCount = 0;
-  const stableCheckpointThreshold = 3; // Consider stable after 3 consecutive checks with same checkpoint
-  const checkpointStableTimeMs = 10000; // Consider stable if checkpoint hasn't changed in 10 seconds
 
   try {
     while (Date.now() - startTime < timeoutMs) {
@@ -582,7 +586,7 @@ const waitForTransformToComplete = async (
 
           // Check if checkpoint has been stable for a while
           const timeSinceLastCheckpoint = Date.now() - checkpointTimestamp;
-          const checkpointStable = timeSinceLastCheckpoint >= checkpointStableTimeMs;
+          const checkpointStable = timeSinceLastCheckpoint >= CHECKPOINT_STABLE_TIME_MS;
 
           // Transform has finished processing when:
           // 1. Documents processed >= expected
@@ -590,7 +594,7 @@ const waitForTransformToComplete = async (
           // 3. Checkpoint timestamp indicates it's been stable for a while
           if (
             documentsProcessed >= expectedDocumentsProcessed &&
-            stableCheckpointCount >= stableCheckpointThreshold &&
+            stableCheckpointCount >= STABLE_CHECKPOINT_THRESHOLD &&
             checkpointStable
           ) {
             progress.stop();

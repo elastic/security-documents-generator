@@ -301,7 +301,8 @@ export const compareMetrics = (
     createResult(
       'Index Efficiency (ratio)',
       baseline.metrics.indexEfficiency.avgRatio,
-      current.metrics.indexEfficiency.avgRatio
+      current.metrics.indexEfficiency.avgRatio,
+      false // Higher ratio means better efficiency
     )
   );
   results.push(
