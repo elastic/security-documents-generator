@@ -1017,7 +1017,8 @@ export const uploadPerfDataFileInterval = async (
   deleteEntities?: boolean,
   doDeleteEngines?: boolean,
   transformTimeoutMs?: number,
-  samplingIntervalMs?: number
+  samplingIntervalMs?: number,
+  noTransforms?: boolean
 ) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addIdPrefix = (prefix: string) => (doc: Record<string, any>) => {
@@ -1064,13 +1065,18 @@ export const uploadPerfDataFileInterval = async (
     process.exit(1);
   }
 
-  console.log('initialising entity engines');
+  // Only initialize entity engines if transforms are enabled
+  if (!noTransforms) {
+    console.log('initialising entity engines');
 
-  await ensureSecurityDefaultDataView('default');
+    await ensureSecurityDefaultDataView('default');
 
-  await initEntityEngineForEntityTypes(['host', 'user', 'service', 'generic']);
+    await initEntityEngineForEntityTypes(['host', 'user', 'service', 'generic']);
 
-  console.log('entity engines initialised');
+    console.log('entity engines initialised');
+  } else {
+    console.log('Skipping entity engine initialization (--noTransforms mode)');
+  }
 
   const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
 
@@ -1086,7 +1092,12 @@ export const uploadPerfDataFileInterval = async (
   const samplingInterval = samplingIntervalMs ?? 5000;
 
   const stopHealthLogging = logClusterHealthEvery(name, samplingInterval);
-  const stopTransformsLogging = logTransformStatsEvery(name, samplingInterval);
+  // Only log transform stats if transforms are enabled
+  const stopTransformsLogging = noTransforms
+    ? () => {
+        // No-op function when transforms are disabled
+      }
+    : logTransformStatsEvery(name, samplingInterval);
   const stopNodeStatsLogging = logNodeStatsEvery(name, samplingInterval);
 
   for (let i = 0; i < uploadCount; i++) {
@@ -1140,23 +1151,28 @@ export const uploadPerfDataFileInterval = async (
 
   await countEntitiesUntil(name, entityCount * uploadCount);
 
-  // Wait for generic transform to finish processing all documents
-  // Generic transform processes ALL documents (host + user + service + generic)
-  const totalDocumentsIngested = lineCount * uploadCount;
-  const timeout = transformTimeoutMs ?? 1800000; // Default 30 minutes
-  console.log(
-    `Waiting for generic transform to process ${totalDocumentsIngested} documents (timeout: ${timeout / 1000 / 60} minutes)...`
-  );
-  try {
-    await waitForTransformToComplete(
-      'entities-v1-latest-security_generic_default',
-      totalDocumentsIngested,
-      timeout
+  // Only wait for transform completion if transforms are enabled
+  if (!noTransforms) {
+    // Wait for generic transform to finish processing all documents
+    // Generic transform processes ALL documents (host + user + service + generic)
+    const totalDocumentsIngested = lineCount * uploadCount;
+    const timeout = transformTimeoutMs ?? 1800000; // Default 30 minutes
+    console.log(
+      `Waiting for generic transform to process ${totalDocumentsIngested} documents (timeout: ${timeout / 1000 / 60} minutes)...`
     );
-  } catch (error) {
-    console.warn(
-      `Warning: ${error instanceof Error ? error.message : 'Failed to wait for transform completion'}. Continuing...`
-    );
+    try {
+      await waitForTransformToComplete(
+        'entities-v1-latest-security_generic_default',
+        totalDocumentsIngested,
+        timeout
+      );
+    } catch (error) {
+      console.warn(
+        `Warning: ${error instanceof Error ? error.message : 'Failed to wait for transform completion'}. Continuing...`
+      );
+    }
+  } else {
+    console.log('Skipping transform completion wait (--noTransforms mode)');
   }
 
   const tookTotal = Date.now() - startTime;

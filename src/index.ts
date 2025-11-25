@@ -270,6 +270,7 @@ program
     parseIntBase10,
     5
   )
+  .option('--noTransforms', 'Skip transform-related operations (for ESQL workflows)')
   .description('Upload performance data file')
   .action(async (file, options) => {
     await uploadPerfDataFileInterval(
@@ -279,7 +280,8 @@ program
       options.deleteData,
       options.deleteEngines,
       options.transformTimeout * 60 * 1000, // Convert minutes to milliseconds
-      options.samplingInterval * 1000 // Convert seconds to milliseconds
+      options.samplingInterval * 1000, // Convert seconds to milliseconds
+      options.noTransforms // Skip transform-related operations
     );
   });
 

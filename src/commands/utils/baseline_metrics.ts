@@ -494,6 +494,71 @@ const parseTransformStats = (logPath: string): TransformStatsData => {
 };
 
 /**
+ * Create empty transform stats data structure
+ */
+const createEmptyTransformData = (): TransformStatsData => {
+  return {
+    searchLatencies: [],
+    indexLatencies: [],
+    processingLatencies: [],
+    documentsProcessed: [],
+    documentsIndexed: [],
+    pagesProcessed: [],
+    triggerCounts: [],
+    searchFailures: 0,
+    indexFailures: 0,
+    timestamps: [],
+    exponentialAverages: {
+      checkpointDuration: [],
+      documentsIndexed: [],
+      documentsProcessed: [],
+    },
+    transformStates: {
+      indexing: 0,
+      started: 0,
+    },
+    perEntityType: {
+      host: {
+        searchLatencies: [],
+        indexLatencies: [],
+        processingLatencies: [],
+        documentsProcessed: [],
+        documentsIndexed: [],
+        pagesProcessed: [],
+        triggerCounts: [],
+      },
+      user: {
+        searchLatencies: [],
+        indexLatencies: [],
+        processingLatencies: [],
+        documentsProcessed: [],
+        documentsIndexed: [],
+        pagesProcessed: [],
+        triggerCounts: [],
+      },
+      service: {
+        searchLatencies: [],
+        indexLatencies: [],
+        processingLatencies: [],
+        documentsProcessed: [],
+        documentsIndexed: [],
+        pagesProcessed: [],
+        triggerCounts: [],
+      },
+      generic: {
+        searchLatencies: [],
+        indexLatencies: [],
+        processingLatencies: [],
+        documentsProcessed: [],
+        documentsIndexed: [],
+        pagesProcessed: [],
+        triggerCounts: [],
+      },
+    },
+  };
+};
+
+/**
  * Parse node stats log and extract CPU and memory metrics
  */
 const parseNodeStats = (
@@ -625,16 +690,26 @@ export const extractBaselineMetrics = async (
     (f) => f.startsWith(logPrefix) && f.includes('transform-stats')
   );
 
-  if (!clusterHealthLog || !nodeStatsLog || !transformStatsLog) {
+  // Only require cluster-health and node-stats logs
+  // transform-stats is optional (for --noTransforms mode)
+  if (!clusterHealthLog || !nodeStatsLog) {
     throw new Error(
-      `Could not find all required log files with prefix "${logPrefix}". Found: ${JSON.stringify({ clusterHealthLog, nodeStatsLog, transformStatsLog })}`
+      `Could not find required log files with prefix "${logPrefix}". Found: ${JSON.stringify({ clusterHealthLog, nodeStatsLog, transformStatsLog })}`
     );
   }
 
-  console.log(`Parsing logs: ${clusterHealthLog}, ${nodeStatsLog}, ${transformStatsLog}`);
+  if (transformStatsLog) {
+    console.log(`Parsing logs: ${clusterHealthLog}, ${nodeStatsLog}, ${transformStatsLog}`);
+  } else {
+    console.log(
+      `Parsing logs: ${clusterHealthLog}, ${nodeStatsLog} (transform-stats not found, using empty transform data)`
+    );
+  }
 
-  // Parse all logs
-  const transformData = parseTransformStats(path.join(logsDir, transformStatsLog));
+  // Parse logs - provide empty transform data if transform stats log is missing
+  const transformData = transformStatsLog
+    ? parseTransformStats(path.join(logsDir, transformStatsLog))
+    : createEmptyTransformData();
   const nodeData = parseNodeStats(path.join(logsDir, nodeStatsLog));
   const clusterData = parseClusterHealth(path.join(logsDir, clusterHealthLog));
 
