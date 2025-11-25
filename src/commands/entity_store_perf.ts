@@ -4,7 +4,7 @@ import cliProgress from 'cli-progress';
 import { getEsClient, getFileLineCount } from './utils/indices';
 import { ensureSecurityDefaultDataView } from '../utils/security_default_data_view';
 import readline from 'readline';
-import { deleteEngines, initEntityEngineForEntityTypes } from '../utils/kibana_api';
+import { deleteEngines, initEntityEngineForEntityTypes, kibanaFetch } from '../utils/kibana_api';
 import { get } from 'lodash-es';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -781,6 +781,84 @@ const logNodeStatsEvery = (name: string, interval: number): (() => void) => {
   return stopCallback;
 };
 
+const logKibanaStatsEvery = (name: string, interval: number): (() => void) => {
+  let stopCalled = false;
+
+  const stopCallback = () => {
+    stopCalled = true;
+  };
+
+  const logFile = `${LOGS_DIRECTORY}/${name}-${new Date().toISOString()}-kibana-stats.log`;
+
+  const stream = fs.createWriteStream(logFile, { flags: 'a' });
+
+  const log = (message: string) => {
+    stream.write(`${new Date().toISOString()} - ${message}\n`);
+  };
+
+  const logKibanaStats = async () => {
+    try {
+      const stats = await kibanaFetch<{
+        process: {
+          uptime_in_millis: number;
+          memory: {
+            heap: {
+              total_in_bytes: number;
+              used_in_bytes: number;
+              size_limit: number;
+            };
+          };
+        };
+        requests: {
+          total: number;
+          disconnects: number;
+          statusCodes: Record<string, number>;
+        };
+        response_times: {
+          avg_in_millis: number;
+          max_in_millis: number;
+        };
+        concurrent_connections: number;
+        os: {
+          load: {
+            '1m': number;
+            '5m': number;
+            '15m': number;
+          };
+          memory: {
+            total_in_bytes: number;
+            free_in_bytes: number;
+            used_in_bytes: number;
+          };
+        };
+      }>(
+        '/api/stats',
+        {
+          method: 'GET',
+        },
+        {
+          apiVersion: '1',
+        }
+      );
+
+      log(JSON.stringify(stats));
+    } catch (error) {
+      log(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }));
+    }
+  };
+
+  const int = setInterval(async () => {
+    await logKibanaStats();
+
+    if (stopCalled || stop) {
+      clearInterval(int);
+      stream.end();
+    }
+  }, interval);
+
+  return stopCallback;
+};
+
 export const createPerfDataFile = async ({
   entityCount,
   logsPerEntity,
@@ -1148,6 +1226,7 @@ export const uploadPerfDataFileInterval = async (
       }
     : logTransformStatsEvery(name, samplingInterval);
   const stopNodeStatsLogging = logNodeStatsEvery(name, samplingInterval);
+  const stopKibanaStatsLogging = logKibanaStatsEvery(name, samplingInterval);
 
   for (let i = 0; i < uploadCount; i++) {
     if (stop) {
@@ -1229,6 +1308,7 @@ export const uploadPerfDataFileInterval = async (
   stopHealthLogging();
   stopTransformsLogging();
   stopNodeStatsLogging();
+  stopKibanaStatsLogging();
 
   console.log(`Total time: ${tookTotal}ms`);
 };

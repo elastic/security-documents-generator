@@ -625,7 +625,7 @@ program
     }
 
     console.log(`\nFound ${baselines.length} baseline(s):\n`);
-    baselines.forEach((filepath, index) => {
+    baselines.forEach((filepath: string, index: number) => {
       try {
         const baseline = loadBaseline(filepath);
         console.log(`${index + 1}. ${baseline.testName}`);
