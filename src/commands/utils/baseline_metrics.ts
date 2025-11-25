@@ -127,6 +127,26 @@ const BASELINES_DIR = path.join(process.cwd(), 'baselines');
 // Used to filter out invalid intervals when detecting sampling frequency
 const MAX_REASONABLE_SAMPLING_INTERVAL_MS = 300000;
 
+/**
+ * Helper function to safely read a file with error handling
+ * @param filePath - Path to the file to read
+ * @param fileDescription - Description of the file for error messages (e.g., "transform stats log file")
+ * @returns The file content as a string
+ * @throws Error if file doesn't exist or can't be read
+ */
+const readFileSafely = (filePath: string, fileDescription: string): string => {
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`${fileDescription} does not exist: ${filePath}`);
+  }
+  try {
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch (error) {
+    throw new Error(
+      `Failed to read ${fileDescription} ${filePath}: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+};
+
 // Ensure baselines directory exists
 if (!fs.existsSync(BASELINES_DIR)) {
   fs.mkdirSync(BASELINES_DIR, { recursive: true });
@@ -183,7 +203,7 @@ interface TransformStatsData {
  * Parse transform stats log and extract metrics
  */
 const parseTransformStats = (logPath: string): TransformStatsData => {
-  const content = fs.readFileSync(logPath, 'utf-8');
+  const content = readFileSafely(logPath, 'Transform stats log file');
   const lines = content.split('\n').filter((line) => line.trim());
 
   const searchLatencies: number[] = [];
@@ -574,7 +594,7 @@ const parseNodeStats = (
   cpuPerNode: Record<string, number[]>;
   timestamps: number[];
 } => {
-  const content = fs.readFileSync(logPath, 'utf-8');
+  const content = readFileSafely(logPath, 'Node stats log file');
   const lines = content.split('\n').filter((line) => line.trim());
 
   const cpuPercentages: number[] = [];
@@ -638,7 +658,7 @@ const parseClusterHealth = (
   activeShards: number[];
   unassignedShards: number[];
 } => {
-  const content = fs.readFileSync(logPath, 'utf-8');
+  const content = readFileSafely(logPath, 'Cluster health log file');
   const lines = content.split('\n').filter((line) => line.trim());
 
   const statuses: string[] = [];
@@ -684,8 +704,20 @@ export const extractBaselineMetrics = async (
 ): Promise<BaselineMetrics> => {
   const logsDir = path.join(process.cwd(), 'logs');
 
+  // Check if logs directory exists
+  if (!fs.existsSync(logsDir)) {
+    throw new Error(`Logs directory does not exist: ${logsDir}`);
+  }
+
   // Find log files with the given prefix
-  const files = fs.readdirSync(logsDir);
+  let files: string[];
+  try {
+    files = fs.readdirSync(logsDir);
+  } catch (error) {
+    throw new Error(
+      `Failed to read logs directory ${logsDir}: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
   const clusterHealthLog = files.find(
     (f) => f.startsWith(logPrefix) && f.includes('cluster-health')
   );
@@ -877,11 +909,11 @@ export const extractBaselineMetrics = async (
     perEntityType.user.documentsProcessed +
     perEntityType.service.documentsProcessed +
     perEntityType.generic.documentsProcessed;
-  const avgDocumentsPerSecond = totalDocuments / timeSpan || 0;
+  const avgDocumentsPerSecond = timeSpan > 0 ? totalDocuments / timeSpan : 0;
   const peakDocumentsPerSecond =
-    transformData.documentsProcessed.length > 0
+    transformData.documentsProcessed.length > 0 && timeSpan > 0
       ? Math.max(...transformData.documentsProcessed) /
-          (timeSpan / transformData.documentsProcessed.length) || 0
+        (timeSpan / transformData.documentsProcessed.length)
       : 0;
 
   // Calculate index efficiency
@@ -1020,8 +1052,14 @@ export const saveBaseline = (baseline: BaselineMetrics): string => {
  * Load baseline from file
  */
 export const loadBaseline = (baselinePath: string): BaselineMetrics => {
-  const content = fs.readFileSync(baselinePath, 'utf-8');
-  return JSON.parse(content) as BaselineMetrics;
+  const content = readFileSafely(baselinePath, 'Baseline file');
+  try {
+    return JSON.parse(content) as BaselineMetrics;
+  } catch (error) {
+    throw new Error(
+      `Failed to parse baseline file ${baselinePath}: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 };
 
 /**

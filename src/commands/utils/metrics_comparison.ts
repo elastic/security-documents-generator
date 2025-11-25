@@ -62,7 +62,32 @@ export const compareMetrics = (
 ): ComparisonReport => {
   const results: ComparisonResult[] = [];
 
-  // Helper to create comparison result
+  /**
+   * Determine status based on effective difference percentage.
+   * After normalization via effectiveDiffPercent:
+   * - Negative values = worse (degradation/warning)
+   * - Positive values = better (improvement)
+   * - Near zero = stable
+   */
+  const determineStatus = (
+    effectiveDiffPercent: number,
+    thresholds: ComparisonThresholds
+  ): ComparisonResult['status'] => {
+    if (effectiveDiffPercent < -thresholds.degradationThreshold) {
+      return 'degradation';
+    } else if (effectiveDiffPercent < -thresholds.warningThreshold) {
+      return 'warning';
+    } else if (effectiveDiffPercent > thresholds.improvementThreshold) {
+      return 'improvement';
+    } else {
+      return 'stable';
+    }
+  };
+
+  /**
+   * Helper to create comparison result.
+   * Calculates percentage difference and normalizes based on metric type.
+   */
   const createResult = (
     metric: string,
     baselineValue: number,
@@ -70,43 +95,32 @@ export const compareMetrics = (
     lowerIsBetter: boolean = false
   ): ComparisonResult => {
     const diff = currentValue - baselineValue;
-    const diffPercent = baselineValue !== 0 ? (diff / baselineValue) * 100 : 0;
 
-    // For metrics where lower is better (latency, errors), flip the logic
-    const effectiveDiffPercent = lowerIsBetter ? -diffPercent : diffPercent;
-
-    let status: ComparisonResult['status'] = 'stable';
-
-    // For lowerIsBetter metrics (latency, errors):
-    // - Negative effectiveDiffPercent means current > baseline (worse) = degradation
-    // - Positive effectiveDiffPercent means current < baseline (better) = improvement
-    // For higherIsBetter metrics (throughput, efficiency):
-    // - Positive effectiveDiffPercent means current > baseline (better) = improvement
-    // - Negative effectiveDiffPercent means current < baseline (worse) = degradation
-    if (lowerIsBetter) {
-      // Lower is better: negative effectiveDiffPercent = worse (degradation)
-      if (effectiveDiffPercent < -thresholds.degradationThreshold) {
-        status = 'degradation';
-      } else if (effectiveDiffPercent < -thresholds.warningThreshold) {
-        status = 'warning';
-      } else if (effectiveDiffPercent > thresholds.improvementThreshold) {
-        status = 'improvement';
+    // Calculate percentage difference
+    // Handle edge case: when baseline is 0, use a sentinel value to indicate change
+    let diffPercent: number;
+    if (baselineValue === 0) {
+      if (currentValue === 0) {
+        diffPercent = 0; // No change
       } else {
-        status = 'stable';
+        // Significant change from zero baseline - use 100% as sentinel
+        // The effectiveDiffPercent will handle the direction based on lowerIsBetter
+        diffPercent = 100;
       }
     } else {
-      // Higher is better: positive effectiveDiffPercent = better (improvement)
-      // Negative effectiveDiffPercent = worse (degradation)
-      if (effectiveDiffPercent < -thresholds.degradationThreshold) {
-        status = 'degradation';
-      } else if (effectiveDiffPercent < -thresholds.warningThreshold) {
-        status = 'warning';
-      } else if (effectiveDiffPercent > thresholds.improvementThreshold) {
-        status = 'improvement';
-      } else {
-        status = 'stable';
-      }
+      diffPercent = (diff / baselineValue) * 100;
     }
+
+    // Normalize the difference percentage based on metric type
+    // For "lower is better" metrics (latency, errors):
+    //   - Flip sign so negative = worse, positive = better
+    // For "higher is better" metrics (throughput, efficiency):
+    //   - Keep sign as-is so positive = better, negative = worse
+    const effectiveDiffPercent = lowerIsBetter ? -diffPercent : diffPercent;
+
+    // Determine status using normalized percentage
+    // Since effectiveDiffPercent is normalized, we can use the same logic for both cases
+    const status = determineStatus(effectiveDiffPercent, thresholds);
 
     return {
       metric,

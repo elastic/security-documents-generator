@@ -218,7 +218,7 @@ program
     'standard'
   )
   .description('Create performance data')
-  .action((name, entityCount, logsPerEntity, startIndex, options) => {
+  .action(async (name, entityCount, logsPerEntity, startIndex, options) => {
     const distributionType = options.distribution as DistributionType;
 
     // Validate distribution type
@@ -228,13 +228,18 @@ program
       process.exit(1);
     }
 
-    createPerfDataFile({
-      name,
-      entityCount,
-      logsPerEntity,
-      startIndex,
-      distribution: distributionType,
-    });
+    try {
+      await createPerfDataFile({
+        name,
+        entityCount,
+        logsPerEntity,
+        startIndex,
+        distribution: distributionType,
+      });
+    } catch (error) {
+      console.error('Failed to create performance data file:', error);
+      process.exit(1);
+    }
   });
 
 program

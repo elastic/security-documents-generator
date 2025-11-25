@@ -781,7 +781,7 @@ const logNodeStatsEvery = (name: string, interval: number): (() => void) => {
   return stopCallback;
 };
 
-export const createPerfDataFile = ({
+export const createPerfDataFile = async ({
   entityCount,
   logsPerEntity,
   startIndex,
@@ -793,7 +793,7 @@ export const createPerfDataFile = ({
   logsPerEntity: number;
   startIndex: number;
   distribution?: DistributionType;
-}) => {
+}): Promise<void> => {
   const filePath = getFilePath(name);
   const dist = getEntityDistribution(distribution);
   const entityCounts = calculateEntityCounts(entityCount, dist);
@@ -834,6 +834,12 @@ export const createPerfDataFile = ({
 
   const generateLogs = async () => {
     let globalEntityIndex = 0;
+    let streamError: Error | null = null;
+
+    // Set up error handler once for the entire stream
+    writeStream.on('error', (error) => {
+      streamError = error;
+    });
 
     // Generate entities in order: users, hosts, services, generic
     const entityOrder: Array<{ type: EntityType; count: number }> = [
@@ -843,50 +849,92 @@ export const createPerfDataFile = ({
       { type: 'generic', count: entityCounts.generic },
     ];
 
-    for (const { type, count } of entityOrder) {
-      for (let i = 0; i < count; i++) {
-        const entityIndex = i + 1; // 1-based index for entity within its type
-
-        for (let j = 0; j < logsPerEntity; j++) {
-          // Fix: Calculate valueStartIndex to ensure unique IP addresses per entity
-          // Each entity gets a unique range: entity 0 uses 0-1, entity 1 uses 2-3, etc.
-          // Each log within an entity also gets unique values
-          const valueStartIndex =
-            startIndex + globalEntityIndex * logsPerEntity * FIELD_LENGTH + j * FIELD_LENGTH;
-
-          const generatorOpts = {
-            entityIndex,
-            valueStartIndex,
-            fieldLength: FIELD_LENGTH,
-            idPrefix: name,
-          };
-
-          // Use map lookup instead of if/else chain
-          const doc = entityGenerators[type](generatorOpts);
-
-          const finalDoc = {
-            ...doc,
-            message: faker.lorem.sentence(),
-            tags: ['entity-store-perf'],
-          };
-
-          writeStream.write(JSON.stringify(finalDoc) + '\n');
-          progress.increment();
+    // Helper function to write to stream and wait for drain if needed
+    const writeToStream = (data: string): Promise<void> => {
+      return new Promise((resolve, reject) => {
+        // Check for previous errors
+        if (streamError) {
+          reject(streamError);
+          return;
         }
 
-        globalEntityIndex++;
-        // Yield to the event loop to prevent blocking
-        await new Promise((resolve) => setImmediate(resolve));
-      }
-    }
+        const canContinue = writeStream.write(data);
+        if (canContinue) {
+          // Check again after write in case error occurred synchronously
+          if (streamError) {
+            reject(streamError);
+          } else {
+            resolve();
+          }
+        } else {
+          writeStream.once('drain', () => {
+            if (streamError) {
+              reject(streamError);
+            } else {
+              resolve();
+            }
+          });
+        }
+      });
+    };
 
-    progress.stop();
-    console.log(`Data file ${filePath} created`);
+    try {
+      for (const { type, count } of entityOrder) {
+        for (let i = 0; i < count; i++) {
+          const entityIndex = i + 1; // 1-based index for entity within its type
+
+          for (let j = 0; j < logsPerEntity; j++) {
+            // Fix: Calculate valueStartIndex to ensure unique IP addresses per entity
+            // Each entity gets a unique range: entity 0 uses 0-1, entity 1 uses 2-3, etc.
+            // Each log within an entity also gets unique values
+            const valueStartIndex =
+              startIndex + globalEntityIndex * logsPerEntity * FIELD_LENGTH + j * FIELD_LENGTH;
+
+            const generatorOpts = {
+              entityIndex,
+              valueStartIndex,
+              fieldLength: FIELD_LENGTH,
+              idPrefix: name,
+            };
+
+            // Use map lookup instead of if/else chain
+            const doc = entityGenerators[type](generatorOpts);
+
+            const finalDoc = {
+              ...doc,
+              message: faker.lorem.sentence(),
+              tags: ['entity-store-perf'],
+            };
+
+            await writeToStream(JSON.stringify(finalDoc) + '\n');
+            progress.increment();
+          }
+
+          globalEntityIndex++;
+          // Yield to the event loop to prevent blocking
+          await new Promise((resolve) => setImmediate(resolve));
+        }
+      }
+
+      // Wait for all writes to complete before closing
+      await new Promise<void>((resolve, reject) => {
+        writeStream.once('finish', resolve);
+        writeStream.once('error', reject);
+        writeStream.end();
+      });
+
+      progress.stop();
+      console.log(`Data file ${filePath} created`);
+    } catch (error) {
+      // Ensure stream is closed even on error
+      writeStream.destroy();
+      progress.stop();
+      throw error;
+    }
   };
 
-  generateLogs().catch((err) => {
-    console.error('Error generating logs:', err);
-  });
+  // Properly await the operation to ensure stream is closed
+  await generateLogs();
 };
 
 export const uploadFile = async ({
@@ -1069,18 +1117,15 @@ export const uploadPerfDataFileInterval = async (
     process.exit(1);
   }
 
-  // Only initialize entity engines if transforms are enabled
-  if (!noTransforms) {
-    console.log('initialising entity engines');
+  // Initialize entity engines (required for both transform and no-transform modes
+  // because we need to check entities in .entities.v1.latest* indices)
+  console.log('initialising entity engines');
 
-    await ensureSecurityDefaultDataView('default');
+  await ensureSecurityDefaultDataView('default');
 
-    await initEntityEngineForEntityTypes(['host', 'user', 'service', 'generic']);
+  await initEntityEngineForEntityTypes(['host', 'user', 'service', 'generic']);
 
-    console.log('entity engines initialised');
-  } else {
-    console.log('Skipping entity engine initialization (--noTransforms mode)');
-  }
+  console.log('entity engines initialised');
 
   const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
 
