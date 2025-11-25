@@ -226,14 +226,15 @@ const changeServiceName = (doc: Record<string, any>, addition: string) => {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const changeGenericEntityName = (doc: Record<string, any>, addition: string) => {
-  const newName = `${doc.entity.name}-${addition}`;
+  const originalName = doc.entity.name; // Store original name before modification
+  const newName = `${originalName}-${addition}`;
   doc.entity.name = newName;
-  if (doc.entity.id && doc.entity.id.includes(doc.entity.name.split('-').slice(0, -1).join('-'))) {
-    // Update ARN if it contains the name
-    doc.entity.id = doc.entity.id.replace(
-      /([^:]+)$/,
-      `${newName.split('-').slice(0, -1).join('-')}-${addition}`
-    );
+
+  // Check if ARN contains the original name (before modification)
+  if (doc.entity.id && doc.entity.id.includes(originalName)) {
+    // Update ARN: replace the last part (after last colon or slash) with new name
+    // ARN format: arn:aws:service:region:account:resource or arn:aws:service:region:account:type/resource
+    doc.entity.id = doc.entity.id.replace(/([^:/]+)$/, newName);
   }
   return doc;
 };
