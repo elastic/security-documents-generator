@@ -166,6 +166,21 @@ const getLogsPerEntity = (filePath: string) => {
     rl.on('error', (err) => {
       reject(err);
     });
+
+    rl.on('close', () => {
+      if (!resolved) {
+        if (!idField) {
+          reject(
+            new Error(
+              'Could not determine entity type from file. Expected host, user, service, or entity fields.'
+            )
+          );
+        } else {
+          // All documents have the same entity ID, resolve with total count
+          resolve(count);
+        }
+      }
+    });
   });
 };
 
