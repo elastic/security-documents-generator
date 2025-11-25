@@ -47,7 +47,9 @@ const MIN_SAMPLES_FOR_SERVICE_ENTITY = 3;
  * Get the minimum sample threshold for an entity type
  */
 const getMinSamplesForEntity = (entityType: string): number => {
-  return entityType === 'service' ? MIN_SAMPLES_FOR_SERVICE_ENTITY : MIN_SAMPLES_FOR_RELIABLE_METRICS;
+  return entityType === 'service'
+    ? MIN_SAMPLES_FOR_SERVICE_ENTITY
+    : MIN_SAMPLES_FOR_RELIABLE_METRICS;
 };
 
 /**
@@ -69,12 +71,12 @@ export const compareMetrics = (
   ): ComparisonResult => {
     const diff = currentValue - baselineValue;
     const diffPercent = baselineValue !== 0 ? (diff / baselineValue) * 100 : 0;
-    
+
     // For metrics where lower is better (latency, errors), flip the logic
     const effectiveDiffPercent = lowerIsBetter ? -diffPercent : diffPercent;
-    
+
     let status: ComparisonResult['status'] = 'stable';
-    
+
     // For lowerIsBetter metrics (latency, errors):
     // - Negative effectiveDiffPercent means current > baseline (worse) = degradation
     // - Positive effectiveDiffPercent means current < baseline (better) = improvement
@@ -125,7 +127,7 @@ export const compareMetrics = (
   ): ComparisonResult => {
     const diff = currentValue - baselineValue;
     const diffPercent = baselineValue !== 0 ? (diff / baselineValue) * 100 : 0;
-    
+
     return {
       metric,
       baseline: baselineValue,
@@ -137,18 +139,84 @@ export const compareMetrics = (
   };
 
   // Search Latency metrics
-  results.push(createResult('Search Latency (avg)', baseline.metrics.searchLatency.avg, current.metrics.searchLatency.avg, true));
-  results.push(createResult('Search Latency (p50)', baseline.metrics.searchLatency.p50, current.metrics.searchLatency.p50, true));
-  results.push(createResult('Search Latency (p95)', baseline.metrics.searchLatency.p95, current.metrics.searchLatency.p95, true));
-  results.push(createInfoResult('Search Latency (p99)', baseline.metrics.searchLatency.p99, current.metrics.searchLatency.p99));
-  results.push(createInfoResult('Search Latency (max)', baseline.metrics.searchLatency.max, current.metrics.searchLatency.max));
+  results.push(
+    createResult(
+      'Search Latency (avg)',
+      baseline.metrics.searchLatency.avg,
+      current.metrics.searchLatency.avg,
+      true
+    )
+  );
+  results.push(
+    createResult(
+      'Search Latency (p50)',
+      baseline.metrics.searchLatency.p50,
+      current.metrics.searchLatency.p50,
+      true
+    )
+  );
+  results.push(
+    createResult(
+      'Search Latency (p95)',
+      baseline.metrics.searchLatency.p95,
+      current.metrics.searchLatency.p95,
+      true
+    )
+  );
+  results.push(
+    createInfoResult(
+      'Search Latency (p99)',
+      baseline.metrics.searchLatency.p99,
+      current.metrics.searchLatency.p99
+    )
+  );
+  results.push(
+    createInfoResult(
+      'Search Latency (max)',
+      baseline.metrics.searchLatency.max,
+      current.metrics.searchLatency.max
+    )
+  );
 
   // Intake Latency metrics
-  results.push(createResult('Intake Latency (avg)', baseline.metrics.intakeLatency.avg, current.metrics.intakeLatency.avg, true));
-  results.push(createResult('Intake Latency (p50)', baseline.metrics.intakeLatency.p50, current.metrics.intakeLatency.p50, true));
-  results.push(createResult('Intake Latency (p95)', baseline.metrics.intakeLatency.p95, current.metrics.intakeLatency.p95, true));
-  results.push(createInfoResult('Intake Latency (p99)', baseline.metrics.intakeLatency.p99, current.metrics.intakeLatency.p99));
-  results.push(createInfoResult('Intake Latency (max)', baseline.metrics.intakeLatency.max, current.metrics.intakeLatency.max));
+  results.push(
+    createResult(
+      'Intake Latency (avg)',
+      baseline.metrics.intakeLatency.avg,
+      current.metrics.intakeLatency.avg,
+      true
+    )
+  );
+  results.push(
+    createResult(
+      'Intake Latency (p50)',
+      baseline.metrics.intakeLatency.p50,
+      current.metrics.intakeLatency.p50,
+      true
+    )
+  );
+  results.push(
+    createResult(
+      'Intake Latency (p95)',
+      baseline.metrics.intakeLatency.p95,
+      current.metrics.intakeLatency.p95,
+      true
+    )
+  );
+  results.push(
+    createInfoResult(
+      'Intake Latency (p99)',
+      baseline.metrics.intakeLatency.p99,
+      current.metrics.intakeLatency.p99
+    )
+  );
+  results.push(
+    createInfoResult(
+      'Intake Latency (max)',
+      baseline.metrics.intakeLatency.max,
+      current.metrics.intakeLatency.max
+    )
+  );
 
   // Processing Latency metrics
   results.push(
@@ -195,8 +263,20 @@ export const compareMetrics = (
   results.push(createResult('CPU (peak)', baseline.metrics.cpu.peak, current.metrics.cpu.peak));
 
   // Memory metrics
-  results.push(createResult('Memory Heap % (avg)', baseline.metrics.memory.avgHeapPercent, current.metrics.memory.avgHeapPercent));
-  results.push(createResult('Memory Heap % (peak)', baseline.metrics.memory.peakHeapPercent, current.metrics.memory.peakHeapPercent));
+  results.push(
+    createResult(
+      'Memory Heap % (avg)',
+      baseline.metrics.memory.avgHeapPercent,
+      current.metrics.memory.avgHeapPercent
+    )
+  );
+  results.push(
+    createResult(
+      'Memory Heap % (peak)',
+      baseline.metrics.memory.peakHeapPercent,
+      current.metrics.memory.peakHeapPercent
+    )
+  );
 
   // Throughput metrics (higher is better, so lowerIsBetter = false)
   results.push(
@@ -321,10 +401,7 @@ export const compareMetrics = (
     // Search Latency per entity - only compare if both have sufficient samples
     const baselineSearchSamples = baselineEntity.sampleCounts?.search || 0;
     const currentSearchSamples = currentEntity.sampleCounts?.search || 0;
-    if (
-      baselineSearchSamples >= minSamplesRequired &&
-      currentSearchSamples >= minSamplesRequired
-    ) {
+    if (baselineSearchSamples >= minSamplesRequired && currentSearchSamples >= minSamplesRequired) {
       results.push(
         createResult(
           `${entityType} - Search Latency (avg)`,
@@ -375,10 +452,7 @@ export const compareMetrics = (
     // Intake Latency per entity - only compare if both have sufficient samples
     const baselineIndexSamples = baselineEntity.sampleCounts?.index || 0;
     const currentIndexSamples = currentEntity.sampleCounts?.index || 0;
-    if (
-      baselineIndexSamples >= minSamplesRequired &&
-      currentIndexSamples >= minSamplesRequired
-    ) {
+    if (baselineIndexSamples >= minSamplesRequired && currentIndexSamples >= minSamplesRequired) {
       results.push(
         createResult(
           `${entityType} - Intake Latency (avg)`,
@@ -452,8 +526,7 @@ export const compareMetrics = (
     } else {
       // Mark as insufficient_data if insufficient samples
       // But still calculate the actual difference for visibility
-      const diffAvg =
-        currentEntity.processingLatency.avg - baselineEntity.processingLatency.avg;
+      const diffAvg = currentEntity.processingLatency.avg - baselineEntity.processingLatency.avg;
       const diffPercentAvg =
         baselineEntity.processingLatency.avg !== 0
           ? (diffAvg / baselineEntity.processingLatency.avg) * 100
@@ -466,8 +539,7 @@ export const compareMetrics = (
         diffPercent: diffPercentAvg,
         status: 'insufficient',
       });
-      const diffP95 =
-        currentEntity.processingLatency.p95 - baselineEntity.processingLatency.p95;
+      const diffP95 = currentEntity.processingLatency.p95 - baselineEntity.processingLatency.p95;
       const diffPercentP95 =
         baselineEntity.processingLatency.p95 !== 0
           ? (diffP95 / baselineEntity.processingLatency.p95) * 100
@@ -514,9 +586,30 @@ export const compareMetrics = (
   }
 
   // Error metrics
-  results.push(createResult('Search Failures', baseline.metrics.errors.searchFailures, current.metrics.errors.searchFailures, true));
-  results.push(createResult('Index Failures', baseline.metrics.errors.indexFailures, current.metrics.errors.indexFailures, true));
-  results.push(createResult('Total Failures', baseline.metrics.errors.totalFailures, current.metrics.errors.totalFailures, true));
+  results.push(
+    createResult(
+      'Search Failures',
+      baseline.metrics.errors.searchFailures,
+      current.metrics.errors.searchFailures,
+      true
+    )
+  );
+  results.push(
+    createResult(
+      'Index Failures',
+      baseline.metrics.errors.indexFailures,
+      current.metrics.errors.indexFailures,
+      true
+    )
+  );
+  results.push(
+    createResult(
+      'Total Failures',
+      baseline.metrics.errors.totalFailures,
+      current.metrics.errors.totalFailures,
+      true
+    )
+  );
 
   // Calculate summary
   // Note: 'info' status metrics (p99, max) are excluded from summary counts
@@ -542,7 +635,7 @@ export const compareMetrics = (
  */
 export const formatComparisonReport = (report: ComparisonReport): string => {
   const lines: string[] = [];
-  
+
   lines.push('\n' + '='.repeat(100));
   lines.push('PERFORMANCE COMPARISON REPORT');
   lines.push('='.repeat(100));
@@ -561,14 +654,14 @@ export const formatComparisonReport = (report: ComparisonReport): string => {
   lines.push('DETAILED METRICS');
   lines.push('='.repeat(100));
   lines.push('');
-  
+
   // Header
   lines.push(
     'Metric'.padEnd(45) +
-    'Baseline'.padStart(15) +
-    'Current'.padStart(15) +
-    'Diff %'.padStart(12) +
-    'Status'.padStart(20)
+      'Baseline'.padStart(15) +
+      'Current'.padStart(15) +
+      'Diff %'.padStart(12) +
+      'Status'.padStart(20)
   );
   lines.push('-'.repeat(100));
 
@@ -583,9 +676,9 @@ export const formatComparisonReport = (report: ComparisonReport): string => {
     'Processing Latency': report.results.filter(
       (r) => r.metric.startsWith('Processing Latency') && !r.metric.includes(' - ')
     ),
-    'CPU': report.results.filter((r) => r.metric.startsWith('CPU')),
-    'Memory': report.results.filter((r) => r.metric.startsWith('Memory')),
-    'Throughput': report.results.filter((r) => r.metric.startsWith('Throughput')),
+    CPU: report.results.filter((r) => r.metric.startsWith('CPU')),
+    Memory: report.results.filter((r) => r.metric.startsWith('Memory')),
+    Throughput: report.results.filter((r) => r.metric.startsWith('Throughput')),
     'Index Efficiency': report.results.filter((r) => r.metric.startsWith('Index Efficiency')),
     'Pages Processed': report.results.filter((r) => r.metric.startsWith('Pages Processed')),
     'Trigger Count': report.results.filter((r) => r.metric.startsWith('Trigger Count')),
@@ -595,7 +688,7 @@ export const formatComparisonReport = (report: ComparisonReport): string => {
     'Per-Entity-Type (User)': report.results.filter((r) => r.metric.startsWith('user - ')),
     'Per-Entity-Type (Service)': report.results.filter((r) => r.metric.startsWith('service - ')),
     'Per-Entity-Type (Generic)': report.results.filter((r) => r.metric.startsWith('generic - ')),
-    'Errors': report.results.filter(
+    Errors: report.results.filter(
       (r) =>
         r.metric.startsWith('Search Failures') ||
         r.metric.startsWith('Index Failures') ||
@@ -618,7 +711,12 @@ export const formatComparisonReport = (report: ComparisonReport): string => {
   };
 
   // Helper function to format values - integers without decimals, others with adaptive precision
-  const formatValue = (value: number, metric: string, baseline: number, current: number): string => {
+  const formatValue = (
+    value: number,
+    metric: string,
+    baseline: number,
+    current: number
+  ): string => {
     // Check if this is an integer metric
     const isIntegerMetric =
       metric.includes('Documents Processed') ||
@@ -646,30 +744,38 @@ export const formatComparisonReport = (report: ComparisonReport): string => {
     lines.push(`\n${category}:`);
     for (const result of categoryResults) {
       const statusIcon =
-        result.status === 'improvement' ? '✅' :
-        result.status === 'degradation' ? '❌' :
-        result.status === 'warning' ? '⚠️ ' :
-        result.status === 'insufficient' ? '📊' :
-        result.status === 'info' ? 'ℹ️ ' :
-        '➖';
+        result.status === 'improvement'
+          ? '✅'
+          : result.status === 'degradation'
+            ? '❌'
+            : result.status === 'warning'
+              ? '⚠️ '
+              : result.status === 'insufficient'
+                ? '📊'
+                : result.status === 'info'
+                  ? 'ℹ️ '
+                  : '➖';
 
-      const diffStr = result.diffPercent >= 0
-        ? `+${result.diffPercent.toFixed(1)}%`
-        : `${result.diffPercent.toFixed(1)}%`;
+      const diffStr =
+        result.diffPercent >= 0
+          ? `+${result.diffPercent.toFixed(1)}%`
+          : `${result.diffPercent.toFixed(1)}%`;
 
       lines.push(
         `  ${result.metric}`.padEnd(45) +
-        formatValue(result.baseline, result.metric, result.baseline, result.current).padStart(15) +
-        formatValue(result.current, result.metric, result.baseline, result.current).padStart(15) +
-        diffStr.padStart(12) +
-        ` ${statusIcon} ${result.status}`.padStart(20)
+          formatValue(result.baseline, result.metric, result.baseline, result.current).padStart(
+            15
+          ) +
+          formatValue(result.current, result.metric, result.baseline, result.current).padStart(15) +
+          diffStr.padStart(12) +
+          ` ${statusIcon} ${result.status}`.padStart(20)
       );
     }
   }
 
   lines.push('');
   lines.push('='.repeat(100));
-  
+
   return lines.join('\n');
 };
 
@@ -687,4 +793,3 @@ export const buildComparisonThresholds = (options: {
     improvementThreshold: options.improvementThreshold || DEFAULT_THRESHOLDS.improvementThreshold,
   };
 };
-
