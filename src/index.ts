@@ -214,7 +214,7 @@ program
   .argument('[start-index]', 'for sequential data, which index to start at', parseIntBase10, 0)
   .option(
     '--distribution <type>',
-    `Entity distribution type: equal (25% each), standard (33/33/33/1) (default: standard)`,
+    `Entity distribution type: equal (user/host/generic/service: 25% each), standard (user/host/generic/service: 33/33/33/1) (default: standard)`,
     'standard'
   )
   .description('Create performance data')

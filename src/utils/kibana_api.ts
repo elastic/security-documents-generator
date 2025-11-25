@@ -470,7 +470,7 @@ export const updateKibanaSettings = async (settings: Record<string, unknown>) =>
         body: JSON.stringify(payload),
       },
       {
-        // The Settings API version is not clearly documented; using '1' as the default for compatibility.
+        // Advanced Settings API version
         apiVersion: '1',
       }
     );
