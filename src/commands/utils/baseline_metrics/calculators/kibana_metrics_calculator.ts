@@ -1,4 +1,4 @@
-import { percentile, avg, max } from '../utils';
+import { percentile, avg, max, safeDivide } from '../utils';
 
 interface KibanaStatsData {
   eventLoopDelays: number[];
@@ -144,10 +144,7 @@ export const calculateKibanaMetrics = (kibanaData: KibanaStatsData | null): Kiba
     },
     requests: {
       total: max(kibanaData.requestTotals),
-      avgPerSecond:
-        kibanaData.requestTotals.length > 0 && kibanaData.timeSpan > 0
-          ? max(kibanaData.requestTotals) / kibanaData.timeSpan
-          : 0,
+      avgPerSecond: safeDivide(max(kibanaData.requestTotals), kibanaData.timeSpan),
       errorRate: avg(kibanaData.requestErrorCounts),
       disconnects: max(kibanaData.requestDisconnects),
     },

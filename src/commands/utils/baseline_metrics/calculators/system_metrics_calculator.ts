@@ -88,7 +88,7 @@ export const calculateSystemMetrics = (
     perEntityType.user.documentsProcessed +
     perEntityType.service.documentsProcessed +
     perEntityType.generic.documentsProcessed;
-  const avgDocumentsPerSecond = timeSpan > 0 ? totalDocuments / timeSpan : 0;
+  const avgDocumentsPerSecond = safeDivide(totalDocuments, timeSpan);
   const peakDocumentsPerSecond =
     transformData.documentsProcessed.length > 0 && timeSpan > 0
       ? max(transformData.documentsProcessed) / (timeSpan / transformData.documentsProcessed.length)
