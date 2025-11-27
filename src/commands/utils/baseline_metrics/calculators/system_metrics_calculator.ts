@@ -1,4 +1,5 @@
 import { TransformStatsData, EntityTypeMetrics } from '../types';
+import { avg, max } from '../utils';
 
 export interface SystemMetrics {
   cpu: {
@@ -59,39 +60,28 @@ export const calculateSystemMetrics = (
   // Calculate CPU metrics
   const avgCpuPerNode: Record<string, number> = {};
   for (const [nodeName, cpuValues] of Object.entries(nodeData.cpuPerNode)) {
-    avgCpuPerNode[nodeName] =
-      cpuValues.length > 0 ? cpuValues.reduce((a, b) => a + b, 0) / cpuValues.length : 0;
+    avgCpuPerNode[nodeName] = avg(cpuValues);
   }
 
   const cpu = {
-    avg:
-      nodeData.cpuPercentages.length > 0
-        ? nodeData.cpuPercentages.reduce((a, b) => a + b, 0) / nodeData.cpuPercentages.length
-        : 0,
-    peak: nodeData.cpuPercentages.length > 0 ? Math.max(...nodeData.cpuPercentages) : 0,
+    avg: avg(nodeData.cpuPercentages),
+    peak: max(nodeData.cpuPercentages),
     avgPerNode: avgCpuPerNode,
   };
 
   // Calculate memory metrics
   const memory = {
-    avgHeapPercent:
-      nodeData.heapPercentages.length > 0
-        ? nodeData.heapPercentages.reduce((a, b) => a + b, 0) / nodeData.heapPercentages.length
-        : 0,
-    peakHeapPercent:
-      nodeData.heapPercentages.length > 0 ? Math.max(...nodeData.heapPercentages) : 0,
-    avgHeapBytes:
-      nodeData.heapBytes.length > 0
-        ? nodeData.heapBytes.reduce((a, b) => a + b, 0) / nodeData.heapBytes.length
-        : 0,
-    peakHeapBytes: nodeData.heapBytes.length > 0 ? Math.max(...nodeData.heapBytes) : 0,
+    avgHeapPercent: avg(nodeData.heapPercentages),
+    peakHeapPercent: max(nodeData.heapPercentages),
+    avgHeapBytes: avg(nodeData.heapBytes),
+    peakHeapBytes: max(nodeData.heapBytes),
   };
 
   // Calculate throughput
   // Sum the MAX values from each entity type (cumulative totals)
   const timeSpan =
     transformData.timestamps.length > 1
-      ? (Math.max(...transformData.timestamps) - Math.min(...transformData.timestamps)) / 1000
+      ? (max(transformData.timestamps) - Math.min(...transformData.timestamps)) / 1000
       : 1;
   const totalDocuments =
     perEntityType.host.documentsProcessed +
@@ -101,8 +91,7 @@ export const calculateSystemMetrics = (
   const avgDocumentsPerSecond = timeSpan > 0 ? totalDocuments / timeSpan : 0;
   const peakDocumentsPerSecond =
     transformData.documentsProcessed.length > 0 && timeSpan > 0
-      ? Math.max(...transformData.documentsProcessed) /
-        (timeSpan / transformData.documentsProcessed.length)
+      ? max(transformData.documentsProcessed) / (timeSpan / transformData.documentsProcessed.length)
       : 0;
 
   // Calculate index efficiency

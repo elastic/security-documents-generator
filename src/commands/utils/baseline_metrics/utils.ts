@@ -40,3 +40,19 @@ export const percentile = (sortedArray: number[], percentile: number): number =>
   const index = Math.ceil((percentile / 100) * sortedArray.length) - 1;
   return sortedArray[Math.max(0, index)];
 };
+
+/**
+ * Calculate average from array of numbers
+ */
+export const avg = (array: number[]): number => {
+  if (array.length === 0) return 0;
+  return array.reduce((a, b) => a + b, 0) / array.length;
+};
+
+/**
+ * Calculate maximum from array of numbers
+ */
+export const max = (array: number[]): number => {
+  if (array.length === 0) return 0;
+  return Math.max(...array);
+};

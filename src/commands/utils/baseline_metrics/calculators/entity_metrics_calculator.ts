@@ -1,5 +1,5 @@
 import { EntityTypeMetrics, EntityTypeData, TransformStatsData } from '../types';
-import { percentile } from '../utils';
+import { percentile, avg, max } from '../utils';
 
 /**
  * Calculate entity type metrics from entity data
@@ -11,46 +11,31 @@ const calculateEntityTypeMetrics = (entityData: EntityTypeData): EntityTypeMetri
 
   return {
     searchLatency: {
-      avg:
-        entityData.searchLatencies.length > 0
-          ? entityData.searchLatencies.reduce((a, b) => a + b, 0) /
-            entityData.searchLatencies.length
-          : 0,
+      avg: avg(entityData.searchLatencies),
       p50: percentile(sortedSearch, 50),
       p95: percentile(sortedSearch, 95),
       p99: percentile(sortedSearch, 99),
-      max: entityData.searchLatencies.length > 0 ? Math.max(...entityData.searchLatencies) : 0,
+      max: max(entityData.searchLatencies),
     },
     intakeLatency: {
-      avg:
-        entityData.indexLatencies.length > 0
-          ? entityData.indexLatencies.reduce((a, b) => a + b, 0) / entityData.indexLatencies.length
-          : 0,
+      avg: avg(entityData.indexLatencies),
       p50: percentile(sortedIndex, 50),
       p95: percentile(sortedIndex, 95),
       p99: percentile(sortedIndex, 99),
-      max: entityData.indexLatencies.length > 0 ? Math.max(...entityData.indexLatencies) : 0,
+      max: max(entityData.indexLatencies),
     },
     processingLatency: {
-      avg:
-        entityData.processingLatencies.length > 0
-          ? entityData.processingLatencies.reduce((a, b) => a + b, 0) /
-            entityData.processingLatencies.length
-          : 0,
+      avg: avg(entityData.processingLatencies),
       p50: percentile(sortedProcessing, 50),
       p95: percentile(sortedProcessing, 95),
       p99: percentile(sortedProcessing, 99),
-      max:
-        entityData.processingLatencies.length > 0 ? Math.max(...entityData.processingLatencies) : 0,
+      max: max(entityData.processingLatencies),
     },
     // Use MAX values (final cumulative values) instead of summing
-    documentsProcessed:
-      entityData.documentsProcessed.length > 0 ? Math.max(...entityData.documentsProcessed) : 0,
-    documentsIndexed:
-      entityData.documentsIndexed.length > 0 ? Math.max(...entityData.documentsIndexed) : 0,
-    pagesProcessed:
-      entityData.pagesProcessed.length > 0 ? Math.max(...entityData.pagesProcessed) : 0,
-    triggerCount: entityData.triggerCounts.length > 0 ? Math.max(...entityData.triggerCounts) : 0,
+    documentsProcessed: max(entityData.documentsProcessed),
+    documentsIndexed: max(entityData.documentsIndexed),
+    pagesProcessed: max(entityData.pagesProcessed),
+    triggerCount: max(entityData.triggerCounts),
     sampleCounts: {
       search: entityData.searchLatencies.length,
       index: entityData.indexLatencies.length,

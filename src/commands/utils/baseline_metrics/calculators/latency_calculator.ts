@@ -1,5 +1,5 @@
 import { TransformStatsData } from '../types';
-import { percentile } from '../utils';
+import { percentile, avg, max } from '../utils';
 
 export interface LatencyMetrics {
   searchLatency: {
@@ -32,43 +32,31 @@ export const calculateLatencyMetrics = (transformData: TransformStatsData): Late
   // Calculate search latency metrics
   const sortedSearchLatencies = [...transformData.searchLatencies].sort((a, b) => a - b);
   const searchLatency = {
-    avg:
-      transformData.searchLatencies.length > 0
-        ? transformData.searchLatencies.reduce((a, b) => a + b, 0) /
-          transformData.searchLatencies.length
-        : 0,
+    avg: avg(transformData.searchLatencies),
     p50: percentile(sortedSearchLatencies, 50),
     p95: percentile(sortedSearchLatencies, 95),
     p99: percentile(sortedSearchLatencies, 99),
-    max: sortedSearchLatencies.length > 0 ? Math.max(...transformData.searchLatencies) : 0,
+    max: max(transformData.searchLatencies),
   };
 
   // Calculate index latency metrics
   const sortedIndexLatencies = [...transformData.indexLatencies].sort((a, b) => a - b);
   const intakeLatency = {
-    avg:
-      transformData.indexLatencies.length > 0
-        ? transformData.indexLatencies.reduce((a, b) => a + b, 0) /
-          transformData.indexLatencies.length
-        : 0,
+    avg: avg(transformData.indexLatencies),
     p50: percentile(sortedIndexLatencies, 50),
     p95: percentile(sortedIndexLatencies, 95),
     p99: percentile(sortedIndexLatencies, 99),
-    max: sortedIndexLatencies.length > 0 ? Math.max(...transformData.indexLatencies) : 0,
+    max: max(transformData.indexLatencies),
   };
 
   // Calculate processing latency metrics
   const sortedProcessingLatencies = [...transformData.processingLatencies].sort((a, b) => a - b);
   const processingLatency = {
-    avg:
-      transformData.processingLatencies.length > 0
-        ? transformData.processingLatencies.reduce((a, b) => a + b, 0) /
-          transformData.processingLatencies.length
-        : 0,
+    avg: avg(transformData.processingLatencies),
     p50: percentile(sortedProcessingLatencies, 50),
     p95: percentile(sortedProcessingLatencies, 95),
     p99: percentile(sortedProcessingLatencies, 99),
-    max: sortedProcessingLatencies.length > 0 ? Math.max(...transformData.processingLatencies) : 0,
+    max: max(transformData.processingLatencies),
   };
 
   return {

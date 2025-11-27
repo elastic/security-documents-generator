@@ -150,8 +150,8 @@ const getLogsPerEntity = (filePath: string) => {
           idField = 'service.name';
           idValue = doc.service.name;
         } else if (doc.entity) {
-          idField = 'entity.name';
-          idValue = doc.entity.name;
+          idField = 'entity.id';
+          idValue = doc.entity.id;
         }
       }
 

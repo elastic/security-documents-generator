@@ -1,4 +1,4 @@
-import { percentile } from '../utils';
+import { percentile, avg, max } from '../utils';
 
 interface KibanaStatsData {
   eventLoopDelays: number[];
@@ -107,109 +107,55 @@ export const calculateKibanaMetrics = (kibanaData: KibanaStatsData | null): Kiba
   return {
     eventLoop: {
       delay: {
-        avg:
-          kibanaData.eventLoopDelays.length > 0
-            ? kibanaData.eventLoopDelays.reduce((a, b) => a + b, 0) /
-              kibanaData.eventLoopDelays.length
-            : 0,
-        p50:
-          kibanaData.eventLoopDelayPercentiles.p50.length > 0
-            ? percentile(
-                [...kibanaData.eventLoopDelayPercentiles.p50].sort((a, b) => a - b),
-                50
-              )
-            : 0,
-        p95:
-          kibanaData.eventLoopDelayPercentiles.p95.length > 0
-            ? percentile(
-                [...kibanaData.eventLoopDelayPercentiles.p95].sort((a, b) => a - b),
-                95
-              )
-            : 0,
-        p99:
-          kibanaData.eventLoopDelayPercentiles.p99.length > 0
-            ? percentile(
-                [...kibanaData.eventLoopDelayPercentiles.p99].sort((a, b) => a - b),
-                99
-              )
-            : 0,
-        max: kibanaData.eventLoopDelays.length > 0 ? Math.max(...kibanaData.eventLoopDelays) : 0,
+        avg: avg(kibanaData.eventLoopDelays),
+        p50: percentile(
+          [...kibanaData.eventLoopDelayPercentiles.p50].sort((a, b) => a - b),
+          50
+        ),
+        p95: percentile(
+          [...kibanaData.eventLoopDelayPercentiles.p95].sort((a, b) => a - b),
+          95
+        ),
+        p99: percentile(
+          [...kibanaData.eventLoopDelayPercentiles.p99].sort((a, b) => a - b),
+          99
+        ),
+        max: max(kibanaData.eventLoopDelays),
       },
       utilization: {
-        avg:
-          kibanaData.eventLoopUtilizations.length > 0
-            ? kibanaData.eventLoopUtilizations.reduce((a, b) => a + b, 0) /
-              kibanaData.eventLoopUtilizations.length
-            : 0,
-        peak:
-          kibanaData.eventLoopUtilizations.length > 0
-            ? Math.max(...kibanaData.eventLoopUtilizations)
-            : 0,
+        avg: avg(kibanaData.eventLoopUtilizations),
+        peak: max(kibanaData.eventLoopUtilizations),
       },
     },
     elasticsearchClient: {
-      avgActiveSockets:
-        kibanaData.esClientActiveSockets.length > 0
-          ? kibanaData.esClientActiveSockets.reduce((a, b) => a + b, 0) /
-            kibanaData.esClientActiveSockets.length
-          : 0,
-      avgIdleSockets:
-        kibanaData.esClientIdleSockets.length > 0
-          ? kibanaData.esClientIdleSockets.reduce((a, b) => a + b, 0) /
-            kibanaData.esClientIdleSockets.length
-          : 0,
-      peakQueuedRequests:
-        kibanaData.esClientQueuedRequests.length > 0
-          ? Math.max(...kibanaData.esClientQueuedRequests)
-          : 0,
+      avgActiveSockets: avg(kibanaData.esClientActiveSockets),
+      avgIdleSockets: avg(kibanaData.esClientIdleSockets),
+      peakQueuedRequests: max(kibanaData.esClientQueuedRequests),
     },
     responseTimes: {
-      avg:
-        kibanaData.responseTimes.length > 0
-          ? kibanaData.responseTimes.reduce((a, b) => a + b, 0) / kibanaData.responseTimes.length
-          : 0,
-      max: kibanaData.maxResponseTimes.length > 0 ? Math.max(...kibanaData.maxResponseTimes) : 0,
+      avg: avg(kibanaData.responseTimes),
+      max: max(kibanaData.maxResponseTimes),
     },
     memory: {
-      avgHeapBytes:
-        kibanaData.heapBytes.length > 0
-          ? kibanaData.heapBytes.reduce((a, b) => a + b, 0) / kibanaData.heapBytes.length
-          : 0,
-      peakHeapBytes: kibanaData.heapBytes.length > 0 ? Math.max(...kibanaData.heapBytes) : 0,
-      avgRssBytes:
-        kibanaData.rssBytes.length > 0
-          ? kibanaData.rssBytes.reduce((a, b) => a + b, 0) / kibanaData.rssBytes.length
-          : 0,
-      peakRssBytes: kibanaData.rssBytes.length > 0 ? Math.max(...kibanaData.rssBytes) : 0,
+      avgHeapBytes: avg(kibanaData.heapBytes),
+      peakHeapBytes: max(kibanaData.heapBytes),
+      avgRssBytes: avg(kibanaData.rssBytes),
+      peakRssBytes: max(kibanaData.rssBytes),
     },
     requests: {
-      total: kibanaData.requestTotals.length > 0 ? Math.max(...kibanaData.requestTotals) : 0,
+      total: max(kibanaData.requestTotals),
       avgPerSecond:
         kibanaData.requestTotals.length > 0 && kibanaData.timeSpan > 0
-          ? Math.max(...kibanaData.requestTotals) / kibanaData.timeSpan
+          ? max(kibanaData.requestTotals) / kibanaData.timeSpan
           : 0,
-      errorRate:
-        kibanaData.requestErrorCounts.length > 0
-          ? kibanaData.requestErrorCounts.reduce((a, b) => a + b, 0) /
-            kibanaData.requestErrorCounts.length
-          : 0,
-      disconnects:
-        kibanaData.requestDisconnects.length > 0 ? Math.max(...kibanaData.requestDisconnects) : 0,
+      errorRate: avg(kibanaData.requestErrorCounts),
+      disconnects: max(kibanaData.requestDisconnects),
     },
     osLoad: {
-      avg1m:
-        kibanaData.osLoad1m.length > 0
-          ? kibanaData.osLoad1m.reduce((a, b) => a + b, 0) / kibanaData.osLoad1m.length
-          : 0,
-      avg5m:
-        kibanaData.osLoad5m.length > 0
-          ? kibanaData.osLoad5m.reduce((a, b) => a + b, 0) / kibanaData.osLoad5m.length
-          : 0,
-      avg15m:
-        kibanaData.osLoad15m.length > 0
-          ? kibanaData.osLoad15m.reduce((a, b) => a + b, 0) / kibanaData.osLoad15m.length
-          : 0,
-      peak1m: kibanaData.osLoad1m.length > 0 ? Math.max(...kibanaData.osLoad1m) : 0,
+      avg1m: avg(kibanaData.osLoad1m),
+      avg5m: avg(kibanaData.osLoad5m),
+      avg15m: avg(kibanaData.osLoad15m),
+      peak1m: max(kibanaData.osLoad1m),
     },
   };
 };
