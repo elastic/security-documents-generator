@@ -56,3 +56,17 @@ export const max = (array: number[]): number => {
   if (array.length === 0) return 0;
   return Math.max(...array);
 };
+
+/**
+ * Safe division - returns 0 if denominator is 0
+ */
+export const safeDivide = (numerator: number, denominator: number): number => {
+  return denominator > 0 ? numerator / denominator : 0;
+};
+
+/**
+ * Get last element from array, or 0 if empty
+ */
+export const last = (array: number[]): number => {
+  return array.length > 0 ? array[array.length - 1] : 0;
+};

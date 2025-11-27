@@ -1,5 +1,5 @@
 import { TransformStatsData, EntityTypeMetrics } from '../types';
-import { avg, max } from '../utils';
+import { avg, max, safeDivide, last } from '../utils';
 
 export interface SystemMetrics {
   cpu: {
@@ -107,7 +107,7 @@ export const calculateSystemMetrics = (
     perEntityType.service.documentsProcessed +
     perEntityType.generic.documentsProcessed;
   const indexEfficiency = {
-    avgRatio: totalDocumentsProcessed > 0 ? totalDocumentsIndexed / totalDocumentsProcessed : 0,
+    avgRatio: safeDivide(totalDocumentsIndexed, totalDocumentsProcessed),
     totalDocumentsIndexed,
     totalDocumentsProcessed,
   };
@@ -121,10 +121,7 @@ export const calculateSystemMetrics = (
     perEntityType.generic.pagesProcessed;
   const pagesProcessed = {
     total: totalPagesProcessed,
-    avgPerSample:
-      transformData.pagesProcessed.length > 0
-        ? totalPagesProcessed / transformData.pagesProcessed.length
-        : 0,
+    avgPerSample: safeDivide(totalPagesProcessed, transformData.pagesProcessed.length),
   };
 
   // Calculate trigger count metrics
@@ -136,32 +133,14 @@ export const calculateSystemMetrics = (
     perEntityType.generic.triggerCount;
   const triggerCount = {
     total: totalTriggerCount,
-    avgPerTransform:
-      transformData.triggerCounts.length > 0
-        ? totalTriggerCount / transformData.triggerCounts.length
-        : 0,
+    avgPerTransform: safeDivide(totalTriggerCount, transformData.triggerCounts.length),
   };
 
   // Calculate exponential averages (use last non-zero value)
   const exponentialAverages = {
-    checkpointDuration:
-      transformData.exponentialAverages.checkpointDuration.length > 0
-        ? transformData.exponentialAverages.checkpointDuration[
-            transformData.exponentialAverages.checkpointDuration.length - 1
-          ]
-        : 0,
-    documentsIndexed:
-      transformData.exponentialAverages.documentsIndexed.length > 0
-        ? transformData.exponentialAverages.documentsIndexed[
-            transformData.exponentialAverages.documentsIndexed.length - 1
-          ]
-        : 0,
-    documentsProcessed:
-      transformData.exponentialAverages.documentsProcessed.length > 0
-        ? transformData.exponentialAverages.documentsProcessed[
-            transformData.exponentialAverages.documentsProcessed.length - 1
-          ]
-        : 0,
+    checkpointDuration: last(transformData.exponentialAverages.checkpointDuration),
+    documentsIndexed: last(transformData.exponentialAverages.documentsIndexed),
+    documentsProcessed: last(transformData.exponentialAverages.documentsProcessed),
   };
 
   return {
