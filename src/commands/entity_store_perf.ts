@@ -525,9 +525,9 @@ export const uploadPerfDataFile = async (
     process.exit(1);
   }
 
-  console.log('initialising entity engines');
-  await initEntityEngineForEntityTypes(['host', 'user']);
-  console.log('entity engines initialised');
+  // console.log('initialising entity engines');
+  // await initEntityEngineForEntityTypes(['host', 'user']);
+  // console.log('entity engines initialised');
 
   const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
   console.log(
@@ -591,11 +591,11 @@ export const uploadPerfDataFileInterval = async (
     process.exit(1);
   }
 
-  console.log('initialising entity engines');
+  // console.log('initialising entity engines');
 
-  await initEntityEngineForEntityTypes(['host', 'user']);
+  // await initEntityEngineForEntityTypes(['host', 'user']);
 
-  console.log('entity engines initialised');
+  // console.log('entity engines initialised');
 
   const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
 
