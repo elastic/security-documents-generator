@@ -120,7 +120,7 @@ To upload a perf file once, use the `upload-perf-data` command, e.g:
 
 ```
 # upload the small file, delete all logs and entities beforehand
-yarn start upload-perf-data small --delete
+yarn start upload-perf-data-interval small --delete
 ```
 
 If you omit the file name you will be presented with a picker. 
