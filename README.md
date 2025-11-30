@@ -112,6 +112,13 @@ yarn start test-risk-score
 
 ## Entity Store Performance Testing
 
+> **Important**: Entity store performance tests work reliably against **cloud environments** and **newly deployed environments only**.
+>
+> - **Running tests on the same instance is problematic** due to Elasticsearch's [node query cache](https://www.elastic.co/guide/en/elasticsearch/reference/5.1/query-cache.html), which can skew results by caching query results between test runs.
+> - **Running on local instances is not stable** and should be avoided. Local environments often have resource constraints and inconsistent performance that make baseline comparisons unreliable.
+>
+> For accurate and comparable results, always run performance tests against a fresh cloud deployment or a newly provisioned environment.
+
 ### Sending one of the pre-built files
 
 #### One time send
