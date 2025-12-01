@@ -16,6 +16,8 @@ import {
   listPerfDataFiles,
   uploadPerfDataFile,
   uploadPerfDataFileInterval,
+  ENTITY_DISTRIBUTIONS,
+  DistributionType,
 } from './commands/entity_store_perf';
 import { checkbox, input } from '@inquirer/prompts';
 import {
@@ -40,6 +42,18 @@ import fs from 'fs';
 import * as RiskEngine from './risk_engine/generate_perf_data';
 import * as RiskEngineIngest from './risk_engine/ingest';
 import * as Pain from './risk_engine/scripted_metrics_stress_test';
+import {
+  extractBaselineMetrics,
+  saveBaseline,
+  loadBaseline,
+  listBaselines,
+  loadBaselineWithPattern,
+} from './commands/utils/baseline_metrics';
+import {
+  compareMetrics,
+  formatComparisonReport,
+  buildComparisonThresholds,
+} from './commands/utils/metrics_comparison';
 
 await createConfigFileOnFirstRun();
 
@@ -198,9 +212,34 @@ program
   .argument('<entity-count>', 'number of entities', parseIntBase10)
   .argument('<logs-per-entity>', 'number of logs per entity', parseIntBase10)
   .argument('[start-index]', 'for sequential data, which index to start at', parseIntBase10, 0)
+  .option(
+    '--distribution <type>',
+    `Entity distribution type: equal (user/host/generic/service: 25% each), standard (user/host/generic/service: 33/33/33/1) (default: standard)`,
+    'standard'
+  )
   .description('Create performance data')
-  .action((name, entityCount, logsPerEntity, startIndex) => {
-    createPerfDataFile({ name, entityCount, logsPerEntity, startIndex });
+  .action(async (name, entityCount, logsPerEntity, startIndex, options) => {
+    const distributionType = options.distribution as DistributionType;
+
+    // Validate distribution type
+    if (!ENTITY_DISTRIBUTIONS[distributionType]) {
+      console.error(`❌ Invalid distribution type: ${distributionType}`);
+      console.error(`   Available types: ${Object.keys(ENTITY_DISTRIBUTIONS).join(', ')}`);
+      process.exit(1);
+    }
+
+    try {
+      await createPerfDataFile({
+        name,
+        entityCount,
+        logsPerEntity,
+        startIndex,
+        distribution: distributionType,
+      });
+    } catch (error) {
+      console.error('Failed to create performance data file:', error);
+      process.exit(1);
+    }
   });
 
 program
@@ -224,6 +263,19 @@ program
   .option('--count <count>', 'number of times to upload', parseIntBase10, 10)
   .option('--deleteData', 'Delete all entities before uploading')
   .option('--deleteEngines', 'Delete all entities before uploading')
+  .option(
+    '--transformTimeout <timeout>',
+    'Timeout in minutes for waiting for generic transform to complete (default: 30)',
+    parseIntBase10,
+    30
+  )
+  .option(
+    '--samplingInterval <seconds>',
+    'Sampling interval in seconds for metrics collection (default: 5)',
+    parseIntBase10,
+    5
+  )
+  .option('--noTransforms', 'Skip transform-related operations (for ESQL workflows)')
   .description('Upload performance data file')
   .action(async (file, options) => {
     await uploadPerfDataFileInterval(
@@ -231,7 +283,10 @@ program
       options.interval * 1000,
       options.count,
       options.deleteData,
-      options.deleteEngines
+      options.deleteEngines,
+      options.transformTimeout * 60 * 1000, // Convert minutes to milliseconds
+      options.samplingInterval * 1000, // Convert seconds to milliseconds
+      options.noTransforms // Skip transform-related operations
     );
   });
 
@@ -510,6 +565,131 @@ program
       userCount: 100,
       space: options.space,
     });
+  });
+
+// Baseline metrics commands
+program
+  .command('create-baseline')
+  .argument('<log-prefix>', 'Prefix of log files (e.g., tmp-all-2025-11-13T15:03:32)')
+  .option('-e <entityCount>', 'Number of entities', parseIntBase10)
+  .option('-l <logsPerEntity>', 'Number of logs per entity', parseIntBase10)
+  .option('-u <uploadCount>', 'Number of uploads (for interval tests)', parseIntBase10)
+  .option('-i <intervalMs>', 'Interval in milliseconds (for interval tests)', parseIntBase10)
+  .option('-n <name>', 'Custom name for baseline (defaults to log-prefix)')
+  .description('Extract metrics from logs and create a baseline')
+  .action(async (logPrefix, options) => {
+    try {
+      const testConfig = {
+        entityCount: options.e || 0,
+        logsPerEntity: options.l || 0,
+        uploadCount: options.u,
+        intervalMs: options.i,
+      };
+
+      console.log(`Extracting baseline metrics from logs with prefix: ${logPrefix}`);
+      const baseline = await extractBaselineMetrics(logPrefix, testConfig);
+
+      if (options.n) {
+        baseline.testName = options.n;
+      }
+
+      const filepath = saveBaseline(baseline);
+      console.log(`\n✅ Baseline created successfully!`);
+      console.log(`File: ${filepath}`);
+      console.log(`\nSummary:`);
+      console.log(`  Search Latency (avg): ${baseline.metrics.searchLatency.avg.toFixed(2)}ms`);
+      console.log(`  Intake Latency (avg): ${baseline.metrics.intakeLatency.avg.toFixed(2)}ms`);
+      console.log(`  CPU (avg): ${baseline.metrics.cpu.avg.toFixed(2)}%`);
+      console.log(`  Memory Heap (avg): ${baseline.metrics.memory.avgHeapPercent.toFixed(2)}%`);
+      console.log(
+        `  Throughput (avg): ${baseline.metrics.throughput.avgDocumentsPerSecond.toFixed(2)} docs/sec`
+      );
+      console.log(`  Errors: ${baseline.metrics.errors.totalFailures}`);
+    } catch (error) {
+      console.error('❌ Failed to create baseline:', error);
+      if (error instanceof Error) {
+        console.error('Error:', error.message);
+      }
+      process.exit(1);
+    }
+  });
+
+program
+  .command('list-baselines')
+  .description('List all available baselines')
+  .action(() => {
+    const baselines = listBaselines();
+    if (baselines.length === 0) {
+      console.log('No baselines found.');
+      return;
+    }
+
+    console.log(`\nFound ${baselines.length} baseline(s):\n`);
+    baselines.forEach((filepath: string, index: number) => {
+      try {
+        const baseline = loadBaseline(filepath);
+        console.log(`${index + 1}. ${baseline.testName}`);
+        console.log(`   Timestamp: ${baseline.timestamp}`);
+        console.log(`   File: ${filepath}`);
+        console.log('');
+      } catch {
+        console.log(`${index + 1}. ${filepath} (error loading)`);
+      }
+    });
+  });
+
+program
+  .command('compare-metrics')
+  .argument('<current-log-prefix>', 'Prefix of current run log files')
+  .option('-b <baseline>', 'Path to baseline file (or use latest if not specified)')
+  .option('-e <entityCount>', 'Number of entities for current run', parseIntBase10)
+  .option('-l <logsPerEntity>', 'Number of logs per entity for current run', parseIntBase10)
+  .option('-u <uploadCount>', 'Number of uploads for current run', parseIntBase10)
+  .option('-i <intervalMs>', 'Interval in milliseconds for current run', parseIntBase10)
+  .option('--degradation-threshold <percent>', 'Degradation threshold percentage', parseFloat)
+  .option('--warning-threshold <percent>', 'Warning threshold percentage', parseFloat)
+  .option('--improvement-threshold <percent>', 'Improvement threshold percentage', parseFloat)
+  .description('Compare current run metrics against a baseline')
+  .action(async (currentLogPrefix, options) => {
+    try {
+      // Load baseline
+      const { baseline } = loadBaselineWithPattern(options.b);
+
+      // Extract current metrics
+      const currentTestConfig = {
+        entityCount: options.e || 0,
+        logsPerEntity: options.l || 0,
+        uploadCount: options.u,
+        intervalMs: options.i,
+      };
+
+      console.log(`Extracting metrics from current run: ${currentLogPrefix}`);
+      const current = await extractBaselineMetrics(currentLogPrefix, currentTestConfig);
+
+      // Build thresholds and compare
+      const thresholds = buildComparisonThresholds({
+        degradationThreshold: options.degradationThreshold,
+        warningThreshold: options.warningThreshold,
+        improvementThreshold: options.improvementThreshold,
+      });
+
+      const report = compareMetrics(baseline, current, thresholds);
+
+      // Print report
+      console.log(formatComparisonReport(report));
+
+      // Exit with error code if degradations found
+      if (report.summary.degradations > 0) {
+        console.log(`\n⚠️  Warning: ${report.summary.degradations} metric(s) show degradation.`);
+        process.exit(1);
+      }
+    } catch (error) {
+      console.error('❌ Failed to compare metrics:', error);
+      if (error instanceof Error) {
+        console.error('Error:', error.message);
+      }
+      process.exit(1);
+    }
   });
 
 program.parse();

@@ -1,0 +1,254 @@
+{
+  "testName": "baseline-v1_2-standard-1-sec-logging",
+  "timestamp": "2025-11-25T17:10:19.485Z",
+  "testConfig": {
+    "entityCount": 100000,
+    "logsPerEntity": 10
+  },
+  "metrics": {
+    "searchLatency": {
+      "avg": 58.29926933267098,
+      "p50": 55.111111111111114,
+      "p95": 98.42857142857143,
+      "p99": 104.85714285714286,
+      "max": 109.2
+    },
+    "intakeLatency": {
+      "avg": 136.78236914600555,
+      "p50": 125.66666666666667,
+      "p95": 184,
+      "p99": 203,
+      "max": 220.5
+    },
+    "processingLatency": {
+      "avg": 11.306138670073098,
+      "p50": 11,
+      "p95": 17.857142857142858,
+      "p99": 20.714285714285715,
+      "max": 21
+    },
+    "cpu": {
+      "avg": 5.888405797101449,
+      "peak": 40,
+      "avgPerNode": {
+        "tiebreaker-0000000002": 0.05652173913043478,
+        "instance-0000000001": 9.452173913043477,
+        "instance-0000000000": 8.156521739130435
+      }
+    },
+    "memory": {
+      "avgHeapPercent": 58.45217391304348,
+      "peakHeapPercent": 88,
+      "avgHeapBytes": 392642187.8956522,
+      "peakHeapBytes": 782218776
+    },
+    "throughput": {
+      "avgDocumentsPerSecond": 7311.038341315635,
+      "peakDocumentsPerSecond": 3992614.161508086
+    },
+    "indexEfficiency": {
+      "avgRatio": 0.10000107784302055,
+      "totalDocumentsIndexed": 167002,
+      "totalDocumentsProcessed": 1670002
+    },
+    "pagesProcessed": {
+      "total": 1018,
+      "avgPerSample": 1.1162280701754386
+    },
+    "triggerCount": {
+      "total": 16,
+      "avgPerTransform": 0.017543859649122806
+    },
+    "exponentialAverages": {
+      "checkpointDuration": 12030.396694214876,
+      "documentsIndexed": 16343.256198347106,
+      "documentsProcessed": 163431.2231404959
+    },
+    "perEntityType": {
+      "host": {
+        "searchLatency": {
+          "avg": 51.34667415917416,
+          "p50": 46.5,
+          "p95": 78.28571428571429,
+          "p99": 82.57142857142857,
+          "max": 82.57142857142857
+        },
+        "intakeLatency": {
+          "avg": 171.18,
+          "p50": 171.33333333333334,
+          "p95": 187.5,
+          "p99": 199.5,
+          "max": 199.5
+        },
+        "processingLatency": {
+          "avg": 8.002926240426241,
+          "p50": 7.555555555555555,
+          "p95": 11.714285714285714,
+          "p99": 12.428571428571429,
+          "max": 12.428571428571429
+        },
+        "documentsProcessed": 330001,
+        "documentsIndexed": 33001,
+        "pagesProcessed": 204,
+        "triggerCount": 4,
+        "sampleCounts": {
+          "search": 26,
+          "index": 25,
+          "processing": 26
+        }
+      },
+      "user": {
+        "searchLatency": {
+          "avg": 34.705555555555556,
+          "p50": 34.90909090909091,
+          "p95": 40.7,
+          "p99": 42.25,
+          "max": 42.25
+        },
+        "intakeLatency": {
+          "avg": 154.7625,
+          "p50": 151,
+          "p95": 179.33333333333334,
+          "p99": 203,
+          "max": 203
+        },
+        "processingLatency": {
+          "avg": 7.409040404040406,
+          "p50": 7.5,
+          "p95": 9.5,
+          "p99": 9.909090909090908,
+          "max": 9.909090909090908
+        },
+        "documentsProcessed": 330000,
+        "documentsIndexed": 33000,
+        "pagesProcessed": 200,
+        "triggerCount": 4,
+        "sampleCounts": {
+          "search": 20,
+          "index": 20,
+          "processing": 20
+        }
+      },
+      "service": {
+        "searchLatency": {
+          "avg": 36.95,
+          "p50": 4.5,
+          "p95": 69.4,
+          "p99": 69.4,
+          "max": 69.4
+        },
+        "intakeLatency": {
+          "avg": 139.5,
+          "p50": 108,
+          "p95": 171,
+          "p99": 171,
+          "max": 171
+        },
+        "processingLatency": {
+          "avg": 4,
+          "p50": 0,
+          "p95": 8,
+          "p99": 8,
+          "max": 8
+        },
+        "documentsProcessed": 10000,
+        "documentsIndexed": 1000,
+        "pagesProcessed": 8,
+        "triggerCount": 4,
+        "sampleCounts": {
+          "search": 2,
+          "index": 2,
+          "processing": 2
+        }
+      },
+      "generic": {
+        "searchLatency": {
+          "avg": 67.69575972075974,
+          "p50": 60.285714285714285,
+          "p95": 101.28571428571429,
+          "p99": 109.2,
+          "max": 109.2
+        },
+        "intakeLatency": {
+          "avg": 120.2286036036036,
+          "p50": 119.66666666666667,
+          "p95": 137,
+          "p99": 220.5,
+          "max": 220.5
+        },
+        "processingLatency": {
+          "avg": 13.71745982995983,
+          "p50": 13,
+          "p95": 19.714285714285715,
+          "p99": 21,
+          "max": 21
+        },
+        "documentsProcessed": 1000001,
+        "documentsIndexed": 100001,
+        "pagesProcessed": 606,
+        "triggerCount": 4,
+        "sampleCounts": {
+          "search": 74,
+          "index": 74,
+          "processing": 74
+        }
+      }
+    },
+    "transformStates": {
+      "indexing": 124,
+      "started": 792
+    },
+    "errors": {
+      "searchFailures": 0,
+      "indexFailures": 0,
+      "totalFailures": 0
+    },
+    "clusterHealth": {
+      "status": "green",
+      "avgActiveShards": 189.05652173913043,
+      "unassignedShards": 0
+    },
+    "kibana": {
+      "eventLoop": {
+        "delay": {
+          "avg": 13.394809434782614,
+          "p50": 10.076159,
+          "p95": 10.272767,
+          "p99": 12.156927,
+          "max": 32.276479
+        },
+        "utilization": {
+          "avg": 0.019528116725809345,
+          "peak": 0.11119570504768685
+        }
+      },
+      "elasticsearchClient": {
+        "avgActiveSockets": 0.2391304347826087,
+        "avgIdleSockets": 9.347826086956522,
+        "peakQueuedRequests": 0
+      },
+      "responseTimes": {
+        "avg": 8.806734512645638,
+        "max": 584
+      },
+      "memory": {
+        "avgHeapBytes": 513021785.3913044,
+        "peakHeapBytes": 552635592,
+        "avgRssBytes": 921329236.5913043,
+        "peakRssBytes": 922148864
+      },
+      "requests": {
+        "total": 16,
+        "avgPerSecond": 0.06979858745108646,
+        "errorRate": 0,
+        "disconnects": 0
+      },
+      "osLoad": {
+        "avg1m": 0.5982608695652174,
+        "avg5m": 0.7195652173913035,
+        "avg15m": 0.7216956521739128,
+        "peak1m": 0.95
+      }
+    }
+  }
+}
