@@ -217,6 +217,11 @@ program
     `Entity distribution type: equal (user/host/generic/service: 25% each), standard (user/host/generic/service: 33/33/33/1) (default: standard)`,
     'standard'
   )
+  .option(
+    '--new-entity-schema',
+    `Formats the documents according to the new entity schema (right now affects only user and host)`,
+    false
+  )
   .description('Create performance data')
   .action(async (name, entityCount, logsPerEntity, startIndex, options) => {
     const distributionType = options.distribution as DistributionType;
@@ -235,6 +240,7 @@ program
         logsPerEntity,
         startIndex,
         distribution: distributionType,
+        newEntityIdSchema: options.newEntitySchema,
       });
     } catch (error) {
       console.error('Failed to create performance data file:', error);
@@ -276,6 +282,7 @@ program
     5
   )
   .option('--noTransforms', 'Skip transform-related operations (for ESQL workflows)')
+  .option('--newEntitySchema', `Don't generate new names for each run`)
   .description('Upload performance data file')
   .action(async (file, options) => {
     await uploadPerfDataFileInterval(
@@ -286,7 +293,8 @@ program
       options.deleteEngines,
       options.transformTimeout * 60 * 1000, // Convert minutes to milliseconds
       options.samplingInterval * 1000, // Convert seconds to milliseconds
-      options.noTransforms // Skip transform-related operations
+      options.noTransforms, // Skip transform-related operations
+      options.newEntitySchema
     );
   });
 

@@ -10,6 +10,19 @@ import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { getConfig } from '../get_config';
 import * as path from 'path';
+import {
+  generateIpAddresses,
+  generateMacAddresses,
+  hostIdEnrichers,
+  userIdEnrichers,
+} from './utils/entity_ecs_enrichers';
+import {
+  ECSDocument,
+  GenericEntityDocument,
+  HostDocument,
+  ServiceDocument,
+  UserDocument,
+} from './ecs_fields';
 
 const config = getConfig();
 
@@ -19,76 +32,6 @@ const CHECKPOINT_STABLE_TIME_MS = 10000;
 // Consider stable after this many consecutive checks with the same checkpoint
 const STABLE_CHECKPOINT_THRESHOLD = 3;
 
-interface EntityFields {
-  id: string;
-  name: string;
-  type: string;
-  sub_type: string;
-  address: string;
-}
-
-interface HostFields {
-  entity: EntityFields;
-  host: {
-    hostname?: string;
-    domain?: string;
-    ip?: string[];
-    name: string;
-    id?: string;
-    type?: string;
-    mac?: string[];
-    architecture?: string[];
-  };
-}
-
-interface UserFields {
-  entity: EntityFields;
-  user: {
-    full_name?: string[];
-    domain?: string;
-    roles?: string[];
-    name: string;
-    id?: string;
-    email?: string[];
-    hash?: string[];
-  };
-}
-
-interface ServiceFields {
-  entity: EntityFields;
-  service: {
-    name: string;
-    id?: string;
-    type?: string;
-    node?: {
-      roles?: string;
-      name?: string;
-    };
-    environment?: string;
-    address?: string;
-    state?: string;
-    ephemeral_id?: string;
-    version?: string;
-  };
-}
-
-interface GenericEntityFields {
-  entity: EntityFields;
-  event?: {
-    ingested?: string;
-    dataset?: string;
-    module?: string;
-  };
-  cloud?: {
-    provider?: string;
-    region?: string;
-    account?: {
-      name?: string;
-      id?: string;
-    };
-  };
-}
-
 let stop = false;
 
 process.on('SIGINT', () => {
@@ -96,32 +39,12 @@ process.on('SIGINT', () => {
   stop = true;
 });
 
-const generateIpAddresses = (startIndex: number, count: number) => {
-  const ips = [];
-  for (let i = 0; i < count; i++) {
-    ips.push(`192.168.1.${startIndex + i}`);
-  }
-  return ips;
-};
-
-const generateMacAddresses = (startIndex: number, count: number) => {
-  const macs = [];
-  for (let i = 0; i < count; i++) {
-    const macPart = (startIndex + i)
-      .toString(16)
-      .padStart(12, '0')
-      .match(/.{1,2}/g)
-      ?.join(':');
-    macs.push(macPart ? macPart : '00:00:00:00:00:00');
-  }
-  return macs;
-};
-
 interface GeneratorOptions {
   entityIndex: number;
   valueStartIndex: number;
   fieldLength: number;
   idPrefix: string;
+  newEntityIdSchema?: boolean;
 }
 
 const getLogsPerEntity = (filePath: string) => {
@@ -190,12 +113,26 @@ const getLogsPerEntity = (filePath: string) => {
   });
 };
 
-const generateHostFields = ({
-  entityIndex,
-  valueStartIndex,
-  fieldLength,
-  idPrefix,
-}: GeneratorOptions): HostFields => {
+const generateHostFields = (opts: GeneratorOptions): HostDocument => {
+  const { entityIndex, valueStartIndex, fieldLength, idPrefix, newEntityIdSchema } = opts;
+
+  if (newEntityIdSchema) {
+    const enrich = hostIdEnrichers[entityIndex % hostIdEnrichers.length];
+    return enrich(opts, {
+      host: {
+        entity: {
+          name: `${idPrefix}-host-name`,
+          type: 'host',
+          sub_type: 'aws_ec2_instance',
+          address: `example.${idPrefix}.com`,
+        },
+        ip: generateIpAddresses(valueStartIndex, fieldLength),
+        type: 'server',
+        architecture: ['x86_64'],
+      },
+    });
+  }
+
   const id = `${idPrefix}-host-${entityIndex}`;
   return {
     entity: {
@@ -220,7 +157,7 @@ const generateHostFields = ({
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const changeHostName = (doc: Record<string, any>, addition: string) => {
-  const newName = `${doc.host.hostname}-${addition}`;
+  const newName = `${doc.host.hostname || doc.h}-${addition}`;
   doc.host.hostname = newName;
   doc.host.name = newName;
   doc.host.id = newName;
@@ -260,7 +197,24 @@ const changeGenericEntityName = (doc: Record<string, any>, addition: string) => 
   return doc;
 };
 
-const generateUserFields = ({ idPrefix, entityIndex }: GeneratorOptions): UserFields => {
+const generateUserFields = (opts: GeneratorOptions): UserDocument => {
+  const { idPrefix, entityIndex, newEntityIdSchema } = opts;
+
+  if (newEntityIdSchema) {
+    const enrich = userIdEnrichers[entityIndex % userIdEnrichers.length];
+    return enrich(opts, {
+      user: {
+        entity: {
+          type: 'user',
+          sub_type: 'aws_iam_user',
+          address: `example.${idPrefix}.com`,
+        },
+        full_name: [`User ${idPrefix} ${entityIndex}`],
+        roles: ['admin'],
+      },
+    });
+  }
+
   const id = `${idPrefix}-user-${entityIndex}`;
   return {
     entity: {
@@ -281,7 +235,7 @@ const generateUserFields = ({ idPrefix, entityIndex }: GeneratorOptions): UserFi
   };
 };
 
-const generateServiceFields = ({ idPrefix, entityIndex }: GeneratorOptions): ServiceFields => {
+const generateServiceFields = ({ idPrefix, entityIndex }: GeneratorOptions): ServiceDocument => {
   const id = `${idPrefix}-service-${entityIndex}`;
   return {
     entity: {
@@ -311,7 +265,7 @@ const generateServiceFields = ({ idPrefix, entityIndex }: GeneratorOptions): Ser
 const generateGenericEntityFields = ({
   idPrefix,
   entityIndex,
-}: GeneratorOptions): GenericEntityFields => {
+}: GeneratorOptions): GenericEntityDocument => {
   const id = `${idPrefix}-generic-${entityIndex}`;
   const genericTypes = [
     { type: 'Messaging Service', subType: 'AWS SNS Topic' },
@@ -865,12 +819,14 @@ export const createPerfDataFile = async ({
   startIndex,
   name,
   distribution = DEFAULT_DISTRIBUTION,
+  newEntityIdSchema = false,
 }: {
   name: string;
   entityCount: number;
   logsPerEntity: number;
   startIndex: number;
   distribution?: DistributionType;
+  newEntityIdSchema?: boolean;
 }): Promise<void> => {
   const filePath = getFilePath(name);
   const dist = getEntityDistribution(distribution);
@@ -900,10 +856,7 @@ export const createPerfDataFile = async ({
   const writeStream = fs.createWriteStream(filePath, { flags: 'a' });
 
   // Map entity types to their generator functions for cleaner code
-  const entityGenerators: Record<
-    EntityType,
-    (opts: GeneratorOptions) => HostFields | UserFields | ServiceFields | GenericEntityFields
-  > = {
+  const entityGenerators: Record<EntityType, (opts: GeneratorOptions) => ECSDocument> = {
     host: generateHostFields,
     user: generateUserFields,
     service: generateServiceFields,
@@ -968,11 +921,12 @@ export const createPerfDataFile = async ({
             const valueStartIndex =
               startIndex + globalEntityIndex * logsPerEntity * FIELD_LENGTH + j * FIELD_LENGTH;
 
-            const generatorOpts = {
+            const generatorOpts: GeneratorOptions = {
               entityIndex,
               valueStartIndex,
               fieldLength: FIELD_LENGTH,
               idPrefix: name,
+              newEntityIdSchema,
             };
 
             // Use map lookup instead of if/else chain
@@ -1148,7 +1102,8 @@ export const uploadPerfDataFileInterval = async (
   doDeleteEngines?: boolean,
   transformTimeoutMs?: number,
   samplingIntervalMs?: number,
-  noTransforms?: boolean
+  noTransforms?: boolean,
+  newEntitySchema?: boolean
 ) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addIdPrefix = (prefix: string) => (doc: Record<string, any>) => {
@@ -1244,7 +1199,7 @@ export const uploadPerfDataFileInterval = async (
         filePath,
         index,
         lineCount,
-        modifyDoc: addIdPrefix(i.toString()),
+        modifyDoc: newEntitySchema ? undefined : addIdPrefix(i.toString()),
       })
     );
     let progress: cliProgress.SingleBar | null = null;
