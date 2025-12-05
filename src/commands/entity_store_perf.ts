@@ -156,7 +156,20 @@ const generateHostFields = (opts: GeneratorOptions): HostDocument => {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const changeHostName = (doc: Record<string, any>, addition: string) => {
+const changeHostName = (doc: Record<string, any>, addition: string, newEntitySchema?: boolean) => {
+  if (newEntitySchema) {
+    doc.host.entity = doc.host.entity
+      ? {
+          ...doc.host.entity,
+          id: doc.host.entity.id ? `${doc.host.entity.id}-${addition}` : doc.host.entity.id,
+        }
+      : doc.host.entity;
+    doc.host.id = doc.host.id ? `${doc.host.id}-${addition}` : doc.host.id;
+    doc.host.name = doc.host.name ? `${doc.host.name}-${addition}` : doc.host.name;
+    doc.host.hostname = doc.host.hostname ? `${doc.host.hostname}-${addition}` : doc.host.hostname;
+    return doc;
+  }
+
   const newName = `${doc.host.hostname || doc.h}-${addition}`;
   doc.host.hostname = newName;
   doc.host.name = newName;
@@ -165,7 +178,19 @@ const changeHostName = (doc: Record<string, any>, addition: string) => {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const changeUserName = (doc: Record<string, any>, addition: string) => {
+const changeUserName = (doc: Record<string, any>, addition: string, newEntitySchema?: boolean) => {
+  if (newEntitySchema) {
+    doc.user.entity = doc.user.entity
+      ? {
+          ...doc.user.entity,
+          id: doc.user.entity.id ? `${doc.user.entity.id}-${addition}` : doc.user.entity.id,
+        }
+      : doc.user.entity;
+    doc.user.email = doc.user.email ? `${doc.user.email}-${addition}` : doc.user.email;
+    doc.user.name = doc.user.name ? `${doc.user.name}-${addition}` : doc.user.name;
+    return doc;
+  }
+
   const newName = `${doc.user.name}-${addition}`;
   doc.user.name = newName;
   doc.user.id = newName;
@@ -174,6 +199,10 @@ const changeUserName = (doc: Record<string, any>, addition: string) => {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const changeServiceName = (doc: Record<string, any>, addition: string) => {
+  if (!doc.service.name) {
+    return doc;
+  }
+
   const newName = `${doc.service.name}-${addition}`;
   doc.service.name = newName;
   doc.service.id = newName;
@@ -184,6 +213,10 @@ const changeServiceName = (doc: Record<string, any>, addition: string) => {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const changeGenericEntityName = (doc: Record<string, any>, addition: string) => {
+  if (!doc.entity.name) {
+    return doc;
+  }
+
   const originalName = doc.entity.name; // Store original name before modification
   const newName = `${originalName}-${addition}`;
   doc.entity.name = newName;
@@ -1108,13 +1141,16 @@ export const uploadPerfDataFileInterval = async (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addIdPrefix = (prefix: string) => (doc: Record<string, any>) => {
     if (doc.host) {
-      return changeHostName(doc, prefix);
-    } else if (doc.user) {
-      return changeUserName(doc, prefix);
-    } else if (doc.service) {
-      return changeServiceName(doc, prefix);
-    } else if (doc.entity && doc.cloud) {
-      return changeGenericEntityName(doc, prefix);
+      doc = changeHostName(doc, prefix, newEntitySchema);
+    }
+    if (doc.user) {
+      doc = changeUserName(doc, prefix, newEntitySchema);
+    }
+    if (doc.service) {
+      doc = changeServiceName(doc, prefix);
+    }
+    if (doc.entity && doc.cloud) {
+      doc = changeGenericEntityName(doc, prefix);
     }
     return doc;
   };
@@ -1199,7 +1235,7 @@ export const uploadPerfDataFileInterval = async (
         filePath,
         index,
         lineCount,
-        modifyDoc: newEntitySchema ? undefined : addIdPrefix(i.toString()),
+        modifyDoc: addIdPrefix(i.toString()),
       })
     );
     let progress: cliProgress.SingleBar | null = null;
