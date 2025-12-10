@@ -47,7 +47,7 @@
     "@typescript-eslint/parser": "8.46.3",
     "esbuild": "0.27.0",
     "eslint-config-prettier": "10.1.8",
-    "eslint-plugin-check-file": "3.3.0",
+    "eslint-plugin-check-file": "3.3.1",
     "eslint-plugin-prettier": "5.5.4",
     "prettier": "3.6.2",
     "typescript": "5.9.3"
