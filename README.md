@@ -112,6 +112,13 @@ yarn start test-risk-score
 
 ## Entity Store Performance Testing
 
+> **Important**: Entity store performance tests work reliably against **cloud environments** and **newly deployed environments only**.
+>
+> - **Running tests on the same instance is problematic** due to Elasticsearch's [node query cache](https://www.elastic.co/guide/en/elasticsearch/reference/5.1/query-cache.html), which can skew results by caching query results between test runs.
+> - **Running on local instances is not stable** and should be avoided. Local environments often have resource constraints and inconsistent performance that make baseline comparisons unreliable.
+>
+> For accurate and comparable results, always run performance tests against a fresh cloud deployment or a newly provisioned environment.
+
 ### Sending one of the pre-built files
 
 #### One time send
@@ -132,26 +139,123 @@ To do this use the `upload-perf-data-interval` command. This will upload a file 
 
 ```
 # upload the small data file 10 times with 30 seconds between sends
-yarn start upload-perf-data-interval small --deleteEntities
+yarn start upload-perf-data-interval small --deleteData
 ```
 
 The count and interval can be customized:
 
 ```
 # upload the small data file 100 times with 60 seconds between sends
-yarn start upload-perf-data-interval small --deleteEntities --interval 60 --count 100
+yarn start upload-perf-data-interval small --deleteData --interval 60 --count 100
+
+# Customize the sampling interval for metrics collection (default: 5 seconds)
+yarn start upload-perf-data-interval small --deleteData --interval 60 --count 100 --samplingInterval 10
+
+# Skip transform-related operations (for ESQL workflows)
+yarn start upload-perf-data-interval small --deleteData --noTransforms
 ```
+
+Options:
+- `--interval <seconds>` - Interval between uploads in seconds (default: 30)
+- `--count <number>` - Number of times to upload (default: 10)
+- `--deleteData` - Delete all entities and data streams before uploading
+- `--deleteEngines` - Delete all entity engines before uploading
+- `--transformTimeout <minutes>` - Timeout in minutes for waiting for generic transform to complete (default: 30)
+- `--samplingInterval <seconds>` - Sampling interval in seconds for metrics collection (default: 5)
+- `--noTransforms` - Skip transform-related operations (for ESQL workflows)
 
 The entity IDs are modified before sending so that each upload creates new entities, this means there will be count * entityCount entities by the end of the test.
 
-While the files are uploaded, we poll elasticsearch for the cluster health and the transform health, these files can be found in `./logs`. Where one file contains the cluster health every 5 seconds, and the other contains the transform health every 5 seconds:
+While the files are uploaded, we poll elasticsearch and Kibana for various metrics. These log files can be found in `./logs`:
 
 ```
 > ll logs
 total 464
--rw-r--r--@ 1 mark  staff    33K Oct 28 11:20 small-2024-10-28T11:14:06.828Z-cluster-health.log
--rw-r--r--@ 1 mark  staff   145K Oct 28 11:20 small-2024-10-28T11:14:06.828Z-transform-stats.log
+-rw-r--r--@ 1 dg  staff   103K Nov 27 09:54 standard-2025-11-27T07:51:02.295Z-cluster-health.log
+-rw-r--r--@ 1 dg  staff   486K Nov 27 09:54 standard-2025-11-27T07:51:02.295Z-kibana-stats.log
+-rw-r--r--@ 1 dg  staff   429K Nov 27 09:54 standard-2025-11-27T07:51:02.295Z-node-stats.log
+-rw-r--r--@ 1 dg  staff   886K Nov 27 09:54 standard-2025-11-27T07:51:02.295Z-transform-stats.log
 ```
+
+The log files contain:
+- **cluster-health.log**: Cluster health status, active shards, and unassigned shards (sampled every N seconds, default: 5)
+- **transform-stats.log**: Transform statistics including search/index/processing latencies, document counts, and per-entity-type metrics (sampled every N seconds, default: 5). Only generated if transforms are enabled (not using `--noTransforms`)
+- **node-stats.log**: Elasticsearch node statistics including CPU usage, memory heap usage, and per-node metrics (sampled every N seconds, default: 5)
+- **kibana-stats.log**: Kibana statistics including event loop metrics, Elasticsearch client stats, response times, memory usage, and OS load (sampled every N seconds, default: 5)
+
+### Baseline Metrics and Comparison
+
+After running performance tests, you can extract metrics from the generated log files and create baselines for comparison.
+
+#### Creating a baseline
+
+Extract metrics from log files and save them as a baseline:
+
+```
+# Create a baseline from logs with a specific prefix
+yarn start create-baseline small-2024-10-28T11:14:06.828Z -e 100000 -l 5
+
+# Create a baseline with a custom name
+yarn start create-baseline small-2024-10-28T11:14:06.828Z -e 100000 -l 5 -n "baseline-v1_0-standard"
+
+# For interval tests, include upload count and interval
+yarn start create-baseline small-2025-11-13T15:03:32 -e 100000 -l 5 -u 10 -i 30000
+```
+
+Options:
+- `-e <entityCount>` - Number of entities in the test
+- `-l <logsPerEntity>` - Number of logs per entity
+- `-u <uploadCount>` - Number of uploads (for interval tests)
+- `-i <intervalMs>` - Interval in milliseconds (for interval tests)
+- `-n <name>` - Custom name for the baseline (defaults to log-prefix)
+
+The baseline will be saved to the `./baselines` directory.
+
+#### Listing baselines
+
+View all available baselines:
+
+```
+yarn start list-baselines
+```
+
+#### Comparing metrics
+
+Compare current run metrics against a baseline:
+
+```
+# Compare against the latest baseline
+yarn start compare-metrics standard-2025-11-27T07:51 -e 100000 -l 5
+
+# Compare against a specific baseline by name pattern
+yarn start compare-metrics standard-2025-11-27T07:51 -b "baseline-v1_0" -e 100000 -l 5
+
+# Customize comparison thresholds
+yarn start compare-metrics standard-2025-11-27T07:51 \
+  -b "baseline-v1_0" \
+  -e 100000 -l 5 \
+  --degradation-threshold 20 \
+  --warning-threshold 10 \
+  --improvement-threshold 10
+```
+
+Options:
+- `-b <baseline>` - Path to baseline file or pattern to match (uses latest if not specified)
+- `-e <entityCount>` - Number of entities for current run
+- `-l <logsPerEntity>` - Number of logs per entity for current run
+- `-u <uploadCount>` - Number of uploads for current run
+- `-i <intervalMs>` - Interval in milliseconds for current run
+- `--degradation-threshold <percent>` - Percentage worse to be considered degradation (default: 20)
+- `--warning-threshold <percent>` - Percentage worse to be considered warning (default: 10)
+- `--improvement-threshold <percent>` - Percentage better to be considered improvement (default: 10)
+
+The comparison report shows metrics including:
+- **Latency metrics**: Search, Intake, and Processing latencies (avg, p50, p95, p99, max)
+- **System metrics**: CPU, Memory, Throughput, Index Efficiency
+- **Entity metrics**: Per-entity-type metrics (host, user, service, generic)
+- **Error metrics**: Search failures, Index failures
+- **Kibana metrics**: Event loop, Elasticsearch client, Response times, Memory, Requests, OS Load
+
 
 ### Generating a data file
 

@@ -73,3 +73,7 @@ export const ENTITY_ENGINES_URL = '/api/entity_store/engines';
 export const ENTITY_ENGINE_URL = (engineType: string) => `${ENTITY_ENGINES_URL}/${engineType}`;
 export const INIT_ENTITY_ENGINE_URL = (engineType: string) =>
   `${ENTITY_ENGINE_URL(engineType)}/init`;
+
+// Kibana Settings API endpoints
+export const KIBANA_SETTINGS_URL = '/api/kibana/settings';
+export const KIBANA_SETTINGS_INTERNAL_URL = '/internal/kibana/settings';
