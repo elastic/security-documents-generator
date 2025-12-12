@@ -559,9 +559,21 @@ program
   .alias('privileged-user-monitoring-quick')
   .alias('quickmon')
   .option('--space <space>', 'Space to use', 'default')
+  .option('--all', 'Include all options', false)
   .action(async (options) => {
+    const excludeOptions: PrivilegedUserMonitoringOption[] = options.all
+      ? []
+      : // add to this list to exclude options from quick setup
+        [
+          PRIVILEGED_USER_MONITORING_OPTIONS.installPad, // takes up a lot of memory and makes your laptop hot
+        ];
+
+    const quickOptions = [...Object.values(PRIVILEGED_USER_MONITORING_OPTIONS)].filter(
+      (opt) => !excludeOptions.includes(opt)
+    );
+
     await privmonCommand({
-      options: [...Object.values(PRIVILEGED_USER_MONITORING_OPTIONS)],
+      options: quickOptions,
       userCount: 100,
       space: options.space,
     });
