@@ -304,7 +304,7 @@ export const createRandomEventForService = (
   },
 });
 
-const createRandomEventForGenericEntity = (
+export const createRandomEventForGenericEntity = (
   entity: GenericEntity,
   offsetHours?: number
 ): GenericEntityEvent => {
