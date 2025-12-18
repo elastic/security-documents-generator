@@ -603,12 +603,109 @@ export const OKTA_USERS_SAMPLE_DOCUMENT = (
   };
 };
 
+const getGroupDescription = (groupName: string, isBuiltin: boolean): string => {
+  if (isBuiltin) {
+    return 'Administrators have complete and unrestricted access to the computer/domain';
+  }
+  if (groupName === 'Domain Admins') {
+    return 'Designated administrators of the domain';
+  }
+  if (groupName === 'Enterprise Admins') {
+    return 'Designated administrators of the enterprise';
+  }
+  if (groupName === 'Schema Admins') {
+    return 'Designated administrators of the schema';
+  }
+  if (groupName === 'Group Policy Creator Owners') {
+    return 'Members in this group can modify group policy for the domain';
+  }
+  return '';
+};
+
+const getGroupType = (groupName: string, isBuiltin: boolean): string => {
+  if (isBuiltin) {
+    return '-2147483643';
+  }
+  if (groupName === 'Enterprise Admins' || groupName === 'Schema Admins') {
+    return '-2147483640';
+  }
+  return '-2147483646';
+};
+
+const buildEntityAnalyticsGroup = (
+  groupName: string,
+  groupId: string,
+  index: number,
+  isCriticalSystemObject: boolean
+) => {
+  const isBuiltin = groupName === 'Administrators';
+  const container = isBuiltin ? 'CN=Builtin' : 'CN=Users';
+  const distinguishedName = `CN=${groupName},${container},DC=privmon,DC=local`;
+  const isAdminGroup =
+    isBuiltin ||
+    groupName === 'Domain Admins' ||
+    groupName === 'Enterprise Admins' ||
+    groupName === 'Schema Admins';
+
+  return {
+    is_critical_system_object: isCriticalSystemObject,
+    usn_changed: String(12345 + index * 100),
+    ds_core_propagation_data: [
+      '2025-08-25T13:37:04Z',
+      '2025-08-25T13:21:54Z',
+      '1601-01-01T00:04:16Z',
+    ],
+    description: getGroupDescription(groupName, isBuiltin),
+    sam_account_type: isBuiltin ? '536870912' : '268435456',
+    group_type: getGroupType(groupName, isBuiltin),
+    cn: groupName,
+    object_guid: `00000000-0000-0000-0000-${String(index).padStart(12, '0')}`,
+    usn_created: String(12336 + index * 10),
+    object_sid: groupId,
+    when_changed: '2025-08-25T13:37:04Z',
+    when_created: '2025-08-25T13:20:55Z',
+    distinguished_name: distinguishedName,
+    admin_count: isAdminGroup ? '1' : undefined,
+    name: groupName,
+    id: groupId,
+    member_of: isBuiltin
+      ? undefined
+      : 'CN=Denied RODC Password Replication Group,CN=Users,DC=privmon,DC=local',
+    instance_type: '4',
+    object_class: ['top', 'group'],
+    sam_account_name: groupName,
+    object_category: 'CN=Group,CN=Schema,CN=Configuration,DC=privmon,DC=local',
+    ...(isBuiltin && { systemFlags: '-1946157056' }),
+  };
+};
+
+const buildMemberOfArray = (groups: string[]): string[] => {
+  return groups.map((groupName) => {
+    const isBuiltin = groupName === 'Administrators';
+    const container = isBuiltin ? 'CN=Builtin' : 'CN=Users';
+    return `CN=${groupName},${container},DC=privmon,DC=local`;
+  });
+};
+
 export const AD_USERS_SAMPLE_ADMIN_DOCUMENT = (
   adSampleUser: AdSampleUser,
   timestamp: string,
   groups: string[]
 ) => {
   const { userName } = adSampleUser;
+  const userSid = 'S-1-5-21-1000000000-2000000000-3000000000-1000';
+  const domain = 'privmon.local';
+  const groupIds = getGroupIdsFromNames(groups);
+
+  // Build groups array for entityanalytics_ad
+  const entityanalyticsGroups = groups.map((groupName, index) => {
+    const groupId = groupIds[index];
+    return buildEntityAnalyticsGroup(groupName, groupId, index, true);
+  });
+
+  // Build member_of array for user
+  const memberOf = buildMemberOfArray(groups);
+
   return {
     '@timestamp': timestamp,
     event: {
@@ -626,27 +723,74 @@ export const AD_USERS_SAMPLE_ADMIN_DOCUMENT = (
       // In real AD data, each user would have a unique RID (last segment),
       // but since all our test users represent Domain/Enterprise Admins,
       // a single consistent SID is sufficient and simplifies testing.
-      id: 'S-1-5-21-1000000000-2000000000-3000000000-1000',
+      id: userSid,
       category: 'entity',
       type: 'activedirectory_user',
       create_date: '2025-08-25T13:20:55.000Z',
     },
     user: {
-      domain: 'privmon.local',
+      domain: domain,
       name: userName,
-      id: 'S-1-5-21-1000000000-2000000000-3000000000-1000',
+      id: userSid,
       account: {
         password_change_date: '2025-08-26T15:32:31.769Z',
       },
       group: {
         name: groups,
-        id: getGroupIdsFromNames(groups),
+        id: groupIds,
+      },
+    },
+    entityanalytics_ad: {
+      when_changed: timestamp,
+      groups: entityanalyticsGroups,
+      user: {
+        is_critical_system_object: true,
+        primary_group_id: '513',
+        usn_changed: '67001',
+        uac_list: ['DONT_EXPIRE_PASSWORD', 'NORMAL_ACCOUNT'],
+        description: 'Built-in account for administering the computer/domain',
+        bad_password_time: '134099739199334068',
+        bad_pwd_count: '0',
+        enabled: true,
+        object_guid: '03bff3e1-987b-4e94-83b7-d6b0c253f2c2',
+        last_logon_timestamp: timestamp,
+        account_expires: '0',
+        object_sid: userSid,
+        when_changed: timestamp,
+        logonHours: '',
+        when_created: '2025-08-25T13:20:55Z',
+        admin_count: '1',
+        user_account_control: '66048',
+        logon_count: '27',
+        member_of: memberOf,
+        last_logon: timestamp,
+        object_class: ['top', 'person', 'organizationalPerson', 'user'],
+        pwd_last_set: '2025-10-14T16:12:38.1719337Z',
+        ds_core_propagation_data: [
+          '2025-08-25T13:37:04Z',
+          '2025-08-25T13:37:04Z',
+          '2025-08-25T13:21:54Z',
+          '1601-01-01T18:12:16Z',
+        ],
+        last_logoff: '0',
+        sam_account_type: '805306368',
+        cn: userName,
+        account_never_expires: true,
+        usn_created: '8196',
+        code_page: '0',
+        country_code: '0',
+        privileged_group_member: true,
+        distinguished_name: `CN=${userName},CN=Users,DC=privmon,DC=local`,
+        name: userName,
+        object_dn: `CN=${userName},CN=Users,DC=privmon,DC=local`,
+        instance_type: '4',
+        sam_account_name: userName,
+        object_category: 'CN=Person,CN=Schema,CN=Configuration,DC=privmon,DC=local',
       },
     },
   };
 };
 
-// TODO: fill in here pls
 export const AD_USERS_SAMPLE_DOCUMENT = (
   adSampleUser: AdSampleUser,
   timestamp: string,
@@ -660,6 +804,19 @@ export const AD_USERS_SAMPLE_DOCUMENT = (
   // 1005 just to make them distinct from the admin user RIDs
   const userRid = 1005 + userIdIncrement;
   const userSid = `${BASE_SID}-${userRid}`;
+  const domain = 'privmon.local';
+  const groupIds = getGroupIdsFromNames(groups);
+
+  // Build groups array for entityanalytics_ad
+  const entityanalyticsGroups = groups.map((groupName, index) => {
+    const groupId = groupIds[index];
+    const isBuiltin = groupName === 'Administrators';
+    return buildEntityAnalyticsGroup(groupName, groupId, index, isBuiltin);
+  });
+
+  // Build member_of array for user
+  const memberOf = buildMemberOfArray(groups);
+
   return {
     '@timestamp': timestamp,
     event: {
@@ -680,7 +837,7 @@ export const AD_USERS_SAMPLE_DOCUMENT = (
       create_date: '2025-08-25T13:20:55.000Z',
     },
     user: {
-      domain: 'privmon.local',
+      domain: domain,
       name: userName,
       id: userSid,
       account: {
@@ -688,7 +845,55 @@ export const AD_USERS_SAMPLE_DOCUMENT = (
       },
       group: {
         name: groups,
-        id: getGroupIdsFromNames(groups),
+        id: groupIds,
+      },
+    },
+    entityanalytics_ad: {
+      when_changed: timestamp,
+      groups: entityanalyticsGroups,
+      user: {
+        is_critical_system_object: false,
+        primary_group_id: '513',
+        usn_changed: String(67001 + userIdIncrement),
+        uac_list: ['NORMAL_ACCOUNT'],
+        description: '',
+        bad_password_time: '134099739199334068',
+        bad_pwd_count: '0',
+        enabled: true,
+        object_guid: `03bff3e1-987b-4e94-83b7-${String(userIdIncrement).padStart(12, '0')}`,
+        last_logon_timestamp: timestamp,
+        account_expires: '0',
+        object_sid: userSid,
+        when_changed: timestamp,
+        logonHours: '',
+        when_created: '2025-08-25T13:20:55Z',
+        admin_count: '0',
+        user_account_control: '512',
+        logon_count: '0',
+        member_of: memberOf,
+        last_logon: timestamp,
+        object_class: ['top', 'person', 'organizationalPerson', 'user'],
+        pwd_last_set: '2025-10-14T16:12:38.1719337Z',
+        ds_core_propagation_data: [
+          '2025-08-25T13:37:04Z',
+          '2025-08-25T13:37:04Z',
+          '2025-08-25T13:21:54Z',
+          '1601-01-01T18:12:16Z',
+        ],
+        last_logoff: '0',
+        sam_account_type: '805306368',
+        cn: userName,
+        account_never_expires: true,
+        usn_created: String(8196 + userIdIncrement),
+        code_page: '0',
+        country_code: '0',
+        privileged_group_member: false,
+        distinguished_name: `CN=${userName},CN=Users,DC=privmon,DC=local`,
+        name: userName,
+        object_dn: `CN=${userName},CN=Users,DC=privmon,DC=local`,
+        instance_type: '4',
+        sam_account_name: userName,
+        object_category: 'CN=Person,CN=Schema,CN=Configuration,DC=privmon,DC=local',
       },
     },
   };
