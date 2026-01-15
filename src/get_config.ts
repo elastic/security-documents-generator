@@ -136,43 +136,17 @@ const mergeConfigs = (
 };
 
 /**
- * Checks if a valid configuration is available from environment variables or config.json.
- * This is used to determine if we need to prompt the user to create a config file.
+ * Loads and merges configuration from environment variables and config.json.
+ * Returns the merged config and validation result.
+ * @param throwOnReadError - If true, throws on file read errors. If false, returns empty config.
  */
-export const hasValidConfig = (): boolean => {
-  // Try to read from environment variables first
-  const envConfig = getConfigFromEnv();
-
-  // Read from config.json file (if it exists)
-  let fileConfig: Partial<ConfigType> = {};
-  if (fs.existsSync(configPath)) {
-    try {
-      fileConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    } catch {
-      // If file exists but can't be parsed, we don't have a valid config
-      return false;
-    }
-  }
-
-  // Merge configs (env vars override file config)
-  const mergedConfig = envConfig ? mergeConfigs(fileConfig, envConfig) : fileConfig;
-
-  // Set default eventIndex if not provided
-  if (!mergedConfig.eventIndex) {
-    mergedConfig.eventIndex = 'logs-testlogs-default';
-  }
-
-  // Validate the merged configuration
-  const validationResult = Config.decode(mergedConfig);
-
-  return validationResult._tag === 'Right';
-};
-
-export const getConfig = (): ConfigType => {
-  if (config) {
-    return config;
-  }
-
+const loadAndMergeConfig = (
+  throwOnReadError: boolean = false
+): {
+  mergedConfig: Partial<ConfigType>;
+  validationResult: t.Validation<ConfigType>;
+  envConfig: Partial<ConfigType> | null;
+} => {
   // Try to read from environment variables first
   const envConfig = getConfigFromEnv();
 
@@ -182,8 +156,12 @@ export const getConfig = (): ConfigType => {
     try {
       fileConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     } catch (error) {
-      console.error(`Error reading ${CONFIG_FILE_NAME}:`, error);
-      process.exit(1);
+      if (throwOnReadError) {
+        console.error(`Error reading ${CONFIG_FILE_NAME}:`, error);
+        process.exit(1);
+      }
+      // If file exists but can't be parsed, return empty config
+      // Validation will fail, which is the desired behavior
     }
   }
 
@@ -198,9 +176,28 @@ export const getConfig = (): ConfigType => {
   // Validate the merged configuration
   const validationResult = Config.decode(mergedConfig);
 
+  return { mergedConfig, validationResult, envConfig };
+};
+
+/**
+ * Checks if a valid configuration is available from environment variables or config.json.
+ * This is used to determine if we need to prompt the user to create a config file.
+ */
+export const hasValidConfig = (): boolean => {
+  const { validationResult } = loadAndMergeConfig(false);
+  return validationResult._tag === 'Right';
+};
+
+export const getConfig = (): ConfigType => {
+  if (config) {
+    return config;
+  }
+
+  const { mergedConfig, validationResult, envConfig } = loadAndMergeConfig(true);
+
   if (validationResult._tag === 'Left') {
     console.error(
-      `There was a config validation error. Fix issues below in ${envConfig ? 'environment variables or' : ''} the ${CONFIG_FILE_NAME} file, and try again.`
+      `There was a config validation error. Fix issues below in your ${envConfig ? 'environment variables or ' : ''}${CONFIG_FILE_NAME} file, and try again.`
     );
     console.log(PathReporter.report(validationResult));
     process.exit(1);
