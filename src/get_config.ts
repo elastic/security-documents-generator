@@ -104,6 +104,10 @@ const getConfigFromEnv = (): Partial<ConfigType> | null => {
     const offsetHours = parseInt(process.env.EVENT_DATE_OFFSET_HOURS, 10);
     if (!isNaN(offsetHours)) {
       envConfig.eventDateOffsetHours = offsetHours;
+    } else {
+      console.warn(
+        `Warning: EVENT_DATE_OFFSET_HOURS environment variable contains an invalid number ("${process.env.EVENT_DATE_OFFSET_HOURS}"). Ignoring this value.`
+      );
     }
   }
 
@@ -126,12 +130,13 @@ const mergeConfigs = (
   fileConfig: Partial<ConfigType>,
   envConfig: Partial<ConfigType>
 ): Partial<ConfigType> => {
+  const { elastic, kibana, ...envConfigWithoutNodes } = envConfig;
   return {
     ...fileConfig,
-    ...envConfig,
-    // Deep merge for elastic and kibana nodes
-    elastic: envConfig.elastic || fileConfig.elastic,
-    kibana: envConfig.kibana || fileConfig.kibana,
+    ...envConfigWithoutNodes,
+    // Prefer envConfig values when they are defined; otherwise fall back to fileConfig
+    elastic: elastic ?? fileConfig.elastic,
+    kibana: kibana ?? fileConfig.kibana,
   };
 };
 
