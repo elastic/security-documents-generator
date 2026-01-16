@@ -1,9 +1,10 @@
 import { input, select } from '@inquirer/prompts';
 import fs from 'fs';
-import { configPath, ConfigType } from '../get_config';
+import { configPath, ConfigType, hasValidConfig } from '../get_config';
 
 export const createConfigFileOnFirstRun = async () => {
-  if (fs.existsSync(configPath)) {
+  // Check if we have a valid config from env vars or config.json
+  if (hasValidConfig()) {
     return;
   }
 
