@@ -1148,7 +1148,8 @@ export const uploadPerfDataFileInterval = async (
   doDeleteEngines?: boolean,
   transformTimeoutMs?: number,
   samplingIntervalMs?: number,
-  noTransforms?: boolean
+  noTransforms?: boolean,
+  indexOverride?: string
 ) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addIdPrefix = (prefix: string) => (doc: Record<string, any>) => {
@@ -1164,7 +1165,7 @@ export const uploadPerfDataFileInterval = async (
     return doc;
   };
 
-  const index = `logs-perftest.${name}-default`;
+  const index = indexOverride ?? `logs-perftest.${name}-default`;
   const filePath = getFilePath(name);
 
   console.log(
