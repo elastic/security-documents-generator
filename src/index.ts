@@ -32,6 +32,7 @@ import { deleteAllRules, generateRulesAndAlerts } from './commands/rules';
 import { createConfigFileOnFirstRun } from './utils/create_config_on_first_run';
 import { promptForFileSelection } from './commands/utils/cli_utils';
 import { privmonCommand } from './commands/privileged_user_monitoring/privileged_user_monitoring';
+import { singleEntityCommand } from './commands/single_entity';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { generateInsights } from './commands/insights';
@@ -579,6 +580,16 @@ program
       userCount: 100,
       space: options.space,
     });
+  });
+
+program
+  .command('single-entity')
+  .description(
+    'Create a single entity with optional risk score, asset criticality, and privileged status'
+  )
+  .option('--space <space>', 'Space to use', 'default')
+  .action(async (options) => {
+    await singleEntityCommand(options);
   });
 
 // Baseline metrics commands
