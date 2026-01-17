@@ -4,6 +4,7 @@ export const ENTITY_STORE_OPTIONS = {
   riskEngine: 'riskEngine',
   rule: 'rule',
   agent: 'agent',
+  apiEnrichment: 'apiEnrichment',
 } as const;
 
 export const PRIVILEGED_USER_MONITORING_OPTIONS = {
@@ -73,6 +74,8 @@ export const ENTITY_ENGINES_URL = '/api/entity_store/engines';
 export const ENTITY_ENGINE_URL = (engineType: string) => `${ENTITY_ENGINES_URL}/${engineType}`;
 export const INIT_ENTITY_ENGINE_URL = (engineType: string) =>
   `${ENTITY_ENGINE_URL(engineType)}/init`;
+export const ENTITY_STORE_ENTITIES_URL = (entityType: 'user' | 'host') =>
+  `/api/entity_store/entities/${entityType}`;
 
 // Kibana Settings API endpoints
 export const KIBANA_SETTINGS_URL = '/api/kibana/settings';

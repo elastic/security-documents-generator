@@ -23,6 +23,7 @@ import {
   RISK_SCORE_ENGINE_SCHEDULE_NOW_URL,
   KIBANA_SETTINGS_URL,
   KIBANA_SETTINGS_INTERNAL_URL,
+  ENTITY_STORE_ENTITIES_URL,
 } from '../constants';
 
 export const buildKibanaUrl = (opts: { path: string; space?: string }) => {
@@ -796,6 +797,44 @@ export const createDataView = async (dataview: object, space?: string) => {
     {
       method: 'POST',
       body: JSON.stringify({ data_view: dataview }),
+    },
+    { apiVersion: API_VERSIONS.public.v1, space }
+  );
+};
+
+// Entity Store enrichment types and functions
+export interface EntityEnrichment {
+  id: string;
+  behaviors?: {
+    brute_force_victim?: boolean;
+    new_country_login?: boolean;
+    used_usb_device?: boolean;
+    anomaly_job_ids?: string[];
+    rule_names?: string[];
+  };
+  attributes?: {
+    asset?: boolean;
+    managed?: boolean;
+    mfa_enabled?: boolean;
+    privileged?: boolean;
+  };
+  lifecycle?: {
+    first_seen?: string;
+    last_activity?: string;
+  };
+  relationships?: Record<string, string[]>;
+}
+
+export const enrichEntityViaApi = async (
+  entityType: 'user' | 'host',
+  enrichment: EntityEnrichment,
+  space?: string
+) => {
+  return kibanaFetch(
+    ENTITY_STORE_ENTITIES_URL(entityType) + '?force=true',
+    {
+      method: 'PUT',
+      body: JSON.stringify({ entity: enrichment }),
     },
     { apiVersion: API_VERSIONS.public.v1, space }
   );

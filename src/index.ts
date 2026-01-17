@@ -336,6 +336,11 @@ program
           value: ENTITY_STORE_OPTIONS.agent,
           checked: false,
         },
+        {
+          name: 'Enrich entities via API (adds behaviors, attributes, lifecycle, relationships)',
+          value: ENTITY_STORE_OPTIONS.apiEnrichment,
+          checked: false,
+        },
       ],
     });
 
