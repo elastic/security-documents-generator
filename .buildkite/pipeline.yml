@@ -1,0 +1,29 @@
+---
+# $yaml-language-server: $schema=https://raw.githubusercontent.com/buildkite/pipeline-schema/main/schema.json
+steps:
+
+  # if our Renovate configuration is amended, then make sure we have well-formed config
+  # for more info, see https://docs.elastic.dev/plat-prod-team/service-catalogue/renovate/testing-renovate-changes
+  - label: "Verify Renovate configuration"
+    command: "renovate-config-validator"
+    agents:
+      image: "docker.elastic.co/ci-agent-images/pipelib:0.24.0@sha256:0eead43a2b3b10d4241d160548e09807dae21b559aabb0a8fac1641696ea9813"
+    if_changed:
+      - "renovate.json"
+
+  # if our catalog-info.yaml is changed, make sure it's well-formed according to our internal standards as well as Backstage's validation
+  - label: Validate TokenPolicy RREs
+    command: "/agent/check-catalog-info.sh"
+    agents:
+      image: "docker.elastic.co/ci-agent-images/pipelib:0.24.0@sha256:0eead43a2b3b10d4241d160548e09807dae21b559aabb0a8fac1641696ea9813"
+    if_changed:
+      - "catalog-info.yaml"
+
+  - label: ":pipeline: Upload default Pipeline"
+    command: "buildkite-agent pipeline upload .buildkite/default-pipeline.yml"
+    if_changed:
+      include:
+        - "**/*"
+      exclude:
+        - "catalog-info.yaml"
+        - "renovate.json"
