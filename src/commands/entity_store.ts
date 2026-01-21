@@ -3,7 +3,13 @@ import { getEsClient, indexCheck, createAgentDocument } from './utils/indices';
 import { chunk, once } from 'lodash-es';
 import moment from 'moment';
 import auditbeatMappings from '../mappings/auditbeat.json' assert { type: 'json' };
-import { assignAssetCriticality, enableRiskScore, createRule } from '../utils/kibana_api';
+import {
+  assignAssetCriticality,
+  enableRiskScore,
+  createRule,
+  enrichEntityViaApi,
+  EntityEnrichment,
+} from '../utils/kibana_api';
 import {
   ASSET_CRITICALITY,
   AssetCriticality,
@@ -432,6 +438,164 @@ export const assignAssetCriticalityToEntities = async (opts: {
   }
 };
 
+// Entity enrichment constants
+const ANOMALY_JOB_IDS = [
+  'high_auth_count',
+  'number_of_failed_logons',
+  'unique_shares_accessed',
+  'bytes_sent',
+  'rare_process',
+  'unusual_login_times',
+  'high_volume_data_transfer',
+];
+
+const RULE_NAMES = [
+  'RDB Brute Force',
+  'SMB Share Access',
+  'Credential Stuffing',
+  'Suspicious Login',
+  'Lateral Movement Detected',
+  'Privilege Escalation Attempt',
+  'Data Exfiltration Alert',
+];
+
+// User-specific relationships
+const USER_RELATIONSHIPS = {
+  accesses_frequently: ['SharePoint', 'OneDrive', 'FileServer01', 'DatabaseServer', 'GitLab'],
+  owns: ['laptop-001', 'desktop-002', 'mobile-device-003'],
+  supervised_by: ['manager-1', 'admin-user', 'team-lead'],
+  supervises: ['junior-1', 'intern-2', 'contractor-3'],
+};
+
+// Host-specific relationships
+const HOST_RELATIONSHIPS = {
+  accessed_frequently_by: ['user-admin', 'service-account', 'backup-user'],
+  communicates_with: ['server-db-01', 'api-gateway', 'load-balancer'],
+  dependent_of: ['cluster-master', 'domain-controller'],
+  depends_on: ['dns-server', 'ntp-server', 'ldap-server'],
+  owned_by: ['it-department', 'security-team', 'devops'],
+};
+
+/**
+ * Generate random enrichment data for an entity
+ */
+const generateRandomEnrichment = (
+  entityName: string,
+  entityType: 'user' | 'host'
+): EntityEnrichment => {
+  const now = new Date();
+  const daysAgo = faker.number.int({ min: 30, max: 365 });
+  const firstSeen = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
+  const lastActivity = new Date(
+    now.getTime() - faker.number.int({ min: 0, max: 24 }) * 60 * 60 * 1000
+  );
+
+  // Generate random behaviors
+  const behaviors: EntityEnrichment['behaviors'] = {
+    brute_force_victim: faker.datatype.boolean({ probability: 0.2 }),
+    new_country_login: faker.datatype.boolean({ probability: 0.15 }),
+    used_usb_device: faker.datatype.boolean({ probability: 0.3 }),
+  };
+
+  // Add anomaly job IDs and rule names with some probability
+  if (faker.datatype.boolean({ probability: 0.4 })) {
+    behaviors.anomaly_job_ids = faker.helpers.arrayElements(
+      ANOMALY_JOB_IDS,
+      faker.number.int({ min: 1, max: 4 })
+    );
+  }
+
+  if (faker.datatype.boolean({ probability: 0.35 })) {
+    behaviors.rule_names = faker.helpers.arrayElements(
+      RULE_NAMES,
+      faker.number.int({ min: 1, max: 3 })
+    );
+  }
+
+  // Generate random attributes
+  const attributes: EntityEnrichment['attributes'] = {
+    asset: faker.datatype.boolean({ probability: 0.7 }),
+    managed: faker.datatype.boolean({ probability: 0.6 }),
+    mfa_enabled: faker.datatype.boolean({ probability: 0.5 }),
+    privileged: faker.datatype.boolean({ probability: 0.2 }),
+  };
+
+  // Generate lifecycle data
+  const lifecycle: EntityEnrichment['lifecycle'] = {
+    first_seen: firstSeen.toISOString(),
+    last_activity: lastActivity.toISOString(),
+  };
+
+  // Generate relationships based on entity type
+  const relationships: Record<string, string[]> = {};
+  const relationshipSource = entityType === 'user' ? USER_RELATIONSHIPS : HOST_RELATIONSHIPS;
+
+  for (const [key, values] of Object.entries(relationshipSource)) {
+    if (faker.datatype.boolean({ probability: 0.5 })) {
+      relationships[key] = faker.helpers.arrayElements(
+        values,
+        faker.number.int({ min: 1, max: 3 })
+      );
+    }
+  }
+
+  return {
+    id: entityName,
+    behaviors,
+    attributes,
+    lifecycle,
+    relationships: Object.keys(relationships).length > 0 ? relationships : undefined,
+  };
+};
+
+/**
+ * Enrich entities via the Entity Store API
+ */
+export const enrichEntitiesViaApi = async (opts: {
+  users: User[];
+  hosts: Host[];
+  space?: string;
+}) => {
+  const { users, hosts, space } = opts;
+
+  console.log('Starting entity enrichment via API...');
+  console.log(`Enriching ${users.length} users and ${hosts.length} hosts`);
+
+  let successCount = 0;
+  let errorCount = 0;
+
+  // Enrich users
+  for (const user of users) {
+    try {
+      const enrichment = generateRandomEnrichment(user.name, 'user');
+      await enrichEntityViaApi('user', enrichment, space);
+      successCount++;
+    } catch (error) {
+      errorCount++;
+      console.error(`Failed to enrich user ${user.name}:`, error);
+    }
+  }
+  console.log(`Enriched ${successCount} users (${errorCount} errors)`);
+
+  successCount = 0;
+  errorCount = 0;
+
+  // Enrich hosts
+  for (const host of hosts) {
+    try {
+      const enrichment = generateRandomEnrichment(host.name, 'host');
+      await enrichEntityViaApi('host', enrichment, space);
+      successCount++;
+    } catch (error) {
+      errorCount++;
+      console.error(`Failed to enrich host ${host.name}:`, error);
+    }
+  }
+  console.log(`Enriched ${successCount} hosts (${errorCount} errors)`);
+
+  console.log('Entity enrichment completed');
+};
+
 /**
  * Generate entities first
  * Then Generate events, assign asset criticality, create rule and enable risk engine
@@ -542,6 +706,18 @@ export const generateEntityStore = async ({
       const agents = generatedHosts.map((host) => createAgentDocument({ hostname: host.name }));
       await ingestAgents(agents);
       console.log('Agents ingested');
+    }
+
+    if (options.includes(ENTITY_STORE_OPTIONS.apiEnrichment)) {
+      console.log('Waiting for entity store to process entities before enrichment...');
+      // Wait a bit for the entity store transforms to process the ingested events
+      await new Promise((resolve) => setTimeout(resolve, 10000));
+
+      await enrichEntitiesViaApi({
+        users: generatedUsers,
+        hosts: generatedHosts,
+        space,
+      });
     }
 
     console.log('Finished generating entity store');
