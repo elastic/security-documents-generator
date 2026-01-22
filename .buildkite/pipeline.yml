@@ -23,7 +23,6 @@ steps:
     command: "buildkite-agent pipeline upload .buildkite/default-pipeline.yml"
     if_changed:
       include:
-        - ".buildkite/**/*"
         - "**/*"
       exclude:
         - "catalog-info.yaml"
