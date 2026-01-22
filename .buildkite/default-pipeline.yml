@@ -13,4 +13,3 @@ steps:
 
   - label: "Publish"
     command: "true"
-    
