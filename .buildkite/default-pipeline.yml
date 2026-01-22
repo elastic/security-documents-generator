@@ -1,9 +1,19 @@
 ---
 # $yaml-language-server: $schema=https://raw.githubusercontent.com/buildkite/pipeline-schema/main/schema.json
 steps:
-  - label: "Lint and Type Check"
+  - label: "Build"
     command: |
       nvm install
       nvm use
       yarn
       yarn checks
+
+  - label: "Test"
+    command: "true"
+
+  - label: "Deploy"
+    command: "true"
+
+  - label: "Publish"
+    command: "true"
+    
