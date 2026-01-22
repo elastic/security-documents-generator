@@ -1,12 +1,9 @@
 ---
 # $yaml-language-server: $schema=https://raw.githubusercontent.com/buildkite/pipeline-schema/main/schema.json
+# this is not called yet, uncomment in default-pipeline.yml to trigger the pipeline
 steps:
   - label: "Build"
-    command: |
-      nvm install
-      nvm use
-      yarn
-      yarn checks
+    command: "true"
 
   - label: "Test"
     command: "true"

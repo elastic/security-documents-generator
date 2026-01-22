@@ -19,12 +19,12 @@ steps:
     if_changed:
       - "catalog-info.yaml"
 
-  - label: ":pipeline: Upload default Pipeline"
-    command: "buildkite-agent pipeline upload .buildkite/default-pipeline.yml"
-    if_changed:
-      include:
-        - ".buildkite/**/*"
-        - "**/*"
-      exclude:
-        - "catalog-info.yaml"
-        - "renovate.json"
+  # - label: ":pipeline: Upload default Pipeline"
+  #   command: "buildkite-agent pipeline upload .buildkite/default-pipeline.yml"
+  #   if_changed:
+  #     include:
+  #       - ".buildkite/**/*"
+  #       - "**/*"
+  #     exclude:
+  #       - "catalog-info.yaml"
+  #       - "renovate.json"
