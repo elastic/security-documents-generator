@@ -22,7 +22,7 @@
   "dependencies": {
     "@elastic/elasticsearch": "^9.2.0",
     "@faker-js/faker": "^10.1.0",
-    "@inquirer/prompts": "^7.9.0",
+    "@inquirer/prompts": "^8.0.0",
     "cli-progress": "^3.12.0",
     "commander": "^14.0.2",
     "form-data": "^4.0.3",
