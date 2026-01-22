@@ -2,7 +2,11 @@
 # $yaml-language-server: $schema=https://raw.githubusercontent.com/buildkite/pipeline-schema/main/schema.json
 steps:
   - label: "Build"
-    command: "true"
+    command: |
+      nvm install
+      nvm use
+      yarn
+      yarn checks
 
   - label: "Test"
     command: "true"
@@ -12,3 +16,4 @@ steps:
 
   - label: "Publish"
     command: "true"
+    
