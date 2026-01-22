@@ -41,7 +41,7 @@
   "devDependencies": {
     "@types/cli-progress": "3.11.6",
     "@types/lodash-es": "4.17.12",
-    "eslint": "9.39.1",
+    "eslint": "9.39.2",
     "@typescript-eslint/eslint-plugin": "8.52.0",
     "@typescript-eslint/parser": "8.52.0",
     "esbuild": "0.27.0",
