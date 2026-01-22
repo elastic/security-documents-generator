@@ -19,6 +19,14 @@ steps:
     if_changed:
       - "catalog-info.yaml"
 
+  # Lint and Type Check - equivalent to GitHub Actions workflow
+  - label: "Lint and Type Check"
+    command: |
+      bash .buildkite/scripts/setup_node.sh
+      yarn checks
+    agents:
+      queue: "default"
+
   # - label: ":pipeline: Upload default Pipeline"
   #   command: "buildkite-agent pipeline upload .buildkite/default-pipeline.yml"
   #   if_changed:
