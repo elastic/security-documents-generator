@@ -37,7 +37,7 @@ import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { generateInsights } from './commands/insights';
 import { stressTest } from './risk_engine/esql_stress_test';
-import { cdrCommand, CDR_OPTIONS, CdrOption } from './commands/cdr';
+import { cdrCommand, CDR_OPTIONS, CdrOption, ATTACK_DISCOVERY_HOSTS } from './commands/cdr';
 
 import fs from 'fs';
 
@@ -603,7 +603,7 @@ program
   .description('Generate CDR (Cloud Detection and Response) misconfigurations and/or vulnerabilities')
   .option('--space <space>', 'Space to use', 'default')
   .action(async (options) => {
-    const answers = await checkbox<CdrOption>({
+    const answers = await checkbox<CdrOption | 'attack_discovery_hosts'>({
       message: 'Select data types to generate',
       choices: [
         {
@@ -621,8 +621,16 @@ program
           value: CDR_OPTIONS.vulnerabilities,
           checked: true,
         },
+        {
+          name: `Include Attack Discovery hosts (${ATTACK_DISCOVERY_HOSTS.join(', ')})`,
+          value: 'attack_discovery_hosts' as const,
+          checked: false,
+        },
       ],
     });
+
+    const useAttackDiscoveryHosts = answers.includes('attack_discovery_hosts');
+    const cdrOptions = answers.filter((a): a is CdrOption => a !== 'attack_discovery_hosts');
 
     const count = Number(
       await input({
@@ -638,10 +646,11 @@ program
     });
 
     await cdrCommand({
-      options: answers,
+      options: cdrOptions,
       count,
       space: options.space,
       seed: parseIntBase10(seedAnswer),
+      useAttackDiscoveryHosts,
     });
   });
 
@@ -650,12 +659,14 @@ program
   .description('Quickly generate CDR misconfigurations and vulnerabilities with defaults')
   .option('--space <space>', 'Space to use', 'default')
   .option('--count <count>', 'Number of documents to generate', '50')
+  .option('--attack-discovery-hosts', 'Include additional documents for attack discovery hosts', false)
   .action(async (options) => {
     await cdrCommand({
       options: [CDR_OPTIONS.misconfigurations, CDR_OPTIONS.csp_misconfigurations, CDR_OPTIONS.vulnerabilities],
       count: parseIntBase10(options.count),
       space: options.space,
       seed: generateNewSeed(),
+      useAttackDiscoveryHosts: options.attackDiscoveryHosts,
     });
   });
 

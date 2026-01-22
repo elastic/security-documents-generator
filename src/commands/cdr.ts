@@ -18,6 +18,22 @@ export const CDR_OPTIONS = {
 
 export type CdrOption = (typeof CDR_OPTIONS)[keyof typeof CDR_OPTIONS];
 
+/**
+ * Host names from the Kibana attack discovery mock data.
+ * These are used to generate additional CDR documents that correlate with attack discovery alerts.
+ * Source: kibana/x-pack/solutions/security/test/fixtures/es_archives/security_solution/attack_alerts/data.json
+ */
+export const ATTACK_DISCOVERY_HOSTS = [
+  'SRVWIN01',
+  'SRVWIN02',
+  'SRVWIN03',
+  'SRVWIN04',
+  'SRVWIN06',
+  'SRVWIN07',
+  'SRVNIX05',
+  'SRVMAC08',
+] as const;
+
 // Index patterns matching the transform destinations
 export const CDR_VULNERABILITY_INDEX = 'security_solution-wiz.vulnerability_latest';
 export const CDR_MISCONFIGURATION_INDEX = 'security_solution-wiz.misconfiguration_latest';
@@ -31,6 +47,7 @@ interface CdrCommandParams {
   count: number;
   space: string;
   seed?: number;
+  useAttackDiscoveryHosts?: boolean;
 }
 
 /**
@@ -190,7 +207,76 @@ const generateUniqueCspMisconfigurations = (
   return docs;
 };
 
-export const cdrCommand = async ({ options, count, space, seed = generateNewSeed() }: CdrCommandParams) => {
+/**
+ * Generate vulnerability documents for each attack discovery host.
+ * Creates one unique document per host using the attack discovery host names.
+ */
+const generateAttackDiscoveryVulnerabilities = (
+  space: string
+): ReturnType<typeof createCdrVulnerability>[] => {
+  const packageNames = ['openssl', 'curl', 'zlib', 'nginx', 'apache', 'nodejs', 'python', 'ruby'];
+  const packageVersions = ['1.0.0', '1.1.0', '2.0.0', '2.1.0', '3.0.0'];
+
+  return ATTACK_DISCOVERY_HOSTS.map((hostname, index) => {
+    const vulnerabilityId = `CVE-2024-${20000 + index}`;
+    const resourceId = `arn:aws:ec2:us-east-1:${faker.string.numeric(12)}:instance/${faker.string.alphanumeric(17)}`;
+    const packageName = packageNames[index % packageNames.length];
+    const packageVersion = packageVersions[index % packageVersions.length];
+
+    return createCdrVulnerability({
+      vulnerabilityId,
+      resourceId,
+      packageName,
+      packageVersion,
+      space,
+      hostname,
+    });
+  });
+};
+
+/**
+ * Generate misconfiguration documents for each attack discovery host.
+ * Creates one unique document per host using the attack discovery host names.
+ */
+const generateAttackDiscoveryMisconfigurations = (
+  space: string
+): ReturnType<typeof createCdrMisconfiguration>[] => {
+  return ATTACK_DISCOVERY_HOSTS.map((hostname) => {
+    const ruleUuid = faker.string.uuid();
+    const resourceId = `arn:aws:iam::${faker.string.numeric(12)}:${faker.helpers.arrayElement(['user', 'role', 'policy'])}/${faker.internet.username()}`;
+
+    return createCdrMisconfiguration({
+      ruleUuid,
+      resourceId,
+      space,
+      hostname,
+    });
+  });
+};
+
+/**
+ * Generate CSP misconfiguration documents for each attack discovery host.
+ * Creates one unique document per host using the attack discovery host names.
+ */
+const generateAttackDiscoveryCspMisconfigurations = (
+  space: string
+): ReturnType<typeof createCspMisconfiguration>[] => {
+  return ATTACK_DISCOVERY_HOSTS.map((hostname, index) => {
+    const section = Math.floor(index / 5) + 1;
+    const rule = (index % 5) + 1;
+    const ruleId = `cis_ad_${section}.${rule}`;
+    const resourceId = `arn:aws:${faker.helpers.arrayElement(['iam', 'ec2', 's3', 'rds'])}::${faker.string.numeric(12)}:${faker.helpers.arrayElement(['user', 'instance', 'bucket', 'db'])}/${faker.string.alphanumeric(12)}`;
+
+    return createCspMisconfiguration({
+      ruleId,
+      resourceId,
+      space,
+      hostname,
+    });
+  });
+};
+
+export const cdrCommand = async ({ options, count, space, seed = generateNewSeed(), useAttackDiscoveryHosts = false }: CdrCommandParams) => {
   faker.seed(seed);
   console.log(`Using seed: ${seed}`);
 
@@ -232,8 +318,15 @@ export const cdrCommand = async ({ options, count, space, seed = generateNewSeed
     const vulnerabilityDocs = generateUniqueVulnerabilities(count, space);
     console.log(`Generated ${vulnerabilityDocs.length} unique vulnerability documents`);
 
+    // Generate additional documents for attack discovery hosts if enabled
+    if (useAttackDiscoveryHosts) {
+      const attackDiscoveryVulnerabilityDocs = generateAttackDiscoveryVulnerabilities(space);
+      console.log(`Generated ${attackDiscoveryVulnerabilityDocs.length} additional vulnerability documents for attack discovery hosts`);
+      vulnerabilityDocs.push(...attackDiscoveryVulnerabilityDocs);
+    }
+
     await ingest(CDR_VULNERABILITY_INDEX, vulnerabilityDocs);
-    console.log(`Ingested vulnerabilities to ${CDR_VULNERABILITY_INDEX}`);
+    console.log(`Ingested ${vulnerabilityDocs.length} vulnerabilities to ${CDR_VULNERABILITY_INDEX}`);
   }
 
   if (options.includes(CDR_OPTIONS.misconfigurations)) {
@@ -247,8 +340,15 @@ export const cdrCommand = async ({ options, count, space, seed = generateNewSeed
     const misconfigurationDocs = generateUniqueMisconfigurations(count, space);
     console.log(`Generated ${misconfigurationDocs.length} unique misconfiguration documents`);
 
+    // Generate additional documents for attack discovery hosts if enabled
+    if (useAttackDiscoveryHosts) {
+      const attackDiscoveryMisconfigurationDocs = generateAttackDiscoveryMisconfigurations(space);
+      console.log(`Generated ${attackDiscoveryMisconfigurationDocs.length} additional misconfiguration documents for attack discovery hosts`);
+      misconfigurationDocs.push(...attackDiscoveryMisconfigurationDocs);
+    }
+
     await ingest(CDR_MISCONFIGURATION_INDEX, misconfigurationDocs);
-    console.log(`Ingested misconfigurations to ${CDR_MISCONFIGURATION_INDEX}`);
+    console.log(`Ingested ${misconfigurationDocs.length} misconfigurations to ${CDR_MISCONFIGURATION_INDEX}`);
   }
 
   if (options.includes(CDR_OPTIONS.csp_misconfigurations)) {
@@ -262,8 +362,15 @@ export const cdrCommand = async ({ options, count, space, seed = generateNewSeed
     const cspMisconfigurationDocs = generateUniqueCspMisconfigurations(count, space);
     console.log(`Generated ${cspMisconfigurationDocs.length} unique CSP misconfiguration documents`);
 
+    // Generate additional documents for attack discovery hosts if enabled
+    if (useAttackDiscoveryHosts) {
+      const attackDiscoveryCspMisconfigurationDocs = generateAttackDiscoveryCspMisconfigurations(space);
+      console.log(`Generated ${attackDiscoveryCspMisconfigurationDocs.length} additional CSP misconfiguration documents for attack discovery hosts`);
+      cspMisconfigurationDocs.push(...attackDiscoveryCspMisconfigurationDocs);
+    }
+
     await ingest(CDR_CSP_MISCONFIGURATION_INDEX, cspMisconfigurationDocs);
-    console.log(`Ingested CSP misconfigurations to ${CDR_CSP_MISCONFIGURATION_INDEX}`);
+    console.log(`Ingested ${cspMisconfigurationDocs.length} CSP misconfigurations to ${CDR_CSP_MISCONFIGURATION_INDEX}`);
   }
 
   console.log('\nCDR data generation complete!');
