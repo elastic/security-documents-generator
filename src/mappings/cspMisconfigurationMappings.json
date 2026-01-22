@@ -1,0 +1,164 @@
+{
+  "properties": {
+    "@timestamp": {
+      "type": "date"
+    },
+    "agent": {
+      "properties": {
+        "ephemeral_id": { "type": "keyword" },
+        "id": { "type": "keyword" },
+        "name": { "type": "keyword" },
+        "type": { "type": "keyword" },
+        "version": { "type": "keyword" }
+      }
+    },
+    "cloud": {
+      "properties": {
+        "account": {
+          "properties": {
+            "id": { "type": "keyword" },
+            "name": { "type": "keyword" }
+          }
+        },
+        "provider": { "type": "keyword" },
+        "region": { "type": "keyword" }
+      }
+    },
+    "cloud_security_posture": {
+      "properties": {
+        "package_policy": {
+          "properties": {
+            "id": { "type": "keyword" },
+            "revision": { "type": "short" }
+          }
+        }
+      }
+    },
+    "cluster_id": {
+      "type": "keyword"
+    },
+    "data_stream": {
+      "properties": {
+        "dataset": { "type": "keyword" },
+        "namespace": { "type": "keyword" },
+        "type": { "type": "keyword" }
+      }
+    },
+    "ecs": {
+      "properties": {
+        "version": { "type": "keyword" }
+      }
+    },
+    "event": {
+      "properties": {
+        "agent_id_status": { "type": "keyword" },
+        "category": { "type": "keyword" },
+        "created": { "type": "date" },
+        "id": { "type": "keyword" },
+        "ingested": { "type": "date" },
+        "kind": { "type": "keyword" },
+        "outcome": { "type": "keyword" },
+        "sequence": { "type": "long" },
+        "type": { "type": "keyword" }
+      }
+    },
+    "host": {
+      "properties": {
+        "id": { "type": "keyword" },
+        "name": { "type": "keyword" },
+        "hostname": { "type": "keyword" },
+        "architecture": { "type": "keyword" },
+        "containerized": { "type": "boolean" },
+        "ip": { "type": "ip" },
+        "mac": { "type": "keyword" },
+        "os": {
+          "properties": {
+            "codename": { "type": "keyword" },
+            "family": { "type": "keyword" },
+            "kernel": { "type": "keyword" },
+            "name": { "type": "keyword" },
+            "platform": { "type": "keyword" },
+            "type": { "type": "keyword" },
+            "version": { "type": "keyword" }
+          }
+        }
+      }
+    },
+    "message": {
+      "type": "text"
+    },
+    "observer": {
+      "properties": {
+        "vendor": { "type": "keyword" }
+      }
+    },
+    "orchestrator": {
+      "properties": {
+        "cluster": {
+          "properties": {
+            "id": { "type": "keyword" },
+            "name": { "type": "keyword" }
+          }
+        }
+      }
+    },
+    "related": {
+      "properties": {
+        "entity": { "type": "keyword" }
+      }
+    },
+    "resource": {
+      "properties": {
+        "id": { "type": "keyword" },
+        "name": { "type": "keyword" },
+        "sub_type": { "type": "keyword" },
+        "type": { "type": "keyword" },
+        "raw": { "type": "flattened" }
+      }
+    },
+    "result": {
+      "properties": {
+        "evaluation": { "type": "keyword" },
+        "expected": { "type": "flattened" },
+        "evidence": { "type": "flattened" }
+      }
+    },
+    "rule": {
+      "properties": {
+        "id": { "type": "keyword" },
+        "name": { "type": "keyword" },
+        "description": { "type": "text" },
+        "audit": { "type": "text" },
+        "profile_applicability": { "type": "text" },
+        "rationale": { "type": "text" },
+        "remediation": { "type": "text" },
+        "impact": { "type": "text" },
+        "default_value": { "type": "text" },
+        "references": { "type": "text" },
+        "reference": { "type": "text" },
+        "rego_rule_id": { "type": "keyword" },
+        "section": { "type": "keyword" },
+        "version": { "type": "keyword" },
+        "tags": { "type": "keyword" },
+        "benchmark": {
+          "properties": {
+            "id": { "type": "keyword" },
+            "name": { "type": "keyword" },
+            "posture_type": { "type": "keyword" },
+            "rule_number": { "type": "keyword" },
+            "version": { "type": "keyword" }
+          }
+        }
+      }
+    },
+    "tags": {
+      "type": "keyword"
+    },
+    "user": {
+      "properties": {
+        "id": { "type": "keyword" },
+        "name": { "type": "keyword" }
+      }
+    }
+  }
+}

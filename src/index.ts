@@ -37,6 +37,7 @@ import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { generateInsights } from './commands/insights';
 import { stressTest } from './risk_engine/esql_stress_test';
+import { cdrCommand, CDR_OPTIONS, CdrOption } from './commands/cdr';
 
 import fs from 'fs';
 
@@ -595,6 +596,67 @@ program
   .option('--space <space>', 'Space to use', 'default')
   .action(async (options) => {
     await singleEntityCommand(options);
+  });
+
+program
+  .command('cdr')
+  .description('Generate CDR (Cloud Detection and Response) misconfigurations and/or vulnerabilities')
+  .option('--space <space>', 'Space to use', 'default')
+  .action(async (options) => {
+    const answers = await checkbox<CdrOption>({
+      message: 'Select data types to generate',
+      choices: [
+        {
+          name: 'Misconfigurations (Wiz)',
+          value: CDR_OPTIONS.misconfigurations,
+          checked: true,
+        },
+        {
+          name: 'Misconfigurations (Elastic CSP)',
+          value: CDR_OPTIONS.csp_misconfigurations,
+          checked: true,
+        },
+        {
+          name: 'Vulnerabilities (Wiz)',
+          value: CDR_OPTIONS.vulnerabilities,
+          checked: true,
+        },
+      ],
+    });
+
+    const count = Number(
+      await input({
+        message: 'How many documents of each type to generate',
+        default: '50',
+      })
+    );
+
+    const seed = generateNewSeed() + '';
+    const seedAnswer = await input({
+      message: 'Enter seed for stable random data or <enter> to use a new seed',
+      default: seed,
+    });
+
+    await cdrCommand({
+      options: answers,
+      count,
+      space: options.space,
+      seed: parseIntBase10(seedAnswer),
+    });
+  });
+
+program
+  .command('cdr-quick')
+  .description('Quickly generate CDR misconfigurations and vulnerabilities with defaults')
+  .option('--space <space>', 'Space to use', 'default')
+  .option('--count <count>', 'Number of documents to generate', '50')
+  .action(async (options) => {
+    await cdrCommand({
+      options: [CDR_OPTIONS.misconfigurations, CDR_OPTIONS.csp_misconfigurations, CDR_OPTIONS.vulnerabilities],
+      count: parseIntBase10(options.count),
+      space: options.space,
+      seed: generateNewSeed(),
+    });
   });
 
 // Baseline metrics commands
