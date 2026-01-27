@@ -37,7 +37,8 @@ export const ATTACK_DISCOVERY_HOSTS = [
 // Index patterns matching the transform destinations
 export const CDR_VULNERABILITY_INDEX = 'security_solution-wiz.vulnerability_latest';
 export const CDR_MISCONFIGURATION_INDEX = 'security_solution-wiz.misconfiguration_latest';
-export const CDR_CSP_MISCONFIGURATION_INDEX = 'security_solution-cloud_security_posture.misconfiguration_latest';
+export const CDR_CSP_MISCONFIGURATION_INDEX =
+  'security_solution-cloud_security_posture.misconfiguration_latest';
 
 const WIZ_PACKAGE = 'wiz';
 const CSP_PACKAGE = 'cloud_security_posture';
@@ -62,8 +63,10 @@ const generateUniqueVulnerabilities = (
 
   // Generate pools of unique values for uniqueness fields
   const cveIds = Array.from({ length: Math.min(count, 50) }, (_, i) => `CVE-2024-${10000 + i}`);
-  const resourceIds = Array.from({ length: Math.min(count, 20) }, () =>
-    `arn:aws:ec2:us-east-1:${faker.string.numeric(12)}:instance/${faker.string.alphanumeric(17)}`
+  const resourceIds = Array.from(
+    { length: Math.min(count, 20) },
+    () =>
+      `arn:aws:ec2:us-east-1:${faker.string.numeric(12)}:instance/${faker.string.alphanumeric(17)}`
   );
   const packageNames = [
     'openssl',
@@ -124,8 +127,10 @@ const generateUniqueMisconfigurations = (
 
   // Generate pools of unique values for uniqueness fields
   const ruleUuids = Array.from({ length: Math.min(count, 30) }, () => faker.string.uuid());
-  const resourceIds = Array.from({ length: Math.min(count, 20) }, () =>
-    `arn:aws:iam::${faker.string.numeric(12)}:${faker.helpers.arrayElement(['user', 'role', 'policy'])}/${faker.internet.username()}`
+  const resourceIds = Array.from(
+    { length: Math.min(count, 20) },
+    () =>
+      `arn:aws:iam::${faker.string.numeric(12)}:${faker.helpers.arrayElement(['user', 'role', 'policy'])}/${faker.internet.username()}`
   );
 
   // Track used combinations to ensure uniqueness
@@ -174,8 +179,10 @@ const generateUniqueCspMisconfigurations = (
     const rule = (i % 5) + 1;
     return `cis_${section}.${rule}`;
   });
-  const resourceIds = Array.from({ length: Math.min(count, 20) }, () =>
-    `arn:aws:${faker.helpers.arrayElement(['iam', 'ec2', 's3', 'rds'])}::${faker.string.numeric(12)}:${faker.helpers.arrayElement(['user', 'instance', 'bucket', 'db'])}/${faker.string.alphanumeric(12)}`
+  const resourceIds = Array.from(
+    { length: Math.min(count, 20) },
+    () =>
+      `arn:aws:${faker.helpers.arrayElement(['iam', 'ec2', 's3', 'rds'])}::${faker.string.numeric(12)}:${faker.helpers.arrayElement(['user', 'instance', 'bucket', 'db'])}/${faker.string.alphanumeric(12)}`
   );
 
   // Track used combinations to ensure uniqueness
@@ -276,13 +283,20 @@ const generateAttackDiscoveryCspMisconfigurations = (
   });
 };
 
-export const cdrCommand = async ({ options, count, space, seed = generateNewSeed(), useAttackDiscoveryHosts = false }: CdrCommandParams) => {
+export const cdrCommand = async ({
+  options,
+  count,
+  space,
+  seed = generateNewSeed(),
+  useAttackDiscoveryHosts = false,
+}: CdrCommandParams) => {
   faker.seed(seed);
   console.log(`Using seed: ${seed}`);
 
   // Determine which packages to install based on selected options
   const needsWiz =
-    options.includes(CDR_OPTIONS.vulnerabilities) || options.includes(CDR_OPTIONS.misconfigurations);
+    options.includes(CDR_OPTIONS.vulnerabilities) ||
+    options.includes(CDR_OPTIONS.misconfigurations);
   const needsCsp = options.includes(CDR_OPTIONS.csp_misconfigurations);
 
   // Install the wiz package if needed
@@ -291,7 +305,7 @@ export const cdrCommand = async ({ options, count, space, seed = generateNewSeed
     try {
       await installPackage({ packageName: WIZ_PACKAGE, space });
       console.log('Wiz package installed successfully');
-    } catch (error) {
+    } catch {
       console.log('Wiz package may already be installed, continuing...');
     }
   }
@@ -302,7 +316,7 @@ export const cdrCommand = async ({ options, count, space, seed = generateNewSeed
     try {
       await installPackage({ packageName: CSP_PACKAGE, space });
       console.log('Cloud Security Posture package installed successfully');
-    } catch (error) {
+    } catch {
       console.log('Cloud Security Posture package may already be installed, continuing...');
     }
   }
@@ -321,12 +335,16 @@ export const cdrCommand = async ({ options, count, space, seed = generateNewSeed
     // Generate additional documents for attack discovery hosts if enabled
     if (useAttackDiscoveryHosts) {
       const attackDiscoveryVulnerabilityDocs = generateAttackDiscoveryVulnerabilities(space);
-      console.log(`Generated ${attackDiscoveryVulnerabilityDocs.length} additional vulnerability documents for attack discovery hosts`);
+      console.log(
+        `Generated ${attackDiscoveryVulnerabilityDocs.length} additional vulnerability documents for attack discovery hosts`
+      );
       vulnerabilityDocs.push(...attackDiscoveryVulnerabilityDocs);
     }
 
     await ingest(CDR_VULNERABILITY_INDEX, vulnerabilityDocs);
-    console.log(`Ingested ${vulnerabilityDocs.length} vulnerabilities to ${CDR_VULNERABILITY_INDEX}`);
+    console.log(
+      `Ingested ${vulnerabilityDocs.length} vulnerabilities to ${CDR_VULNERABILITY_INDEX}`
+    );
   }
 
   if (options.includes(CDR_OPTIONS.misconfigurations)) {
@@ -343,12 +361,16 @@ export const cdrCommand = async ({ options, count, space, seed = generateNewSeed
     // Generate additional documents for attack discovery hosts if enabled
     if (useAttackDiscoveryHosts) {
       const attackDiscoveryMisconfigurationDocs = generateAttackDiscoveryMisconfigurations(space);
-      console.log(`Generated ${attackDiscoveryMisconfigurationDocs.length} additional misconfiguration documents for attack discovery hosts`);
+      console.log(
+        `Generated ${attackDiscoveryMisconfigurationDocs.length} additional misconfiguration documents for attack discovery hosts`
+      );
       misconfigurationDocs.push(...attackDiscoveryMisconfigurationDocs);
     }
 
     await ingest(CDR_MISCONFIGURATION_INDEX, misconfigurationDocs);
-    console.log(`Ingested ${misconfigurationDocs.length} misconfigurations to ${CDR_MISCONFIGURATION_INDEX}`);
+    console.log(
+      `Ingested ${misconfigurationDocs.length} misconfigurations to ${CDR_MISCONFIGURATION_INDEX}`
+    );
   }
 
   if (options.includes(CDR_OPTIONS.csp_misconfigurations)) {
@@ -360,17 +382,24 @@ export const cdrCommand = async ({ options, count, space, seed = generateNewSeed
     });
 
     const cspMisconfigurationDocs = generateUniqueCspMisconfigurations(count, space);
-    console.log(`Generated ${cspMisconfigurationDocs.length} unique CSP misconfiguration documents`);
+    console.log(
+      `Generated ${cspMisconfigurationDocs.length} unique CSP misconfiguration documents`
+    );
 
     // Generate additional documents for attack discovery hosts if enabled
     if (useAttackDiscoveryHosts) {
-      const attackDiscoveryCspMisconfigurationDocs = generateAttackDiscoveryCspMisconfigurations(space);
-      console.log(`Generated ${attackDiscoveryCspMisconfigurationDocs.length} additional CSP misconfiguration documents for attack discovery hosts`);
+      const attackDiscoveryCspMisconfigurationDocs =
+        generateAttackDiscoveryCspMisconfigurations(space);
+      console.log(
+        `Generated ${attackDiscoveryCspMisconfigurationDocs.length} additional CSP misconfiguration documents for attack discovery hosts`
+      );
       cspMisconfigurationDocs.push(...attackDiscoveryCspMisconfigurationDocs);
     }
 
     await ingest(CDR_CSP_MISCONFIGURATION_INDEX, cspMisconfigurationDocs);
-    console.log(`Ingested ${cspMisconfigurationDocs.length} CSP misconfigurations to ${CDR_CSP_MISCONFIGURATION_INDEX}`);
+    console.log(
+      `Ingested ${cspMisconfigurationDocs.length} CSP misconfigurations to ${CDR_CSP_MISCONFIGURATION_INDEX}`
+    );
   }
 
   console.log('\nCDR data generation complete!');

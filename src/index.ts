@@ -600,7 +600,9 @@ program
 
 program
   .command('cdr')
-  .description('Generate CDR (Cloud Detection and Response) misconfigurations and/or vulnerabilities')
+  .description(
+    'Generate CDR (Cloud Detection and Response) misconfigurations and/or vulnerabilities'
+  )
   .option('--space <space>', 'Space to use', 'default')
   .action(async (options) => {
     const answers = await checkbox<CdrOption | 'attack_discovery_hosts'>({
@@ -659,10 +661,18 @@ program
   .description('Quickly generate CDR misconfigurations and vulnerabilities with defaults')
   .option('--space <space>', 'Space to use', 'default')
   .option('--count <count>', 'Number of documents to generate', '50')
-  .option('--attack-discovery-hosts', 'Include additional documents for attack discovery hosts', false)
+  .option(
+    '--attack-discovery-hosts',
+    'Include additional documents for attack discovery hosts',
+    false
+  )
   .action(async (options) => {
     await cdrCommand({
-      options: [CDR_OPTIONS.misconfigurations, CDR_OPTIONS.csp_misconfigurations, CDR_OPTIONS.vulnerabilities],
+      options: [
+        CDR_OPTIONS.misconfigurations,
+        CDR_OPTIONS.csp_misconfigurations,
+        CDR_OPTIONS.vulnerabilities,
+      ],
       count: parseIntBase10(options.count),
       space: options.space,
       seed: generateNewSeed(),

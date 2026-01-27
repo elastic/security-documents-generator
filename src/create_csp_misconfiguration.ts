@@ -99,7 +99,8 @@ const CSP_MISCONFIGURATION_RULES = [
     remediation: 'Add a bucket policy that explicitly denies HTTP requests.',
     impact: 'Applications using HTTP will need to be updated to use HTTPS.',
     default_value: 'By default, no bucket policy is configured.',
-    references: 'https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html',
+    references:
+      'https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html',
     section: 'Storage',
     tags: ['CIS', 'AWS', 'CIS 2.1.1', 'Storage'],
   },

@@ -14,56 +14,64 @@ const MISCONFIGURATION_RULES = [
   {
     shortId: 'IAM-001',
     name: 'Root account access keys should not exist',
-    description: 'AWS access keys provide programmatic access to a given AWS account. It is recommended that all access keys associated with the root user be deleted.',
+    description:
+      'AWS access keys provide programmatic access to a given AWS account. It is recommended that all access keys associated with the root user be deleted.',
     remediation: 'Delete root account access keys from the IAM console or CLI.',
     section: 'Identity and Access Management',
   },
   {
     shortId: 'IAM-002',
     name: 'MFA should be enabled for the root user',
-    description: 'The root user is the most privileged user in an AWS account. Multi-factor authentication (MFA) adds an extra layer of protection on top of a username and password.',
+    description:
+      'The root user is the most privileged user in an AWS account. Multi-factor authentication (MFA) adds an extra layer of protection on top of a username and password.',
     remediation: 'Enable MFA for the root user through the IAM console.',
     section: 'Identity and Access Management',
   },
   {
     shortId: 'S3-001',
     name: 'S3 buckets should not be publicly accessible',
-    description: 'S3 bucket policies and ACLs should not allow public access. Public access to S3 buckets can lead to unauthorized access to sensitive data.',
+    description:
+      'S3 bucket policies and ACLs should not allow public access. Public access to S3 buckets can lead to unauthorized access to sensitive data.',
     remediation: 'Update the bucket policy and ACL to remove public access.',
     section: 'Storage',
   },
   {
     shortId: 'EC2-001',
     name: 'Security groups should not allow unrestricted SSH access',
-    description: 'Security groups should not allow unrestricted inbound SSH traffic (0.0.0.0/0 on port 22).',
+    description:
+      'Security groups should not allow unrestricted inbound SSH traffic (0.0.0.0/0 on port 22).',
     remediation: 'Restrict SSH access to specific IP ranges or use a bastion host.',
     section: 'Compute',
   },
   {
     shortId: 'KMS-001',
     name: 'KMS keys should have rotation enabled',
-    description: 'AWS KMS keys should have automatic annual rotation enabled to reduce the risk of key compromise.',
+    description:
+      'AWS KMS keys should have automatic annual rotation enabled to reduce the risk of key compromise.',
     remediation: 'Enable automatic key rotation in the KMS console.',
     section: 'Encryption',
   },
   {
     shortId: 'LOG-001',
     name: 'CloudTrail should be enabled in all regions',
-    description: 'CloudTrail provides a history of AWS API calls for your account. It should be enabled in all regions for comprehensive logging.',
+    description:
+      'CloudTrail provides a history of AWS API calls for your account. It should be enabled in all regions for comprehensive logging.',
     remediation: 'Create a multi-region CloudTrail trail.',
     section: 'Logging and Monitoring',
   },
   {
     shortId: 'NET-001',
     name: 'VPC flow logs should be enabled',
-    description: 'VPC Flow Logs capture information about the IP traffic going to and from network interfaces in your VPC.',
+    description:
+      'VPC Flow Logs capture information about the IP traffic going to and from network interfaces in your VPC.',
     remediation: 'Enable VPC flow logs for all VPCs.',
     section: 'Networking',
   },
   {
     shortId: 'DB-001',
     name: 'RDS instances should not be publicly accessible',
-    description: 'RDS database instances should not have public accessibility enabled to prevent unauthorized access.',
+    description:
+      'RDS database instances should not have public accessibility enabled to prevent unauthorized access.',
     remediation: 'Modify the RDS instance to disable public accessibility.',
     section: 'Database',
   },
@@ -93,16 +101,23 @@ export function createCdrMisconfiguration({
   username,
 }: CreateCdrMisconfigurationParams) {
   const now = moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
-  const analyzedAt = moment().subtract(faker.number.int({ min: 0, max: 24 }), 'hours').toISOString();
+  const analyzedAt = moment()
+    .subtract(faker.number.int({ min: 0, max: 24 }), 'hours')
+    .toISOString();
   const dataset = 'wiz.cloud_configuration_finding_full_posture';
 
   const hostName = hostname || faker.internet.domainName();
   const userName = username || faker.internet.username();
   const accountId = faker.string.numeric(12);
-  const region = faker.helpers.arrayElement(['us-east-1', 'us-west-2', 'eu-west-1', 'ap-southeast-1', null]);
+  const region = faker.helpers.arrayElement([
+    'us-east-1',
+    'us-west-2',
+    'eu-west-1',
+    'ap-southeast-1',
+    null,
+  ]);
   const cloudProvider = faker.helpers.arrayElement(['AWS', 'GCP', 'Azure']);
   const evaluation = faker.helpers.arrayElement(['passed', 'failed']);
-  const severity = faker.helpers.arrayElement(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
 
   const ruleTemplate = faker.helpers.arrayElement(MISCONFIGURATION_RULES);
   const resourceType = faker.helpers.arrayElement(RESOURCE_TYPES);
@@ -176,11 +191,14 @@ export function createCdrMisconfiguration({
     },
     result: {
       evaluation,
-      evidence: evaluation === 'failed' ? {
-        current_value: faker.lorem.sentence(),
-        expected_value: faker.lorem.sentence(),
-        configuration_path: faker.system.filePath(),
-      } : undefined,
+      evidence:
+        evaluation === 'failed'
+          ? {
+              current_value: faker.lorem.sentence(),
+              expected_value: faker.lorem.sentence(),
+              configuration_path: faker.system.filePath(),
+            }
+          : undefined,
     },
     rule: {
       description: ruleTemplate.description,
@@ -228,12 +246,15 @@ export function createCdrMisconfiguration({
           short_id: ruleTemplate.shortId,
         },
         status: faker.helpers.arrayElement(['OPEN', 'RESOLVED', 'IN_PROGRESS']),
-        evidence: evaluation === 'failed' ? {
-          current_value: faker.lorem.sentence(),
-          expected_value: faker.lorem.sentence(),
-          configuration_path: faker.system.filePath(),
-          cloud_configuration_link: `https://console.aws.amazon.com/${ruleTemplate.section.toLowerCase().replace(/\s+/g, '-')}`,
-        } : undefined,
+        evidence:
+          evaluation === 'failed'
+            ? {
+                current_value: faker.lorem.sentence(),
+                expected_value: faker.lorem.sentence(),
+                configuration_path: faker.system.filePath(),
+                cloud_configuration_link: `https://console.aws.amazon.com/${ruleTemplate.section.toLowerCase().replace(/\s+/g, '-')}`,
+              }
+            : undefined,
       },
     },
   };
