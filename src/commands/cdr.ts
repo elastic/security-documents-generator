@@ -299,23 +299,23 @@ export const cdrCommand = async ({
     options.includes(CDR_OPTIONS.misconfigurations);
   const needsCsp = options.includes(CDR_OPTIONS.csp_misconfigurations);
 
-  // Install the wiz package if needed
+  // Install the wiz package if needed (force: true ensures all assets are installed)
   if (needsWiz) {
-    console.log('Installing wiz package...');
+    console.log('Installing wiz package and assets...');
     try {
-      await installPackage({ packageName: WIZ_PACKAGE, space });
-      console.log('Wiz package installed successfully');
+      await installPackage({ packageName: WIZ_PACKAGE, space, force: true });
+      console.log('Wiz package and assets installed successfully');
     } catch {
       console.log('Wiz package may already be installed, continuing...');
     }
   }
 
-  // Install the cloud_security_posture package if needed
+  // Install the cloud_security_posture package if needed (force: true ensures all assets are installed)
   if (needsCsp) {
-    console.log('Installing cloud_security_posture package...');
+    console.log('Installing cloud_security_posture package and assets...');
     try {
-      await installPackage({ packageName: CSP_PACKAGE, space });
-      console.log('Cloud Security Posture package installed successfully');
+      await installPackage({ packageName: CSP_PACKAGE, space, force: true });
+      console.log('Cloud Security Posture package and assets installed successfully');
     } catch {
       console.log('Cloud Security Posture package may already be installed, continuing...');
     }
