@@ -77,6 +77,8 @@ export const stressTest = async (runs: number, opts: { outputFile?: string; page
   try {
     const seqFile =
       opts?.outputFile ?? path.join(process.cwd(), `reports/esql_seq_stress_results.json`);
+    const reportsDirectory = path.dirname(seqFile);
+    await fs.mkdir(reportsDirectory, { recursive: true });
     await fs.writeFile(seqFile, JSON.stringify(seqReport, null, 2), 'utf8');
     console.log('Sequential results written to', seqFile);
 
