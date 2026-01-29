@@ -1,0 +1,167 @@
+{
+  "properties": {
+    "@timestamp": {
+      "type": "date"
+    },
+    "agent": {
+      "properties": {
+        "ephemeral_id": { "type": "keyword" },
+        "id": { "type": "keyword" },
+        "name": { "type": "keyword" },
+        "type": { "type": "keyword" },
+        "version": { "type": "keyword" }
+      }
+    },
+    "cloud": {
+      "properties": {
+        "account": {
+          "properties": {
+            "id": { "type": "keyword" },
+            "name": { "type": "keyword" }
+          }
+        },
+        "provider": { "type": "keyword" },
+        "region": { "type": "keyword" },
+        "service": {
+          "properties": {
+            "name": { "type": "keyword" }
+          }
+        }
+      }
+    },
+    "data_stream": {
+      "properties": {
+        "dataset": { "type": "keyword" },
+        "namespace": { "type": "keyword" },
+        "type": { "type": "keyword" }
+      }
+    },
+    "ecs": {
+      "properties": {
+        "version": { "type": "keyword" }
+      }
+    },
+    "elastic_agent": {
+      "properties": {
+        "id": { "type": "keyword" },
+        "snapshot": { "type": "boolean" },
+        "version": { "type": "keyword" }
+      }
+    },
+    "event": {
+      "properties": {
+        "agent_id_status": { "type": "keyword" },
+        "category": { "type": "keyword" },
+        "created": { "type": "date" },
+        "dataset": { "type": "keyword" },
+        "id": { "type": "keyword" },
+        "ingested": { "type": "date" },
+        "kind": { "type": "keyword" },
+        "outcome": { "type": "keyword" },
+        "type": { "type": "keyword" }
+      }
+    },
+    "host": {
+      "properties": {
+        "name": { "type": "keyword" }
+      }
+    },
+    "message": {
+      "type": "text"
+    },
+    "observer": {
+      "properties": {
+        "vendor": { "type": "keyword" }
+      }
+    },
+    "resource": {
+      "properties": {
+        "id": { "type": "keyword" },
+        "name": { "type": "keyword" },
+        "sub_type": { "type": "keyword" },
+        "type": { "type": "keyword" }
+      }
+    },
+    "result": {
+      "properties": {
+        "evaluation": { "type": "keyword" },
+        "evidence": {
+          "properties": {
+            "cloud_configuration_link": { "type": "text" },
+            "configuration_path": { "type": "text" },
+            "current_value": { "type": "text" },
+            "expected_value": { "type": "text" }
+          }
+        }
+      }
+    },
+    "rule": {
+      "properties": {
+        "description": { "type": "text" },
+        "id": { "type": "keyword" },
+        "name": { "type": "keyword" },
+        "reference": { "type": "keyword" },
+        "remediation": { "type": "keyword" },
+        "uuid": { "type": "keyword" }
+      }
+    },
+    "tags": {
+      "type": "keyword"
+    },
+    "user": {
+      "properties": {
+        "id": { "type": "keyword" },
+        "name": { "type": "keyword" }
+      }
+    },
+    "wiz": {
+      "properties": {
+        "cloud_configuration_finding_full_posture": {
+          "properties": {
+            "analyzed_at": { "type": "date" },
+            "evidence": {
+              "properties": {
+                "cloud_configuration_link": { "type": "text" },
+                "configuration_path": { "type": "text" },
+                "current_value": { "type": "text" },
+                "expected_value": { "type": "text" }
+              }
+            },
+            "id": { "type": "keyword" },
+            "name": { "type": "keyword" },
+            "resource": {
+              "properties": {
+                "cloud_platform": { "type": "keyword" },
+                "id": { "type": "keyword" },
+                "name": { "type": "keyword" },
+                "native_type": { "type": "keyword" },
+                "provider_id": { "type": "keyword" },
+                "region": { "type": "keyword" },
+                "subscription": {
+                  "properties": {
+                    "cloud_provider": { "type": "keyword" },
+                    "external_id": { "type": "keyword" },
+                    "id": { "type": "keyword" },
+                    "name": { "type": "keyword" }
+                  }
+                },
+                "type": { "type": "keyword" }
+              }
+            },
+            "result": { "type": "keyword" },
+            "rule": {
+              "properties": {
+                "description": { "type": "text" },
+                "id": { "type": "keyword" },
+                "name": { "type": "keyword" },
+                "remediation_instructions": { "type": "text" },
+                "short_id": { "type": "keyword" }
+              }
+            },
+            "status": { "type": "keyword" }
+          }
+        }
+      }
+    }
+  }
+}
