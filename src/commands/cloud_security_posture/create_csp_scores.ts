@@ -44,6 +44,7 @@ export interface CreateCSPScoresParams {
   accountScores?: AccountScore[];
   clusterScores?: ClusterScore[];
   vulnerabilityStats?: VulnerabilityStats[];
+  timestamp?: string;
 }
 
 export default function createCSPScores({
@@ -55,8 +56,9 @@ export default function createCSPScores({
   accountScores,
   clusterScores,
   vulnerabilityStats,
+  timestamp,
 }: CreateCSPScoresParams) {
-  const now = moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+  const now = timestamp || moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
   const score = totalFindings > 0 ? Math.round((passedFindings / totalFindings) * 100) : 0;
 
   // Build score_by_benchmark_id structure
@@ -118,6 +120,8 @@ export default function createCSPScores({
   return {
     '@timestamp': now,
     policy_template: policyTemplate,
+    is_enabled_rules_score: true,
+    namespace: 'default',
     score,
     total_findings: totalFindings,
     passed_findings: passedFindings,

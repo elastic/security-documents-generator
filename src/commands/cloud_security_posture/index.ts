@@ -1,4 +1,5 @@
 import { faker } from '@faker-js/faker';
+import moment from 'moment';
 import { ingest } from '../utils/indices';
 import { installPackage } from '../../utils/kibana_api';
 import { generateNewSeed } from '../../constants';
@@ -21,6 +22,7 @@ import createCNVMVulnerability from './create_cnvm_vulnerabilities';
 import createCSPScores, {
   aggregateMisconfigurationStats,
   aggregateVulnerabilityStats,
+  VulnerabilityStats,
 } from './create_csp_scores';
 import createWizMisconfiguration from './create_wiz_misconfigurations';
 import createWizVulnerability from './create_wiz_vulnerabilities';
@@ -292,51 +294,41 @@ export const generateCloudSecurityPosture = async ({
     await ingest(AWS_MISCONFIGURATION_INDEX, docs);
   }
 
-  // ------- CSP Scores -------
+  // ------- CSP Scores (trend data: every 5 min over the last 24h) -------
   if (generateCspScores) {
     const allElasticMisconfigs = [...cspmMisconfigs, ...kspmMisconfigs];
 
     if (hasAnyCspm && cspmMisconfigs.length > 0) {
-      console.log('\n--- Generating CSP Scores (CSPM) ---');
+      console.log('\n--- Generating CSP Scores trend (CSPM) ---');
       const misconfigStats = aggregateMisconfigurationStats(cspmMisconfigs, 'cspm');
       const vulnStats = aggregateVulnerabilityStats(cnvmVulnerabilities);
 
-      const doc = createCSPScores({
+      const docs = generateScoresTrend({
         policyTemplate: 'cspm',
-        totalFindings: misconfigStats.totalFindings,
-        passedFindings: misconfigStats.passedFindings,
-        failedFindings: misconfigStats.failedFindings,
-        benchmarkScores: misconfigStats.benchmarkScores,
-        accountScores: misconfigStats.accountScores,
-        clusterScores: misconfigStats.clusterScores,
-        vulnerabilityStats: vulnStats,
+        misconfigStats,
+        vulnStats,
       });
 
-      await ingest(CSP_SCORES_INDEX, [doc]);
+      await ingest(CSP_SCORES_INDEX, docs);
       console.log(
-        `CSPM scores: ${misconfigStats.totalFindings} findings, ` +
-          `${Math.round((misconfigStats.passedFindings / misconfigStats.totalFindings) * 100)}% passed`
+        `CSPM scores: ${docs.length} trend points, ` +
+          `${Math.round((misconfigStats.passedFindings / misconfigStats.totalFindings) * 100)}% passed (latest)`
       );
     }
 
     if (hasAnyKspm && kspmMisconfigs.length > 0) {
-      console.log('\n--- Generating CSP Scores (KSPM) ---');
+      console.log('\n--- Generating CSP Scores trend (KSPM) ---');
       const misconfigStats = aggregateMisconfigurationStats(kspmMisconfigs, 'kspm');
 
-      const doc = createCSPScores({
+      const docs = generateScoresTrend({
         policyTemplate: 'kspm',
-        totalFindings: misconfigStats.totalFindings,
-        passedFindings: misconfigStats.passedFindings,
-        failedFindings: misconfigStats.failedFindings,
-        benchmarkScores: misconfigStats.benchmarkScores,
-        accountScores: misconfigStats.accountScores,
-        clusterScores: misconfigStats.clusterScores,
+        misconfigStats,
       });
 
-      await ingest(CSP_SCORES_INDEX, [doc]);
+      await ingest(CSP_SCORES_INDEX, docs);
       console.log(
-        `KSPM scores: ${misconfigStats.totalFindings} findings, ` +
-          `${Math.round((misconfigStats.passedFindings / misconfigStats.totalFindings) * 100)}% passed`
+        `KSPM scores: ${docs.length} trend points, ` +
+          `${Math.round((misconfigStats.passedFindings / misconfigStats.totalFindings) * 100)}% passed (latest)`
       );
     }
 
@@ -366,6 +358,66 @@ function generateDocs(
     for (const account of accounts) {
       docs.push(...faker.helpers.multiple(() => factory(account), { count }));
     }
+  }
+
+  return docs;
+}
+
+/**
+ * Generate CSP scores trend data over the last 24 hours (every 5 minutes).
+ * Each data point has slightly varied pass/fail counts to simulate realistic drift.
+ */
+function generateScoresTrend({
+  policyTemplate,
+  misconfigStats,
+  vulnStats,
+}: {
+  policyTemplate: 'cspm' | 'kspm';
+  misconfigStats: ReturnType<typeof aggregateMisconfigurationStats>;
+  vulnStats?: VulnerabilityStats[];
+}): object[] {
+  const docs: object[] = [];
+  const intervalMinutes = 5;
+  const hoursBack = 24;
+  const totalPoints = (hoursBack * 60) / intervalMinutes; // 288
+
+  for (let i = totalPoints; i >= 0; i--) {
+    const timestamp = moment()
+      .subtract(i * intervalMinutes, 'minutes')
+      .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+
+    // Add small random drift to pass/fail counts (±5% of total)
+    const driftRange = Math.max(1, Math.floor(misconfigStats.totalFindings * 0.05));
+    const drift = faker.number.int({ min: -driftRange, max: driftRange });
+    const passed = Math.max(
+      0,
+      Math.min(misconfigStats.totalFindings, misconfigStats.passedFindings + drift)
+    );
+    const failed = misconfigStats.totalFindings - passed;
+
+    // Apply same drift ratio to benchmark and account/cluster scores
+    const driftedBenchmarks = misconfigStats.benchmarkScores.map((b) => {
+      const bDrift = faker.number.int({
+        min: -Math.max(1, Math.floor(b.totalFindings * 0.05)),
+        max: Math.max(1, Math.floor(b.totalFindings * 0.05)),
+      });
+      const bPassed = Math.max(0, Math.min(b.totalFindings, b.passedFindings + bDrift));
+      return { ...b, passedFindings: bPassed, failedFindings: b.totalFindings - bPassed };
+    });
+
+    const doc = createCSPScores({
+      policyTemplate,
+      totalFindings: misconfigStats.totalFindings,
+      passedFindings: passed,
+      failedFindings: failed,
+      benchmarkScores: driftedBenchmarks,
+      accountScores: misconfigStats.accountScores,
+      clusterScores: misconfigStats.clusterScores,
+      vulnerabilityStats: vulnStats,
+      timestamp,
+    });
+
+    docs.push(doc);
   }
 
   return docs;
