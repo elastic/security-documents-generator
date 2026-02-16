@@ -410,24 +410,27 @@ function generateScoresTrend({
     );
     const failed = misconfigStats.totalFindings - passed;
 
-    // Apply same drift ratio to benchmark and account/cluster scores
-    const driftedBenchmarks = misconfigStats.benchmarkScores.map((b) => {
-      const bDrift = faker.number.int({
-        min: -Math.max(1, Math.floor(b.totalFindings * 0.05)),
-        max: Math.max(1, Math.floor(b.totalFindings * 0.05)),
+    // Apply same drift to benchmark, account, and cluster scores
+    const applyDrift = <T extends { totalFindings: number; passedFindings: number }>(
+      items: T[]
+    ): T[] =>
+      items.map((item) => {
+        const d = faker.number.int({
+          min: -Math.max(1, Math.floor(item.totalFindings * 0.05)),
+          max: Math.max(1, Math.floor(item.totalFindings * 0.05)),
+        });
+        const p = Math.max(0, Math.min(item.totalFindings, item.passedFindings + d));
+        return { ...item, passedFindings: p, failedFindings: item.totalFindings - p };
       });
-      const bPassed = Math.max(0, Math.min(b.totalFindings, b.passedFindings + bDrift));
-      return { ...b, passedFindings: bPassed, failedFindings: b.totalFindings - bPassed };
-    });
 
     const doc = createCSPScores({
       policyTemplate,
       totalFindings: misconfigStats.totalFindings,
       passedFindings: passed,
       failedFindings: failed,
-      benchmarkScores: driftedBenchmarks,
-      accountScores: misconfigStats.accountScores,
-      clusterScores: misconfigStats.clusterScores,
+      benchmarkScores: applyDrift(misconfigStats.benchmarkScores),
+      accountScores: misconfigStats.accountScores && applyDrift(misconfigStats.accountScores),
+      clusterScores: misconfigStats.clusterScores && applyDrift(misconfigStats.clusterScores),
       vulnerabilityStats: vulnStats,
       timestamp,
     });
