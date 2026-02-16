@@ -37,6 +37,10 @@ import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { generateInsights } from './commands/insights';
 import { stressTest } from './risk_engine/esql_stress_test';
+import {
+  generateCloudSecurityPosture,
+  resolveDataSources,
+} from './commands/cloud_security_posture';
 
 import fs from 'fs';
 
@@ -720,6 +724,33 @@ program
       }
       process.exit(1);
     }
+  });
+
+program
+  .command('generate-cloud-security-posture')
+  .alias('csp')
+  .description(
+    'Generate Cloud Security Posture data (misconfigurations, vulnerabilities, csp_scores)\n\n' +
+      '  Data sources:\n' +
+      '    Shortcuts: all, elastic_all\n' +
+      '    Elastic:   elastic_cspm_aws, elastic_cspm_gcp, elastic_cspm_azure,\n' +
+      '              elastic_kspm_vanilla, elastic_kspm_eks, elastic_cnvm\n' +
+      '    3rd party: wiz_misconfigs, wiz_vulnerabilities, qualys_vulnerabilities,\n' +
+      '              tenable_vulnerabilities, aws_misconfigs'
+  )
+  .option('--seed <seed>', 'Random seed for reproducibility', parseIntBase10)
+  .option('--data-sources <list>', 'Comma-separated data sources (see above)', 'all')
+  .option('--findings-count <n>', 'Number of findings per data source', parseIntBase10, 50)
+  .option('--no-csp-scores', 'Skip generating csp_scores documents')
+  .action(async (options) => {
+    const dataSources = resolveDataSources(options.dataSources.split(','));
+
+    await generateCloudSecurityPosture({
+      seed: options.seed,
+      dataSources,
+      findingsCount: options.findingsCount,
+      generateCspScores: options.cspScores,
+    });
   });
 
 program.parse();
