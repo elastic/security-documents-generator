@@ -1,13 +1,13 @@
 import { faker } from '@faker-js/faker';
 import moment from 'moment';
-import { ingest } from '../utils/indices';
+import { ingest, getEsClient } from '../utils/indices';
 import { installPackage } from '../../utils/kibana_api';
 import { generateNewSeed } from '../../constants';
 import {
   generateCSPMAccounts,
   generateKSPMClusters,
   CSPMAccount,
-  MISCONFIGURATION_INDEX,
+  MISCONFIGURATION_SOURCE_INDEX,
   VULNERABILITY_INDEX,
   CSP_SCORES_INDEX,
   WIZ_MISCONFIGURATION_INDEX,
@@ -75,6 +75,29 @@ export interface GenerateCSPParams {
   generateCspScores?: boolean;
 }
 
+const CSP_SCORES_TEMPLATE_NAME = 'logs-cloud_security_posture.scores';
+
+/**
+ * Verify the CSP scores index template exists before ingesting scores.
+ * The template is created by the Kibana CSP plugin (not the integration package).
+ * It requires: installing the integration, generating data, and visiting the Findings page.
+ */
+async function ensureCspScoresTemplate(): Promise<void> {
+  const esClient = getEsClient();
+  try {
+    await esClient.indices.getIndexTemplate({ name: CSP_SCORES_TEMPLATE_NAME });
+  } catch {
+    throw new Error(
+      `CSP scores index template '${CSP_SCORES_TEMPLATE_NAME}' not found.\n` +
+        'This template is created by the Kibana CSP plugin. To set it up:\n' +
+        '  1. Install the cloud_security_posture integration (done automatically by this generator)\n' +
+        '  2. Run this generator without --csp-scores first to populate findings data\n' +
+        '  3. Open Kibana and visit the Cloud Security Posture > Findings page\n' +
+        '  4. Re-run this generator with --csp-scores to generate trend data'
+    );
+  }
+}
+
 /**
  * Resolve user input (which may contain shortcuts) into a flat list of data sources.
  */
@@ -96,11 +119,77 @@ export function resolveDataSources(input: string[]): DataSource[] {
   return [...resolved];
 }
 
+/**
+ * Find transforms that read from a given source index pattern.
+ * Returns the matching transform IDs.
+ */
+async function findTransformsForSource(sourceIndex: string): Promise<string[]> {
+  const esClient = getEsClient();
+  const ids: string[] = [];
+  try {
+    const resp = await esClient.transform.getTransform({ transform_id: '*', size: 100 });
+    for (const t of resp.transforms) {
+      const sources = (t.source.index as string[]) || [];
+      if (sources.some((pattern) => sourceIndex.match(new RegExp('^' + pattern.replace('*', '.*'))))) {
+        ids.push(t.id);
+      }
+    }
+  } catch {
+    // Transform API not available
+  }
+  return ids;
+}
+
+/**
+ * Trigger transforms to process data immediately and wait for completion.
+ * Uses scheduleNowTransform to bypass the 5m frequency interval.
+ */
+async function triggerAndWaitForTransforms(transformIds: string[]): Promise<void> {
+  if (transformIds.length === 0) return;
+  const esClient = getEsClient();
+
+  for (const id of transformIds) {
+    try {
+      // Ensure the transform is started
+      const stats = await esClient.transform.getTransformStats({ transform_id: id });
+      const state = stats.transforms[0]?.state;
+      if (state === 'stopped') {
+        await esClient.transform.startTransform({ transform_id: id });
+        console.log(`Started transform '${id}'`);
+      }
+
+      // Get current checkpoint before triggering
+      const beforeCheckpoint =
+        stats.transforms[0]?.checkpointing?.last?.checkpoint ?? 0;
+
+      // Trigger immediate processing
+      await esClient.transform.scheduleNowTransform({ transform_id: id });
+      console.log(`Triggered transform '${id}'`);
+
+      // Poll until the transform completes a new checkpoint
+      const maxWaitMs = 120_000;
+      const startTime = Date.now();
+      while (Date.now() - startTime < maxWaitMs) {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        const current = await esClient.transform.getTransformStats({ transform_id: id });
+        const currentCheckpoint =
+          current.transforms[0]?.checkpointing?.last?.checkpoint ?? 0;
+        if (currentCheckpoint > beforeCheckpoint) {
+          console.log(`Transform '${id}' completed checkpoint ${currentCheckpoint}`);
+          break;
+        }
+      }
+    } catch (err) {
+      console.log(`Warning: failed to trigger transform '${id}':`, err);
+    }
+  }
+}
+
 export const generateCloudSecurityPosture = async ({
   seed = generateNewSeed(),
   dataSources,
   findingsCount,
-  generateCspScores = true,
+  generateCspScores = false,
 }: GenerateCSPParams) => {
   faker.seed(seed);
 
@@ -182,7 +271,7 @@ export const generateCloudSecurityPosture = async ({
       );
     }
 
-    await ingest(MISCONFIGURATION_INDEX, cspmMisconfigs);
+    await ingest(MISCONFIGURATION_SOURCE_INDEX, cspmMisconfigs);
   }
 
   // ------- Native Elastic: KSPM -------
@@ -210,7 +299,14 @@ export const generateCloudSecurityPosture = async ({
       );
     }
 
-    await ingest(MISCONFIGURATION_INDEX, kspmMisconfigs);
+    await ingest(MISCONFIGURATION_SOURCE_INDEX, kspmMisconfigs);
+  }
+
+  // Trigger the misconfiguration transform to process source data into the latest index
+  if (cspmMisconfigs.length > 0 || kspmMisconfigs.length > 0) {
+    console.log('\n--- Triggering misconfiguration transform ---');
+    const transformIds = await findTransformsForSource(MISCONFIGURATION_SOURCE_INDEX);
+    await triggerAndWaitForTransforms(transformIds);
   }
 
   // ------- Native Elastic: CNVM -------
@@ -296,7 +392,11 @@ export const generateCloudSecurityPosture = async ({
   }
 
   // ------- CSP Scores (trend data: every 5 min over the last 24h) -------
+  // Scores are normally generated by a Kibana background task every ~5 min.
+  // This opt-in flag generates historical trend data for dashboard demos.
   if (generateCspScores) {
+    await ensureCspScoresTemplate();
+
     const allElasticMisconfigs = [...cspmMisconfigs, ...kspmMisconfigs];
 
     if (hasAnyCspm && cspmMisconfigs.length > 0) {
@@ -310,7 +410,9 @@ export const generateCloudSecurityPosture = async ({
         vulnStats,
       });
 
-      await ingest(CSP_SCORES_INDEX, docs);
+      // Use pipeline: '_none' to bypass the default pipeline that overwrites @timestamp
+      // with _ingest.timestamp (which would collapse all trend points to the current time)
+      await ingest(CSP_SCORES_INDEX, docs, { pipeline: '_none' });
       console.log(
         `CSPM scores: ${docs.length} trend points, ` +
           `${Math.round((misconfigStats.passedFindings / misconfigStats.totalFindings) * 100)}% passed (latest)`
@@ -326,7 +428,7 @@ export const generateCloudSecurityPosture = async ({
         misconfigStats,
       });
 
-      await ingest(CSP_SCORES_INDEX, docs);
+      await ingest(CSP_SCORES_INDEX, docs, { pipeline: '_none' });
       console.log(
         `KSPM scores: ${docs.length} trend points, ` +
           `${Math.round((misconfigStats.passedFindings / misconfigStats.totalFindings) * 100)}% passed (latest)`
@@ -339,7 +441,7 @@ export const generateCloudSecurityPosture = async ({
 
       const docs = generateVulnMgmtScoresTrend(vulnStats);
 
-      await ingest(CSP_SCORES_INDEX, docs);
+      await ingest(CSP_SCORES_INDEX, docs, { pipeline: '_none' });
       const totalVulns = vulnStats.reduce(
         (sum, s) => sum + s.critical + s.high + s.medium + s.low,
         0

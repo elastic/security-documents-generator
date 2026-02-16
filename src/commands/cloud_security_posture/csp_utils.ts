@@ -28,9 +28,8 @@ export type PostureType = 'cspm' | 'kspm';
 // Agent/cloudbeat version used across all native CSP generators
 export const CSP_AGENT_VERSION = '9.1.2';
 
-// Target indices
-export const MISCONFIGURATION_INDEX =
-  'security_solution-cloud_security_posture.misconfiguration_latest';
+// Source data streams (where the agent writes — transforms read from these)
+export const MISCONFIGURATION_SOURCE_INDEX = 'logs-cloud_security_posture.findings-default';
 export const VULNERABILITY_INDEX = 'logs-cloud_security_posture.vulnerabilities_latest-default';
 export const CSP_SCORES_INDEX = 'logs-cloud_security_posture.scores-default';
 

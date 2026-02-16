@@ -741,7 +741,11 @@ program
   .option('--seed <seed>', 'Random seed for reproducibility', parseIntBase10)
   .option('--data-sources <list>', 'Comma-separated data sources (see above)', 'all')
   .option('--findings-count <n>', 'Number of findings per data source', parseIntBase10, 50)
-  .option('--no-csp-scores', 'Skip generating csp_scores documents')
+  .option(
+    '--csp-scores',
+    'Generate historical CSP scores trend data (requires Kibana CSP plugin setup)',
+    false
+  )
   .action(async (options) => {
     const dataSources = resolveDataSources(options.dataSources.split(','));
 
