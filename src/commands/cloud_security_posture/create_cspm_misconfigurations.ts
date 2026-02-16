@@ -6,6 +6,7 @@ import {
   getRandomCisRule,
   getRandomResourceType,
   generateResourceId,
+  cloudServiceFromResourceType,
   pickEvaluation,
   CSPMAccount,
 } from './csp_utils';
@@ -23,14 +24,14 @@ export default function createCSPMMisconfiguration({
   const benchmark = CSPM_PROVIDERS[provider];
   const cisRule = getRandomCisRule(provider);
   const resourceType = getRandomResourceType(provider);
-  const resourceId = generateResourceId(provider);
   const evaluation = pickEvaluation();
   const accountId = account?.id || faker.string.numeric(12);
   const accountName = account?.name || `${provider}-account-${faker.word.noun()}`;
+  const resourceId = generateResourceId(provider, resourceType, accountId);
   const agentId = faker.string.uuid();
 
-  // Provider-specific cloud metadata
-  const cloudMetadata = generateCloudMetadata(provider, accountId, accountName);
+  // Provider-specific cloud metadata (derived from the same resourceType)
+  const cloudMetadata = generateCloudMetadata(provider, accountId, accountName, resourceType);
 
   return {
     '@timestamp': now,
@@ -128,13 +129,17 @@ export default function createCSPMMisconfiguration({
 function generateCloudMetadata(
   provider: CloudProvider,
   accountId: string,
-  accountName: string
+  accountName: string,
+  resourceType: string
 ): object {
   const baseMetadata = {
     provider,
     account: {
       id: accountId,
       name: accountName,
+    },
+    service: {
+      name: cloudServiceFromResourceType(provider, resourceType),
     },
   };
 
@@ -149,9 +154,6 @@ function generateCloudMetadata(
           'eu-central-1',
           'ap-southeast-1',
         ]),
-        service: {
-          name: faker.helpers.arrayElement(['AWS S3', 'AWS EC2', 'AWS IAM', 'AWS RDS']),
-        },
       };
     case 'azure':
       return {
@@ -163,14 +165,6 @@ function generateCloudMetadata(
           'northeurope',
           'southeastasia',
         ]),
-        service: {
-          name: faker.helpers.arrayElement([
-            'Azure Storage',
-            'Azure VM',
-            'Azure Key Vault',
-            'Azure SQL',
-          ]),
-        },
       };
     case 'gcp':
       return {
@@ -185,14 +179,6 @@ function generateCloudMetadata(
           'europe-west3',
           'asia-southeast1',
         ]),
-        service: {
-          name: faker.helpers.arrayElement([
-            'GCP Storage',
-            'GCP Compute Engine',
-            'GCP IAM',
-            'GCP Cloud SQL',
-          ]),
-        },
       };
     default:
       return baseMetadata;

@@ -560,17 +560,109 @@ export function getRandomResourceType(provider: CloudProvider | 'k8s'): string {
   return faker.helpers.arrayElement(types);
 }
 
-export function generateResourceId(provider: CloudProvider | 'k8s'): string {
+export function generateResourceId(
+  provider: CloudProvider | 'k8s',
+  resourceType?: string,
+  accountId?: string
+): string {
+  const acctId = accountId || faker.string.numeric(12);
+
   switch (provider) {
-    case 'aws':
-      return `arn:aws:${faker.helpers.arrayElement(['s3', 'ec2', 'iam', 'rds'])}:${faker.helpers.arrayElement(['us-east-1', 'us-west-2', 'eu-west-1'])}:${faker.string.numeric(12)}:${faker.word.noun()}/${faker.string.alphanumeric(8)}`;
-    case 'azure':
-      return `/subscriptions/${faker.string.uuid()}/resourceGroups/${faker.word.noun()}-rg/providers/Microsoft.${faker.helpers.arrayElement(['Storage', 'Compute', 'Network'])}/resources/${faker.word.noun()}`;
-    case 'gcp':
-      return `//compute.googleapis.com/projects/${faker.word.noun()}-project/zones/${faker.helpers.arrayElement(['us-central1-a', 'europe-west1-b'])}/instances/${faker.word.noun()}-instance`;
+    case 'aws': {
+      const service = resourceType ? awsServiceFromResourceType(resourceType) : 'ec2';
+      const region = faker.helpers.arrayElement(['us-east-1', 'us-west-2', 'eu-west-1']);
+      return `arn:aws:${service}:${region}:${acctId}:${faker.word.noun()}/${faker.string.alphanumeric(8)}`;
+    }
+    case 'azure': {
+      const azProvider = resourceType
+        ? azureProviderFromResourceType(resourceType)
+        : 'Microsoft.Compute';
+      return `/subscriptions/${faker.string.uuid()}/resourceGroups/${faker.word.noun()}-rg/providers/${azProvider}/resources/${faker.word.noun()}`;
+    }
+    case 'gcp': {
+      const zone = faker.helpers.arrayElement(['us-central1-a', 'europe-west1-b']);
+      return `//compute.googleapis.com/projects/${faker.word.noun()}-project/zones/${zone}/instances/${faker.word.noun()}-instance`;
+    }
     case 'k8s':
       return `${faker.word.noun()}-${faker.string.alphanumeric(5)}`;
     default:
       return faker.string.uuid();
+  }
+}
+
+function awsServiceFromResourceType(resourceType: string): string {
+  if (resourceType.includes('s3')) return 's3';
+  if (resourceType.includes('ec2') || resourceType.includes('ebs')) return 'ec2';
+  if (resourceType.includes('iam')) return 'iam';
+  if (resourceType.includes('rds')) return 'rds';
+  if (resourceType.includes('lambda')) return 'lambda';
+  if (resourceType.includes('kms')) return 'kms';
+  if (resourceType.includes('cloudtrail')) return 'cloudtrail';
+  if (resourceType.includes('security-group')) return 'ec2';
+  return 'ec2';
+}
+
+function azureProviderFromResourceType(resourceType: string): string {
+  if (resourceType.includes('storage')) return 'Microsoft.Storage';
+  if (resourceType.includes('vm') || resourceType.includes('disk')) return 'Microsoft.Compute';
+  if (resourceType.includes('key-vault')) return 'Microsoft.KeyVault';
+  if (resourceType.includes('sql')) return 'Microsoft.Sql';
+  if (resourceType.includes('network') || resourceType.includes('nsg')) return 'Microsoft.Network';
+  if (resourceType.includes('app-service') || resourceType.includes('function'))
+    return 'Microsoft.Web';
+  if (resourceType.includes('cosmos')) return 'Microsoft.DocumentDB';
+  if (resourceType.includes('aks')) return 'Microsoft.ContainerService';
+  return 'Microsoft.Compute';
+}
+
+// Map resource type to cloud.service.name for consistent metadata
+export function cloudServiceFromResourceType(
+  provider: CloudProvider,
+  resourceType: string
+): string {
+  switch (provider) {
+    case 'aws': {
+      const service = awsServiceFromResourceType(resourceType);
+      const serviceNames: Record<string, string> = {
+        s3: 'AWS S3',
+        ec2: 'AWS EC2',
+        iam: 'AWS IAM',
+        rds: 'AWS RDS',
+        lambda: 'AWS Lambda',
+        kms: 'AWS KMS',
+        cloudtrail: 'AWS CloudTrail',
+      };
+      return serviceNames[service] || 'AWS EC2';
+    }
+    case 'azure': {
+      const azProvider = azureProviderFromResourceType(resourceType);
+      const serviceNames: Record<string, string> = {
+        'Microsoft.Storage': 'Azure Storage',
+        'Microsoft.Compute': 'Azure VM',
+        'Microsoft.KeyVault': 'Azure Key Vault',
+        'Microsoft.Sql': 'Azure SQL',
+        'Microsoft.Network': 'Azure Network',
+        'Microsoft.Web': 'Azure App Service',
+        'Microsoft.DocumentDB': 'Azure Cosmos DB',
+        'Microsoft.ContainerService': 'Azure AKS',
+      };
+      return serviceNames[azProvider] || 'Azure VM';
+    }
+    case 'gcp': {
+      if (resourceType.includes('storage') || resourceType.includes('bucket')) return 'GCP Storage';
+      if (resourceType.includes('compute') || resourceType.includes('instance'))
+        return 'GCP Compute Engine';
+      if (resourceType.includes('iam') || resourceType.includes('service-account'))
+        return 'GCP IAM';
+      if (resourceType.includes('sql')) return 'GCP Cloud SQL';
+      if (resourceType.includes('firewall')) return 'GCP VPC Firewall';
+      if (resourceType.includes('gke')) return 'GCP GKE';
+      if (resourceType.includes('pubsub')) return 'GCP Pub/Sub';
+      if (resourceType.includes('bigquery')) return 'GCP BigQuery';
+      if (resourceType.includes('function')) return 'GCP Cloud Functions';
+      return 'GCP Compute Engine';
+    }
+    default:
+      return '';
   }
 }
