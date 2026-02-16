@@ -95,7 +95,7 @@ export default function createTenableVulnerability({
   const solution = `Upgrade ${cve.package} to version ${cve.fixedVersion} or later.`;
   const seeAlso = [`https://nvd.nist.gov/vuln/detail/${cve.id}`];
 
-  // Output for package extraction (matches format expected by pipeline)
+  // Output for package extraction
   const packagePath = `/usr/lib/${cve.package}/`;
   const output = `\n  Path              : ${packagePath}\n  Installed version : ${packageVersion}\n  Fixed version     : ${cve.fixedVersion}\n`;
 
@@ -122,7 +122,7 @@ export default function createTenableVulnerability({
     },
     event: {
       created: indexed,
-      kind: 'state', // Per pipeline: set to 'state'
+      kind: 'state',
       id: faker.string.uuid(),
       category: ['vulnerability'],
       type: ['info'],
@@ -132,7 +132,7 @@ export default function createTenableVulnerability({
     host: {
       id: assetUuid,
       name: fqdn.toLowerCase(),
-      domain: domain.split('.').slice(-1)[0], // Extract TLD as domain
+      domain,
       ip: [ipv4, ipv4Secondary],
       os: {
         full: [osName],
@@ -161,7 +161,7 @@ export default function createTenableVulnerability({
       fixed_version: [cve.fixedVersion],
       path: [packagePath],
     },
-    // Vulnerability ECS fields matching pipeline output
+    // Vulnerability ECS fields
     vulnerability: {
       id: [cve.id], // Array of CVE IDs
       category: [pluginFamily],
@@ -176,7 +176,7 @@ export default function createTenableVulnerability({
       score: {
         base: cvss3Score,
         temporal: cvss3Score * 0.9,
-        version: '3.0', // Per pipeline: set to '3.0'
+        version: '3.0',
       },
       scanner: {
         vendor: 'Tenable',
@@ -382,7 +382,7 @@ export default function createTenableVulnerability({
           started_at: scanStarted,
           completed_at: scanCompleted,
         },
-        // Severity data (per pipeline structure)
+        // Severity data
         severity: {
           id: severityId,
           default_id: severityId,

@@ -171,14 +171,14 @@ export default function createWizMisconfiguration({
       outcome: eventOutcome,
       dataset: 'wiz.cloud_configuration_finding_full_posture',
     },
-    // Message from rule name (per pipeline)
+    // Message from rule name
     message: rule.name,
     observer: {
       vendor: 'Wiz',
     },
     // Cloud fields
     cloud: {
-      provider: provider.toLowerCase(), // lowercase per pipeline
+      provider: provider.toLowerCase(),
       account: {
         id: accountId,
         name: accountName,

@@ -79,7 +79,7 @@ export default function createQualysVulnerability({
     },
     event: {
       created: now,
-      kind: 'alert', // Per pipeline: set to 'alert'
+      kind: 'alert',
       id: uniqueVulnId,
       category: ['vulnerability'],
       type: ['info'],
@@ -108,7 +108,7 @@ export default function createQualysVulnerability({
       id: detectionId,
       name: fqdn,
     },
-    // Observer vendor (per pipeline: 'Qualys VMDR')
+    // Observer
     observer: {
       vendor: 'Qualys VMDR',
     },
@@ -165,7 +165,7 @@ export default function createQualysVulnerability({
         last_scan_datetime: lastScanDatetime,
         last_vm_scanned_date: lastScanDatetime,
         last_vm_scanned_duration: faker.number.int({ min: 100, max: 2000 }),
-        // Knowledge base data (from pipeline_knowledge_base)
+        // Knowledge base data
         knowledge_base: {
           category: kbCategory,
           title: kbTitle,
@@ -316,7 +316,7 @@ function severityToQualysSeverity(severity: string): number {
 }
 
 function severityToTitleCase(severity: string): string {
-  // Per pipeline: vulnerability.severity is title case
+  // vulnerability.severity is title case
   switch (severity) {
     case 'CRITICAL':
       return 'Critical';

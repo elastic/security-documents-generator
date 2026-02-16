@@ -73,7 +73,7 @@ export default function createWizVulnerability({ account }: CreateWizVulnerabili
       title: `Vulnerability found - ${cve.id}`,
       description: cve.title,
       severity,
-      cwe: cve.id, // Same as vulnerability.id per pipeline
+      cwe: cve.id,
       reference: link,
       score: {
         base: score,
