@@ -181,7 +181,7 @@ export default function createTenableVulnerability({
       scanner: {
         vendor: 'Tenable',
         name: pluginName,
-        version: `$${pluginModificationDate.split('T')[0]}`,
+        version: pluginModificationDate.split('T')[0],
       },
     },
     // Cloud fields (optional)
@@ -343,7 +343,7 @@ export default function createTenableVulnerability({
           },
           // Additional plugin fields
           type: faker.helpers.arrayElement(['local', 'remote', 'combined']),
-          version: `$${pluginModificationDate.split('T')[0]}`,
+          version: pluginModificationDate.split('T')[0],
           vuln_publication_date: vulnPublicationDate,
           publication_date: pluginPublicationDate,
           modification_date: pluginModificationDate,
