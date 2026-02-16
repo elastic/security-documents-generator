@@ -6,10 +6,11 @@ export interface CreateWizMisconfigurationParams {
   account?: CSPMAccount;
 }
 
-// Wiz cloud configuration finding rules with proper shortIds
+// Wiz cloud configuration finding rules with proper shortIds.
+// Static UUIDs so that --seed reproducibility is not broken by module-load-time faker calls.
 const WIZ_RULES = [
   {
-    id: faker.string.uuid(),
+    id: 'a1b2c3d4-1111-4000-a000-000000000001',
     shortId: 'S3-001',
     name: 'S3 Bucket Public Access Enabled',
     description: 'S3 bucket allows public access which may expose sensitive data',
@@ -19,7 +20,7 @@ const WIZ_RULES = [
     cloudPlatform: 'S3',
   },
   {
-    id: faker.string.uuid(),
+    id: 'a1b2c3d4-2222-4000-a000-000000000002',
     shortId: 'EC2-002',
     name: 'EC2 Instance Has Public IP Address',
     description: 'EC2 instance has a public IP address exposing it to the internet',
@@ -29,7 +30,7 @@ const WIZ_RULES = [
     cloudPlatform: 'EC2',
   },
   {
-    id: faker.string.uuid(),
+    id: 'a1b2c3d4-3333-4000-a000-000000000003',
     shortId: 'IAM-006',
     name: 'Root account access keys should not exist',
     description: 'Root account has access keys which is a security risk',
@@ -39,7 +40,7 @@ const WIZ_RULES = [
     cloudPlatform: 'IAM',
   },
   {
-    id: faker.string.uuid(),
+    id: 'a1b2c3d4-4444-4000-a000-000000000004',
     shortId: 'IAM-003',
     name: 'IAM User MFA Not Enabled',
     description: 'IAM user does not have MFA enabled',
@@ -49,7 +50,7 @@ const WIZ_RULES = [
     cloudPlatform: 'IAM',
   },
   {
-    id: faker.string.uuid(),
+    id: 'a1b2c3d4-5555-4000-a000-000000000005',
     shortId: 'SG-001',
     name: 'Security Group Allows Unrestricted Access',
     description: 'Security group allows unrestricted access from the internet',
@@ -59,7 +60,7 @@ const WIZ_RULES = [
     cloudPlatform: 'EC2',
   },
   {
-    id: faker.string.uuid(),
+    id: 'a1b2c3d4-6666-4000-a000-000000000006',
     shortId: 'EKS-001',
     name: 'EKS Cluster Public Endpoint Enabled',
     description: 'EKS cluster has public endpoint enabled',
@@ -69,7 +70,7 @@ const WIZ_RULES = [
     cloudPlatform: 'EKS',
   },
   {
-    id: faker.string.uuid(),
+    id: 'a1b2c3d4-7777-4000-a000-000000000007',
     shortId: 'AZ-STG-001',
     name: 'Storage Account Public Access Enabled',
     description: 'Azure Storage Account allows public access',
@@ -79,7 +80,7 @@ const WIZ_RULES = [
     cloudPlatform: 'Storage',
   },
   {
-    id: faker.string.uuid(),
+    id: 'a1b2c3d4-8888-4000-a000-000000000008',
     shortId: 'AZ-VM-001',
     name: 'Virtual Machine Has Public IP',
     description: 'Virtual Machine has a public IP address',
@@ -89,7 +90,7 @@ const WIZ_RULES = [
     cloudPlatform: 'Compute',
   },
   {
-    id: faker.string.uuid(),
+    id: 'a1b2c3d4-9999-4000-a000-000000000009',
     shortId: 'GCP-GCS-001',
     name: 'GCS Bucket Public Access Enabled',
     description: 'GCS bucket allows public access',
@@ -99,7 +100,7 @@ const WIZ_RULES = [
     cloudPlatform: 'Storage',
   },
   {
-    id: faker.string.uuid(),
+    id: 'a1b2c3d4-aaaa-4000-a000-000000000010',
     shortId: 'GCP-GCE-001',
     name: 'Compute Instance Has Public IP',
     description: 'GCE instance has a public IP address',
