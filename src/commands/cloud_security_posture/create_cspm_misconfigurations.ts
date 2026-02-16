@@ -2,6 +2,7 @@ import { faker } from '@faker-js/faker';
 import moment from 'moment';
 import {
   CloudProvider,
+  CSP_AGENT_VERSION,
   CSPM_PROVIDERS,
   getRandomCisRule,
   getRandomResourceType,
@@ -40,7 +41,7 @@ export default function createCSPMMisconfiguration({
       id: agentId,
       type: 'cloudbeat',
       ephemeral_id: faker.string.uuid(),
-      version: '9.0.0',
+      version: CSP_AGENT_VERSION,
     },
     resource: {
       account_id: accountId,
@@ -58,7 +59,7 @@ export default function createCSPMMisconfiguration({
     },
     elastic_agent: {
       id: agentId,
-      version: '9.0.0',
+      version: CSP_AGENT_VERSION,
       snapshot: false,
     },
     rule: {
@@ -95,10 +96,10 @@ export default function createCSPMMisconfiguration({
     },
     cloudbeat: {
       commit_time: '0001-01-01T00:00:00Z',
-      version: '9.0.0',
+      version: CSP_AGENT_VERSION,
       policy: {
         commit_time: '0001-01-01T00:00:00Z',
-        version: '9.0.0',
+        version: CSP_AGENT_VERSION,
       },
     },
     ecs: {

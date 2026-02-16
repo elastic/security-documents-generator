@@ -25,6 +25,9 @@ export type CloudProvider = keyof typeof CSPM_PROVIDERS;
 export type KSPMDistribution = keyof typeof KSPM_DISTRIBUTIONS;
 export type PostureType = 'cspm' | 'kspm';
 
+// Agent/cloudbeat version used across all native CSP generators
+export const CSP_AGENT_VERSION = '9.1.2';
+
 // Target indices
 export const MISCONFIGURATION_INDEX =
   'security_solution-cloud_security_posture.misconfiguration_latest';

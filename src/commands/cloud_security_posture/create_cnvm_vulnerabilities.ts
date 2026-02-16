@@ -1,6 +1,6 @@
 import { faker } from '@faker-js/faker';
 import moment from 'moment';
-import { getRandomCve, pickSeverity, CSPMAccount } from './csp_utils';
+import { CSP_AGENT_VERSION, getRandomCve, pickSeverity, CSPMAccount } from './csp_utils';
 
 export interface CreateCNVMVulnerabilityParams {
   account?: CSPMAccount;
@@ -37,7 +37,7 @@ export default function createCNVMVulnerability({ account }: CreateCNVMVulnerabi
       id: agentId,
       name: hostname,
       type: 'cloudbeat',
-      version: '9.1.2',
+      version: CSP_AGENT_VERSION,
     },
     cloud: {
       Security: {
@@ -99,7 +99,7 @@ export default function createCNVMVulnerability({ account }: CreateCNVMVulnerabi
     },
     cloudbeat: {
       commit_time: '0001-01-01T00:00:00.000Z',
-      version: '9.1.2',
+      version: CSP_AGENT_VERSION,
     },
     data_stream: {
       dataset: 'cloud_security_posture.vulnerabilities',
@@ -111,7 +111,7 @@ export default function createCNVMVulnerability({ account }: CreateCNVMVulnerabi
     },
     elastic_agent: {
       id: agentId,
-      version: '9.1.2',
+      version: CSP_AGENT_VERSION,
       snapshot: false,
     },
     event: {
