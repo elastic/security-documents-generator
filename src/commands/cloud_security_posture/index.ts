@@ -22,6 +22,7 @@ import createCNVMVulnerability from './create_cnvm_vulnerabilities';
 import createCSPScores, {
   aggregateMisconfigurationStats,
   aggregateVulnerabilityStats,
+  createVulnMgmtScores,
   VulnerabilityStats,
 } from './create_csp_scores';
 import createWizMisconfiguration from './create_wiz_misconfigurations';
@@ -332,6 +333,20 @@ export const generateCloudSecurityPosture = async ({
       );
     }
 
+    if (cnvmVulnerabilities.length > 0) {
+      console.log('\n--- Generating CSP Scores trend (CNVM / vuln_mgmt) ---');
+      const vulnStats = aggregateVulnerabilityStats(cnvmVulnerabilities);
+
+      const docs = generateVulnMgmtScoresTrend(vulnStats);
+
+      await ingest(CSP_SCORES_INDEX, docs);
+      const totalVulns = vulnStats.reduce(
+        (sum, s) => sum + s.critical + s.high + s.medium + s.low,
+        0
+      );
+      console.log(`CNVM scores: ${docs.length} trend points, ${totalVulns} total vulnerabilities`);
+    }
+
     if (allElasticMisconfigs.length === 0 && dataSources.some((ds) => ds.startsWith('elastic_'))) {
       console.log('\nNo elastic misconfigurations generated - skipping CSP scores');
     }
@@ -418,6 +433,41 @@ function generateScoresTrend({
     });
 
     docs.push(doc);
+  }
+
+  return docs;
+}
+
+/**
+ * Generate vuln_mgmt scores trend data over the last 30 days (hourly).
+ * The CNVM dashboard queries with 30-day range and daily calendar_interval buckets,
+ * picking the last doc per day via top_hits. Hourly resolution is sufficient.
+ */
+function generateVulnMgmtScoresTrend(vulnStats: VulnerabilityStats[]): object[] {
+  const docs: object[] = [];
+  const intervalMinutes = 60;
+  const daysBack = 30;
+  const totalPoints = (daysBack * 24 * 60) / intervalMinutes;
+
+  for (let i = totalPoints; i >= 0; i--) {
+    const timestamp = moment()
+      .subtract(i * intervalMinutes, 'minutes')
+      .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+
+    // Add small random drift to severity counts (±5%)
+    const driftedStats = vulnStats.map((s) => {
+      const total = s.critical + s.high + s.medium + s.low;
+      const driftRange = Math.max(1, Math.floor(total * 0.05));
+      return {
+        ...s,
+        critical: Math.max(0, s.critical + faker.number.int({ min: -driftRange, max: driftRange })),
+        high: Math.max(0, s.high + faker.number.int({ min: -driftRange, max: driftRange })),
+        medium: Math.max(0, s.medium + faker.number.int({ min: -driftRange, max: driftRange })),
+        low: Math.max(0, s.low + faker.number.int({ min: -driftRange, max: driftRange })),
+      };
+    });
+
+    docs.push(createVulnMgmtScores({ vulnStats: driftedStats, timestamp }));
   }
 
   return docs;

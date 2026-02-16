@@ -29,6 +29,7 @@ export interface ClusterScore {
 
 export interface VulnerabilityStats {
   accountId: string;
+  accountName?: string;
   critical: number;
   high: number;
   medium: number;
@@ -300,7 +301,7 @@ export function aggregateMisconfigurationStats(
 
 export function aggregateVulnerabilityStats(
   vulnerabilities: Array<{
-    cloud?: { account?: { id?: string } };
+    cloud?: { account?: { id?: string; name?: string } };
     vulnerability?: { severity?: string };
   }>
 ): VulnerabilityStats[] {
@@ -308,11 +309,13 @@ export function aggregateVulnerabilityStats(
 
   for (const v of vulnerabilities) {
     const accountId = v.cloud?.account?.id || 'unknown';
+    const accountName = v.cloud?.account?.name || '';
     const severity = v.vulnerability?.severity || 'MEDIUM';
 
     if (!accountMap.has(accountId)) {
       accountMap.set(accountId, {
         accountId,
+        accountName,
         critical: 0,
         high: 0,
         medium: 0,
@@ -338,4 +341,47 @@ export function aggregateVulnerabilityStats(
   }
 
   return Array.from(accountMap.values());
+}
+
+/**
+ * Create a vuln_mgmt scores document for the CNVM severity trend.
+ * This is a separate document type from cspm/kspm scores - it only has severity counts.
+ */
+export function createVulnMgmtScores({
+  vulnStats,
+  timestamp,
+}: {
+  vulnStats: VulnerabilityStats[];
+  timestamp?: string;
+}) {
+  const now = timestamp || moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+
+  const totals = vulnStats.reduce(
+    (acc, s) => ({
+      critical: acc.critical + s.critical,
+      high: acc.high + s.high,
+      medium: acc.medium + s.medium,
+      low: acc.low + s.low,
+    }),
+    { critical: 0, high: 0, medium: 0, low: 0 }
+  );
+
+  const vulnerabilitiesStatsByCloudAccount: Record<string, object> = {};
+  for (const stat of vulnStats) {
+    vulnerabilitiesStatsByCloudAccount[stat.accountId] = {
+      cloudAccountId: stat.accountId,
+      cloudAccountName: stat.accountName || '',
+      critical: stat.critical,
+      high: stat.high,
+      medium: stat.medium,
+      low: stat.low,
+    };
+  }
+
+  return {
+    '@timestamp': now,
+    policy_template: 'vuln_mgmt',
+    ...totals,
+    vulnerabilities_stats_by_cloud_account: vulnerabilitiesStatsByCloudAccount,
+  };
 }
