@@ -1,7 +1,13 @@
 import { faker } from '@faker-js/faker';
 import moment from 'moment';
 import { ingest, getEsClient } from '../utils/indices';
-import { installPackage } from '../../utils/kibana_api';
+import {
+  installPackage,
+  getPackageInfo,
+  createAgentPolicy,
+  getPackagePolicies,
+  createPackagePolicy,
+} from '../../utils/kibana_api';
 import { generateNewSeed } from '../../constants';
 import {
   generateCSPMAccounts,
@@ -75,27 +81,91 @@ export interface GenerateCSPParams {
   generateCspScores?: boolean;
 }
 
-const CSP_SCORES_TEMPLATE_NAME = 'logs-cloud_security_posture.scores';
+const CSP_PACKAGE_NAME = 'cloud_security_posture';
+const CSP_SCORES_INDEX_NAME = 'logs-cloud_security_posture.scores-default';
 
 /**
- * Verify the CSP scores index template exists before ingesting scores.
- * The template is created by the Kibana CSP plugin (not the integration package).
- * It requires: installing the integration, generating data, and visiting the Findings page.
+ * Install the CSP integration and ensure a package policy exists.
+ *
+ * The Kibana CSP plugin creates the scores index template, ingest pipeline,
+ * and empty scores index during its `initialize()` method, which is triggered
+ * by the `packagePolicyPostCreate` Fleet callback. Simply installing the EPM
+ * package is not enough — a package policy must be created.
+ *
+ * This function:
+ * 1. Installs the cloud_security_posture EPM package
+ * 2. Checks if a CSP package policy already exists
+ * 3. If not, creates an agent policy + CSP package policy to trigger initialization
+ * 4. Waits for the scores index to be created by the plugin
  */
-async function ensureCspScoresTemplate(): Promise<void> {
+async function installCspIntegration(): Promise<void> {
+  await installPackage({ packageName: CSP_PACKAGE_NAME });
+
+  // Check if the scores index already exists (plugin already initialized)
   const esClient = getEsClient();
-  try {
-    await esClient.indices.getIndexTemplate({ name: CSP_SCORES_TEMPLATE_NAME });
-  } catch {
-    throw new Error(
-      `CSP scores index template '${CSP_SCORES_TEMPLATE_NAME}' not found.\n` +
-        'This template is created by the Kibana CSP plugin. To set it up:\n' +
-        '  1. Install the cloud_security_posture integration (done automatically by this generator)\n' +
-        '  2. Run this generator without --csp-scores first to populate findings data\n' +
-        '  3. Open Kibana and visit the Cloud Security Posture > Findings page\n' +
-        '  4. Re-run this generator with --csp-scores to generate trend data'
-    );
+  const scoresExists = await esClient.indices.exists({ index: CSP_SCORES_INDEX_NAME });
+  if (scoresExists) return;
+
+  // Check if a CSP package policy already exists
+  const { items: policies } = await getPackagePolicies({ packageName: CSP_PACKAGE_NAME });
+  if (policies.length > 0) {
+    // Policy exists but index doesn't — may need a Kibana restart.
+    // Wait briefly for the initialization to complete (it may be in progress).
+    console.log('CSP package policy exists, waiting for plugin initialization...');
+    await waitForScoresIndex(esClient);
+    return;
   }
+
+  // No package policy — create one to trigger the CSP plugin's initialize()
+  console.log('Creating CSP package policy to trigger plugin initialization...');
+
+  const { item: pkgInfo } = await getPackageInfo({ packageName: CSP_PACKAGE_NAME });
+
+  const agentPolicy = await createAgentPolicy({
+    name: 'CSP Generator Policy',
+  });
+
+  await createPackagePolicy({
+    name: 'csp-generator',
+    agentPolicyIds: [agentPolicy.item.id],
+    packageName: CSP_PACKAGE_NAME,
+    packageVersion: pkgInfo.version,
+    inputs: {
+      'cspm-cloudbeat/cis_aws': {
+        enabled: true,
+        streams: {
+          'cloud_security_posture.findings': {
+            enabled: true,
+            vars: {
+              'aws.credentials.type': 'assume_role',
+              'aws.account_type': 'single-account',
+              role_arn: 'arn:aws:iam::000000000000:role/csp-generator',
+            },
+          },
+        },
+      },
+    },
+    vars: {
+      posture: 'cspm',
+      deployment: 'aws',
+    },
+  });
+
+  // Wait for the plugin initialization to create the scores index
+  await waitForScoresIndex(esClient);
+}
+
+async function waitForScoresIndex(esClient: ReturnType<typeof getEsClient>): Promise<void> {
+  const maxAttempts = 20;
+  for (let i = 0; i < maxAttempts; i++) {
+    const exists = await esClient.indices.exists({ index: CSP_SCORES_INDEX_NAME });
+    if (exists) {
+      console.log('CSP scores index created successfully');
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  console.log('Warning: CSP scores index was not created within timeout');
 }
 
 /**
@@ -277,12 +347,21 @@ export const generateCloudSecurityPosture = async ({
   const kspmMisconfigs: object[] = [];
   const cnvmVulnerabilities: object[] = [];
 
-  // ------- Native Elastic: CSPM -------
+  // Install CSP integration once if any native elastic data source is selected.
+  // This also creates a package policy to trigger the Kibana CSP plugin initialization
+  // (which creates the scores index template, ingest pipeline, and empty scores index).
   const hasAnyCspm =
     cspmProviders.size > 0 && dataSources.some((ds) => ds.startsWith('elastic_cspm_'));
-  if (hasAnyCspm) {
-    await installPackage({ packageName: 'cloud_security_posture' });
+  const hasAnyKspm =
+    kspmDistributions.size > 0 && dataSources.some((ds) => ds.startsWith('elastic_kspm_'));
+  const hasAnyCnvm = dataSources.includes('elastic_cnvm');
 
+  if (hasAnyCspm || hasAnyKspm || hasAnyCnvm) {
+    await installCspIntegration();
+  }
+
+  // ------- Native Elastic: CSPM -------
+  if (hasAnyCspm) {
     for (const provider of cspmProviders) {
       if (!dataSources.includes(`elastic_cspm_${provider}` as DataSource)) continue;
 
@@ -307,11 +386,7 @@ export const generateCloudSecurityPosture = async ({
   }
 
   // ------- Native Elastic: KSPM -------
-  const hasAnyKspm =
-    kspmDistributions.size > 0 && dataSources.some((ds) => ds.startsWith('elastic_kspm_'));
   if (hasAnyKspm) {
-    await installPackage({ packageName: 'cloud_security_posture' });
-
     for (const distribution of kspmDistributions) {
       if (!dataSources.includes(`elastic_kspm_${distribution}` as DataSource)) continue;
 
@@ -336,9 +411,7 @@ export const generateCloudSecurityPosture = async ({
   }
 
   // ------- Native Elastic: CNVM -------
-  if (dataSources.includes('elastic_cnvm')) {
-    await installPackage({ packageName: 'cloud_security_posture' });
-
+  if (hasAnyCnvm) {
     const awsAccounts = accounts.filter((a) => a.provider === 'aws');
     console.log('\n--- Generating Elastic CNVM vulnerabilities ---');
 
@@ -443,8 +516,6 @@ export const generateCloudSecurityPosture = async ({
   // Scores are normally generated by a Kibana background task every ~5 min.
   // This opt-in flag generates historical trend data for dashboard demos.
   if (generateCspScores) {
-    await ensureCspScoresTemplate();
-
     const allElasticMisconfigs = [...cspmMisconfigs, ...kspmMisconfigs];
 
     if (hasAnyCspm && cspmMisconfigs.length > 0) {
