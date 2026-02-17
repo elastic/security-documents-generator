@@ -224,7 +224,7 @@ export function createCspMisconfiguration({
   hostname,
   username,
 }: CreateCspMisconfigurationParams) {
-  const now = moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+  const now = moment().toISOString();
   const eventCreated = moment()
     .subtract(faker.number.int({ min: 0, max: 24 }), 'hours')
     .toISOString();
@@ -245,7 +245,9 @@ export function createCspMisconfiguration({
   const cloudProvider = faker.helpers.arrayElement(['aws', 'gcp', 'azure']);
   const evaluation = faker.helpers.arrayElement(['passed', 'failed']) as 'passed' | 'failed';
 
-  const ruleTemplate = faker.helpers.arrayElement(CSP_MISCONFIGURATION_RULES);
+  const ruleTemplate =
+    CSP_MISCONFIGURATION_RULES.find((rule) => rule.id === ruleId) ??
+    faker.helpers.arrayElement(CSP_MISCONFIGURATION_RULES);
   const benchmark = faker.helpers.arrayElement(CIS_BENCHMARKS);
   const resourceType = faker.helpers.arrayElement(RESOURCE_TYPES);
   const resourceName = faker.helpers.arrayElement([

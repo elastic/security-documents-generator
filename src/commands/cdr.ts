@@ -173,11 +173,11 @@ const generateUniqueCspMisconfigurations = (
   const docs: ReturnType<typeof createCspMisconfiguration>[] = [];
 
   // Generate pools of unique values for uniqueness fields
-  // Use CIS rule IDs like cis_1.1, cis_1.4, etc.
+  // Use CIS rule IDs like cis_1_1, cis_1_4, etc. to match template IDs
   const ruleIds = Array.from({ length: Math.min(count, 30) }, (_, i) => {
     const section = Math.floor(i / 5) + 1;
     const rule = (i % 5) + 1;
-    return `cis_${section}.${rule}`;
+    return `cis_${section}_${rule}`;
   });
   const resourceIds = Array.from(
     { length: Math.min(count, 20) },
@@ -305,8 +305,15 @@ export const cdrCommand = async ({
     try {
       await installPackage({ packageName: WIZ_PACKAGE, space, force: true });
       console.log('Wiz package and assets installed successfully');
-    } catch {
-      console.log('Wiz package may already be installed, continuing...');
+    } catch (error) {
+      // Only ignore "already installed" errors (409 Conflict)
+      if (error && typeof error === 'object' && 'statusCode' in error && error.statusCode === 409) {
+        console.log('Wiz package may already be installed, continuing...');
+      } else {
+        // Re-throw unexpected errors
+        console.error('Failed to install wiz package:', error);
+        throw error;
+      }
     }
   }
 
@@ -316,8 +323,15 @@ export const cdrCommand = async ({
     try {
       await installPackage({ packageName: CSP_PACKAGE, space, force: true });
       console.log('Cloud Security Posture package and assets installed successfully');
-    } catch {
-      console.log('Cloud Security Posture package may already be installed, continuing...');
+    } catch (error) {
+      // Only ignore "already installed" errors (409 Conflict)
+      if (error && typeof error === 'object' && 'statusCode' in error && error.statusCode === 409) {
+        console.log('Cloud Security Posture package may already be installed, continuing...');
+      } else {
+        // Re-throw unexpected errors
+        console.error('Failed to install cloud_security_posture package:', error);
+        throw error;
+      }
     }
   }
 
