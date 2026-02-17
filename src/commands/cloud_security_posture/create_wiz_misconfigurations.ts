@@ -279,8 +279,11 @@ function generateProviderId(
 ): string {
   switch (provider) {
     case 'aws':
-      if (nativeType.includes('IAM') || nativeType === 'rootUser') {
-        return `arn:aws:iam::${accountId}:${nativeType === 'rootUser' ? 'root' : `user/${faker.internet.username()}`}`;
+      if (nativeType === 'rootUser') {
+        return `arn:aws:iam::${accountId}:root/${faker.string.alphanumeric(8)}`;
+      }
+      if (nativeType.includes('IAM')) {
+        return `arn:aws:iam::${accountId}:user/${faker.internet.username()}-${faker.string.alphanumeric(4)}`;
       }
       if (nativeType.includes('S3')) {
         return `arn:aws:s3:::${faker.word.noun()}-bucket-${faker.string.alphanumeric(8)}`;
@@ -289,13 +292,13 @@ function generateProviderId(
         return `arn:aws:ec2:us-east-1:${accountId}:instance/i-${faker.string.alphanumeric(17)}`;
       }
       if (nativeType.includes('EKS')) {
-        return `arn:aws:eks:us-east-1:${accountId}:cluster/${faker.word.noun()}-cluster`;
+        return `arn:aws:eks:us-east-1:${accountId}:cluster/${faker.word.noun()}-${faker.string.alphanumeric(8)}`;
       }
-      return `arn:aws:${nativeType.split('::')[1]?.toLowerCase() || 'resource'}:us-east-1:${accountId}:${faker.word.noun()}`;
+      return `arn:aws:${nativeType.split('::')[1]?.toLowerCase() || 'resource'}:us-east-1:${accountId}:${faker.word.noun()}-${faker.string.alphanumeric(8)}`;
     case 'azure':
-      return `/subscriptions/${faker.string.uuid()}/resourceGroups/${faker.word.noun()}-rg/providers/${nativeType}/${faker.word.noun()}`;
+      return `/subscriptions/${faker.string.uuid()}/resourceGroups/${faker.word.noun()}-rg/providers/${nativeType}/${faker.word.noun()}-${faker.string.alphanumeric(8)}`;
     case 'gcp':
-      return `projects/${accountId}/locations/global/${nativeType.split('/')[1]?.toLowerCase() || 'resource'}/${faker.word.noun()}`;
+      return `projects/${accountId}/locations/global/${nativeType.split('/')[1]?.toLowerCase() || 'resource'}/${faker.word.noun()}-${faker.string.alphanumeric(8)}`;
     default:
       return faker.string.uuid();
   }

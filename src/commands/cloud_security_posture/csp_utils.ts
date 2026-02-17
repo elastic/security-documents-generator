@@ -33,12 +33,14 @@ export const MISCONFIGURATION_SOURCE_INDEX = 'logs-cloud_security_posture.findin
 export const VULNERABILITY_INDEX = 'logs-cloud_security_posture.vulnerabilities_latest-default';
 export const CSP_SCORES_INDEX = 'logs-cloud_security_posture.scores-default';
 
-// 3rd party target indices
-export const WIZ_MISCONFIGURATION_INDEX = 'security_solution-wiz.misconfiguration_latest';
-export const WIZ_VULNERABILITY_INDEX = 'security_solution-wiz.vulnerability_latest';
-export const QUALYS_VULNERABILITY_INDEX = 'security_solution-qualys_vmdr.vulnerability_latest';
-export const TENABLE_VULNERABILITY_INDEX = 'security_solution-tenable_io.vulnerability_latest';
-export const AWS_MISCONFIGURATION_INDEX = 'security_solution-aws.misconfiguration_latest';
+// 3rd party source data streams (where the agent writes — transforms read from these)
+export const WIZ_MISCONFIGURATION_SOURCE_INDEX =
+  'logs-wiz.cloud_configuration_finding_full_posture-default';
+export const WIZ_VULNERABILITY_SOURCE_INDEX = 'logs-wiz.vulnerability-default';
+export const QUALYS_VULNERABILITY_SOURCE_INDEX = 'logs-qualys_vmdr.asset_host_detection-default';
+export const TENABLE_VULNERABILITY_SOURCE_INDEX = 'logs-tenable_io.vulnerability-default';
+export const AWS_MISCONFIGURATION_SOURCE_INDEX =
+  'logs-aws.securityhub_findings_full_posture-default';
 
 // Severity levels
 export const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const;
@@ -579,11 +581,11 @@ export function generateResourceId(
       const azProvider = resourceType
         ? azureProviderFromResourceType(resourceType)
         : 'Microsoft.Compute';
-      return `/subscriptions/${faker.string.uuid()}/resourceGroups/${faker.word.noun()}-rg/providers/${azProvider}/resources/${faker.word.noun()}`;
+      return `/subscriptions/${faker.string.uuid()}/resourceGroups/${faker.word.noun()}-rg/providers/${azProvider}/resources/${faker.word.noun()}-${faker.string.alphanumeric(8)}`;
     }
     case 'gcp': {
       const zone = faker.helpers.arrayElement(['us-central1-a', 'europe-west1-b']);
-      return `//compute.googleapis.com/projects/${faker.word.noun()}-project/zones/${zone}/instances/${faker.word.noun()}-instance`;
+      return `//compute.googleapis.com/projects/${faker.word.noun()}-project/zones/${zone}/instances/${faker.word.noun()}-${faker.string.alphanumeric(8)}`;
     }
     case 'k8s':
       return `${faker.word.noun()}-${faker.string.alphanumeric(5)}`;

@@ -10,11 +10,11 @@ import {
   MISCONFIGURATION_SOURCE_INDEX,
   VULNERABILITY_INDEX,
   CSP_SCORES_INDEX,
-  WIZ_MISCONFIGURATION_INDEX,
-  WIZ_VULNERABILITY_INDEX,
-  QUALYS_VULNERABILITY_INDEX,
-  TENABLE_VULNERABILITY_INDEX,
-  AWS_MISCONFIGURATION_INDEX,
+  WIZ_MISCONFIGURATION_SOURCE_INDEX,
+  WIZ_VULNERABILITY_SOURCE_INDEX,
+  QUALYS_VULNERABILITY_SOURCE_INDEX,
+  TENABLE_VULNERABILITY_SOURCE_INDEX,
+  AWS_MISCONFIGURATION_SOURCE_INDEX,
 } from './csp_utils';
 import createCSPMMisconfiguration from './create_cspm_misconfigurations';
 import createKSPMMisconfiguration from './create_kspm_misconfigurations';
@@ -142,46 +142,74 @@ async function findTransformsForSource(sourceIndex: string): Promise<string[]> {
 
 /**
  * Trigger transforms to process data immediately and wait for completion.
- * Uses scheduleNowTransform to bypass the 5m frequency interval.
+ * All transforms are started and scheduled in parallel, then polled together.
+ *
+ * Transforms have a sync.time.delay (typically 60s) that excludes recently-ingested docs.
+ * We re-schedule periodically during polling so the data gets picked up once
+ * the delay window passes.
  */
 async function triggerAndWaitForTransforms(transformIds: string[]): Promise<void> {
   if (transformIds.length === 0) return;
   const esClient = getEsClient();
 
+  // 1. Start all stopped transforms, record baseline checkpoints, and schedule
+  const checkpoints = new Map<string, number>();
   for (const id of transformIds) {
     try {
-      // Ensure the transform is started
       const stats = await esClient.transform.getTransformStats({ transform_id: id });
       const state = stats.transforms[0]?.state;
       if (state === 'stopped') {
         await esClient.transform.startTransform({ transform_id: id });
         console.log(`Started transform '${id}'`);
       }
-
-      // Get current checkpoint before triggering
-      const beforeCheckpoint =
-        stats.transforms[0]?.checkpointing?.last?.checkpoint ?? 0;
-
-      // Trigger immediate processing
+      checkpoints.set(id, stats.transforms[0]?.checkpointing?.last?.checkpoint ?? 0);
       await esClient.transform.scheduleNowTransform({ transform_id: id });
-      console.log(`Triggered transform '${id}'`);
-
-      // Poll until the transform completes a new checkpoint
-      const maxWaitMs = 120_000;
-      const startTime = Date.now();
-      while (Date.now() - startTime < maxWaitMs) {
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-        const current = await esClient.transform.getTransformStats({ transform_id: id });
-        const currentCheckpoint =
-          current.transforms[0]?.checkpointing?.last?.checkpoint ?? 0;
-        if (currentCheckpoint > beforeCheckpoint) {
-          console.log(`Transform '${id}' completed checkpoint ${currentCheckpoint}`);
-          break;
-        }
-      }
     } catch (err) {
       console.log(`Warning: failed to trigger transform '${id}':`, err);
     }
+  }
+
+  console.log(`Waiting for ${transformIds.length} transform(s) to complete...`);
+
+  // 2. Poll all transforms, re-scheduling periodically to handle sync delay
+  const pending = new Set(checkpoints.keys());
+  const maxWaitMs = 180_000;
+  const rescheduleIntervalMs = 15_000;
+  const startTime = Date.now();
+  let lastReschedule = startTime;
+
+  while (pending.size > 0 && Date.now() - startTime < maxWaitMs) {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+
+    // Re-schedule pending transforms periodically so they pick up data
+    // after the sync delay window (typically 60s) has passed
+    if (Date.now() - lastReschedule > rescheduleIntervalMs) {
+      for (const id of pending) {
+        try {
+          await esClient.transform.scheduleNowTransform({ transform_id: id });
+        } catch {
+          // Ignore
+        }
+      }
+      lastReschedule = Date.now();
+    }
+
+    for (const id of [...pending]) {
+      try {
+        const current = await esClient.transform.getTransformStats({ transform_id: id });
+        const currentCheckpoint = current.transforms[0]?.checkpointing?.last?.checkpoint ?? 0;
+        if (currentCheckpoint > (checkpoints.get(id) ?? 0)) {
+          console.log(`Transform '${id}' completed checkpoint ${currentCheckpoint}`);
+          pending.delete(id);
+        }
+      } catch {
+        // Ignore polling errors, will retry
+      }
+    }
+  }
+
+  if (pending.size > 0) {
+    console.log(`Warning: transforms did not complete within timeout: ${[...pending].join(', ')}`);
   }
 }
 
@@ -241,6 +269,9 @@ export const generateCloudSecurityPosture = async ({
     );
   }
 
+  // Track source indices that received data — transforms will be triggered in a single batch at the end
+  const sourceIndicesForTransforms = new Set<string>();
+
   // Collect native elastic data for CSP scores aggregation
   const cspmMisconfigs: object[] = [];
   const kspmMisconfigs: object[] = [];
@@ -272,6 +303,7 @@ export const generateCloudSecurityPosture = async ({
     }
 
     await ingest(MISCONFIGURATION_SOURCE_INDEX, cspmMisconfigs);
+    sourceIndicesForTransforms.add(MISCONFIGURATION_SOURCE_INDEX);
   }
 
   // ------- Native Elastic: KSPM -------
@@ -300,13 +332,7 @@ export const generateCloudSecurityPosture = async ({
     }
 
     await ingest(MISCONFIGURATION_SOURCE_INDEX, kspmMisconfigs);
-  }
-
-  // Trigger the misconfiguration transform to process source data into the latest index
-  if (cspmMisconfigs.length > 0 || kspmMisconfigs.length > 0) {
-    console.log('\n--- Triggering misconfiguration transform ---');
-    const transformIds = await findTransformsForSource(MISCONFIGURATION_SOURCE_INDEX);
-    await triggerAndWaitForTransforms(transformIds);
+    sourceIndicesForTransforms.add(MISCONFIGURATION_SOURCE_INDEX);
   }
 
   // ------- Native Elastic: CNVM -------
@@ -332,13 +358,20 @@ export const generateCloudSecurityPosture = async ({
     await installPackage({ packageName: 'wiz' });
   }
 
+  // 3P generators produce pre-processed documents (final structure).
+  // Use pipeline: '_none' to skip the integration's default ingest pipeline
+  // (which expects raw JSON input from the agent). The final_pipeline still
+  // runs regardless, setting event.ingested for transform sync.
+  const skipPipeline = { pipeline: '_none' };
+
   if (dataSources.includes('wiz_misconfigs')) {
     console.log('\n--- Generating Wiz misconfigurations ---');
     const docs = generateDocs(accounts, findingsCount, (account) =>
       createWizMisconfiguration({ account })
     );
     console.log(`Generated ${docs.length} Wiz misconfigurations`);
-    await ingest(WIZ_MISCONFIGURATION_INDEX, docs);
+    await ingest(WIZ_MISCONFIGURATION_SOURCE_INDEX, docs, skipPipeline);
+    sourceIndicesForTransforms.add(WIZ_MISCONFIGURATION_SOURCE_INDEX);
   }
 
   if (dataSources.includes('wiz_vulnerabilities')) {
@@ -347,7 +380,8 @@ export const generateCloudSecurityPosture = async ({
       createWizVulnerability({ account })
     );
     console.log(`Generated ${docs.length} Wiz vulnerabilities`);
-    await ingest(WIZ_VULNERABILITY_INDEX, docs);
+    await ingest(WIZ_VULNERABILITY_SOURCE_INDEX, docs, skipPipeline);
+    sourceIndicesForTransforms.add(WIZ_VULNERABILITY_SOURCE_INDEX);
   }
 
   // ------- 3rd Party: Qualys -------
@@ -358,7 +392,8 @@ export const generateCloudSecurityPosture = async ({
       createQualysVulnerability({ account })
     );
     console.log(`Generated ${docs.length} Qualys vulnerabilities`);
-    await ingest(QUALYS_VULNERABILITY_INDEX, docs);
+    await ingest(QUALYS_VULNERABILITY_SOURCE_INDEX, docs, skipPipeline);
+    sourceIndicesForTransforms.add(QUALYS_VULNERABILITY_SOURCE_INDEX);
   }
 
   // ------- 3rd Party: Tenable -------
@@ -369,7 +404,8 @@ export const generateCloudSecurityPosture = async ({
       createTenableVulnerability({ account })
     );
     console.log(`Generated ${docs.length} Tenable vulnerabilities`);
-    await ingest(TENABLE_VULNERABILITY_INDEX, docs);
+    await ingest(TENABLE_VULNERABILITY_SOURCE_INDEX, docs, skipPipeline);
+    sourceIndicesForTransforms.add(TENABLE_VULNERABILITY_SOURCE_INDEX);
   }
 
   // ------- 3rd Party: AWS Security Hub (aws package, ASFF) -------
@@ -388,7 +424,19 @@ export const generateCloudSecurityPosture = async ({
     }
 
     console.log(`Generated ${docs.length} AWS Security Hub misconfigurations`);
-    await ingest(AWS_MISCONFIGURATION_INDEX, docs);
+    await ingest(AWS_MISCONFIGURATION_SOURCE_INDEX, docs, skipPipeline);
+    sourceIndicesForTransforms.add(AWS_MISCONFIGURATION_SOURCE_INDEX);
+  }
+
+  // ------- Trigger all transforms in parallel -------
+  if (sourceIndicesForTransforms.size > 0) {
+    console.log('\n--- Triggering transforms ---');
+    const allTransformIds = new Set<string>();
+    for (const sourceIndex of sourceIndicesForTransforms) {
+      const ids = await findTransformsForSource(sourceIndex);
+      ids.forEach((id) => allTransformIds.add(id));
+    }
+    await triggerAndWaitForTransforms([...allTransformIds]);
   }
 
   // ------- CSP Scores (trend data: every 5 min over the last 24h) -------

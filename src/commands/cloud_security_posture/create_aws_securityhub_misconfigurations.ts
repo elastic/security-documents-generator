@@ -316,7 +316,7 @@ function generateResourceId(resourceType: string, accountId: string, region: str
     case 'AwsSqsQueue':
       return `arn:aws:sqs:${region}:${accountId}:${faker.word.noun()}-queue-${faker.string.alphanumeric(6)}`;
     case 'AwsAccount':
-      return `AWS::::Account:${accountId}`;
+      return `AWS::::Account:${accountId}/${faker.string.alphanumeric(8)}`;
     default:
       return `arn:aws:unknown:${region}:${accountId}:${faker.string.alphanumeric(12)}`;
   }
