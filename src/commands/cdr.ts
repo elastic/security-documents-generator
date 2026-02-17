@@ -298,7 +298,13 @@ const installPackageWithErrorHandling = async (
     console.log(`${packageDisplayName} package and assets installed successfully`);
   } catch (error) {
     // Only ignore "already installed" errors (409 Conflict)
-    if (error && typeof error === 'object' && 'statusCode' in error && error.statusCode === 409) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'statusCode' in error &&
+      typeof error.statusCode === 'number' &&
+      error.statusCode === 409
+    ) {
       console.log(`${packageDisplayName} package may already be installed, continuing...`);
     } else {
       // Re-throw unexpected errors
