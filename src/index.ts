@@ -605,6 +605,9 @@ program
   )
   .option('--space <space>', 'Space to use', 'default')
   .action(async (options) => {
+    if (options.space !== 'default') {
+      await initializeSpace(options.space);
+    }
     const answers = await checkbox<CdrOption | 'attack_discovery_hosts'>({
       message: 'Select data types to generate',
       choices: [
@@ -634,12 +637,14 @@ program
     const useAttackDiscoveryHosts = answers.includes('attack_discovery_hosts');
     const cdrOptions = answers.filter((a): a is CdrOption => a !== 'attack_discovery_hosts');
 
-    const count = Number(
-      await input({
-        message: 'How many documents of each type to generate',
-        default: '50',
-      })
-    );
+    const countInput = await input({
+      message: 'How many documents of each type to generate',
+      default: '50',
+    });
+    const count = parseIntBase10(countInput);
+    if (!Number.isFinite(count) || count <= 0) {
+      throw new Error('Count must be a positive integer');
+    }
 
     const seed = generateNewSeed() + '';
     const seedAnswer = await input({
@@ -667,6 +672,9 @@ program
     false
   )
   .action(async (options) => {
+    if (options.space && options.space !== 'default') {
+      await initializeSpace(options.space);
+    }
     await cdrCommand({
       options: [
         CDR_OPTIONS.misconfigurations,

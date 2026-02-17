@@ -173,11 +173,11 @@ const generateUniqueCspMisconfigurations = (
   const docs: ReturnType<typeof createCspMisconfiguration>[] = [];
 
   // Generate pools of unique values for uniqueness fields
-  // Use CIS rule IDs like cis_1.1, cis_1.4, etc.
+  // Use CIS rule IDs like cis_1_1, cis_1_4, etc. to match template IDs
   const ruleIds = Array.from({ length: Math.min(count, 30) }, (_, i) => {
     const section = Math.floor(i / 5) + 1;
     const rule = (i % 5) + 1;
-    return `cis_${section}.${rule}`;
+    return `cis_${section}_${rule}`;
   });
   const resourceIds = Array.from(
     { length: Math.min(count, 20) },
@@ -283,6 +283,37 @@ const generateAttackDiscoveryCspMisconfigurations = (
   });
 };
 
+/**
+ * Helper function to install a package with proper error handling.
+ * Only ignores 409 Conflict errors (already installed), and re-throws other errors.
+ */
+const installPackageWithErrorHandling = async (
+  packageName: string,
+  space: string,
+  packageDisplayName: string
+) => {
+  console.log(`Installing ${packageDisplayName} package and assets...`);
+  try {
+    await installPackage({ packageName, space, force: true });
+    console.log(`${packageDisplayName} package and assets installed successfully`);
+  } catch (error) {
+    // Only ignore "already installed" errors (409 Conflict)
+    if (
+      error &&
+      typeof error === 'object' &&
+      'statusCode' in error &&
+      typeof error.statusCode === 'number' &&
+      error.statusCode === 409
+    ) {
+      console.log(`${packageDisplayName} package may already be installed, continuing...`);
+    } else {
+      // Re-throw unexpected errors
+      console.error(`Failed to install ${packageDisplayName} package:`, error);
+      throw error;
+    }
+  }
+};
+
 export const cdrCommand = async ({
   options,
   count,
@@ -301,24 +332,12 @@ export const cdrCommand = async ({
 
   // Install the wiz package if needed (force: true ensures all assets are installed)
   if (needsWiz) {
-    console.log('Installing wiz package and assets...');
-    try {
-      await installPackage({ packageName: WIZ_PACKAGE, space, force: true });
-      console.log('Wiz package and assets installed successfully');
-    } catch {
-      console.log('Wiz package may already be installed, continuing...');
-    }
+    await installPackageWithErrorHandling(WIZ_PACKAGE, space, 'Wiz');
   }
 
   // Install the cloud_security_posture package if needed (force: true ensures all assets are installed)
   if (needsCsp) {
-    console.log('Installing cloud_security_posture package and assets...');
-    try {
-      await installPackage({ packageName: CSP_PACKAGE, space, force: true });
-      console.log('Cloud Security Posture package and assets installed successfully');
-    } catch {
-      console.log('Cloud Security Posture package may already be installed, continuing...');
-    }
+    await installPackageWithErrorHandling(CSP_PACKAGE, space, 'Cloud Security Posture');
   }
 
   if (options.includes(CDR_OPTIONS.vulnerabilities)) {

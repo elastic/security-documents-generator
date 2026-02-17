@@ -100,7 +100,7 @@ export function createCdrMisconfiguration({
   hostname,
   username,
 }: CreateCdrMisconfigurationParams) {
-  const now = moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+  const now = moment().toISOString();
   const analyzedAt = moment()
     .subtract(faker.number.int({ min: 0, max: 24 }), 'hours')
     .toISOString();
