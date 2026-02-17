@@ -254,10 +254,12 @@ export const installPackage = async ({
   packageName,
   version = 'latest',
   space,
+  force = false,
 }: {
   packageName: string;
   version?: string;
   space?: string;
+  force?: boolean;
 }) => {
   const url = FLEET_EPM_PACKAGES_URL(packageName, version);
 
@@ -265,6 +267,7 @@ export const installPackage = async ({
     url,
     {
       method: 'POST',
+      body: JSON.stringify({ force }),
     },
     { apiVersion: API_VERSIONS.public.v1, space }
   );
