@@ -32,6 +32,24 @@ const srcDirectory = dirname(dirname(fileURLToPath(import.meta.url)));
 
 const EVENT_INDEX_NAME = 'auditbeat-8.12.0-2024.01.18-000001';
 
+export type SingleEntityCommandOptions = {
+  space?: string;
+  entityType?: 'user' | 'host' | 'service' | 'generic';
+  name?: string;
+  enableEntityStore?: boolean;
+  createRiskScore?: boolean;
+};
+
+const DEFAULT_ENTITY_NAMES: Record<'user' | 'host' | 'service' | 'generic', string> = {
+  user: 'test-user',
+  host: 'test-host',
+  service: 'test-service',
+  generic: 'test-entity',
+};
+
+const getDefaultEntityName = (entityType: 'user' | 'host' | 'service' | 'generic'): string =>
+  DEFAULT_ENTITY_NAMES[entityType];
+
 const createEntityWithName = (
   entityType: 'user' | 'host' | 'service' | 'generic',
   name: string
@@ -85,15 +103,106 @@ const ingestSingleEntityEvents = async (events: unknown[]) => {
   }
 };
 
-export const singleEntityCommand = async (options: { space?: string }) => {
-  const space = options.space || 'default';
+const createAndIngestEntity = async (
+  entityType: 'user' | 'host' | 'service' | 'generic',
+  entityName: string,
+  eventsPerEntity: number,
+  offsetHours: number
+) => {
+  const entity = createEntityWithName(entityType, entityName);
+  let events: unknown[] = [];
+
+  if (entityType === 'user') {
+    events = Array.from({ length: eventsPerEntity }, () =>
+      createRandomEventForUser(entity as ReturnType<typeof createRandomUser>, offsetHours)
+    );
+  } else if (entityType === 'host') {
+    events = Array.from({ length: eventsPerEntity }, () =>
+      createRandomEventForHost(entity as ReturnType<typeof createRandomHost>, offsetHours)
+    );
+  } else if (entityType === 'service') {
+    events = Array.from({ length: eventsPerEntity }, () =>
+      createRandomEventForService(entity as ReturnType<typeof createRandomService>, offsetHours)
+    );
+  } else if (entityType === 'generic') {
+    events = Array.from({ length: eventsPerEntity }, () =>
+      createRandomEventForGenericEntity(
+        entity as ReturnType<typeof createRandomGenericEntity>,
+        offsetHours
+      )
+    );
+  }
+
+  await ingestSingleEntityEvents(events);
+  return entity;
+};
+
+export const singleEntityCommand = async (options: SingleEntityCommandOptions = {}) => {
+  const space = options.space ?? 'default';
 
   // Initialize space if needed
   if (space !== 'default') {
     await initializeSpace(space);
   }
 
-  // Prompt to enable entity store
+  // Non-interactive mode: --type was provided
+  if (options.entityType) {
+    const entityType = options.entityType;
+    const entityName = options.name ?? getDefaultEntityName(entityType);
+
+    if (options.enableEntityStore !== false) {
+      console.log('Ensuring security default data view...');
+      await ensureSecurityDefaultDataView(space);
+      console.log('Enabling entity store engines...');
+      await initEntityEngineForEntityTypes(['user', 'host', 'service', 'generic'], space);
+      console.log('✅ Entity store enabled');
+    }
+
+    console.log(`Creating ${entityType} entity "${entityName}"...`);
+    const eventsPerEntity = 10;
+    const offsetHours = 1;
+    const entity = await createAndIngestEntity(
+      entityType,
+      entityName,
+      eventsPerEntity,
+      offsetHours
+    );
+    console.log(`✅ Created ${entityType} entity "${entityName}" with ${eventsPerEntity} events`);
+
+    if (options.createRiskScore !== false) {
+      console.log('Creating match-all rule...');
+      await createRule({ space });
+      console.log('Rule created');
+
+      console.log('Generating events to create alerts...');
+      const riskEvents = Array.from({ length: 20 }, () => {
+        if (entityType === 'user') {
+          return createRandomEventForUser(entity as ReturnType<typeof createRandomUser>, 1);
+        } else if (entityType === 'host') {
+          return createRandomEventForHost(entity as ReturnType<typeof createRandomHost>, 1);
+        } else if (entityType === 'service') {
+          return createRandomEventForService(entity as ReturnType<typeof createRandomService>, 1);
+        } else {
+          return createRandomEventForGenericEntity(
+            entity as ReturnType<typeof createRandomGenericEntity>,
+            1
+          );
+        }
+      });
+      await ingestSingleEntityEvents(riskEvents);
+      console.log('Events generated');
+
+      console.log('Enabling risk engine...');
+      await enableRiskScore(space);
+      console.log('Running risk engine...');
+      await scheduleRiskEngineNow(space);
+      console.log('✅ Risk score setup complete and risk engine run');
+    }
+
+    return;
+  }
+
+  // Interactive mode: prompt for options
   const enableEntityStore = await confirm({
     message: 'Do you want to enable the entity store?',
     default: true,
@@ -122,42 +231,15 @@ export const singleEntityCommand = async (options: { space?: string }) => {
   // Prompt for entity name
   const entityName = await input({
     message: 'Enter entity name',
-    default:
-      entityType === 'user' ? 'test-user' : entityType === 'host' ? 'test-host' : 'test-entity',
+    default: getDefaultEntityName(entityType),
   });
 
-  // Create entity with custom name
-  const entity = createEntityWithName(entityType, entityName);
-
-  // Generate and ingest events for the entity
+  // Create entity with custom name and ingest events
   console.log(`Creating ${entityType} entity "${entityName}"...`);
-  let events: unknown[] = [];
   const eventsPerEntity = 10;
   const offsetHours = 1;
-
-  if (entityType === 'user') {
-    events = Array.from({ length: eventsPerEntity }, () =>
-      createRandomEventForUser(entity as ReturnType<typeof createRandomUser>, offsetHours)
-    );
-  } else if (entityType === 'host') {
-    events = Array.from({ length: eventsPerEntity }, () =>
-      createRandomEventForHost(entity as ReturnType<typeof createRandomHost>, offsetHours)
-    );
-  } else if (entityType === 'service') {
-    events = Array.from({ length: eventsPerEntity }, () =>
-      createRandomEventForService(entity as ReturnType<typeof createRandomService>, offsetHours)
-    );
-  } else if (entityType === 'generic') {
-    events = Array.from({ length: eventsPerEntity }, () =>
-      createRandomEventForGenericEntity(
-        entity as ReturnType<typeof createRandomGenericEntity>,
-        offsetHours
-      )
-    );
-  }
-
-  await ingestSingleEntityEvents(events);
-  console.log(`✅ Created ${entityType} entity "${entityName}" with ${events.length} events`);
+  const entity = await createAndIngestEntity(entityType, entityName, eventsPerEntity, offsetHours);
+  console.log(`✅ Created ${entityType} entity "${entityName}" with ${eventsPerEntity} events`);
 
   // Track state
   let assetCriticalitySet: AssetCriticality | null = null;
