@@ -283,10 +283,12 @@ export const createAgentPolicy = async ({
   space?: string;
 }): Promise<{ item: { id: string; name: string } }> => {
   // Check if an agent policy with this name already exists
+  const escapedName = name.replace(/"/g, '\\"');
+  const kuery = encodeURIComponent(`name:"${escapedName}"`);
   const existing = await kibanaFetch<{
     items: Array<{ id: string; name: string }>;
   }>(
-    `/api/fleet/agent_policies?kuery=name:"${name}"`,
+    `/api/fleet/agent_policies?kuery=${kuery}`,
     { method: 'GET' },
     { apiVersion: API_VERSIONS.public.v1, space }
   );
