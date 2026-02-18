@@ -867,7 +867,9 @@ program
     false
   )
   .action(async (options) => {
-    const dataSources = resolveDataSources(options.dataSources.split(','));
+    const dataSources = resolveDataSources(
+      options.dataSources.split(',').map((s: string) => s.trim()).filter(Boolean)
+    );
 
     await generateCloudSecurityPosture({
       seed: options.seed,
