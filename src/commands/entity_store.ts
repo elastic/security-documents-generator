@@ -1,5 +1,6 @@
 import { faker } from '@faker-js/faker';
 import { getEsClient, indexCheck, createAgentDocument } from './utils/indices';
+import { bulkIngest } from './shared/elasticsearch';
 import { chunk, once } from 'lodash-es';
 import moment from 'moment';
 import auditbeatMappings from '../mappings/auditbeat.json' assert { type: 'json' };
@@ -11,21 +12,17 @@ import {
   EntityEnrichment,
 } from '../utils/kibana_api';
 import {
+  AGENT_INDEX_NAME,
   ASSET_CRITICALITY,
   AssetCriticality,
+  DEFAULT_CHUNK_SIZE,
   ENTITY_STORE_OPTIONS,
+  EVENT_INDEX_NAME,
   generateNewSeed,
 } from '../constants';
-import {
-  BulkOperationContainer,
-  BulkUpdateAction,
-  MappingTypeMapping,
-} from '@elastic/elasticsearch/lib/api/types';
+import { MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
 import { getConfig } from '../get_config';
 import { initializeSpace } from '../utils';
-
-const EVENT_INDEX_NAME = 'auditbeat-8.12.0-2024.01.18-000001';
-const AGENT_INDEX_NAME = '.fleet-agents-7';
 
 const getClient = () => {
   const client = getEsClient();
@@ -355,9 +352,6 @@ export const createRandomEventForGenericEntity = (
 const ingestEvents = async (events: Event[]) =>
   ingest(EVENT_INDEX_NAME, events, auditbeatMappings as MappingTypeMapping);
 
-type TDocument = object;
-type TPartialDocument = Partial<TDocument>;
-
 const ingestAgents = async (agents: Agent[]) => ingest(AGENT_INDEX_NAME, agents);
 
 const ingest = async (
@@ -369,34 +363,7 @@ const ingest = async (
   if (!skipIndexCheck) {
     await indexCheck(index, { mappings: mapping });
   }
-
-  const chunks = chunk(documents, 10000);
-
-  for (const chunk of chunks) {
-    try {
-      // Make bulk request
-      const ingestRequest = chunk.reduce(
-        (
-          acc: (
-            | BulkOperationContainer
-            | BulkUpdateAction<TDocument, TPartialDocument>
-            | TDocument
-          )[],
-          event
-        ) => {
-          acc.push({ index: { _index: index } });
-          acc.push(event);
-          return acc;
-        },
-        []
-      );
-
-      const client = getClient();
-      await client.bulk({ operations: ingestRequest, refresh: true });
-    } catch (err) {
-      console.log('Error: ', err);
-    }
-  }
+  await bulkIngest({ index, documents, chunkSize: DEFAULT_CHUNK_SIZE, action: 'index' });
 };
 
 // E = Entity, EV = Event
