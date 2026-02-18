@@ -1,14 +1,15 @@
-import createAlerts, { BaseCreateAlertsReturnType } from '../create_alerts';
-import createEvents from '../create_events';
-import eventMappings from '../mappings/eventMappings.json' assert { type: 'json' };
-import { getEsClient, indexCheck } from './utils/indices';
-import { getConfig } from '../get_config';
+import createAlerts, { BaseCreateAlertsReturnType } from '../../create_alerts';
+import createEvents from '../../create_events';
+import eventMappings from '../../mappings/eventMappings.json' assert { type: 'json' };
+import { getEsClient, indexCheck } from '../utils/indices';
+import { getConfig } from '../../get_config';
 import { MappingTypeMapping, BulkOperationContainer } from '@elastic/elasticsearch/lib/api/types';
 import pMap from 'p-map';
 import { chunk } from 'lodash-es';
-import cliProgress from 'cli-progress';
 import { faker } from '@faker-js/faker';
-import { getAlertIndex } from '../utils';
+import { getAlertIndex } from '../../utils';
+import { bulkUpsert } from '../shared/elasticsearch';
+import { createProgressBar, handleCommandError } from '../utils/cli_utils';
 
 const generateDocs = async ({
   createDocs,
@@ -25,23 +26,11 @@ const generateDocs = async ({
   while (generated < amount) {
     const docs = createDocuments(Math.min(limit, amount), generated, createDocs, index);
     try {
-      const result = await bulkUpsert(docs);
+      const result = await bulkUpsert({ documents: docs });
       generated += result.items.length / 2;
     } catch (err) {
-      console.log('Error: ', err);
-      process.exit(1);
+      handleCommandError(err, 'Error during document generation');
     }
-  }
-};
-
-const bulkUpsert = async (docs: unknown[]) => {
-  const client = getEsClient();
-
-  try {
-    return client.bulk({ body: docs, refresh: true });
-  } catch (err) {
-    console.log('Error: ', err);
-    process.exit(1);
   }
 };
 
@@ -127,14 +116,15 @@ export const generateAlerts = async (
   console.log(
     `Sending in ${operationBatches.length} batches of ${batchSize} alerts, with up to ${concurrency} batches in parallel\n\n`
   );
-  const progress = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
-
+  const progress = createProgressBar('alerts', {
+    format: '{bar} | {percentage}% | {value}/{total} batches',
+  });
   progress.start(operationBatches.length, 0);
 
   await pMap(
     operationBatches,
     async (operations) => {
-      await bulkUpsert(operations);
+      await bulkUpsert({ documents: operations });
       progress.increment();
     },
     { concurrency }
@@ -227,9 +217,7 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
   });
 
   try {
-    const client = getEsClient();
-
-    const result = await client.bulk({ body: alerts, refresh: true });
+    const result = await bulkUpsert({ documents: alerts });
     console.log(`${result.items.length} alerts created`);
   } catch (err) {
     console.log('Error: ', err);

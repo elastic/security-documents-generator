@@ -1,12 +1,12 @@
 import { faker } from '@faker-js/faker';
 import createAlerts from '../create_alerts';
 
-import { getEsClient } from '../commands/utils/indices';
 import { getAlertIndex, initializeSpace } from '../utils';
 import { sleep } from '../utils/sleep';
+import { streamingBulkIngest } from '../commands/shared/elasticsearch';
 
 import { Command } from 'commander';
-import { parseIntBase10 } from '..';
+import { parseIntBase10 } from '../commands/utils/cli_utils';
 import { deleteAllAlerts } from '../commands/documents';
 
 export const ingestData = async (params: {
@@ -16,7 +16,6 @@ export const ingestData = async (params: {
   alertsPerEntity: number;
 }) => {
   const { batchMBytesSize, intervalMs, entityCount, alertsPerEntity } = params;
-  const esClient = getEsClient();
   const index = getAlertIndex('default');
 
   const MAX_BYTES = batchMBytesSize * 1024 * 1024;
@@ -32,20 +31,19 @@ export const ingestData = async (params: {
       ).toFixed(2)}MB), ${runs} batches remaining...`
     );
     runs--;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await esClient.helpers.bulk<Record<string, any>>({
+    await streamingBulkIngest({
+      index,
       datasource: alertsGenerator({
         entityCount,
         alertsPerEntity,
         limit: alertsPerBatch,
       }),
-      onDocument: (doc) => {
-        doc['@timestamp'] = new Date().toISOString();
-
-        return [{ create: { _index: index } }, { ...doc }];
-      },
       flushBytes: 1024 * 1024 * 1,
       flushInterval: 3000,
+      onDocument: (doc) => {
+        (doc as Record<string, unknown>)['@timestamp'] = new Date().toISOString();
+        return [{ create: { _index: index } }, { ...doc }];
+      },
       onDrop: (doc) => {
         console.log('Failed to index document:', doc);
         process.exit(1);
