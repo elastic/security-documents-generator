@@ -324,7 +324,11 @@ export const getPackagePolicies = async ({
 }): Promise<{ items: Array<{ id: string; name: string; package?: { name: string } }> }> => {
   const result = await kibanaFetch<{
     items: Array<{ id: string; name: string; package?: { name: string } }>;
-  }>('/api/fleet/package_policies?perPage=1000', { method: 'GET' }, { apiVersion: API_VERSIONS.public.v1, space });
+  }>(
+    '/api/fleet/package_policies?perPage=1000',
+    { method: 'GET' },
+    { apiVersion: API_VERSIONS.public.v1, space }
+  );
 
   return {
     items: result.items.filter((p) => p.package?.name === packageName),

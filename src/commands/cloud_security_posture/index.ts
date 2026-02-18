@@ -200,7 +200,9 @@ async function findTransformsForSource(sourceIndex: string): Promise<string[]> {
     const resp = await esClient.transform.getTransform({ transform_id: '*', size: 100 });
     for (const t of resp.transforms) {
       const sources = (t.source.index as string[]) || [];
-      if (sources.some((pattern) => sourceIndex.match(new RegExp('^' + pattern.replace('*', '.*'))))) {
+      if (
+        sources.some((pattern) => sourceIndex.match(new RegExp('^' + pattern.replace('*', '.*'))))
+      ) {
         ids.push(t.id);
       }
     }
