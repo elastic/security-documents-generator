@@ -72,20 +72,20 @@ Examples:
       )
       .action(
         wrapAction(async (options) => {
-        const entityType = options.type as EntityType | undefined;
-        if (entityType && !ENTITY_TYPES.includes(entityType)) {
-          console.error(
-            `Invalid --type: ${entityType}. Must be one of: ${ENTITY_TYPES.join(', ')}`
-          );
-          process.exit(1);
-        }
-        await singleEntityCommand({
-          space: options.space,
-          entityType,
-          name: options.name,
-          enableEntityStore: options.entityStore,
-          createRiskScore: options.riskScore,
-        });
+          const entityType = options.type as EntityType | undefined;
+          if (entityType && !ENTITY_TYPES.includes(entityType)) {
+            console.error(
+              `Invalid --type: ${entityType}. Must be one of: ${ENTITY_TYPES.join(', ')}`
+            );
+            process.exit(1);
+          }
+          await singleEntityCommand({
+            space: options.space,
+            entityType,
+            name: options.name,
+            enableEntityStore: options.entityStore,
+            createRiskScore: options.riskScore,
+          });
         })
       );
   },

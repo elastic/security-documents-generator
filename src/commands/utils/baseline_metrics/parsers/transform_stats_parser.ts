@@ -13,10 +13,9 @@ const createEntityTypeData = (): EntityTypeData => ({
 });
 
 const createPerEntityTypeData = (): Record<EntityType, EntityTypeData> =>
-  Object.fromEntries(ENTITY_TYPES.map((entityType) => [entityType, createEntityTypeData()])) as Record<
-    EntityType,
-    EntityTypeData
-  >;
+  Object.fromEntries(
+    ENTITY_TYPES.map((entityType) => [entityType, createEntityTypeData()])
+  ) as Record<EntityType, EntityTypeData>;
 
 /**
  * Parse transform stats log and extract metrics

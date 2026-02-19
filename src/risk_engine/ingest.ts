@@ -92,27 +92,27 @@ export const getCmd = (root: Command) => {
     .description('Generate fake alerts')
     .action(
       wrapAction(async (entityCount, options) => {
-      if (!entityCount || entityCount <= 0) {
-        console.error('The number of entities must be a positive integer.');
-        process.exit(1);
-      }
+        if (!entityCount || entityCount <= 0) {
+          console.error('The number of entities must be a positive integer.');
+          process.exit(1);
+        }
 
-      const alertsPerEntity = options.n || 50;
-      const batchMBytesSize = options.b || 250;
-      const intervalMs = options.i || 500;
-      const space = await ensureSpace(options.s);
+        const alertsPerEntity = options.n || 50;
+        const batchMBytesSize = options.b || 250;
+        const intervalMs = options.i || 500;
+        const space = await ensureSpace(options.s);
 
-      await deleteAllAlerts();
-      console.log(
-        `Ingesting data for ${entityCount} entities, ${alertsPerEntity} alerts each, in batches of ~${batchMBytesSize}MB every ${intervalMs}ms into space "${space}"...`
-      );
+        await deleteAllAlerts();
+        console.log(
+          `Ingesting data for ${entityCount} entities, ${alertsPerEntity} alerts each, in batches of ~${batchMBytesSize}MB every ${intervalMs}ms into space "${space}"...`
+        );
 
-      await ingestData({
-        batchMBytesSize,
-        intervalMs,
-        entityCount,
-        alertsPerEntity,
-      });
+        await ingestData({
+          batchMBytesSize,
+          intervalMs,
+          entityCount,
+          alertsPerEntity,
+        });
       })
     );
 };

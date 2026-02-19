@@ -46,8 +46,14 @@ export const documentCommands: CommandModule = {
 
     program.command('generate-graph').description('Generate fake graph').action(generateGraph);
 
-    program.command('delete-alerts').description('Delete all alerts').action(wrapAction(deleteAllAlerts));
+    program
+      .command('delete-alerts')
+      .description('Delete all alerts')
+      .action(wrapAction(deleteAllAlerts));
 
-    program.command('delete-events').description('Delete all events').action(wrapAction(deleteAllEvents));
+    program
+      .command('delete-events')
+      .description('Delete all events')
+      .action(wrapAction(deleteAllEvents));
   },
 };
