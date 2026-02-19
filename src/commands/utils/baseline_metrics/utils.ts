@@ -21,9 +21,7 @@ export const readFileSafely = (filePath: string, fileDescription: string): strin
   try {
     return fs.readFileSync(filePath, 'utf-8');
   } catch (error) {
-    throw new Error(
-      `Failed to read ${fileDescription} ${filePath}: ${error instanceof Error ? error.message : String(error)}`
-    );
+    return throwWithContext(`read ${fileDescription}`, filePath, error);
   }
 };
 
@@ -55,6 +53,32 @@ export const avg = (array: number[]): number => {
 export const max = (array: number[]): number => {
   if (array.length === 0) return 0;
   return Math.max(...array);
+};
+
+export interface PercentileMetrics {
+  avg: number;
+  p50: number;
+  p95: number;
+  p99: number;
+  max: number;
+}
+
+export const computePercentileMetrics = (values: number[]): PercentileMetrics => {
+  const sorted = [...values].sort((a, b) => a - b);
+  return {
+    avg: avg(values),
+    p50: percentile(sorted, 50),
+    p95: percentile(sorted, 95),
+    p99: percentile(sorted, 99),
+    max: max(values),
+  };
+};
+
+export const formatError = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+export const throwWithContext = (context: string, path: string, error: unknown): never => {
+  throw new Error(`Failed to ${context} ${path}: ${formatError(error)}`);
 };
 
 /**

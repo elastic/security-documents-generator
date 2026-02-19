@@ -35,8 +35,9 @@ import {
 import { generatePrivilegedAccessDetectionData } from '../privileged_access_detection_ml/privileged_access_detection_ml';
 import { generateCSVFile } from './generate_csv_file';
 import { chunk } from 'lodash-es';
-import { initializeSpace } from '../../utils';
+import { ensureSpace } from '../../utils';
 import { getMetadataKQL } from '../../utils/doc_metadata';
+import { deleteDataStreamSafe } from '../shared/elasticsearch';
 
 //end point logs
 const endpointLogsDataStreamName = 'logs-endpoint.events.process-default';
@@ -214,15 +215,7 @@ const createDataStream = async (indexName: string) => {
 };
 
 const deleteDataStream = async (indexName: string) => {
-  try {
-    await getEsClient().indices.deleteDataStream({ name: indexName });
-  } catch (e: unknown) {
-    const error = e as { meta: { statusCode: number } };
-
-    if (error.meta.statusCode === 404)
-      console.log('Resource does not yet exist, and will be created.');
-    else throw e;
-  }
+  await deleteDataStreamSafe(indexName);
   // Wait in order to ensure no race conditions after deletion
   await new Promise((r) => setTimeout(r, 1000));
 };
@@ -326,7 +319,7 @@ export const privmonCommand = async ({
 }) => {
   console.log('Starting Privileged User Monitoring data generation in space:', space);
 
-  await initializeSpace(space);
+  await ensureSpace(space);
 
   const users = UserGenerator.getUsers(userCount);
 

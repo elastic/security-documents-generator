@@ -1,13 +1,14 @@
-import { getEsClient, getFileLineCount } from './utils/indices';
+import { getEsClient, getFileLineCount } from '../utils/indices';
+import { bulkUpsert } from '../shared/elasticsearch';
 import {
   installPackage,
   createRule,
   getRule,
   createComponentTemplate,
   buildKibanaUrl,
-} from '../utils/kibana_api';
+} from '../../utils/kibana_api';
 import pMap from 'p-map';
-import cliProgress from 'cli-progress';
+import { createProgressBar } from '../utils/cli_utils';
 import readline from 'readline';
 import fs from 'fs';
 import { dirname } from 'path';
@@ -177,35 +178,14 @@ const dataStreamFieldsToIndexName = (dataStreamFields: {
 };
 
 const getTimeStamp = () => {
-  // last minute
-  // const now = new Date();
-  // const randomOffset = Math.floor(Math.random() * 60);
-  // return new Date(now.getTime() - randomOffset * 60 * 1000).toISOString();
-
   return new Date().toISOString();
-};
-
-const bulkUpsert = async (docs: unknown[]) => {
-  const client = getEsClient();
-
-  try {
-    return client.bulk({ body: docs, refresh: true });
-  } catch (err) {
-    console.log('Error: ', err);
-    process.exit(1);
-  }
 };
 
 const PACKAGES_TO_INSTALL = ['entityanalytics_okta', 'okta', 'system', 'entityanalytics_entra_id'];
 
 const installPackages = async (space: string) => {
   console.log('Installing packages...');
-  const progress = new cliProgress.SingleBar(
-    {
-      clearOnComplete: true,
-    },
-    cliProgress.Presets.shades_classic
-  );
+  const progress = createProgressBar('packages', { clearOnComplete: true });
   progress.start(PACKAGES_TO_INSTALL.length, 0);
   await pMap(
     PACKAGES_TO_INSTALL,
@@ -253,7 +233,7 @@ const jsonlFileToBatchGenerator = (
 };
 
 const getFilePath = (fileName: string, mini: boolean) => {
-  return directoryName + `/../../data/entity_resolution_data/${mini ? 'mini_' : ''}${fileName}`;
+  return directoryName + `/../../../data/entity_resolution_data/${mini ? 'mini_' : ''}${fileName}`;
 };
 
 const importLogData = async ({
@@ -406,17 +386,12 @@ const batchIndexDocsWithProgress = async (
   generator: AsyncGenerator<unknown[], void, void>,
   docCount: number
 ) => {
-  const progress = new cliProgress.SingleBar(
-    {
-      clearOnComplete: true,
-    },
-    cliProgress.Presets.shades_classic
-  );
+  const progress = createProgressBar('documents', { clearOnComplete: true });
   progress.start(docCount, 0);
   await pMap(
     generator,
     async (operations) => {
-      const res = await bulkUpsert(operations);
+      const res = await bulkUpsert({ documents: operations });
       if (res.errors) {
         progress.stop();
         console.log('Failed to index documents' + JSON.stringify(res));

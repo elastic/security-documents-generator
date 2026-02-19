@@ -1,12 +1,12 @@
 import { faker } from '@faker-js/faker';
-import createAlerts from '../create_alerts';
+import createAlerts from '../generators/create_alerts';
 
-import { getEsClient } from '../commands/utils/indices';
-import { getAlertIndex, initializeSpace } from '../utils';
+import { ensureSpace, getAlertIndex } from '../utils';
 import { sleep } from '../utils/sleep';
+import { streamingBulkIngest } from '../commands/shared/elasticsearch';
 
 import { Command } from 'commander';
-import { parseIntBase10 } from '..';
+import { parseIntBase10, wrapAction } from '../commands/utils/cli_utils';
 import { deleteAllAlerts } from '../commands/documents';
 
 export const ingestData = async (params: {
@@ -16,7 +16,6 @@ export const ingestData = async (params: {
   alertsPerEntity: number;
 }) => {
   const { batchMBytesSize, intervalMs, entityCount, alertsPerEntity } = params;
-  const esClient = getEsClient();
   const index = getAlertIndex('default');
 
   const MAX_BYTES = batchMBytesSize * 1024 * 1024;
@@ -32,20 +31,19 @@ export const ingestData = async (params: {
       ).toFixed(2)}MB), ${runs} batches remaining...`
     );
     runs--;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await esClient.helpers.bulk<Record<string, any>>({
+    await streamingBulkIngest({
+      index,
       datasource: alertsGenerator({
         entityCount,
         alertsPerEntity,
         limit: alertsPerBatch,
       }),
-      onDocument: (doc) => {
-        doc['@timestamp'] = new Date().toISOString();
-
-        return [{ create: { _index: index } }, { ...doc }];
-      },
       flushBytes: 1024 * 1024 * 1,
       flushInterval: 3000,
+      onDocument: (doc) => {
+        (doc as Record<string, unknown>)['@timestamp'] = new Date().toISOString();
+        return [{ create: { _index: index } }, { ...doc }];
+      },
       onDrop: (doc) => {
         console.log('Failed to index document:', doc);
         process.exit(1);
@@ -92,31 +90,29 @@ export const getCmd = (root: Command) => {
     .option('-i <i>', 'interval between batches in ms (default: 500ms)', parseIntBase10)
     .option('-s <s>', 'space (will be created if it does not exist)')
     .description('Generate fake alerts')
-    .action(async (entityCount, options) => {
-      if (!entityCount || entityCount <= 0) {
-        console.error('The number of entities must be a positive integer.');
-        process.exit(1);
-      }
+    .action(
+      wrapAction(async (entityCount, options) => {
+        if (!entityCount || entityCount <= 0) {
+          console.error('The number of entities must be a positive integer.');
+          process.exit(1);
+        }
 
-      const alertsPerEntity = options.n || 50;
-      const batchMBytesSize = options.b || 250;
-      const intervalMs = options.i || 500;
-      const space = options.s || 'default';
+        const alertsPerEntity = options.n || 50;
+        const batchMBytesSize = options.b || 250;
+        const intervalMs = options.i || 500;
+        const space = await ensureSpace(options.s);
 
-      if (space !== 'default') {
-        await initializeSpace(space);
-      }
+        await deleteAllAlerts();
+        console.log(
+          `Ingesting data for ${entityCount} entities, ${alertsPerEntity} alerts each, in batches of ~${batchMBytesSize}MB every ${intervalMs}ms into space "${space}"...`
+        );
 
-      await deleteAllAlerts();
-      console.log(
-        `Ingesting data for ${entityCount} entities, ${alertsPerEntity} alerts each, in batches of ~${batchMBytesSize}MB every ${intervalMs}ms into space "${space}"...`
-      );
-
-      await ingestData({
-        batchMBytesSize,
-        intervalMs,
-        entityCount,
-        alertsPerEntity,
-      });
-    });
+        await ingestData({
+          batchMBytesSize,
+          intervalMs,
+          entityCount,
+          alertsPerEntity,
+        });
+      })
+    );
 };

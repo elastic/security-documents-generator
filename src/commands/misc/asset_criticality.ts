@@ -1,10 +1,10 @@
 import { faker } from '@faker-js/faker';
-import { generateNewSeed } from '../constants';
+import { generateNewSeed } from '../../constants';
 import {
   assignAssetCriticalityToEntities,
   createRandomHost,
   createRandomUser,
-} from './entity_store';
+} from '../entity_store/entity_store';
 
 /**
  * Generate asset criticality

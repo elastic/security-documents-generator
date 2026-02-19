@@ -1,279 +1,187 @@
 # Security Documents Generator
-> **Note:** For compatibility with Elasticsearch 8.18 and below, checkout the tag `8.18-compatibility`.
 
-Generate fake data for testing and development. Configure your Elasticsearch environment via basic auth or API key, and use the various commands to generate, manipulate, and clean data.
+Generate synthetic Security data for Elasticsearch and Kibana development, demos, and performance testing.
 
-## Getting started
+> Note: For Elasticsearch `8.18` and earlier, use tag `8.18-compatibility`.
 
-1. Install dependencies: `yarn`
+## What this tool can generate
 
-2. Choose a command to run or simply run `yarn start`, you will be guided to generate a config file.
+- Alerts and events
+- Entity Store data (users, hosts, services, generic entities)
+- Privileged User Monitoring datasets
+- Detection rules and gap scenarios
+- Risk engine datasets and ingest loads
+- Cloud Security Posture (Elastic + third-party sources)
+- Entity Store performance data + baseline comparison reports
 
-3. *Optional* you can change `config.json` and provide different credentials for elasticsearch at any time.
+## Requirements
 
-You can provide apiKey for Cloud/Serverless, or just username/password.
+- Node.js `24.13.1`
+- Yarn `^1.22.22`
+- Access to Elasticsearch and Kibana
 
-Examples of config:
+## Install
 
+```bash
+yarn
 ```
-{
-    "elastic": {
-        "node": "https://test.es.us-west2.gcp.elastic-cloud.com",
-        "apiKey": "ASdlkk=="
 
-    },
-    "kibana": {
-        "node": "https://test.kb.us-west2.gcp.elastic-cloud.com:9243",
-        "apiKey": "asdasdasd=="
-    }
+## Configuration
+
+On first run, the CLI creates `config.json` interactively if no valid config exists:
+
+```bash
+yarn start
+```
+
+You can authenticate with either:
+
+- `username` + `password`
+- `apiKey`
+
+### Example `config.json` (API key)
+
+```json
+{
+  "elastic": {
+    "node": "https://example.es.us-west2.gcp.elastic-cloud.com",
+    "apiKey": "your-elastic-api-key"
+  },
+  "kibana": {
+    "node": "https://example.kb.us-west2.gcp.elastic-cloud.com:9243",
+    "apiKey": "your-kibana-api-key"
+  },
+  "serverless": false,
+  "eventIndex": "logs-testlogs-default"
 }
 ```
 
+### Example `config.json` (basic auth)
 
-```
+```json
 {
-    "elastic": {
-        "node": "http://localhost:9200",
-        "username": "elastic",
-        "password": "changeme"
-    },
-    "kibana": {
-        "node": "http://127.0.0.1:5601",
-        "username": "elastic",
-        "password": "changeme"
-    },
-    "eventIndex": ""
+  "elastic": {
+    "node": "http://localhost:9200",
+    "username": "elastic",
+    "password": "changeme"
+  },
+  "kibana": {
+    "node": "http://localhost:5601",
+    "username": "elastic",
+    "password": "changeme"
+  },
+  "serverless": false,
+  "eventIndex": "logs-testlogs-default"
 }
 ```
 
-## Commands
+### Environment variable overrides
 
-### Privileged User Monitoring
+Environment variables override `config.json` values:
 
-`yarn start privileged-user-monitoring` - Generate source events and anomalous source data for privileged user monitoring and the privileged access detection ML jobs.
+- `ELASTIC_NODE`, `ELASTIC_USERNAME`, `ELASTIC_PASSWORD`, `ELASTIC_API_KEY`
+- `KIBANA_NODE`, `KIBANA_USERNAME`, `KIBANA_PASSWORD`, `KIBANA_API_KEY`
+- `SERVERLESS`
+- `EVENT_INDEX`
+- `EVENT_DATE_OFFSET_HOURS`
 
-### Entity store
+## CLI help
 
-`yarn start entity-store` - Generate data for entity store
-
-`yarn start clean-entity-store` - Clean data for entity store
-
-### Alerts
-`yarn start help` - To see the commands list
-
-`yarn start generate-alerts -n <number of alerts> -h <number of hosts within the alerts> -u <number of users within the alerts> -s <optional space>`
-
-`yarn start delete-alerts` - Delete all alerts
-
-### API tests
-
-`yarn start test-risk-score` - Test risk score API time response
-
-
-### Alert document
-
-To modify alert document, you can change `createAlert.ts` file.
-
-
-### How to test Risk Score API
-
-Example list of command for testing Risk Score API worth 10.000 alerts.
+```bash
+yarn start help
 ```
+
+## Quick start recipes
+
+### Alerts + risk score API timing
+
+```bash
 yarn start delete-alerts
 yarn start generate-alerts -n 10000 -h 100 -u 100
 yarn start test-risk-score
 ```
 
-## How to generate data for serverless project
+### Entity Store (interactive)
 
-1. Get your Elasticsearch url. 
-   
-   Go to Cloud -> Projects -> Your serverless project.
-
-   Then click Endpoints -> View and copy paste your ES URL to `config.json` into `elastic.node` field.
-
-2. Generate API key
-
-   Go to Cloud -> Projects -> Api Keys -> Manage project API keys
-
-   Create a new API key and past it to `config.json` into `elastic.apiKey` field.
-
-3. (Optional) Change if you want index name in `config.json` in `eventIndex` field. 
-  
-   By default - `logs-testlogs-default`
-
-4. (Optional) Change mappings in `eventMappings.json` file.
-
-5. (Optional) Change event structure in `create_events.ts` file
-
-6. Run `yarn start generate-events n`. Where `n` is the amount of documents that will be generated.
-
-7. `yarn start delete-events` to remove all documents from event index after your test.
-
-## Entity Store Performance Testing
-
-> **Important**: Entity store performance tests work reliably against **cloud environments** and **newly deployed environments only**.
->
-> - **Running tests on the same instance is problematic** due to Elasticsearch's [node query cache](https://www.elastic.co/guide/en/elasticsearch/reference/5.1/query-cache.html), which can skew results by caching query results between test runs.
-> - **Running on local instances is not stable** and should be avoided. Local environments often have resource constraints and inconsistent performance that make baseline comparisons unreliable.
->
-> For accurate and comparable results, always run performance tests against a fresh cloud deployment or a newly provisioned environment.
-
-### Sending one of the pre-built files
-
-#### One time send
-
-To upload a perf file once, use the `upload-perf-data` command, e.g:
-
-```
-# upload the small file, delete all logs and entities beforehand
-yarn start upload-perf-data-interval small --delete
+```bash
+yarn start entity-store
 ```
 
-If you omit the file name you will be presented with a picker. 
+### Privileged User Monitoring (quick)
 
-#### Send at an interval
-A better test is to send data at an interval to put the system under continued load.
-
-To do this use the `upload-perf-data-interval` command. This will upload a file 10 times with 30 seconds between each send by default, e.g:
-
-```
-# upload the small data file 10 times with 30 seconds between sends
-yarn start upload-perf-data-interval small --deleteData
+```bash
+yarn start privmon-quick --space default
 ```
 
-The count and interval can be customized:
+### Cloud Security Posture demo data
 
-```
-# upload the small data file 100 times with 60 seconds between sends
-yarn start upload-perf-data-interval small --deleteData --interval 60 --count 100
-
-# Customize the sampling interval for metrics collection (default: 5 seconds)
-yarn start upload-perf-data-interval small --deleteData --interval 60 --count 100 --samplingInterval 10
-
-# Skip transform-related operations (for ESQL workflows)
-yarn start upload-perf-data-interval small --deleteData --noTransforms
+```bash
+yarn start csp --data-sources all --findings-count 50
 ```
 
-Options:
-- `--interval <seconds>` - Interval between uploads in seconds (default: 30)
-- `--count <number>` - Number of times to upload (default: 10)
-- `--deleteData` - Delete all entities and data streams before uploading
-- `--deleteEngines` - Delete all entity engines before uploading
-- `--transformTimeout <minutes>` - Timeout in minutes for waiting for generic transform to complete (default: 30)
-- `--samplingInterval <seconds>` - Sampling interval in seconds for metrics collection (default: 5)
-- `--noTransforms` - Skip transform-related operations (for ESQL workflows)
+## Commands
 
-The entity IDs are modified before sending so that each upload creates new entities, this means there will be count * entityCount entities by the end of the test.
+Detailed command documentation is colocated with command code under `src/commands`.
 
-While the files are uploaded, we poll elasticsearch and Kibana for various metrics. These log files can be found in `./logs`:
+| Command | Summary | Details |
+| --- | --- | --- |
+| `generate-alerts` | Generate synthetic detection alerts | `src/commands/documents/README.md` |
+| `generate-events` | Generate synthetic events in `eventIndex` | `src/commands/documents/README.md` |
+| `generate-graph` | Generate fake graph data | `src/commands/documents/README.md` |
+| `delete-alerts` | Delete all generated alerts | `src/commands/documents/README.md` |
+| `delete-events` | Delete all generated events | `src/commands/documents/README.md` |
+| `entity-resolution-demo` | Load entity resolution demo dataset | `src/commands/entity_store/README.md` |
+| `entity-store` | Interactive Entity Store generation flow | `src/commands/entity_store/README.md` |
+| `quick-entity-store` | Quick non-interactive Entity Store setup | `src/commands/entity_store/README.md` |
+| `clean-entity-store` | Clean Entity Store data | `src/commands/entity_store/README.md` |
+| `test-risk-score` | Run risk score API test call | `src/commands/misc/README.md` |
+| `generate-entity-insights` | Generate entity vulnerabilities and misconfigurations | `src/commands/misc/README.md` |
+| `generate-asset-criticality` | Generate asset criticality assignments | `src/commands/misc/README.md` |
+| `generate-legacy-risk-score` | Install and generate legacy risk score data | `src/commands/misc/README.md` |
+| `single-entity` | Create one entity with optional setup flows | `src/commands/misc/README.md` |
+| `privileged-user-monitoring` | Interactive privileged user monitoring dataset generation | `src/commands/privileged_user_monitoring/README.md` |
+| `privmon-quick` | Fast privileged user monitoring generation | `src/commands/privileged_user_monitoring/README.md` |
+| `rules` | Generate detection rules and events | `src/commands/rules/README.md` |
+| `delete-rules` | Delete detection rules | `src/commands/rules/README.md` |
+| `risk-engine ingest` | Generate and ingest risk-engine data in batches | `src/commands/risk_engine/README.md` |
+| `esql-stress-test` | Stress test ESQL queries | `src/commands/risk_engine/README.md` |
+| `painless-stress-test` | Stress test scripted metric risk scoring | `src/commands/risk_engine/README.md` |
+| `create-risk-engine-data` | Build risk engine perf data file | `src/commands/risk_engine/README.md` |
+| `create-risk-engine-dataset` | Build named risk engine perf datasets | `src/commands/risk_engine/README.md` |
+| `upload-risk-engine-dataset` | Upload all files from a perf dataset directory | `src/commands/risk_engine/README.md` |
+| `upload-risk-engine-data-interval` | Repeatedly upload risk engine data file | `src/commands/risk_engine/README.md` |
+| `create-perf-data` | Create Entity Store perf JSONL data file | `src/commands/entity_store_perf/README.md` |
+| `upload-perf-data` | Upload perf data once | `src/commands/entity_store_perf/README.md` |
+| `upload-perf-data-interval` | Upload perf data repeatedly at intervals | `src/commands/entity_store_perf/README.md` |
+| `create-baseline` | Extract and save baseline metrics from logs | `src/commands/baseline_metrics/README.md` |
+| `list-baselines` | List saved baseline metric files | `src/commands/baseline_metrics/README.md` |
+| `compare-metrics` | Compare a run against baseline metrics | `src/commands/baseline_metrics/README.md` |
+| `generate-cloud-security-posture` (`csp`) | Generate CSP findings across sources | `src/commands/generate_cloud_security_posture/README.md` |
 
-```
-> ll logs
-total 464
--rw-r--r--@ 1 dg  staff   103K Nov 27 09:54 standard-2025-11-27T07:51:02.295Z-cluster-health.log
--rw-r--r--@ 1 dg  staff   486K Nov 27 09:54 standard-2025-11-27T07:51:02.295Z-kibana-stats.log
--rw-r--r--@ 1 dg  staff   429K Nov 27 09:54 standard-2025-11-27T07:51:02.295Z-node-stats.log
--rw-r--r--@ 1 dg  staff   886K Nov 27 09:54 standard-2025-11-27T07:51:02.295Z-transform-stats.log
-```
+### Quick command list
 
-The log files contain:
-- **cluster-health.log**: Cluster health status, active shards, and unassigned shards (sampled every N seconds, default: 5)
-- **transform-stats.log**: Transform statistics including search/index/processing latencies, document counts, and per-entity-type metrics (sampled every N seconds, default: 5). Only generated if transforms are enabled (not using `--noTransforms`)
-- **node-stats.log**: Elasticsearch node statistics including CPU usage, memory heap usage, and per-node metrics (sampled every N seconds, default: 5)
-- **kibana-stats.log**: Kibana statistics including event loop metrics, Elasticsearch client stats, response times, memory usage, and OS load (sampled every N seconds, default: 5)
+- **Documents**
+  - `generate-alerts`, `generate-events`, `generate-graph`, `delete-alerts`, `delete-events`
+- **Entity Store**
+  - `entity-resolution-demo`, `entity-store`, `quick-entity-store`, `clean-entity-store`
+- **Risk and Security utilities**
+  - `test-risk-score`, `generate-entity-insights`, `generate-asset-criticality`, `generate-legacy-risk-score`, `single-entity`
+- **Privileged User Monitoring**
+  - `privileged-user-monitoring` (`privmon`), `privmon-quick` (`quickmon`)
+- **Rules**
+  - `rules`, `delete-rules`
+- **Risk engine**
+  - `risk-engine ingest`, `esql-stress-test`, `painless-stress-test`, `create-risk-engine-data`, `create-risk-engine-dataset`, `upload-risk-engine-dataset`, `upload-risk-engine-data-interval`
+- **Entity Store performance**
+  - `create-perf-data`, `upload-perf-data`, `upload-perf-data-interval`
+- **Baselines and metrics**
+  - `create-baseline`, `list-baselines`, `compare-metrics`
+- **Cloud Security Posture**
+  - `generate-cloud-security-posture` (`csp`)
 
-### Baseline Metrics and Comparison
+## Performance and baselines
 
-After running performance tests, you can extract metrics from the generated log files and create baselines for comparison.
+Perf-data generation and baseline workflows are documented in command-specific pages:
 
-#### Creating a baseline
-
-Extract metrics from log files and save them as a baseline:
-
-```
-# Create a baseline from logs with a specific prefix
-yarn start create-baseline small-2024-10-28T11:14:06.828Z -e 100000 -l 5
-
-# Create a baseline with a custom name
-yarn start create-baseline small-2024-10-28T11:14:06.828Z -e 100000 -l 5 -n "baseline-v1_0-standard"
-
-# For interval tests, include upload count and interval
-yarn start create-baseline small-2025-11-13T15:03:32 -e 100000 -l 5 -u 10 -i 30000
-```
-
-Options:
-- `-e <entityCount>` - Number of entities in the test
-- `-l <logsPerEntity>` - Number of logs per entity
-- `-u <uploadCount>` - Number of uploads (for interval tests)
-- `-i <intervalMs>` - Interval in milliseconds (for interval tests)
-- `-n <name>` - Custom name for the baseline (defaults to log-prefix)
-
-The baseline will be saved to the `./baselines` directory.
-
-#### Listing baselines
-
-View all available baselines:
-
-```
-yarn start list-baselines
-```
-
-#### Comparing metrics
-
-Compare current run metrics against a baseline:
-
-```
-# Compare against the latest baseline
-yarn start compare-metrics standard-2025-11-27T07:51 -e 100000 -l 5
-
-# Compare against a specific baseline by name pattern
-yarn start compare-metrics standard-2025-11-27T07:51 -b "baseline-v1_0" -e 100000 -l 5
-
-# Customize comparison thresholds
-yarn start compare-metrics standard-2025-11-27T07:51 \
-  -b "baseline-v1_0" \
-  -e 100000 -l 5 \
-  --degradation-threshold 20 \
-  --warning-threshold 10 \
-  --improvement-threshold 10
-```
-
-Options:
-- `-b <baseline>` - Path to baseline file or pattern to match (uses latest if not specified)
-- `-e <entityCount>` - Number of entities for current run
-- `-l <logsPerEntity>` - Number of logs per entity for current run
-- `-u <uploadCount>` - Number of uploads for current run
-- `-i <intervalMs>` - Interval in milliseconds for current run
-- `--degradation-threshold <percent>` - Percentage worse to be considered degradation (default: 20)
-- `--warning-threshold <percent>` - Percentage worse to be considered warning (default: 10)
-- `--improvement-threshold <percent>` - Percentage better to be considered improvement (default: 10)
-
-The comparison report shows metrics including:
-- **Latency metrics**: Search, Intake, and Processing latencies (avg, p50, p95, p99, max)
-- **System metrics**: CPU, Memory, Throughput, Index Efficiency
-- **Entity metrics**: Per-entity-type metrics (host, user, service, generic)
-- **Error metrics**: Search failures, Index failures
-- **Kibana metrics**: Event loop, Elasticsearch client, Response times, Memory, Requests, OS Load
-
-
-### Generating a data file
-
-To generate a data file for performance testing, use the `create-perf-data` command. 
-
-E.g this is how 'large' was created:
-
-```
-# create a file with 100k entities each with 5 logs.
-yarn start create-perf-data large 100000 5
-```
-
-Entities are split 50/50 host/user.
-The log messages created contain incremental data, e.g the first log message for a host would contain IP 192.168.1.0 and 192.168.1.1, the second log would contain 192.168.1.2 and 192.168.1.3. This way when 5 log messages are sent, an entity should have 10 IP addresses ranging from 0 - 10. 
-
-
-### Generate rules and gaps
-
-Will generate 100 rules with 10000 gaps per rule.
-
-`yarn start rules --rules 100 -g 10000 -c -i"48h"`
+- `src/commands/entity_store_perf/README.md`
+- `src/commands/baseline_metrics/README.md`

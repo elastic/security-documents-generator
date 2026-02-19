@@ -1,8 +1,8 @@
 import { faker } from '@faker-js/faker';
 import fs from 'fs';
 import cliProgress from 'cli-progress';
-import createAlerts from '../create_alerts';
-import { uploadFile } from '../commands/entity_store_perf';
+import createAlerts from '../generators/create_alerts';
+import { uploadFile } from '../commands/entity_store_perf/entity_store_perf';
 import { getAlertIndex } from '../utils';
 import { getFileLineCount } from '../commands/utils/indices';
 

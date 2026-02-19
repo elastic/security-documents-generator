@@ -1,15 +1,17 @@
 import { faker } from '@faker-js/faker';
 import fs from 'fs';
-import cliProgress from 'cli-progress';
-import { getEsClient, getFileLineCount } from './utils/indices';
-import { ensureSecurityDefaultDataView } from '../utils/security_default_data_view';
+import { getEsClient, getFileLineCount } from '../utils/indices';
+import { streamingBulkIngest } from '../shared/elasticsearch';
+import { createProgressBar } from '../utils/cli_utils';
+import { ensureSecurityDefaultDataView } from '../../utils/security_default_data_view';
 import readline from 'readline';
-import { deleteEngines, initEntityEngineForEntityTypes, kibanaFetch } from '../utils/kibana_api';
+import { deleteEngines, initEntityEngineForEntityTypes, kibanaFetch } from '../../utils/kibana_api';
 import { get } from 'lodash-es';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { getConfig } from '../get_config';
+import { getConfig } from '../../get_config';
 import * as path from 'path';
+import { GenericEntityFields, HostFields, ServiceFields, UserFields } from '../../types/entities';
 
 const config = getConfig();
 
@@ -18,76 +20,6 @@ const config = getConfig();
 const CHECKPOINT_STABLE_TIME_MS = 10000;
 // Consider stable after this many consecutive checks with the same checkpoint
 const STABLE_CHECKPOINT_THRESHOLD = 3;
-
-interface EntityFields {
-  id: string;
-  name: string;
-  type: string;
-  sub_type: string;
-  address: string;
-}
-
-interface HostFields {
-  entity: EntityFields;
-  host: {
-    hostname?: string;
-    domain?: string;
-    ip?: string[];
-    name: string;
-    id?: string;
-    type?: string;
-    mac?: string[];
-    architecture?: string[];
-  };
-}
-
-interface UserFields {
-  entity: EntityFields;
-  user: {
-    full_name?: string[];
-    domain?: string;
-    roles?: string[];
-    name: string;
-    id?: string;
-    email?: string[];
-    hash?: string[];
-  };
-}
-
-interface ServiceFields {
-  entity: EntityFields;
-  service: {
-    name: string;
-    id?: string;
-    type?: string;
-    node?: {
-      roles?: string;
-      name?: string;
-    };
-    environment?: string;
-    address?: string;
-    state?: string;
-    ephemeral_id?: string;
-    version?: string;
-  };
-}
-
-interface GenericEntityFields {
-  entity: EntityFields;
-  event?: {
-    ingested?: string;
-    dataset?: string;
-    module?: string;
-  };
-  cloud?: {
-    provider?: string;
-    region?: string;
-    account?: {
-      name?: string;
-      id?: string;
-    };
-  };
-}
 
 let stop = false;
 
@@ -381,8 +313,8 @@ const generateGenericEntityFields = ({
 
 const FIELD_LENGTH = 2;
 const directoryName = dirname(fileURLToPath(import.meta.url));
-const DATA_DIRECTORY = directoryName + '/../../data/entity_store_perf_data';
-const LOGS_DIRECTORY = directoryName + '/../../logs';
+const DATA_DIRECTORY = directoryName + '/../../../data/entity_store_perf_data';
+const LOGS_DIRECTORY = directoryName + '/../../../logs';
 
 /**
  * Predefined entity distribution presets
@@ -510,12 +442,9 @@ const countEntities = async (baseDomainName: string) => {
 const countEntitiesUntil = async (name: string, count: number) => {
   let total = 0;
   console.log('Polling for entities...');
-  const progress = new cliProgress.SingleBar(
-    {
-      format: 'Progress | {value}/{total} Entities',
-    },
-    cliProgress.Presets.shades_classic
-  );
+  const progress = createProgressBar('entities', {
+    format: 'Progress | {value}/{total} Entities',
+  });
   progress.start(count, 0);
 
   while (total < count && !stop) {
@@ -548,12 +477,9 @@ const waitForTransformToComplete = async (
   );
 
   // Create progress bar similar to countEntitiesUntil
-  const progress = new cliProgress.SingleBar(
-    {
-      format: 'Progress | {value}/{total} Documents | Checkpoint: {checkpoint}',
-    },
-    cliProgress.Presets.shades_classic
-  );
+  const progress = createProgressBar('documents', {
+    format: 'Progress | {value}/{total} Documents | Checkpoint: {checkpoint}',
+  });
   progress.start(expectedDocumentsProcessed, 0, { checkpoint: 0 });
 
   let lastCheckpoint = 0;
@@ -892,7 +818,7 @@ export const createPerfDataFile = async ({
   }
 
   console.log(`Generating ${entityCount * logsPerEntity} logs...`);
-  const progress = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
+  const progress = createProgressBar('logs');
 
   progress.start(entityCount * logsPerEntity, 0);
   // we could be generating up to 1 million entities, so we need to be careful with memory
@@ -1028,14 +954,10 @@ export const uploadFile = async ({
   modifyDoc?: (doc: Record<string, any>) => Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   onComplete?: () => void;
 }) => {
-  const esClient = getEsClient();
   const stream = fs.createReadStream(filePath);
-  const progress = new cliProgress.SingleBar(
-    {
-      format: '{bar} | {percentage}% | {value}/{total} Documents Uploaded',
-    },
-    cliProgress.Presets.shades_classic
-  );
+  const progress = createProgressBar('upload', {
+    format: '{bar} | {percentage}% | {value}/{total} Documents Uploaded',
+  });
   progress.start(lineCount, 0);
 
   const rl = readline.createInterface({
@@ -1049,24 +971,20 @@ export const uploadFile = async ({
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await esClient.helpers.bulk<Record<string, any>>({
+  await streamingBulkIngest({
+    index,
     datasource: lineGenerator(),
+    flushBytes: 1024 * 1024 * 1,
+    flushInterval: 3000,
     onDocument: (doc) => {
       if (stop) {
         throw new Error('Stopped');
       }
-
-      doc['@timestamp'] = new Date().toISOString();
-
-      if (modifyDoc) {
-        doc = modifyDoc(doc);
-      }
-
-      return [{ create: { _index: index } }, { ...doc }];
+      const record = doc as Record<string, unknown>;
+      record['@timestamp'] = new Date().toISOString();
+      const payload = modifyDoc ? modifyDoc(doc as Record<string, any>) : doc; // eslint-disable-line @typescript-eslint/no-explicit-any
+      return [{ create: { _index: index } }, { ...payload }];
     },
-    flushBytes: 1024 * 1024 * 1,
-    flushInterval: 3000,
     onSuccess: () => {
       progress.increment();
     },
@@ -1248,19 +1166,16 @@ export const uploadPerfDataFileInterval = async (
         modifyDoc: addIdPrefix(i.toString()),
       })
     );
-    let progress: cliProgress.SingleBar | null = null;
+    let progress: ReturnType<typeof createProgressBar> | null = null;
     for (let j = 0; j < intervalS; j++) {
       if (stop) {
         break;
       }
       if (uploadCompleted) {
         if (!progress) {
-          progress = new cliProgress.SingleBar(
-            {
-              format: '{bar} | {value}s | waiting {total}s until next upload',
-            },
-            cliProgress.Presets.shades_classic
-          );
+          progress = createProgressBar('interval', {
+            format: '{bar} | {value}s | waiting {total}s until next upload',
+          });
 
           progress.start(intervalS, j + 1);
         } else {

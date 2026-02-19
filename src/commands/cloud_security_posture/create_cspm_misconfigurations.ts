@@ -11,8 +11,9 @@ import {
   pickEvaluation,
   CSPMAccount,
 } from './csp_utils';
+import type { BaseDocumentParams } from '../../types/document_params';
 
-export interface CreateCSPMMisconfigurationParams {
+export interface CreateCSPMMisconfigurationParams extends BaseDocumentParams {
   provider: CloudProvider;
   account?: CSPMAccount;
 }

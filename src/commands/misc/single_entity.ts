@@ -1,7 +1,5 @@
 import { confirm, input, select } from '@inquirer/prompts';
 import { resolve } from 'path';
-import { chunk } from 'lodash-es';
-import { BulkOperationContainer } from '@elastic/elasticsearch/lib/api/types';
 import {
   createRandomUser,
   createRandomHost,
@@ -11,8 +9,8 @@ import {
   createRandomEventForHost,
   createRandomEventForService,
   createRandomEventForGenericEntity,
-} from './entity_store';
-import { getEsClient } from './utils/indices';
+} from '../entity_store/entity_store';
+import { bulkIngest } from '../shared/elasticsearch';
 import {
   assignAssetCriticality,
   enableRiskScore,
@@ -21,16 +19,19 @@ import {
   uploadPrivmonCsv,
   enablePrivmon,
   initEntityEngineForEntityTypes,
-} from '../utils/kibana_api';
-import { ASSET_CRITICALITY, AssetCriticality } from '../constants';
-import { initializeSpace } from '../utils';
-import { ensureSecurityDefaultDataView } from '../utils/security_default_data_view';
+} from '../../utils/kibana_api';
+import {
+  ASSET_CRITICALITY,
+  AssetCriticality,
+  DEFAULT_CHUNK_SIZE,
+  EVENT_INDEX_NAME,
+} from '../../constants';
+import { ensureSpace } from '../../utils';
+import { ensureSecurityDefaultDataView } from '../../utils/security_default_data_view';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-const srcDirectory = dirname(dirname(fileURLToPath(import.meta.url)));
-
-const EVENT_INDEX_NAME = 'auditbeat-8.12.0-2024.01.18-000001';
+const srcDirectory = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 
 export type SingleEntityCommandOptions = {
   space?: string;
@@ -79,28 +80,12 @@ const createEntityWithName = (
 };
 
 const ingestSingleEntityEvents = async (events: unknown[]) => {
-  const client = getEsClient();
-  if (!client) {
-    throw new Error('Failed to get ES client');
-  }
-
-  const chunks = chunk(events, 10000);
-  for (const chunk of chunks) {
-    try {
-      const ingestRequest = chunk.reduce(
-        (acc: (BulkOperationContainer | unknown)[], event) => {
-          acc.push({ index: { _index: EVENT_INDEX_NAME } });
-          acc.push(event);
-          return acc;
-        },
-        [] as (BulkOperationContainer | unknown)[]
-      );
-      await client.bulk({ operations: ingestRequest, refresh: true });
-    } catch (err) {
-      console.log('Error ingesting events:', err);
-      throw err;
-    }
-  }
+  await bulkIngest({
+    index: EVENT_INDEX_NAME,
+    documents: events as object[],
+    chunkSize: DEFAULT_CHUNK_SIZE,
+    action: 'index',
+  });
 };
 
 const createAndIngestEntity = async (
@@ -138,12 +123,7 @@ const createAndIngestEntity = async (
 };
 
 export const singleEntityCommand = async (options: SingleEntityCommandOptions = {}) => {
-  const space = options.space ?? 'default';
-
-  // Initialize space if needed
-  if (space !== 'default') {
-    await initializeSpace(space);
-  }
+  const space = await ensureSpace(options.space);
 
   // Non-interactive mode: --type was provided
   if (options.entityType) {

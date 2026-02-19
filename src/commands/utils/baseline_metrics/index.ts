@@ -9,6 +9,7 @@ import { calculateLatencyMetrics } from './calculators/latency_calculator';
 import { calculateSystemMetrics } from './calculators/system_metrics_calculator';
 import { calculateEntityMetrics } from './calculators/entity_metrics_calculator';
 import { calculateKibanaMetrics } from './calculators/kibana_metrics_calculator';
+import { throwWithContext } from './utils';
 import {
   saveBaseline,
   loadBaseline,
@@ -49,13 +50,11 @@ export const extractBaselineMetrics = async (
   }
 
   // Find log files with the given prefix
-  let files: string[];
+  let files: string[] = [];
   try {
     files = fs.readdirSync(logsDir);
   } catch (error) {
-    throw new Error(
-      `Failed to read logs directory ${logsDir}: ${error instanceof Error ? error.message : String(error)}`
-    );
+    throwWithContext('read logs directory', logsDir, error);
   }
   const clusterHealthLog = files.find(
     (f) => f.startsWith(logPrefix) && f.includes('cluster-health')

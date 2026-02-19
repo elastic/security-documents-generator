@@ -1,5 +1,21 @@
-import { TransformStatsData } from '../types';
+import { EntityTypeData, TransformStatsData } from '../types';
 import { readFileSafely, MAX_REASONABLE_SAMPLING_INTERVAL_MS } from '../utils';
+import { ENTITY_TYPES, EntityType } from '../../../../types/entities';
+
+const createEntityTypeData = (): EntityTypeData => ({
+  searchLatencies: [],
+  indexLatencies: [],
+  processingLatencies: [],
+  documentsProcessed: [],
+  documentsIndexed: [],
+  pagesProcessed: [],
+  triggerCounts: [],
+});
+
+const createPerEntityTypeData = (): Record<EntityType, EntityTypeData> =>
+  Object.fromEntries(
+    ENTITY_TYPES.map((entityType) => [entityType, createEntityTypeData()])
+  ) as Record<EntityType, EntityTypeData>;
 
 /**
  * Parse transform stats log and extract metrics
@@ -28,44 +44,7 @@ export const parseTransformStats = (logPath: string): TransformStatsData => {
     started: 0,
   };
 
-  const perEntityType = {
-    host: {
-      searchLatencies: [] as number[],
-      indexLatencies: [] as number[],
-      processingLatencies: [] as number[],
-      documentsProcessed: [] as number[],
-      documentsIndexed: [] as number[],
-      pagesProcessed: [] as number[],
-      triggerCounts: [] as number[],
-    },
-    user: {
-      searchLatencies: [] as number[],
-      indexLatencies: [] as number[],
-      processingLatencies: [] as number[],
-      documentsProcessed: [] as number[],
-      documentsIndexed: [] as number[],
-      pagesProcessed: [] as number[],
-      triggerCounts: [] as number[],
-    },
-    service: {
-      searchLatencies: [] as number[],
-      indexLatencies: [] as number[],
-      processingLatencies: [] as number[],
-      documentsProcessed: [] as number[],
-      documentsIndexed: [] as number[],
-      pagesProcessed: [] as number[],
-      triggerCounts: [] as number[],
-    },
-    generic: {
-      searchLatencies: [] as number[],
-      indexLatencies: [] as number[],
-      processingLatencies: [] as number[],
-      documentsProcessed: [] as number[],
-      documentsIndexed: [] as number[],
-      pagesProcessed: [] as number[],
-      triggerCounts: [] as number[],
-    },
-  };
+  const perEntityType = createPerEntityTypeData();
 
   // Track previous values per transform for incremental latency calculation
   const prevValues: Record<
@@ -154,7 +133,7 @@ export const parseTransformStats = (logPath: string): TransformStatsData => {
       const stats = transform.stats;
 
       // Determine entity type from transform ID
-      let entityType: 'host' | 'user' | 'service' | 'generic' | null = null;
+      let entityType: EntityType | null = null;
       if (transformId.includes('host')) {
         entityType = 'host';
       } else if (transformId.includes('user')) {
@@ -343,43 +322,6 @@ export const createEmptyTransformData = (): TransformStatsData => {
       indexing: 0,
       started: 0,
     },
-    perEntityType: {
-      host: {
-        searchLatencies: [],
-        indexLatencies: [],
-        processingLatencies: [],
-        documentsProcessed: [],
-        documentsIndexed: [],
-        pagesProcessed: [],
-        triggerCounts: [],
-      },
-      user: {
-        searchLatencies: [],
-        indexLatencies: [],
-        processingLatencies: [],
-        documentsProcessed: [],
-        documentsIndexed: [],
-        pagesProcessed: [],
-        triggerCounts: [],
-      },
-      service: {
-        searchLatencies: [],
-        indexLatencies: [],
-        processingLatencies: [],
-        documentsProcessed: [],
-        documentsIndexed: [],
-        pagesProcessed: [],
-        triggerCounts: [],
-      },
-      generic: {
-        searchLatencies: [],
-        indexLatencies: [],
-        processingLatencies: [],
-        documentsProcessed: [],
-        documentsIndexed: [],
-        pagesProcessed: [],
-        triggerCounts: [],
-      },
-    },
+    perEntityType: createPerEntityTypeData(),
   };
 };
