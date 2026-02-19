@@ -85,7 +85,7 @@ export const indexCheck = async (index: string, body?: Omit<IndicesCreateRequest
 export const ingest = async (
   index: string,
   documents: Array<object>,
-  { noMeta }: { noMeta: boolean } = { noMeta: false }
+  { noMeta, pipeline }: { noMeta?: boolean; pipeline?: string } = {}
 ) => {
   const esClient = getEsClient();
 
@@ -101,7 +101,7 @@ export const ingest = async (
         noMeta ? doc : addMetadataToDoc(doc),
       ]);
 
-      const results = await esClient.bulk({ index, operations, refresh: true });
+      const results = await esClient.bulk({ index, operations, refresh: true, pipeline });
       if (results.errors) {
         console.log(
           'The errors below occurred when bulk creating documents. Continuing with the potential for partial data.'
