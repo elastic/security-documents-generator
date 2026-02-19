@@ -5,6 +5,9 @@ import { generateAssetCriticality } from './asset_criticality';
 import { generateInsights } from './insights';
 import { generateLegacyRiskScore } from './legacy_risk_score';
 import { singleEntityCommand } from './single_entity';
+import { ensureSpace } from '../utils';
+import { parseOptionInt, wrapAction } from './utils/cli_utils';
+import { ENTITY_TYPES, EntityType } from '../types/entities';
 
 export const miscCommands: CommandModule = {
   register(program: Command) {
@@ -16,12 +19,14 @@ export const miscCommands: CommandModule = {
     program
       .command('generate-entity-insights')
       .description('Generate entities vulnerabilities and misconfigurations')
-      .action(async (options) => {
-        const users = parseInt(options.u || '10');
-        const hosts = parseInt(options.h || '10');
-        const space = options.s || 'default';
-        generateInsights({ users, hosts, space });
-      });
+      .action(
+        wrapAction(async (options) => {
+          const users = parseOptionInt(options.u, 10);
+          const hosts = parseOptionInt(options.h, 10);
+          const space = await ensureSpace(options.s);
+          await generateInsights({ users, hosts, space });
+        })
+      );
 
     program
       .command('generate-asset-criticality')
@@ -29,19 +34,19 @@ export const miscCommands: CommandModule = {
       .option('-u <u>', 'number of users')
       .option('-s <s>', 'space')
       .description('Generate asset criticality for entities')
-      .action(async (options) => {
-        const users = parseInt(options.u || '10');
-        const hosts = parseInt(options.h || '10');
-        const space = options.s || 'default';
-        generateAssetCriticality({ users, hosts, space });
-      });
+      .action(
+        wrapAction(async (options) => {
+          const users = parseOptionInt(options.u, 10);
+          const hosts = parseOptionInt(options.h, 10);
+          const space = await ensureSpace(options.s);
+          await generateAssetCriticality({ users, hosts, space });
+        })
+      );
 
     program
       .command('generate-legacy-risk-score')
       .description('Install legacy risk score and generate data')
       .action(generateLegacyRiskScore);
-
-    const ENTITY_TYPES = ['user', 'host', 'service', 'generic'] as const;
 
     program
       .command('single-entity')
@@ -65,8 +70,9 @@ Examples:
   ${program.name()} single-entity -t generic -n x -s foo --no-risk-score   # combine options
 `
       )
-      .action(async (options) => {
-        const entityType = options.type as (typeof ENTITY_TYPES)[number] | undefined;
+      .action(
+        wrapAction(async (options) => {
+        const entityType = options.type as EntityType | undefined;
         if (entityType && !ENTITY_TYPES.includes(entityType)) {
           console.error(
             `Invalid --type: ${entityType}. Must be one of: ${ENTITY_TYPES.join(', ')}`
@@ -80,6 +86,7 @@ Examples:
           enableEntityStore: options.entityStore,
           createRiskScore: options.riskScore,
         });
-      });
+        })
+      );
   },
 };

@@ -26,7 +26,7 @@ import {
   DEFAULT_CHUNK_SIZE,
   EVENT_INDEX_NAME,
 } from '../constants';
-import { initializeSpace } from '../utils';
+import { ensureSpace } from '../utils';
 import { ensureSecurityDefaultDataView } from '../utils/security_default_data_view';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -123,12 +123,7 @@ const createAndIngestEntity = async (
 };
 
 export const singleEntityCommand = async (options: SingleEntityCommandOptions = {}) => {
-  const space = options.space ?? 'default';
-
-  // Initialize space if needed
-  if (space !== 'default') {
-    await initializeSpace(space);
-  }
+  const space = await ensureSpace(options.space);
 
   // Non-interactive mode: --type was provided
   if (options.entityType) {

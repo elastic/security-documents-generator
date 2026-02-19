@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import fs from 'fs';
 import { CommandModule } from '../types';
-import { handleCommandError, parseIntBase10 } from '../utils/cli_utils';
+import { handleCommandError, parseIntBase10, wrapAction } from '../utils/cli_utils';
 import { deleteAllAlerts } from '../documents';
 import * as RiskEngine from '../../risk_engine/generate_perf_data';
 import * as RiskEngineIngest from '../../risk_engine/ingest';
@@ -14,21 +14,21 @@ export const riskEngineCommands: CommandModule = {
       .command('esql-stress-test')
       .option('-p <parallel>', 'number of parallel runs', parseIntBase10)
       .description('Run several esql queries in parallel to stress ES')
-      .action(async (options) => {
+      .action(wrapAction(async (options) => {
         const parallel = options.p || 1;
         await stressTest(parallel, { pageSize: 3500 });
         console.log(`Completed stress test with ${parallel} parallel runs`);
-      });
+      }));
 
     program
       .command('painless-stress-test')
       .option('-r <runs>', 'number of runs', parseIntBase10)
       .description('Run several scripted metric risk scoring queries in sequence')
-      .action(async (options) => {
+      .action(wrapAction(async (options) => {
         const runs = options.r || 1;
         await Pain.stressTest(runs, { pageSize: 3500 });
         console.log(`Completed stress test with ${runs} runs`);
-      });
+      }));
 
     RiskEngineIngest.getCmd(program);
 
@@ -47,7 +47,7 @@ export const riskEngineCommands: CommandModule = {
       .argument('<entity-magnitude>', 'entity magnitude to create: small, medium, large')
       .argument('<cardinality>', 'cardinality level: low, mid, high, extreme')
       .description('Create performance datasets for the risk engine')
-      .action(async (entityMagnitude, cardinality) => {
+      .action(wrapAction(async (entityMagnitude, cardinality) => {
         const entityCount =
           entityMagnitude === 'small'
             ? 100
@@ -69,13 +69,13 @@ export const riskEngineCommands: CommandModule = {
         const name = `${entityMagnitude || 'medium'}_${cardinality || 'mid'}Cardinality`;
         await RiskEngine.createPerfDataFile({ name, entityCount, alertsPerEntity });
         console.log(`Finished ${name} dataset`);
-      });
+      }));
 
     program
       .command('upload-risk-engine-dataset')
       .argument('[dir]', 'dir to upload')
       .description('Upload performance data files')
-      .action(async (dataset) => {
+      .action(wrapAction(async (dataset) => {
         const BASE = process.cwd() + '/data/risk_engine/perf';
         await deleteAllAlerts();
         const datasetPath = `${BASE}/${dataset}`;
@@ -101,7 +101,7 @@ export const riskEngineCommands: CommandModule = {
           }
         }
         console.log(`Finished uploading dataset ${dataset}`);
-      });
+      }));
 
     program
       .command('upload-risk-engine-data-interval')

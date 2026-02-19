@@ -11,6 +11,13 @@ import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { getConfig } from '../get_config';
 import * as path from 'path';
+import {
+  EntityFields,
+  GenericEntityFields,
+  HostFields,
+  ServiceFields,
+  UserFields,
+} from '../types/entities';
 
 const config = getConfig();
 
@@ -19,76 +26,6 @@ const config = getConfig();
 const CHECKPOINT_STABLE_TIME_MS = 10000;
 // Consider stable after this many consecutive checks with the same checkpoint
 const STABLE_CHECKPOINT_THRESHOLD = 3;
-
-interface EntityFields {
-  id: string;
-  name: string;
-  type: string;
-  sub_type: string;
-  address: string;
-}
-
-interface HostFields {
-  entity: EntityFields;
-  host: {
-    hostname?: string;
-    domain?: string;
-    ip?: string[];
-    name: string;
-    id?: string;
-    type?: string;
-    mac?: string[];
-    architecture?: string[];
-  };
-}
-
-interface UserFields {
-  entity: EntityFields;
-  user: {
-    full_name?: string[];
-    domain?: string;
-    roles?: string[];
-    name: string;
-    id?: string;
-    email?: string[];
-    hash?: string[];
-  };
-}
-
-interface ServiceFields {
-  entity: EntityFields;
-  service: {
-    name: string;
-    id?: string;
-    type?: string;
-    node?: {
-      roles?: string;
-      name?: string;
-    };
-    environment?: string;
-    address?: string;
-    state?: string;
-    ephemeral_id?: string;
-    version?: string;
-  };
-}
-
-interface GenericEntityFields {
-  entity: EntityFields;
-  event?: {
-    ingested?: string;
-    dataset?: string;
-    module?: string;
-  };
-  cloud?: {
-    provider?: string;
-    region?: string;
-    account?: {
-      name?: string;
-      id?: string;
-    };
-  };
-}
 
 let stop = false;
 

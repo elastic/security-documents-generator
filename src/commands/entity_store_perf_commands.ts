@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { CommandModule } from './types';
-import { handleCommandError, parseIntBase10, promptForFileSelection } from './utils/cli_utils';
+import { parseIntBase10, promptForFileSelection, wrapAction } from './utils/cli_utils';
 import {
   createPerfDataFile,
   listPerfDataFiles,
@@ -24,25 +24,21 @@ export const entityStorePerfCommands: CommandModule = {
         'standard'
       )
       .description('Create performance data')
-      .action(async (name, entityCount, logsPerEntity, startIndex, options) => {
+      .action(wrapAction(async (name, entityCount, logsPerEntity, startIndex, options) => {
         const distributionType = options.distribution as DistributionType;
         if (!ENTITY_DISTRIBUTIONS[distributionType]) {
           console.error(`❌ Invalid distribution type: ${distributionType}`);
           console.error(`   Available types: ${Object.keys(ENTITY_DISTRIBUTIONS).join(', ')}`);
           process.exit(1);
         }
-        try {
-          await createPerfDataFile({
-            name,
-            entityCount,
-            logsPerEntity,
-            startIndex,
-            distribution: distributionType,
-          });
-        } catch (error) {
-          handleCommandError(error, 'Failed to create performance data file');
-        }
-      });
+        await createPerfDataFile({
+          name,
+          entityCount,
+          logsPerEntity,
+          startIndex,
+          distribution: distributionType,
+        });
+      }));
 
     program
       .command('upload-perf-data')
@@ -50,13 +46,13 @@ export const entityStorePerfCommands: CommandModule = {
       .option('--index <index>', 'Destination index')
       .option('--delete', 'Delete all entities before uploading')
       .description('Upload performance data file')
-      .action(async (file, options) => {
+      .action(wrapAction(async (file, options) => {
         await uploadPerfDataFile(
           file ?? (await promptForFileSelection(listPerfDataFiles())),
           options.index,
           options.delete
         );
-      });
+      }));
 
     program
       .command('upload-perf-data-interval')
@@ -80,7 +76,7 @@ export const entityStorePerfCommands: CommandModule = {
       .option('--noTransforms', 'Skip transform-related operations (for ESQL workflows)')
       .option('--index <index>', 'Destination index')
       .description('Upload performance data file')
-      .action(async (file, options) => {
+      .action(wrapAction(async (file, options) => {
         await uploadPerfDataFileInterval(
           file ?? (await promptForFileSelection(listPerfDataFiles())),
           options.interval * 1000,
@@ -92,6 +88,6 @@ export const entityStorePerfCommands: CommandModule = {
           options.noTransforms,
           options.index
         );
-      });
+      }));
   },
 };

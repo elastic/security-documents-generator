@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { CommandModule } from './types';
-import { handleCommandError, parseIntBase10 } from './utils/cli_utils';
+import { parseIntBase10, wrapAction } from './utils/cli_utils';
 import {
   extractBaselineMetrics,
   saveBaseline,
@@ -25,8 +25,8 @@ export const baselineMetricsCommands: CommandModule = {
       .option('-i <intervalMs>', 'Interval in milliseconds (for interval tests)', parseIntBase10)
       .option('-n <name>', 'Custom name for baseline (defaults to log-prefix)')
       .description('Extract metrics from logs and create a baseline')
-      .action(async (logPrefix, options) => {
-        try {
+      .action(
+        wrapAction(async (logPrefix, options) => {
           const testConfig = {
             entityCount: options.e || 0,
             logsPerEntity: options.l || 0,
@@ -50,13 +50,8 @@ export const baselineMetricsCommands: CommandModule = {
             `  Throughput (avg): ${baseline.metrics.throughput.avgDocumentsPerSecond.toFixed(2)} docs/sec`
           );
           console.log(`  Errors: ${baseline.metrics.errors.totalFailures}`);
-        } catch (error) {
-          handleCommandError(
-            error,
-            `❌ Failed to create baseline: ${error instanceof Error ? error.message : error}`
-          );
-        }
-      });
+        })
+      );
 
     program
       .command('list-baselines')
@@ -93,8 +88,8 @@ export const baselineMetricsCommands: CommandModule = {
       .option('--warning-threshold <percent>', 'Warning threshold percentage', parseFloat)
       .option('--improvement-threshold <percent>', 'Improvement threshold percentage', parseFloat)
       .description('Compare current run metrics against a baseline')
-      .action(async (currentLogPrefix, options) => {
-        try {
+      .action(
+        wrapAction(async (currentLogPrefix, options) => {
           const { baseline } = loadBaselineWithPattern(options.b);
           const currentTestConfig = {
             entityCount: options.e || 0,
@@ -117,12 +112,7 @@ export const baselineMetricsCommands: CommandModule = {
             );
             process.exit(1);
           }
-        } catch (error) {
-          handleCommandError(
-            error,
-            `❌ Failed to compare metrics: ${error instanceof Error ? error.message : error}`
-          );
-        }
-      });
+        })
+      );
   },
 };

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { BaselineMetrics } from './types';
-import { BASELINES_DIR, readFileSafely } from './utils';
+import { BASELINES_DIR, readFileSafely, throwWithContext } from './utils';
 
 /**
  * Save baseline to file
@@ -24,9 +24,7 @@ export const loadBaseline = (baselinePath: string): BaselineMetrics => {
   try {
     return JSON.parse(content) as BaselineMetrics;
   } catch (error) {
-    throw new Error(
-      `Failed to parse baseline file ${baselinePath}: ${error instanceof Error ? error.message : String(error)}`
-    );
+    return throwWithContext('parse baseline file', baselinePath, error);
   }
 };
 

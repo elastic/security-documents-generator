@@ -1,12 +1,12 @@
 import { faker } from '@faker-js/faker';
 import createAlerts from '../create_alerts';
 
-import { getAlertIndex, initializeSpace } from '../utils';
+import { ensureSpace, getAlertIndex } from '../utils';
 import { sleep } from '../utils/sleep';
 import { streamingBulkIngest } from '../commands/shared/elasticsearch';
 
 import { Command } from 'commander';
-import { parseIntBase10 } from '../commands/utils/cli_utils';
+import { parseIntBase10, wrapAction } from '../commands/utils/cli_utils';
 import { deleteAllAlerts } from '../commands/documents';
 
 export const ingestData = async (params: {
@@ -90,7 +90,8 @@ export const getCmd = (root: Command) => {
     .option('-i <i>', 'interval between batches in ms (default: 500ms)', parseIntBase10)
     .option('-s <s>', 'space (will be created if it does not exist)')
     .description('Generate fake alerts')
-    .action(async (entityCount, options) => {
+    .action(
+      wrapAction(async (entityCount, options) => {
       if (!entityCount || entityCount <= 0) {
         console.error('The number of entities must be a positive integer.');
         process.exit(1);
@@ -99,11 +100,7 @@ export const getCmd = (root: Command) => {
       const alertsPerEntity = options.n || 50;
       const batchMBytesSize = options.b || 250;
       const intervalMs = options.i || 500;
-      const space = options.s || 'default';
-
-      if (space !== 'default') {
-        await initializeSpace(space);
-      }
+      const space = await ensureSpace(options.s);
 
       await deleteAllAlerts();
       console.log(
@@ -116,5 +113,6 @@ export const getCmd = (root: Command) => {
         entityCount,
         alertsPerEntity,
       });
-    });
+      })
+    );
 };

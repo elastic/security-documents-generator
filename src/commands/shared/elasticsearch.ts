@@ -2,6 +2,7 @@ import {
   BulkResponse,
   BulkOperationContainer,
   BulkCreateOperation,
+  DeleteByQueryResponse,
 } from '@elastic/elasticsearch/lib/api/types';
 import { chunk } from 'lodash-es';
 import { getEsClient } from '../utils/indices';
@@ -10,6 +11,14 @@ import { createProgressBar } from '../utils/cli_utils';
 import { DEFAULT_CHUNK_SIZE } from '../../constants';
 
 export type BulkOperationTuple = [BulkOperationContainer, object];
+
+export const logBulkErrors = (result: BulkResponse, context: string): void => {
+  if (!result.errors) {
+    return;
+  }
+  const failedItems = result.items?.filter((item) => 'error' in item && item.error);
+  console.error(context, failedItems);
+};
 
 /**
  * Execute a bulk request with a pre-built body (array of operation + document pairs).
@@ -22,12 +31,7 @@ export async function bulkUpsert(params: {
   const { documents, refresh = true } = params;
   const client = getEsClient();
   const result = await client.bulk({ body: documents, refresh });
-  if (result.errors) {
-    console.error(
-      'Bulk request reported errors. Some documents may have failed.',
-      result.items?.filter((i) => 'error' in i && i.error)
-    );
-  }
+  logBulkErrors(result, 'Bulk request reported errors. Some documents may have failed.');
   return result;
 }
 
@@ -39,6 +43,7 @@ export interface BulkIngestParams {
   showProgress?: boolean;
   metadata?: boolean;
   refresh?: boolean;
+  pipeline?: string;
 }
 
 /**
@@ -54,6 +59,7 @@ export async function bulkIngest(params: BulkIngestParams): Promise<void> {
     showProgress = false,
     metadata = false,
     refresh = true,
+    pipeline,
   } = params;
 
   const client = getEsClient();
@@ -71,13 +77,8 @@ export async function bulkIngest(params: BulkIngestParams): Promise<void> {
       return [op, payload];
     });
 
-    const result = await client.bulk({ index, operations, refresh });
-    if (result.errors) {
-      console.error(
-        'Bulk ingest reported errors. Continuing with potential partial data.',
-        result.items?.filter((i) => 'error' in i && i.error)
-      );
-    }
+    const result = await client.bulk({ index, operations, refresh, pipeline });
+    logBulkErrors(result, 'Bulk ingest reported errors. Continuing with potential partial data.');
     if (progressBar) {
       progressBar.increment(chunkDocs.length);
     }
@@ -133,4 +134,31 @@ export async function streamingBulkIngest(params: StreamingBulkIngestParams): Pr
     onDrop: onDrop ? (d) => onDrop(d.document) : undefined,
     onSuccess,
   });
+}
+
+export async function deleteAllByIndex(params: {
+  index: string | string[];
+  refresh?: boolean;
+  ignoreUnavailable?: boolean;
+}): Promise<DeleteByQueryResponse> {
+  const client = getEsClient();
+  return client.deleteByQuery({
+    index: params.index,
+    refresh: params.refresh ?? true,
+    ignore_unavailable: params.ignoreUnavailable ?? false,
+    query: { match_all: {} },
+  });
+}
+
+export async function deleteDataStreamSafe(name: string): Promise<void> {
+  const client = getEsClient();
+  try {
+    await client.indices.deleteDataStream({ name });
+  } catch (error: unknown) {
+    const statusCode = (error as { meta?: { statusCode?: number } }).meta?.statusCode;
+    if (statusCode !== 404) {
+      throw error;
+    }
+    console.log('Resource does not yet exist, and will be created.');
+  }
 }

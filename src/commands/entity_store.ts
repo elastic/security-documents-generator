@@ -1,6 +1,6 @@
 import { faker } from '@faker-js/faker';
 import { getEsClient, indexCheck, createAgentDocument } from './utils/indices';
-import { bulkIngest } from './shared/elasticsearch';
+import { bulkIngest, deleteAllByIndex } from './shared/elasticsearch';
 import { chunk, once } from 'lodash-es';
 import moment from 'moment';
 import auditbeatMappings from '../mappings/auditbeat.json' assert { type: 'json' };
@@ -22,16 +22,8 @@ import {
 } from '../constants';
 import { MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
 import { getConfig } from '../get_config';
-import { initializeSpace } from '../utils';
-
-const getClient = () => {
-  const client = getEsClient();
-
-  if (!client) {
-    throw new Error('failed to create ES client');
-  }
-  return client;
-};
+import { ensureSpace } from '../utils';
+import { EntityType } from '../types/entities';
 
 const getOffset = (offsetHours?: number) => {
   const config = getConfig();
@@ -51,13 +43,6 @@ const getOffset = (offsetHours?: number) => {
 
 type Agent = ReturnType<typeof createAgentDocument>;
 
-enum EntityTypes {
-  User = 'user',
-  Host = 'host',
-  Service = 'service',
-  Generic = 'generic',
-}
-
 interface BaseEntity {
   name: string;
   assetCriticality: AssetCriticality;
@@ -73,15 +58,15 @@ interface BaseEntity {
   };
 }
 interface User extends BaseEntity {
-  type: EntityTypes.User;
+  type: Extract<EntityType, 'user'>;
 }
 
 interface Host extends BaseEntity {
-  type: EntityTypes.Host;
+  type: Extract<EntityType, 'host'>;
 }
 
 interface Service extends BaseEntity {
-  type: EntityTypes.Service;
+  type: Extract<EntityType, 'service'>;
 }
 
 interface GenericEntity extends BaseEntity {
@@ -167,7 +152,7 @@ export const createRandomUser = (): User => {
   return {
     name: `User-${faker.internet.username()}`,
     assetCriticality: faker.helpers.arrayElement(ASSET_CRITICALITY),
-    type: EntityTypes.User,
+    type: 'user',
   };
 };
 
@@ -175,7 +160,7 @@ export const createRandomHost = (): Host => {
   return {
     name: `Host-${faker.internet.domainName()}`,
     assetCriticality: faker.helpers.arrayElement(ASSET_CRITICALITY),
-    type: EntityTypes.Host,
+    type: 'host',
   };
 };
 
@@ -183,7 +168,7 @@ export const createRandomService = (): Service => {
   return {
     name: `Service-${faker.hacker.noun()}`,
     assetCriticality: faker.helpers.arrayElement(ASSET_CRITICALITY),
-    type: EntityTypes.Service,
+    type: 'service',
   };
 };
 
@@ -239,7 +224,7 @@ export const createRandomGenericEntity = (): GenericEntity => {
     type: taxonomy.type,
     entity: {
       EngineMetadata: {
-        Type: EntityTypes.Generic,
+        Type: 'generic',
       },
       source: resourceId,
       type: taxonomy.type,
@@ -640,9 +625,7 @@ export const generateEntityStore = async ({
     await ingestEvents(eventsForGenericEntities);
     console.log('Generic Entities events ingested');
 
-    if (space && space !== 'default') {
-      await initializeSpace(space);
-    }
+    await ensureSpace(space);
 
     if (options.includes(ENTITY_STORE_OPTIONS.criticality)) {
       await assignAssetCriticalityToEntities({
@@ -696,24 +679,11 @@ export const generateEntityStore = async ({
 export const cleanEntityStore = async () => {
   console.log('Deleting all entity-store data...');
   try {
+    await deleteAllByIndex({ index: EVENT_INDEX_NAME });
     console.log('Deleted all events');
-    const client = getClient();
-    await client.deleteByQuery({
-      index: EVENT_INDEX_NAME,
-      refresh: true,
-      query: {
-        match_all: {},
-      },
-    });
 
+    await deleteAllByIndex({ index: '.asset-criticality.asset-criticality-default' });
     console.log('Deleted asset criticality');
-    await client.deleteByQuery({
-      index: '.asset-criticality.asset-criticality-default',
-      refresh: true,
-      query: {
-        match_all: {},
-      },
-    });
   } catch (error) {
     console.log('Failed to clean data');
     console.log(error);

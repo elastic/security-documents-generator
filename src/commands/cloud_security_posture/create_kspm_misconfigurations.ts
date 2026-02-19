@@ -9,8 +9,9 @@ import {
   pickEvaluation,
   KSPMCluster,
 } from './csp_utils';
+import type { BaseDocumentParams } from '../../types/document_params';
 
-export interface CreateKSPMMisconfigurationParams {
+export interface CreateKSPMMisconfigurationParams extends BaseDocumentParams {
   distribution: KSPMDistribution;
   cluster?: KSPMCluster;
 }

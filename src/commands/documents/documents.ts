@@ -8,7 +8,7 @@ import pMap from 'p-map';
 import { chunk } from 'lodash-es';
 import { faker } from '@faker-js/faker';
 import { getAlertIndex } from '../../utils';
-import { bulkUpsert } from '../shared/elasticsearch';
+import { bulkUpsert, deleteAllByIndex } from '../shared/elasticsearch';
 import { createProgressBar, handleCommandError } from '../utils/cli_utils';
 
 const generateDocs = async ({
@@ -227,16 +227,8 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
 export const deleteAllAlerts = async () => {
   console.log('Deleting all alerts...');
   try {
+    await deleteAllByIndex({ index: '.alerts-security.alerts-*' });
     console.log('Deleted all alerts');
-    const client = getEsClient();
-
-    await client.deleteByQuery({
-      index: '.alerts-security.alerts-*',
-      refresh: true,
-      query: {
-        match_all: {},
-      },
-    });
   } catch (error) {
     console.log('Failed to delete alerts');
     console.log(error);
@@ -251,16 +243,8 @@ export const deleteAllEvents = async () => {
     throw new Error('eventIndex not defined in config');
   }
   try {
+    await deleteAllByIndex({ index: config.eventIndex });
     console.log('Deleted all events');
-    const client = getEsClient();
-
-    await client.deleteByQuery({
-      index: config.eventIndex,
-      refresh: true,
-      query: {
-        match_all: {},
-      },
-    });
   } catch (error) {
     console.log('Failed to delete events');
     console.log(error);

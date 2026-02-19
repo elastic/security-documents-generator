@@ -1,25 +1,10 @@
+import { EntityType } from '../../../types/entities';
+import { PercentileMetrics } from './utils';
+
 export interface EntityTypeMetrics {
-  searchLatency: {
-    avg: number;
-    p50: number;
-    p95: number;
-    p99: number;
-    max: number;
-  };
-  intakeLatency: {
-    avg: number;
-    p50: number;
-    p95: number;
-    p99: number;
-    max: number;
-  };
-  processingLatency: {
-    avg: number;
-    p50: number;
-    p95: number;
-    p99: number;
-    max: number;
-  };
+  searchLatency: PercentileMetrics;
+  intakeLatency: PercentileMetrics;
+  processingLatency: PercentileMetrics;
   documentsProcessed: number;
   documentsIndexed: number;
   pagesProcessed: number;
@@ -41,27 +26,9 @@ export interface BaselineMetrics {
     intervalMs?: number;
   };
   metrics: {
-    searchLatency: {
-      avg: number;
-      p50: number;
-      p95: number;
-      p99: number;
-      max: number;
-    };
-    intakeLatency: {
-      avg: number;
-      p50: number;
-      p95: number;
-      p99: number;
-      max: number;
-    };
-    processingLatency: {
-      avg: number;
-      p50: number;
-      p95: number;
-      p99: number;
-      max: number;
-    };
+    searchLatency: PercentileMetrics;
+    intakeLatency: PercentileMetrics;
+    processingLatency: PercentileMetrics;
     cpu: {
       avg: number;
       peak: number;
@@ -95,12 +62,7 @@ export interface BaselineMetrics {
       documentsIndexed: number;
       documentsProcessed: number;
     };
-    perEntityType: {
-      host: EntityTypeMetrics;
-      user: EntityTypeMetrics;
-      service: EntityTypeMetrics;
-      generic: EntityTypeMetrics;
-    };
+    perEntityType: Record<EntityType, EntityTypeMetrics>;
     transformStates: {
       indexing: number;
       started: number;
@@ -190,10 +152,5 @@ export interface TransformStatsData {
     indexing: number;
     started: number;
   };
-  perEntityType: {
-    host: EntityTypeData;
-    user: EntityTypeData;
-    service: EntityTypeData;
-    generic: EntityTypeData;
-  };
+  perEntityType: Record<EntityType, EntityTypeData>;
 }
