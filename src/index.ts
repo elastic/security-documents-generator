@@ -11,7 +11,7 @@ import { rulesCommands } from './commands/rules_commands';
 import { privilegedUserMonitoringCommands } from './commands/privileged_user_monitoring';
 import { miscCommands } from './commands/misc_commands';
 import { baselineMetricsCommands } from './commands/baseline_metrics_commands';
-import { cdrCommands } from './commands/cdr_commands';
+import { registerCloudSecurityPostureCommand } from './commands/cloud_security_posture_commands';
 import { parseIntBase10 } from './commands/utils/cli_utils';
 
 await createConfigFileOnFirstRun();
@@ -28,8 +28,8 @@ const commands = [
   privilegedUserMonitoringCommands,
   miscCommands,
   baselineMetricsCommands,
-  cdrCommands,
 ];
 
 commands.forEach((cmd) => cmd.register(program));
+registerCloudSecurityPostureCommand(program);
 program.parse();
