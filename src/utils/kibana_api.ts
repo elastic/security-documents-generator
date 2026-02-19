@@ -254,12 +254,10 @@ export const installPackage = async ({
   packageName,
   version = 'latest',
   space,
-  force = false,
 }: {
   packageName: string;
   version?: string;
   space?: string;
-  force?: boolean;
 }) => {
   const url = FLEET_EPM_PACKAGES_URL(packageName, version);
 
@@ -267,7 +265,112 @@ export const installPackage = async ({
     url,
     {
       method: 'POST',
-      body: JSON.stringify({ force }),
+    },
+    { apiVersion: API_VERSIONS.public.v1, space }
+  );
+};
+
+export const createAgentPolicy = async ({
+  name,
+  namespace = 'default',
+  space,
+}: {
+  name: string;
+  namespace?: string;
+  space?: string;
+}): Promise<{ item: { id: string; name: string } }> => {
+  // Check if an agent policy with this name already exists
+  const escapedName = name.replace(/"/g, '\\"');
+  const kuery = encodeURIComponent(`name:"${escapedName}"`);
+  const existing = await kibanaFetch<{
+    items: Array<{ id: string; name: string }>;
+  }>(
+    `/api/fleet/agent_policies?kuery=${kuery}`,
+    { method: 'GET' },
+    { apiVersion: API_VERSIONS.public.v1, space }
+  );
+  if (existing.items.length > 0) {
+    return { item: existing.items[0] };
+  }
+
+  return kibanaFetch(
+    '/api/fleet/agent_policies',
+    {
+      method: 'POST',
+      body: JSON.stringify({ name, namespace }),
+    },
+    { apiVersion: API_VERSIONS.public.v1, space }
+  );
+};
+
+export const getPackageInfo = async ({
+  packageName,
+  space,
+}: {
+  packageName: string;
+  space?: string;
+}): Promise<{ item: { name: string; version: string; status: string } }> => {
+  return kibanaFetch(
+    FLEET_EPM_PACKAGES_URL(packageName),
+    { method: 'GET' },
+    { apiVersion: API_VERSIONS.public.v1, space }
+  );
+};
+
+export const getPackagePolicies = async ({
+  packageName,
+  space,
+}: {
+  packageName: string;
+  space?: string;
+}): Promise<{ items: Array<{ id: string; name: string; package?: { name: string } }> }> => {
+  const result = await kibanaFetch<{
+    items: Array<{ id: string; name: string; package?: { name: string } }>;
+  }>(
+    '/api/fleet/package_policies?perPage=1000',
+    { method: 'GET' },
+    { apiVersion: API_VERSIONS.public.v1, space }
+  );
+
+  return {
+    items: result.items.filter((p) => p.package?.name === packageName),
+  };
+};
+
+export const createPackagePolicy = async ({
+  name,
+  agentPolicyIds,
+  packageName,
+  packageVersion,
+  inputs,
+  vars,
+  namespace = 'default',
+  space,
+}: {
+  name: string;
+  agentPolicyIds: string[];
+  packageName: string;
+  packageVersion: string;
+  inputs: Record<string, unknown>;
+  vars?: Record<string, unknown>;
+  namespace?: string;
+  space?: string;
+}): Promise<{ item: { id: string; name: string } }> => {
+  return kibanaFetch(
+    '/api/fleet/package_policies',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        name,
+        namespace,
+        policy_ids: agentPolicyIds,
+        package: {
+          name: packageName,
+          version: packageVersion,
+        },
+        inputs,
+        ...(vars && { vars }),
+      }),
     },
     { apiVersion: API_VERSIONS.public.v1, space }
   );
