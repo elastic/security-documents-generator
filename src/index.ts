@@ -41,7 +41,6 @@ import {
   generateCloudSecurityPosture,
   resolveDataSources,
 } from './commands/cloud_security_posture';
-import { cdrCommand, CDR_OPTIONS, CdrOption, ATTACK_DISCOVERY_HOSTS } from './commands/cdr';
 
 import fs from 'fs';
 
