@@ -1,10 +1,12 @@
 import { generateNewSeed } from '../../constants';
 import { faker } from '@faker-js/faker';
 import { ingest } from '../utils/indices';
-import createVulnerabilities, { CreateVulnerabilitiesParams } from '../../create_vulnerability';
+import createVulnerabilities, {
+  CreateVulnerabilitiesParams,
+} from '../../generators/create_vulnerability';
 import createMisconfigurations, {
   CreateMisconfigurationsParams,
-} from '../../create_misconfigurations';
+} from '../../generators/create_misconfigurations';
 import { installPackage } from '../../utils/kibana_api';
 
 const VULNERABILITY_INDEX_NAME = 'logs-cloud_security_posture.vulnerabilities_latest-default';

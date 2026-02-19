@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import createAlerts from '../create_alerts';
+import createAlerts from '../generators/create_alerts';
 
 import { ensureSpace, getAlertIndex } from '../utils';
 import { sleep } from '../utils/sleep';

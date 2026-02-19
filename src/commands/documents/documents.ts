@@ -1,5 +1,5 @@
-import createAlerts, { BaseCreateAlertsReturnType } from '../../create_alerts';
-import createEvents from '../../create_events';
+import createAlerts, { BaseCreateAlertsReturnType } from '../../generators/create_alerts';
+import createEvents from '../../generators/create_events';
 import eventMappings from '../../mappings/eventMappings.json' assert { type: 'json' };
 import { indexCheck } from '../utils/indices';
 import { getConfig } from '../../get_config';
