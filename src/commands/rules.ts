@@ -3,8 +3,8 @@ import { getEsClient } from './utils/indices';
 import moment from 'moment';
 import { chunk } from 'lodash-es';
 import { createRule, getAllRules, bulkDeleteRules } from '../utils/kibana_api';
-
-const EVENTS_INDEX = 'logs-*';
+import { bulkIngest } from './shared/elasticsearch';
+import { EVENTS_INDEX, SMALL_CHUNK_SIZE } from '../constants';
 
 interface Event {
   '@timestamp': string;
@@ -226,42 +226,21 @@ const generateNonOverlappingGapEvents = (
 };
 
 const ingestEvents = async (events: Event[]) => {
-  const client = getEsClient();
-  if (!client) throw new Error('Failed to get ES client');
-
-  const chunks = chunk(events, 1000);
-
-  for (const chunk of chunks) {
-    try {
-      const operations = chunk.flatMap((doc) => [{ index: { _index: EVENTS_INDEX } }, doc]);
-
-      await client.bulk({ operations, refresh: true });
-    } catch (err) {
-      console.error('Error ingesting events:', err);
-      throw err;
-    }
-  }
+  await bulkIngest({
+    index: EVENTS_INDEX,
+    documents: events,
+    chunkSize: SMALL_CHUNK_SIZE,
+    action: 'index',
+  });
 };
 
 const ingestGapEvents = async (gapEvents: GapEvent[]) => {
-  const client = getEsClient();
-  if (!client) throw new Error('Failed to get ES client');
-
-  const chunks = chunk(gapEvents, 1000);
-
-  for (const chunk of chunks) {
-    try {
-      const operations = chunk.flatMap((doc) => [
-        { create: { _index: '.kibana-event-log-ds' } },
-        doc,
-      ]);
-
-      await client.bulk({ operations, refresh: true });
-    } catch (err) {
-      console.error('Error ingesting gap events:', err);
-      throw err;
-    }
-  }
+  await bulkIngest({
+    index: '.kibana-event-log-ds',
+    documents: gapEvents,
+    chunkSize: SMALL_CHUNK_SIZE,
+    action: 'create',
+  });
 };
 
 const deleteGapEvents = async () => {
