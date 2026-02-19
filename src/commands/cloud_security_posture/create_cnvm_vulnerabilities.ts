@@ -1,8 +1,9 @@
 import { faker } from '@faker-js/faker';
 import moment from 'moment';
 import { CSP_AGENT_VERSION, getRandomCve, pickSeverity, CSPMAccount } from './csp_utils';
+import type { BaseDocumentParams } from '../../types/document_params';
 
-export interface CreateCNVMVulnerabilityParams {
+export interface CreateCNVMVulnerabilityParams extends BaseDocumentParams {
   account?: CSPMAccount;
 }
 

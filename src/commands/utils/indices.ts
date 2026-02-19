@@ -2,9 +2,8 @@ import { Client } from '@elastic/elasticsearch';
 import { ConfigType, getConfig } from '../../get_config';
 import { IndicesCreateRequest } from '@elastic/elasticsearch/lib/api/types';
 import { exec } from 'child_process';
-import { chunk, once } from 'lodash-es';
-import { createProgressBar } from './cli_utils';
-import { addMetadataToDoc } from '../../utils/doc_metadata';
+import { once } from 'lodash-es';
+import { bulkIngest } from '../shared/elasticsearch';
 
 export * from './create_agent_document';
 
@@ -44,7 +43,7 @@ export const getFileLineCount = async (filePath: string): Promise<number> => {
         reject(error || stderr);
       }
 
-      const count = parseInt(stdout.trim().split(' ')[0]);
+      const count = parseInt(stdout.trim().split(' ')[0], 10);
 
       if (isNaN(count)) {
         console.log(
@@ -87,33 +86,14 @@ export const ingest = async (
   documents: Array<object>,
   { noMeta, pipeline }: { noMeta?: boolean; pipeline?: string } = {}
 ) => {
-  const esClient = getEsClient();
-
-  const progressBar = createProgressBar(index);
-
-  const chunks = chunk(documents, 10000);
-  progressBar.start(documents.length, 0);
-
-  for (const chunk of chunks) {
-    try {
-      const operations = chunk.flatMap((doc) => [
-        { create: {} },
-        noMeta ? doc : addMetadataToDoc(doc),
-      ]);
-
-      const results = await esClient.bulk({ index, operations, refresh: true, pipeline });
-      if (results.errors) {
-        console.log(
-          'The errors below occurred when bulk creating documents. Continuing with the potential for partial data.'
-        );
-        results.items.forEach((each) => {
-          console.log(each);
-        });
-      }
-      progressBar.increment(chunk.length);
-    } catch (err) {
-      console.log('Error: ', err);
-    }
-  }
-  progressBar.stop();
+  await bulkIngest({
+    index,
+    documents,
+    chunkSize: 10000,
+    action: 'create',
+    showProgress: true,
+    metadata: !noMeta,
+    refresh: true,
+    pipeline,
+  });
 };

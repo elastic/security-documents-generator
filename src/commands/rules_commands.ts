@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { CommandModule } from './types';
-import { handleCommandError } from './utils/cli_utils';
+import { parseIntBase10, wrapAction } from './utils/cli_utils';
 import { deleteAllRules, generateRulesAndAlerts } from './rules';
 
 export const rulesCommands: CommandModule = {
@@ -14,12 +14,12 @@ export const rulesCommands: CommandModule = {
       .option('-f, --from <number>', 'Generate events from last N hours', '24')
       .option('-g, --gaps <number>', 'Amount of gaps per rule', '0')
       .option('-c, --clean', 'Clean gap events before generating rules', 'false')
-      .action(async (options) => {
-        try {
-          const ruleCount = parseInt(options.rules);
-          const eventCount = parseInt(options.events);
-          const fromHours = parseInt(options.from);
-          const gaps = parseInt(options.gaps);
+      .action(
+        wrapAction(async (options) => {
+          const ruleCount = parseIntBase10(options.rules);
+          const eventCount = parseIntBase10(options.events);
+          const fromHours = parseIntBase10(options.from);
+          const gaps = parseIntBase10(options.gaps);
           console.log(`Generating ${ruleCount} rules and ${eventCount} events...`);
           console.log(`Using interval: ${options.interval}`);
           console.log(`Generating events from last ${fromHours} hours`);
@@ -33,21 +33,17 @@ export const rulesCommands: CommandModule = {
             gapsPerRule: gaps,
           });
           console.log('Successfully generated rules and events');
-        } catch (error) {
-          handleCommandError(error, 'Error generating rules and events');
-        }
-      });
+        })
+      );
 
     program
       .command('delete-rules')
       .description('Delete all detection rules')
       .option('-s, --space <string>', 'Space to delete rules from')
-      .action(async (options) => {
-        try {
+      .action(
+        wrapAction(async (options) => {
           await deleteAllRules(options.space);
-        } catch (error) {
-          handleCommandError(error, 'Error deleting rules');
-        }
-      });
+        })
+      );
   },
 };

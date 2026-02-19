@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { CommandModule } from '../types';
-import { initializeSpace } from '../../utils';
+import { ensureSpace } from '../../utils';
+import { parseIntBase10, parseOptionInt, wrapAction } from '../utils/cli_utils';
 import {
   deleteAllAlerts,
   deleteAllEvents,
@@ -26,29 +27,27 @@ export const documentCommands: CommandModule = {
       .option('-u <h>', 'number of users')
       .option('-s <h>', 'space (will be created if it does not exist)')
       .description('Generate fake alerts')
-      .action(async (options) => {
-        const alertsCount = parseInt(options.n || '1');
-        const hostCount = parseInt(options.h || '1');
-        const userCount = parseInt(options.u || '1');
-        const space = options.s || 'default';
+      .action(
+        wrapAction(async (options) => {
+          const alertsCount = parseOptionInt(options.n, 1);
+          const hostCount = parseOptionInt(options.h, 1);
+          const userCount = parseOptionInt(options.u, 1);
+          const space = await ensureSpace(options.s);
 
-        if (space !== 'default') {
-          await initializeSpace(space);
-        }
-
-        await generateAlerts(alertsCount, userCount, hostCount, space);
-      });
+          await generateAlerts(alertsCount, userCount, hostCount, space);
+        })
+      );
 
     program
       .command('generate-events')
-      .argument('<n>', 'integer argument', (v) => parseInt(v, 10))
+      .argument('<n>', 'integer argument', parseIntBase10)
       .description('Generate events')
-      .action(generateEvents);
+      .action(wrapAction(generateEvents));
 
     program.command('generate-graph').description('Generate fake graph').action(generateGraph);
 
-    program.command('delete-alerts').description('Delete all alerts').action(deleteAllAlerts);
+    program.command('delete-alerts').description('Delete all alerts').action(wrapAction(deleteAllAlerts));
 
-    program.command('delete-events').description('Delete all events').action(deleteAllEvents);
+    program.command('delete-events').description('Delete all events').action(wrapAction(deleteAllEvents));
   },
 };

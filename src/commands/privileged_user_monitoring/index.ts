@@ -1,11 +1,15 @@
 import { Command } from 'commander';
-import { checkbox, input } from '@inquirer/prompts';
 import { CommandModule } from '../types';
 import {
   PRIVILEGED_USER_MONITORING_OPTIONS,
   PrivilegedUserMonitoringOption,
 } from '../../constants';
 import { privmonCommand } from './privileged_user_monitoring';
+import {
+  promptForSelection,
+  promptForTextInput,
+} from '../utils/interactive_prompts';
+import { parseIntBase10, wrapAction } from '../utils/cli_utils';
 
 export const privilegedUserMonitoringCommands: CommandModule = {
   register(program: Command) {
@@ -16,8 +20,8 @@ export const privilegedUserMonitoringCommands: CommandModule = {
         `Generate source events and anomalous source data for privileged user monitoring and the privileged access detection ML jobs.`
       )
       .option('--space <space>', 'Space to use', 'default')
-      .action(async (options) => {
-        const answers = await checkbox<PrivilegedUserMonitoringOption>({
+      .action(wrapAction(async (options) => {
+        const answers = await promptForSelection<PrivilegedUserMonitoringOption>({
           message: 'Select options',
           choices: [
             {
@@ -57,13 +61,13 @@ export const privilegedUserMonitoringCommands: CommandModule = {
             },
           ],
         });
-        const userCount = Number(await input({ message: 'How many users', default: '10' }));
+        const userCount = parseIntBase10(await promptForTextInput('How many users', '10'));
         await privmonCommand({
           options: answers,
           userCount,
           space: options.space,
         });
-      });
+      }));
 
     program
       .command('privmon-quick')
@@ -71,7 +75,7 @@ export const privilegedUserMonitoringCommands: CommandModule = {
       .alias('quickmon')
       .option('--space <space>', 'Space to use', 'default')
       .option('--all', 'Include all options', false)
-      .action(async (options) => {
+      .action(wrapAction(async (options) => {
         const excludeOptions: PrivilegedUserMonitoringOption[] = options.all
           ? []
           : [PRIVILEGED_USER_MONITORING_OPTIONS.installPad];
@@ -83,6 +87,6 @@ export const privilegedUserMonitoringCommands: CommandModule = {
           userCount: 100,
           space: options.space,
         });
-      });
+      }));
   },
 };
