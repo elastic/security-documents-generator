@@ -11,13 +11,7 @@ import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { getConfig } from '../get_config';
 import * as path from 'path';
-import {
-  EntityFields,
-  GenericEntityFields,
-  HostFields,
-  ServiceFields,
-  UserFields,
-} from '../types/entities';
+import { GenericEntityFields, HostFields, ServiceFields, UserFields } from '../types/entities';
 
 const config = getConfig();
 

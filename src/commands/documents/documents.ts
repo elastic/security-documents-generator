@@ -1,7 +1,7 @@
 import createAlerts, { BaseCreateAlertsReturnType } from '../../create_alerts';
 import createEvents from '../../create_events';
 import eventMappings from '../../mappings/eventMappings.json' assert { type: 'json' };
-import { getEsClient, indexCheck } from '../utils/indices';
+import { indexCheck } from '../utils/indices';
 import { getConfig } from '../../get_config';
 import { MappingTypeMapping, BulkOperationContainer } from '@elastic/elasticsearch/lib/api/types';
 import pMap from 'p-map';

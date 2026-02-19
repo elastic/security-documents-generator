@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import { getEsClient, indexCheck, createAgentDocument } from './utils/indices';
+import { indexCheck, createAgentDocument } from './utils/indices';
 import { bulkIngest, deleteAllByIndex } from './shared/elasticsearch';
 import { chunk, once } from 'lodash-es';
 import moment from 'moment';
