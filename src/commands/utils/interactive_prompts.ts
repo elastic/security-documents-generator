@@ -15,15 +15,14 @@ export const promptForSelection = <T extends string>(params: {
 export const promptForNumericInputs = async (
   prompts: NumericPrompt[]
 ): Promise<Record<string, number>> => {
-  const values = await Promise.all(
-    prompts.map(async (prompt) => {
-      const raw = await input({
-        message: prompt.message,
-        default: prompt.defaultValue,
-      });
-      return [prompt.key, parseIntBase10(raw)] as const;
-    })
-  );
+  const values: Array<readonly [string, number]> = [];
+  for (const prompt of prompts) {
+    const raw = await input({
+      message: prompt.message,
+      default: prompt.defaultValue,
+    });
+    values.push([prompt.key, parseIntBase10(raw)] as const);
+  }
 
   return Object.fromEntries(values);
 };
