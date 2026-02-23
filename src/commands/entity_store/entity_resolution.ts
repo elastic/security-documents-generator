@@ -11,10 +11,9 @@ import pMap from 'p-map';
 import { createProgressBar } from '../utils/cli_utils';
 import readline from 'readline';
 import fs from 'fs';
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
+import path from 'path';
+import { getEntityResolutionDataDir } from '../../utils/data_paths';
 
-const directoryName = dirname(fileURLToPath(import.meta.url));
 const BATCH_SIZE = 1000;
 const CONCURRENCY = 10;
 const RULE_ID = 'er-demo-match-all';
@@ -233,7 +232,7 @@ const jsonlFileToBatchGenerator = (
 };
 
 const getFilePath = (fileName: string, mini: boolean) => {
-  return directoryName + `/../../../data/entity_resolution_data/${mini ? 'mini_' : ''}${fileName}`;
+  return path.join(getEntityResolutionDataDir(), `${mini ? 'mini_' : ''}${fileName}`);
 };
 
 const importLogData = async ({
