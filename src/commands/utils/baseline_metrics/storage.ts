@@ -59,8 +59,10 @@ export const findBaselineByPattern = (pattern: string): string | null => {
     searchPattern = searchPattern.slice(0, -5);
   }
 
-  // Remove baselines/ prefix if present (for convenience)
-  if (searchPattern.startsWith('baselines/')) {
+  // Remove common baseline directory prefixes (for convenience)
+  if (searchPattern.startsWith('data/baselines/')) {
+    searchPattern = searchPattern.slice(15);
+  } else if (searchPattern.startsWith('baselines/')) {
     searchPattern = searchPattern.slice(10);
   }
 
