@@ -39,12 +39,13 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/cli-progress": "3.11.6",
     "@types/lodash-es": "4.17.12",
-    "eslint": "9.39.2",
-    "@typescript-eslint/eslint-plugin": "8.55.0",
-    "@typescript-eslint/parser": "8.55.0",
+    "@typescript-eslint/eslint-plugin": "^8.56.0",
+    "@typescript-eslint/parser": "^8.56.0",
     "esbuild": "0.27.3",
+    "eslint": "10.0.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-check-file": "3.3.1",
     "eslint-plugin-prettier": "5.5.5",
