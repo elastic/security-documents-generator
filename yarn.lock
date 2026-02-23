@@ -327,7 +327,7 @@
   dependencies:
     "@types/json-schema" "^7.0.15"
 
-"@eslint/js@^10.0.1":
+"@eslint/js@10.0.1":
   version "10.0.1"
   resolved "https://registry.yarnpkg.com/@eslint/js/-/js-10.0.1.tgz#1e8a876f50117af8ab67e47d5ad94d38d6622583"
   integrity sha512-zeR9k5pd4gxjZ0abRoIaxdc7I3nDktoXZk2qOv9gCNWx3mVwEn32VRhyLaRsDiJjTs0xq/T8mfPtyuXu7GWBcA==
@@ -599,7 +599,7 @@
   dependencies:
     undici-types "~7.16.0"
 
-"@typescript-eslint/eslint-plugin@^8.56.0":
+"@typescript-eslint/eslint-plugin@8.56.0":
   version "8.56.0"
   resolved "https://registry.yarnpkg.com/@typescript-eslint/eslint-plugin/-/eslint-plugin-8.56.0.tgz#5aec3db807a6b8437ea5d5ebf7bd16b4119aba8d"
   integrity sha512-lRyPDLzNCuae71A3t9NEINBiTn7swyOhvUj3MyUOxb8x6g6vPEFoOU+ZRmGMusNC3X3YMhqMIX7i8ShqhT74Pw==
@@ -613,7 +613,7 @@
     natural-compare "^1.4.0"
     ts-api-utils "^2.4.0"
 
-"@typescript-eslint/parser@^8.56.0":
+"@typescript-eslint/parser@8.56.0":
   version "8.56.0"
   resolved "https://registry.yarnpkg.com/@typescript-eslint/parser/-/parser-8.56.0.tgz#8ecff1678b8b1a742d29c446ccf5eeea7f971d72"
   integrity sha512-IgSWvLobTDOjnaxAfDTIHaECbkNlAlKv2j5SjpB2v7QHKv1FIfjwMy8FsDbVfDX/KjmCmYICcw7uGaXLhtsLNg==
