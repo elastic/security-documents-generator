@@ -12,6 +12,7 @@ import { fileURLToPath } from 'url';
 import { getConfig } from '../../get_config';
 import * as path from 'path';
 import { GenericEntityFields, HostFields, ServiceFields, UserFields } from '../../types/entities';
+import { getEntityStorePerfDataDir } from '../../utils/data_paths';
 
 const config = getConfig();
 
@@ -313,7 +314,7 @@ const generateGenericEntityFields = ({
 
 const FIELD_LENGTH = 2;
 const directoryName = dirname(fileURLToPath(import.meta.url));
-const DATA_DIRECTORY = directoryName + '/../../../data/entity_store_perf_data';
+const DATA_DIRECTORY = getEntityStorePerfDataDir();
 const LOGS_DIRECTORY = directoryName + '/../../../logs';
 
 /**

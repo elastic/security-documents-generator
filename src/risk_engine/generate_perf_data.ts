@@ -5,6 +5,7 @@ import createAlerts from '../generators/create_alerts';
 import { uploadFile } from '../commands/entity_store_perf/entity_store_perf';
 import { getAlertIndex } from '../utils';
 import { getFileLineCount } from '../commands/utils/indices';
+import { getRiskEnginePerfDataDir } from '../utils/data_paths';
 
 export const createPerfDataFile = ({
   entityCount,
@@ -167,7 +168,7 @@ export const uploadPerfData = async (file: string, interval: number, uploadCount
   console.log(`Data file ${file} uploaded in ${ingestTook}ms`);
 };
 
-const DATA_DIRECTORY = process.cwd() + '/data/risk_engine/perf';
+const DATA_DIRECTORY = getRiskEnginePerfDataDir();
 const getFilePath = (name: string) => `${DATA_DIRECTORY}/${name}.json`;
 
 const getMultiFilePath = (name: string, idx: number, total: number) => {

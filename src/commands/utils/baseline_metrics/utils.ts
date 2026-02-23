@@ -1,7 +1,7 @@
 import fs from 'fs';
-import path from 'path';
+import { getBaselinesDir } from '../../../utils/data_paths';
 
-export const BASELINES_DIR = path.join(process.cwd(), 'baselines');
+export const BASELINES_DIR = getBaselinesDir();
 
 // Maximum reasonable sampling interval (5 minutes in milliseconds)
 // Used to filter out invalid intervals when detecting sampling frequency

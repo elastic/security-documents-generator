@@ -7,6 +7,7 @@ import * as RiskEngine from '../../risk_engine/generate_perf_data';
 import * as RiskEngineIngest from '../../risk_engine/ingest';
 import { stressTest } from '../../risk_engine/esql_stress_test';
 import * as Pain from '../../risk_engine/scripted_metrics_stress_test';
+import { getRiskEnginePerfDataDir } from '../../utils/data_paths';
 
 export const riskEngineCommands: CommandModule = {
   register(program: Command) {
@@ -83,7 +84,7 @@ export const riskEngineCommands: CommandModule = {
       .description('Upload performance data files')
       .action(
         wrapAction(async (dataset) => {
-          const BASE = process.cwd() + '/data/risk_engine/perf';
+          const BASE = getRiskEnginePerfDataDir();
           await deleteAllAlerts();
           const datasetPath = `${BASE}/${dataset}`;
           if (!fs.existsSync(datasetPath)) {

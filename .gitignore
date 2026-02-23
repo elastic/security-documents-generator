@@ -1,5 +1,15 @@
 output
-data/
+data/*
+!data/entity_resolution_data/
+!data/entity_resolution_data/**
+!data/entity_store_perf_data/
+!data/entity_store_perf_data/**
+!data/risk_engine/
+!data/risk_engine/**
+!data/baselines/
+!data/baselines/**
+!data/test_log_data/
+!data/test_log_data/**
 reports/
 node_modules
 config.json
