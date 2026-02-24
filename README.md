@@ -157,6 +157,8 @@ Detailed command documentation is colocated with command code under `src/command
 | `list-baselines` | List saved baseline metric files | `src/commands/baseline_metrics/README.md` |
 | `compare-metrics` | Compare a run against baseline metrics | `src/commands/baseline_metrics/README.md` |
 | `generate-cloud-security-posture` (`csp`) | Generate CSP findings across sources | `src/commands/generate_cloud_security_posture/README.md` |
+| `organization` | Generate realistic organization security integration data | `src/commands/organization/` |
+| `organization-quick` | Quick organization generation with defaults | `src/commands/organization/` |
 
 ### Quick command list
 
@@ -178,6 +180,8 @@ Detailed command documentation is colocated with command code under `src/command
   - `create-baseline`, `list-baselines`, `compare-metrics`
 - **Cloud Security Posture**
   - `generate-cloud-security-posture` (`csp`)
+- **Organization**
+  - `organization`, `organization-quick`
 
 ## Performance and baselines
 

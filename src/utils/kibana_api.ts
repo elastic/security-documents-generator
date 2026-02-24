@@ -254,12 +254,17 @@ export const installPackage = async ({
   packageName,
   version = 'latest',
   space,
+  prerelease = false,
 }: {
   packageName: string;
   version?: string;
   space?: string;
+  prerelease?: boolean;
 }) => {
-  const url = FLEET_EPM_PACKAGES_URL(packageName, version);
+  let url = FLEET_EPM_PACKAGES_URL(packageName, version);
+  if (prerelease) {
+    url += '?prerelease=true';
+  }
 
   return kibanaFetch(
     url,

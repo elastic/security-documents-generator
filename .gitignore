@@ -10,6 +10,7 @@ data/*
 !data/baselines/**
 !data/test_log_data/
 !data/test_log_data/**
+data_analysis/
 reports/
 node_modules
 config.json
