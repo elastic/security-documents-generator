@@ -16,8 +16,8 @@ Ask the user to provide:
 
 1. **Integration name** -- which integration to update or create (e.g. `okta`, `crowdstrike`, or a new one)
 2. **Source repo and path** -- where the real data lives. One of:
-   - **Integrations repo**: `/Users/paulosilva/Elastic/integrations/packages/<name>/`
-   - **Beats repo**: `/Users/paulosilva/Elastic/beats/x-pack/filebeat/module/<name>/` (or auditbeat, etc.)
+   - **Integrations repo**: `/Users/johndoe/repos/integrations/packages/<name>/`
+   - **Beats repo**: `/Users/johndoe/repos/beats/x-pack/filebeat/module/<name>/` (or auditbeat, etc.)
    - **Cloudbeat repo**: ask user for the path
 
 If the user points to a specific folder, use that directly.
@@ -39,14 +39,14 @@ Task Progress:
 
 Depending on the source repo, read these files:
 
-**From the integrations repo** (`/Users/paulosilva/Elastic/integrations/packages/<name>/`):
+**From the integrations repo** (`/Users/johndoe/repos/integrations/packages/<name>/`):
 
 - `manifest.yml` -- package name, version, description
 - `data_stream/*/fields/*.yml` -- ECS and custom field definitions
 - `data_stream/*/sample_event.json` -- real sample documents
 - `data_stream/*/manifest.yml` -- data stream type and dataset name
 
-**From the beats repo** (`/Users/paulosilva/Elastic/beats/x-pack/filebeat/module/<name>/`):
+**From the beats repo** (`/Users/johndoe/repos/beats/x-pack/filebeat/module/<name>/`):
 
 - `manifest.yml` -- module metadata
 - `*/config/*.yml` -- dataset configuration
@@ -137,14 +137,14 @@ Fix any TypeScript errors before finishing.
 
 ## File Locations
 
-| Resource | Path |
-| --- | --- |
-| Integration classes | `src/commands/organization/integrations/` |
-| Base class | `src/commands/organization/integrations/base_integration.ts` |
-| Integration registry | `src/commands/organization/integrations/index.ts` |
-| Types (IntegrationName) | `src/commands/organization/types.ts` |
-| Main command | `src/commands/organization/organization.ts` |
-| Organization generator | `src/commands/organization/organization_generator.ts` |
-| Correlation builder | `src/commands/organization/correlation.ts` |
-| Integrations repo | `/Users/paulosilva/Elastic/integrations/packages/` |
-| Beats repo | `/Users/paulosilva/Elastic/beats/x-pack/filebeat/module/` |
+| Resource                | Path                                                         |
+| ----------------------- | ------------------------------------------------------------ |
+| Integration classes     | `src/commands/organization/integrations/`                    |
+| Base class              | `src/commands/organization/integrations/base_integration.ts` |
+| Integration registry    | `src/commands/organization/integrations/index.ts`            |
+| Types (IntegrationName) | `src/commands/organization/types.ts`                         |
+| Main command            | `src/commands/organization/organization.ts`                  |
+| Organization generator  | `src/commands/organization/organization_generator.ts`        |
+| Correlation builder     | `src/commands/organization/correlation.ts`                   |
+| Integrations repo       | `/Users/johndoe/repos/integrations/packages/`                |
+| Beats repo              | `/Users/johndoe/repos/beats/x-pack/filebeat/module/`         |
