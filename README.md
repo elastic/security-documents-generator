@@ -157,8 +157,8 @@ Detailed command documentation is colocated with command code under `src/command
 | `list-baselines` | List saved baseline metric files | `src/commands/baseline_metrics/README.md` |
 | `compare-metrics` | Compare a run against baseline metrics | `src/commands/baseline_metrics/README.md` |
 | `generate-cloud-security-posture` (`csp`) | Generate CSP findings across sources | `src/commands/generate_cloud_security_posture/README.md` |
-| `organization` | Generate realistic organization security integration data | `src/commands/organization/` |
-| `organization-quick` | Quick organization generation with defaults | `src/commands/organization/` |
+| `generate-correlated-organization-data` (`org-data`) | Generate correlated organization security integration data | `src/commands/org_data/` |
+| `generate-correlated-organization-data-quick` (`org-data-quick`) | Quick correlated organization data generation with defaults | `src/commands/org_data/` |
 
 ### Quick command list
 
@@ -180,16 +180,16 @@ Detailed command documentation is colocated with command code under `src/command
   - `create-baseline`, `list-baselines`, `compare-metrics`
 - **Cloud Security Posture**
   - `generate-cloud-security-posture` (`csp`)
-- **Organization**
-  - `organization`, `organization-quick`
+- **Correlated Organization Data**
+  - `generate-correlated-organization-data` (`org-data`), `generate-correlated-organization-data-quick` (`org-data-quick`)
 
 ## Cursor skills
 
-### `/update-organization-integrations`
+### `/update-org-data-integrations`
 
-Updates existing integrations or creates new ones for the `organization` command, using real field
-mappings and sample events from upstream Elastic repos as the source of truth. Recommended to use in
-**Plan mode** so the agent proposes changes before applying them.
+Updates existing integrations or creates new ones for the `org-data` command, using upstream field
+definitions and reference sample events from Elastic repos as the source of truth. Recommended to
+use in **Plan mode** so the agent proposes changes before applying them.
 
 ## Performance and baselines
 

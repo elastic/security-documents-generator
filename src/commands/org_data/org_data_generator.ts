@@ -1,5 +1,5 @@
 /**
- * Organization Generator
+ * Correlated Organization Data Generator
  * Generates complete organization structure with employees, devices, hosts, and cloud resources
  */
 
@@ -40,7 +40,7 @@ import {
 /**
  * Generate a complete organization based on configuration
  */
-export const generateOrganization = (config: OrganizationConfig): Organization => {
+export const generateOrgData = (config: OrganizationConfig): Organization => {
   // Set seed for reproducibility if provided
   if (config.seed !== undefined) {
     faker.seed(config.seed);
@@ -862,7 +862,7 @@ export const getEmployeeCountForSize = (size: OrganizationSize, seed?: number): 
 /**
  * Get organization summary for logging
  */
-export const getOrganizationSummary = (org: Organization): string => {
+export const getOrgDataSummary = (org: Organization): string => {
   const awsEmployees = org.employees.filter((e) => e.hasAwsAccess).length;
   const resourcesByProvider = org.cloudResources.reduce(
     (acc, r) => {

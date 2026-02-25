@@ -1,6 +1,6 @@
 /**
- * Organization Command
- * Main entry point for generating realistic organization security integration data
+ * Correlated Organization Data Command
+ * Main entry point for generating correlated organization security integration data
  */
 
 import { select, confirm } from '@inquirer/prompts';
@@ -12,7 +12,7 @@ import {
   OrganizationConfig,
   ProductivitySuite,
 } from './types';
-import { generateOrganization, getOrganizationSummary } from './organization_generator';
+import { generateOrgData, getOrgDataSummary } from './org_data_generator';
 import { buildCorrelationMap, verifyCorrelationIntegrity } from './correlation';
 import {
   createIntegrationRegistry,
@@ -86,10 +86,10 @@ const promptForProductivitySuite = async (): Promise<ProductivitySuite> => {
 };
 
 /**
- * Main command function for generating SaaS organization data
+ * Main command function for generating correlated organization data
  */
-export const runOrganization = async (options: OrganizationOptions): Promise<void> => {
-  console.log('\n=== Organization Security Integration Generator ===\n');
+export const runOrgData = async (options: OrganizationOptions): Promise<void> => {
+  console.log('\n=== Correlated Organization Data Generator ===\n');
 
   // Prompt for organization size
   const size = await promptForSize();
@@ -126,7 +126,7 @@ export const runOrganization = async (options: OrganizationOptions): Promise<voi
   console.log('');
 
   // Generate organization
-  console.log('Generating organization structure...');
+  console.log('Generating correlated organization data...');
   const orgConfig: OrganizationConfig = {
     name,
     domain: `${name.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`,
@@ -135,10 +135,10 @@ export const runOrganization = async (options: OrganizationOptions): Promise<voi
     productivitySuite: validatedOptions.productivitySuite,
   };
 
-  const organization = generateOrganization(orgConfig);
+  const organization = generateOrgData(orgConfig);
 
   // Display organization summary
-  console.log('\n' + getOrganizationSummary(organization) + '\n');
+  console.log('\n' + getOrgDataSummary(organization) + '\n');
 
   // Build correlation map
   console.log('Building correlation map...');
@@ -229,7 +229,7 @@ const validateOptions = async (options: OrganizationOptions): Promise<ValidatedO
  */
 const displaySummary = (
   results: IntegrationResult[],
-  organization: ReturnType<typeof generateOrganization>,
+  organization: ReturnType<typeof generateOrgData>,
   space: string,
   detectionRuleResults: DetectionRuleResult[] = []
 ): void => {
@@ -578,8 +578,8 @@ const displaySummary = (
 /**
  * Quick generation with defaults (for quick setup, still prompts for size)
  */
-export const runOrganizationQuick = async (space: string = 'default'): Promise<void> => {
-  await runOrganization({
+export const runOrgDataQuick = async (space: string = 'default'): Promise<void> => {
+  await runOrgData({
     size: 'medium', // Will be overridden by interactive prompt
     name: 'Acme CRM',
     space,
@@ -591,11 +591,11 @@ export const runOrganizationQuick = async (space: string = 'default'): Promise<v
 /**
  * Get help text for the command
  */
-export const getOrganizationHelp = (): string => {
+export const getOrgDataHelp = (): string => {
   return `
-Organization Security Integration Generator
+Correlated Organization Data Generator
 
-Generates realistic security integration data for a simulated company.
+Generates correlated security integration data for a simulated company.
 The command will interactively prompt you to select an organization size.
 
 Organization Sizes (selected via interactive prompt):
@@ -669,25 +669,25 @@ Correlation Features:
   - Department-based activity patterns across all integrations
 
 Examples:
-  # Generate organization with all integrations (will prompt for size)
-  yarn start organization
+  # Generate correlated organization data with all integrations (will prompt for size)
+  yarn start org-data
 
   # Generate with specific company name
-  yarn start organization --name "MegaCorp CRM"
+  yarn start org-data --name "MegaCorp CRM"
 
   # Generate with only original integrations
-  yarn start organization --integrations okta,entra_id,cloud_asset,okta_system,cloudtrail
+  yarn start org-data --integrations okta,entra_id,cloud_asset,okta_system,cloudtrail
 
   # Generate with endpoint + identity stack
-  yarn start organization --integrations okta,entra_id,crowdstrike,cisco_duo,1password
+  yarn start org-data --integrations okta,entra_id,crowdstrike,cisco_duo,1password
 
   # Generate with full network security stack
-  yarn start organization --integrations cloudflare_logpush,zscaler_zia,ti_abusech
+  yarn start org-data --integrations cloudflare_logpush,zscaler_zia,ti_abusech
 
   # Generate with detection rules enabled
-  yarn start organization --detection-rules
+  yarn start org-data --detection-rules
 
   # Generate with reproducible seed
-  yarn start organization --seed 12345
+  yarn start org-data --seed 12345
 `.trim();
 };

@@ -1,21 +1,35 @@
 ---
-name: update-organization-integrations
-description: Update existing integrations or add new integrations to the organization command using real data from the Elastic integrations repo, beats repo, cloudbeat repo, or endpoint-package repo. Use when the user asks to update an integration, add a new integration (including Elastic Defend / endpoint), fix integration field mappings, or align generated data with real integration data.
+name: update-org-data-integrations
+description: >-
+  Create or modify integration classes in src/commands/org_data/integrations/
+  that extend BaseIntegration for the `yarn start org-data`
+  (generate-correlated-organization-data) command. These classes define Fleet
+  package installation, data stream configs, and generateDocuments() methods
+  that produce correlated user/device documents across the simulated
+  organization.
+
+  Use ONLY when the user explicitly asks to add, update, or fix an integration
+  for the org-data command (e.g. "add GitLab to org-data", "update the
+  okta_integration.ts field mappings for org-data", "fix correlation in the
+  crowdstrike org-data integration").
+
+  Do NOT use for: cloud security posture (csp), privileged user monitoring
+  (privmon), entity store, or any other command.
 ---
 
-# Update Organization Integrations
+# Update Org-Data Integrations
 
 ## Overview
 
-Updates existing integrations or creates new ones for the `yarn start organization` command,
-using real field mappings and sample events from upstream Elastic repos as the source of truth.
+Updates existing integrations or creates new ones for the `yarn start org-data` command,
+using upstream field definitions and reference sample events from Elastic repos as the source of truth.
 
 ## Before You Start
 
 Ask the user to provide:
 
 1. **Integration name** -- which integration to update or create (e.g. `okta`, `crowdstrike`, or a new one)
-2. **Source repo and path** -- where the real data lives. One of:
+2. **Source repo and path** -- where the upstream package definitions live. One of:
    - **Integrations repo**: `/Users/johndoe/repos/integrations/packages/<name>/`
    - **Beats repo**: `/Users/johndoe/repos/beats/x-pack/filebeat/module/<name>/` (or auditbeat, etc.)
    - **Cloudbeat repo**: ask user for the path
@@ -29,7 +43,7 @@ Copy this checklist and track progress:
 
 ```
 Task Progress:
-- [ ] Step 1: Read real integration data
+- [ ] Step 1: Read upstream package definitions
 - [ ] Step 2: Read the existing integration (or base class for new)
 - [ ] Step 3: Update or create the integration class
 - [ ] Step 3b: Ensure cross-integration correlation
@@ -37,9 +51,10 @@ Task Progress:
 - [ ] Step 5: Add detection rules
 - [ ] Step 6: Verify the changes compile
 - [ ] Step 7: Lint and format the code
+- [ ] Step 8: Update this skill with session learnings
 ```
 
-### Step 1: Read Real Integration Data
+### Step 1: Read Upstream Package Definitions
 
 Depending on the source repo, read these files:
 
@@ -47,7 +62,7 @@ Depending on the source repo, read these files:
 
 - `manifest.yml` -- package name, version, description
 - `data_stream/*/fields/*.yml` -- ECS and custom field definitions
-- `data_stream/*/sample_event.json` -- real sample documents
+- `data_stream/*/sample_event.json` -- reference sample documents
 - `data_stream/*/manifest.yml` -- data stream type and dataset name
 
 **From the beats repo** (`/Users/johndoe/repos/beats/x-pack/filebeat/module/<name>/`):
@@ -62,7 +77,7 @@ Depending on the source repo, read these files:
 - `package/endpoint/manifest.yml` -- package name (`endpoint`), version, title ("Elastic Defend"), conditions
 - `package/endpoint/data_stream/*/manifest.yml` -- per-data-stream type (logs or metrics) and dataset name
 - `package/endpoint/data_stream/*/fields/fields.yml` -- full field definitions (generated from custom schemas/subsets)
-- `package/endpoint/data_stream/*/sample_event.json` -- real sample documents (all streams except `collection`)
+- `package/endpoint/data_stream/*/sample_event.json` -- reference sample documents (all streams except `collection`)
 - `schemas/examples/v1/` -- additional realistic example events (e.g. `process_created_windows.json`, `malware_alert.json`, `network_outbound_connection_attempt_windows.json`)
 - `custom_schemas/` -- custom ECS-extension field definitions (source of truth for non-ECS fields)
 - `custom_subsets/elastic_endpoint/` -- subset definitions that control which fields each data stream uses
@@ -90,11 +105,11 @@ The endpoint package has 16 data streams:
 
 Note: The endpoint package is typically a prerelease version (e.g. `9.4.0-prerelease.0`), so the integration class should set `prerelease = true`.
 
-Extract from the real data:
+Extract from the upstream definitions:
 
 - All **data stream names** and their index patterns (e.g. `logs-okta.system-default`)
 - The **field mappings** -- which ECS fields and custom fields each data stream uses
-- The **sample event structure** -- realistic document shapes with real field values
+- The **sample event structure** -- realistic document shapes with reference field values
 - The **Fleet package name** -- exact name used for `installPackage`
 
 ### Step 2: Read the Existing Integration
@@ -102,14 +117,14 @@ Extract from the real data:
 **For updates**, read the existing integration file:
 
 ```
-src/commands/organization/integrations/<name>_integration.ts
+src/commands/org_data/integrations/<name>_integration.ts
 ```
 
 Identify what needs to change: field names, data stream configs, document structure, etc.
 
 **For new integrations**, read the base class and one existing integration as a reference:
 
-- `src/commands/organization/integrations/base_integration.ts` -- abstract base class
+- `src/commands/org_data/integrations/base_integration.ts` -- abstract base class
 - Pick a similar existing integration as a template (e.g. `slack_integration.ts` for audit log integrations, `entra_id_integration.ts` for entity analytics integrations)
 
 ### Step 3: Update or Create the Integration Class
@@ -134,7 +149,7 @@ Key patterns for `generateDocuments`:
 - Use `correlationMap` to link identities across integrations (e.g. `correlationMap.oktaUserIdToEmployee`)
 - Use `this.getRandomTimestamp()` for realistic time distribution
 - Each document must include `'@timestamp'` and the correct `data_stream`, `event`, and integration-specific fields
-- Match the field structure from the real sample events as closely as possible
+- Match the field structure from the reference sample events as closely as possible
 - **Use stable Employee/Device fields for correlated identifiers** -- see Step 3b below for the full rules on `user.id`, `host.mac`, `host.ip`, etc.
 
 **Endpoint-specific guidance:**
@@ -152,7 +167,7 @@ Security. Never generate random identifiers (SIDs, UIDs, MACs, IPs) per event wi
 
 #### Stable fields on Employee
 
-These fields are generated once in `organization_generator.ts` and must be reused by every
+These fields are generated once in `org_data_generator.ts` and must be reused by every
 integration that references users:
 
 | Field             | Description                                                                 | Example                                          |
@@ -199,24 +214,24 @@ When generating documents, map ECS fields to the stable Employee/Device values:
 If the new integration introduces an identity type not already covered (e.g. a vendor-specific user ID),
 extend the correlation infrastructure:
 
-1. Add the new field to `Employee` or `Device` in `src/commands/organization/types.ts`
-2. Generate the stable value in `src/commands/organization/organization_generator.ts`
-3. Add a new `Map` entry to the `CorrelationMap` interface in `src/commands/organization/types.ts`
-4. Populate it in `buildCorrelationMap()` in `src/commands/organization/correlation.ts`
-5. Add it to `createEmptyCorrelationMap()` in `src/commands/organization/integrations/base_integration.ts`
+1. Add the new field to `Employee` or `Device` in `src/commands/org_data/types.ts`
+2. Generate the stable value in `src/commands/org_data/org_data_generator.ts`
+3. Add a new `Map` entry to the `CorrelationMap` interface in `src/commands/org_data/types.ts`
+4. Populate it in `buildCorrelationMap()` in `src/commands/org_data/correlation.ts`
+5. Add it to `createEmptyCorrelationMap()` in `src/commands/org_data/integrations/base_integration.ts`
 
 ### Step 4: Register the Integration (New Integrations Only)
 
 For new integrations, update three files:
 
-**`src/commands/organization/integrations/index.ts`**:
+**`src/commands/org_data/integrations/index.ts`**:
 
 1. Add the import: `import { MyIntegration } from './my_integration';`
 2. Add the export: `export { MyIntegration } from './my_integration';`
 3. Register in `createIntegrationRegistry()`: `registry.set('my_integration', new MyIntegration());`
 4. Add to `getAvailableIntegrations()` return array
 
-**`src/commands/organization/types.ts`**:
+**`src/commands/org_data/types.ts`**:
 
 Add the new name to the `IntegrationName` union type:
 
@@ -227,9 +242,9 @@ export type IntegrationName =
   | 'my_integration';
 ```
 
-**`src/commands/organization/organization.ts`** (optional):
+**`src/commands/org_data/org_data.ts`** (optional):
 
-If the integration should be included in the default set or quick mode, add it to the `validateOptions` integration list and/or `runOrganizationQuick`.
+If the integration should be included in the default set or quick mode, add it to the `validateOptions` integration list and/or `runOrgDataQuick`.
 
 ### Step 5: Add Detection Rules
 
@@ -238,7 +253,7 @@ Add sample detection rules so the integration produces alerts when `--detection-
 **Skip this step** for entity-store-only integrations listed in `EXCLUDED_INTEGRATIONS`
 (okta, entra_id, active_directory, cloud_asset, workday, ping_directory).
 
-**File**: `src/commands/organization/detection_rules.ts`
+**File**: `src/commands/org_data/detection_rules.ts`
 
 Add an entry to the `INTEGRATION_DETECTION_RULES` map keyed by the integration's `IntegrationName`.
 Each entry is an array of `DetectionRuleDefinition` objects:
@@ -299,18 +314,46 @@ Then re-run the lint check. For lint errors that prettier cannot fix (e.g. `no-u
 The CI runs `yarn checks` which chains `typecheck`, `lint`, and `prettier --check` -- all three
 must pass before finishing.
 
+### Step 8: Update This Skill
+
+After completing the integration work, update this skill file to reflect any changes made during
+the session. This keeps the skill accurate for future use.
+
+Review and update the following sections if any of them changed:
+
+1. **Stable fields on Employee / Device** (Step 3b tables) -- if you added a new vendor-specific
+   ID field (e.g. `gitlabUserId`), add it to the corresponding table.
+
+2. **CorrelationMap extension steps** (Step 3b "When to extend") -- if the file paths or interface
+   shape changed, update the instructions.
+
+3. **Endpoint data streams table** (Step 1) -- if new data streams were added or removed in the
+   endpoint-package repo, update the table.
+
+4. **Registration steps** (Step 4) -- if the registration pattern changed (e.g. new files to
+   update, changed function names), update accordingly.
+
+5. **Detection rules pattern** (Step 5) -- if the `DetectionRuleDefinition` interface or
+   `INTEGRATION_DETECTION_RULES` structure changed, reflect it.
+
+6. **File locations table** -- if any paths moved or new key files were created, update the table
+   at the bottom.
+
+Only update sections where the session produced actual changes. Do not speculatively rewrite
+unaffected sections.
+
 ## File Locations
 
 | Resource                  | Path                                                                  |
 | ------------------------- | --------------------------------------------------------------------- |
-| Integration classes       | `src/commands/organization/integrations/`                             |
-| Base class                | `src/commands/organization/integrations/base_integration.ts`          |
-| Integration registry      | `src/commands/organization/integrations/index.ts`                     |
-| Types (IntegrationName)   | `src/commands/organization/types.ts`                                  |
-| Main command              | `src/commands/organization/organization.ts`                           |
-| Organization generator    | `src/commands/organization/organization_generator.ts`                 |
-| Correlation builder       | `src/commands/organization/correlation.ts`                            |
-| Detection rules           | `src/commands/organization/detection_rules.ts`                        |
+| Integration classes       | `src/commands/org_data/integrations/`                                 |
+| Base class                | `src/commands/org_data/integrations/base_integration.ts`              |
+| Integration registry      | `src/commands/org_data/integrations/index.ts`                         |
+| Types (IntegrationName)   | `src/commands/org_data/types.ts`                                      |
+| Main command              | `src/commands/org_data/org_data.ts`                                   |
+| Organization generator    | `src/commands/org_data/org_data_generator.ts`                         |
+| Correlation builder       | `src/commands/org_data/correlation.ts`                                |
+| Detection rules           | `src/commands/org_data/detection_rules.ts`                            |
 | Integrations repo         | `/Users/johndoe/repos/integrations/packages/`                         |
 | Beats repo                | `/Users/johndoe/repos/beats/x-pack/filebeat/module/`                  |
 | Endpoint-package repo     | `/Users/johndoe/repos/endpoint-package/`                              |

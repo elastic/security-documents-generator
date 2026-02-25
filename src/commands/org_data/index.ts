@@ -1,14 +1,16 @@
 import { Command } from 'commander';
 import { CommandModule } from '../types';
 import { parseIntBase10, wrapAction } from '../utils/cli_utils';
-import { runOrganization, runOrganizationQuick, getOrganizationHelp } from './organization';
+import { runOrgData, runOrgDataQuick, getOrgDataHelp } from './org_data';
 import { getAvailableIntegrations } from './integrations';
 
-export const organizationCommands: CommandModule = {
+export const orgDataCommands: CommandModule = {
   register(program: Command) {
     program
-      .command('organization')
-      .description('Generate realistic organization security integration data')
+      .command('generate-correlated-organization-data')
+      .alias('org-data')
+      .alias('organization')
+      .description('Generate correlated organization security integration data')
       .option('--name <name>', 'Company name', 'Acme CRM')
       .option('--space <space>', 'Kibana space', 'default')
       .option('--seed <seed>', 'Random seed for reproducibility', parseIntBase10)
@@ -18,10 +20,10 @@ export const organizationCommands: CommandModule = {
       )
       .option('--all', 'Generate all integrations regardless of company size')
       .option('--detection-rules', 'Include sample detection rules for applicable integrations')
-      .addHelpText('after', '\n' + getOrganizationHelp())
+      .addHelpText('after', '\n' + getOrgDataHelp())
       .action(
         wrapAction(async (options) => {
-          await runOrganization({
+          await runOrgData({
             size: 'medium',
             name: options.name,
             space: options.space,
@@ -34,12 +36,16 @@ export const organizationCommands: CommandModule = {
       );
 
     program
-      .command('organization-quick')
-      .description('Quick organization generation with defaults (medium size, all integrations)')
+      .command('generate-correlated-organization-data-quick')
+      .alias('org-data-quick')
+      .alias('organization-quick')
+      .description(
+        'Quick correlated organization data generation with defaults (medium size, all integrations)'
+      )
       .option('--space <space>', 'Kibana space', 'default')
       .action(
         wrapAction(async (options) => {
-          await runOrganizationQuick(options.space);
+          await runOrgDataQuick(options.space);
         })
       );
   },
