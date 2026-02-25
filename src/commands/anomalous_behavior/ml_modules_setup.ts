@@ -53,7 +53,12 @@ const setupMlModulesWithRetry = (moduleId: string, indexPatternName: string, spa
         jobs: Array<{ success: boolean; error?: { status: number; message: string } }>;
       };
 
-      const allJobsSucceeded = response?.jobs.every((job) => {
+      const jobs = response?.jobs;
+      if (!Array.isArray(jobs) || jobs.length === 0) {
+        throw new Error(`Expected non-empty jobs array, but got ${JSON.stringify(response)}`);
+      }
+
+      const allJobsSucceeded = jobs.every((job) => {
         return job.success || (job.error?.status && job.error.status < 500);
       });
 
@@ -193,10 +198,7 @@ export const waitForAllJobsToStart = async (jobIds: string[], space?: string): P
       return jobs;
     },
     {
-      retries: 10, // High number of retries to allow for the 5 minute timeout
-      minTimeout: 2000, // 2 seconds minimum between retries
-      maxTimeout: 10000, // 10 seconds maximum between retries
-      factor: 1.5, // Exponential backoff factor
+      retries: 10,
       onFailedAttempt: (error) => {
         console.log(error);
         const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);

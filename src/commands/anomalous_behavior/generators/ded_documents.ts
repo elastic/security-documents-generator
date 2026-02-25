@@ -115,6 +115,11 @@ const generateDestinationGeoCountryRecord = (ndx: number) => {
         influencer_field_values: [user],
       },
     ],
+    'process.name': ['exfil.exe'],
+    'user.name': [user],
+    'source.ip': [sourceIp],
+    'host.name': [host],
+    'destination.ip': destinationIps,
   };
 };
 

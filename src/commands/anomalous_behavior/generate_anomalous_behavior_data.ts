@@ -33,7 +33,7 @@ const LMD_ANOMALIES_INDEX = '.ml-anomalies-lmd';
 const PACKETBEAT_ANOMALIES_INDEX = '.ml-anomalies-packetbeat';
 const SHARED_ANOMALIES_INDEX = '.ml-anomalies-shared';
 
-const generateSecurityAuthSourceData = async (recordCount: number): Promise<void> => {
+const generateSecurityAuthRecordData = async (recordCount: number): Promise<void> => {
   console.log('Generating and indexing source data for Security Auth ML module...');
   const records = generateSecurityAuthRecords(recordCount);
   await bulkIngest({
@@ -48,7 +48,7 @@ const generateSecurityAuthSourceData = async (recordCount: number): Promise<void
   console.log(`Indexed ${records.length} anomaly record(s) into ${SECURITY_AUTH_ANOMALIES_INDEX}`);
 };
 
-const generatePadSourceData = async (recordCount: number): Promise<void> => {
+const generatePadRecordData = async (recordCount: number): Promise<void> => {
   console.log('Generating and indexing source data for PAD ML module...');
   const records = generatePadRecords(recordCount);
   await bulkIngest({
@@ -63,7 +63,7 @@ const generatePadSourceData = async (recordCount: number): Promise<void> => {
   console.log(`Indexed ${records.length} anomaly record(s) into ${PAD_ANOMALIES_INDEX}`);
 };
 
-const generateLmdSourceData = async (recordCount: number): Promise<void> => {
+const generateLmdRecordData = async (recordCount: number): Promise<void> => {
   console.log('Generating and indexing source data for LMD ML module...');
   const records = generateLmdRecords(recordCount);
   await bulkIngest({
@@ -78,7 +78,7 @@ const generateLmdSourceData = async (recordCount: number): Promise<void> => {
   console.log(`Indexed ${records.length} anomaly record(s) into ${LMD_ANOMALIES_INDEX}`);
 };
 
-const generatePacketbeatSourceData = async (recordCount: number): Promise<void> => {
+const generatePacketbeatRecordData = async (recordCount: number): Promise<void> => {
   console.log('Generating and indexing source data for Packetbeat ML module...');
   const records = generatePacketbeatRecords(recordCount);
   await bulkIngest({
@@ -93,7 +93,7 @@ const generatePacketbeatSourceData = async (recordCount: number): Promise<void> 
   console.log(`Indexed ${records.length} anomaly record(s) into ${PACKETBEAT_ANOMALIES_INDEX}`);
 };
 
-const generateDedSourceData = async (recordCount: number): Promise<void> => {
+const generateDedRecordData = async (recordCount: number): Promise<void> => {
   console.log('Generating and indexing source data for DED ML module...');
   const records = generateDedRecords(recordCount);
   await bulkIngest({
@@ -111,11 +111,11 @@ const generateDedSourceData = async (recordCount: number): Promise<void> => {
 const generateAnomalousBehaviorRecords = async (recordCount: number): Promise<void> => {
   console.log('Generating and indexing anomalous behavior ML records...');
 
-  await generateSecurityAuthSourceData(recordCount);
-  await generatePadSourceData(recordCount);
-  await generateLmdSourceData(recordCount);
-  await generatePacketbeatSourceData(recordCount);
-  await generateDedSourceData(recordCount);
+  await generateSecurityAuthRecordData(recordCount);
+  await generatePadRecordData(recordCount);
+  await generateLmdRecordData(recordCount);
+  await generatePacketbeatRecordData(recordCount);
+  await generateDedRecordData(recordCount);
 
   console.log(`Finished: generating anomalous behavior records`);
 };

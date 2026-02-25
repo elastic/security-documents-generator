@@ -3,7 +3,7 @@ import { SECURITY_PACKETBEAT_JOB_IDS } from '../ml_modules_setup';
 import { faker } from '@faker-js/faker';
 import { generateCommonFields } from './utils';
 
-const generateRareServerDomanRecord = (ndx: number) => {
+const generateRareServerDomainRecord = (ndx: number) => {
   const commonFields = generateCommonFields();
   const user = `admin-${ndx}`;
   const serverDomain = faker.internet.domainName();
@@ -41,7 +41,7 @@ export const generatePacketbeatRecords = (numDocs: number = 10): Array<Record<st
       return range(numDocs).map((val) => {
         switch (jobId) {
           case 'packetbeat_rare_server_domain':
-            return generateRareServerDomanRecord(val);
+            return generateRareServerDomainRecord(val);
           default:
             throw new Error(`Unexpected job ID: ${jobId}`);
         }

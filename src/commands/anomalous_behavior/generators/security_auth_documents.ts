@@ -73,7 +73,7 @@ const generateRareUserRecord = (ndx: number) => {
   };
 };
 
-const generateSuspicousLoginRecord = (ndx: number) => {
+const generateSuspiciousLoginRecord = (ndx: number) => {
   const commonFields = generateCommonFields();
   const numUsers = Math.ceil(Math.random() * 3);
   const users = range(numUsers).map(() => faker.internet.username());
@@ -162,7 +162,7 @@ export const generateSecurityAuthRecords = (
           case 'auth_rare_source_ip_for_a_user':
             return generateRareSourceIpForUserRecord(val);
           case 'suspicious_login_activity':
-            return generateSuspicousLoginRecord(val);
+            return generateSuspiciousLoginRecord(val);
           case 'auth_rare_user':
             return generateRareUserRecord(val);
           case 'auth_rare_hour_for_a_user':
