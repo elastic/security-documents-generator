@@ -209,4 +209,5 @@ export const createEmptyCorrelationMap = (): CorrelationMap => ({
   crowdstrikeAgentIdToDevice: new Map(),
   jamfUdidToDevice: new Map(),
   adDnToEmployee: new Map(),
+  windowsSidToEmployee: new Map(),
 });

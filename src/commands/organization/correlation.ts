@@ -24,6 +24,7 @@ export const buildCorrelationMap = (org: Organization): CorrelationMap => {
     crowdstrikeAgentIdToDevice: new Map(),
     jamfUdidToDevice: new Map(),
     adDnToEmployee: new Map(),
+    windowsSidToEmployee: new Map(),
   };
 
   // Build employee to Okta user correlations
@@ -83,6 +84,11 @@ export const buildCorrelationMap = (org: Organization): CorrelationMap => {
         device,
       });
     }
+  }
+
+  // Build Windows SID to employee correlations
+  for (const employee of org.employees) {
+    correlationMap.windowsSidToEmployee.set(employee.windowsSid, employee);
   }
 
   return correlationMap;
@@ -236,6 +242,7 @@ Duo User ID -> Employee mappings: ${correlationMap.duoUserIdToEmployee.size}
 CrowdStrike Agent -> Device mappings: ${correlationMap.crowdstrikeAgentIdToDevice.size}
 Jamf UDID -> Device mappings: ${correlationMap.jamfUdidToDevice.size}
 AD DN -> Employee mappings: ${correlationMap.adDnToEmployee.size}
+Windows SID -> Employee mappings: ${correlationMap.windowsSidToEmployee.size}
 
 AWS Access Group: ${awsAccessGroup?.name || 'Not found'}
 Employees with AWS Access: ${awsEmployees.length}

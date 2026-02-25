@@ -709,6 +709,171 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
     },
   ],
 
+  endpoint: [
+    {
+      name: 'Endpoint Malware Alert Detected',
+      description: 'Detects malware prevention alerts from Elastic Defend',
+      query:
+        'data_stream.dataset: "endpoint.alerts" AND event.kind: "alert" AND event.code: "malicious_file"',
+      severity: 'critical',
+      riskScore: 90,
+      index: ['logs-endpoint.alerts-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('endpoint.alerts', {
+            event: {
+              kind: 'alert',
+              module: 'endpoint',
+              code: 'malicious_file',
+              action: 'execution',
+              category: ['malware', 'intrusion_detection', 'file'],
+              type: ['info', 'denied'],
+              dataset: 'endpoint.alerts',
+              severity: faker.helpers.arrayElement([73, 85, 99]),
+              risk_score: faker.helpers.arrayElement([73, 85, 99]),
+            },
+            agent: { type: 'endpoint' },
+            file: {
+              name: `${faker.string.alphanumeric(8)}.dll`,
+              hash: { sha256: faker.string.hexadecimal({ length: 64, casing: 'lower', prefix: '' }) },
+            },
+            host: { name: faker.internet.domainWord(), os: { family: 'windows' } },
+            user: { name: faker.internet.username() },
+          })
+        ),
+    },
+    {
+      name: 'Suspicious Process Execution on Endpoint',
+      description:
+        'Detects execution of commonly abused system utilities (powershell, cmd, certutil, mshta) via Elastic Defend',
+      query:
+        'data_stream.dataset: "endpoint.events.process" AND event.action: "start" AND process.name: (powershell.exe OR cmd.exe OR certutil.exe OR mshta.exe OR cscript.exe OR wscript.exe)',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-endpoint.events.process-*'],
+      generateMatchingEvents: (count) => {
+        const suspiciousProcs = [
+          { name: 'powershell.exe', exe: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe' },
+          { name: 'cmd.exe', exe: 'C:\\Windows\\System32\\cmd.exe' },
+          { name: 'certutil.exe', exe: 'C:\\Windows\\System32\\certutil.exe' },
+          { name: 'mshta.exe', exe: 'C:\\Windows\\System32\\mshta.exe' },
+          { name: 'cscript.exe', exe: 'C:\\Windows\\System32\\cscript.exe' },
+          { name: 'wscript.exe', exe: 'C:\\Windows\\System32\\wscript.exe' },
+        ];
+        return Array.from({ length: count }, () => {
+          const proc = faker.helpers.arrayElement(suspiciousProcs);
+          return baseEvent('endpoint.events.process', {
+            event: {
+              action: 'start',
+              category: ['process'],
+              type: ['start'],
+              kind: 'event',
+              module: 'endpoint',
+              dataset: 'endpoint.events.process',
+            },
+            agent: { type: 'endpoint' },
+            process: { name: proc.name, executable: proc.exe, pid: faker.number.int({ min: 100, max: 65535 }) },
+            host: { name: faker.internet.domainWord(), os: { family: 'windows' } },
+            user: { name: faker.internet.username() },
+          });
+        });
+      },
+    },
+    {
+      name: 'Endpoint Failed Logon Attempt',
+      description: 'Detects failed logon attempts reported by Elastic Defend',
+      query:
+        'data_stream.dataset: "endpoint.events.security" AND event.action: "log_on" AND event.outcome: "failure"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-endpoint.events.security-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('endpoint.events.security', {
+            event: {
+              action: 'log_on',
+              category: ['authentication', 'session'],
+              type: ['start'],
+              outcome: 'failure',
+              kind: 'event',
+              module: 'endpoint',
+              dataset: 'endpoint.events.security',
+            },
+            agent: { type: 'endpoint' },
+            user: { name: faker.internet.username() },
+            source: { ip: faker.internet.ipv4(), port: faker.number.int({ min: 49152, max: 65535 }) },
+            host: { name: faker.internet.domainWord(), os: { family: 'windows' } },
+          })
+        ),
+    },
+    {
+      name: 'Suspicious Network Connection from Endpoint',
+      description:
+        'Detects outbound network connections to uncommon ports from endpoint hosts',
+      query:
+        'data_stream.dataset: "endpoint.events.network" AND network.direction: "egress" AND NOT destination.port: (80 OR 443 OR 53)',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-endpoint.events.network-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('endpoint.events.network', {
+            event: {
+              action: 'connection_attempted',
+              category: ['network'],
+              type: ['start'],
+              kind: 'event',
+              module: 'endpoint',
+              dataset: 'endpoint.events.network',
+            },
+            agent: { type: 'endpoint' },
+            network: { direction: 'egress', transport: 'tcp', type: 'ipv4' },
+            destination: {
+              ip: faker.internet.ipv4(),
+              port: faker.helpers.arrayElement([4444, 8443, 8888, 9001, 1337, 6667]),
+            },
+            source: { ip: faker.internet.ipv4(), port: faker.number.int({ min: 49152, max: 65535 }) },
+            process: { name: faker.helpers.arrayElement(['cmd.exe', 'powershell.exe', 'python3', 'nc']) },
+            host: { name: faker.internet.domainWord(), os: { family: 'windows' } },
+          })
+        ),
+    },
+    {
+      name: 'Endpoint Registry Run Key Modification',
+      description:
+        'Detects modifications to Windows registry Run keys commonly used for persistence',
+      query:
+        'data_stream.dataset: "endpoint.events.registry" AND event.action: "modification" AND registry.path: *CurrentVersion\\\\Run*',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-endpoint.events.registry-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('endpoint.events.registry', {
+            event: {
+              action: 'modification',
+              category: ['registry'],
+              type: ['change'],
+              kind: 'event',
+              module: 'endpoint',
+              dataset: 'endpoint.events.registry',
+            },
+            agent: { type: 'endpoint' },
+            registry: {
+              hive: 'HKLM',
+              path: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater',
+              key: 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run',
+              value: 'Updater',
+              data: { strings: ['C:\\Users\\Public\\updater.exe'], type: 'REG_SZ' },
+            },
+            process: { name: 'reg.exe', executable: 'C:\\Windows\\System32\\reg.exe' },
+            host: { name: faker.internet.domainWord(), os: { family: 'windows' } },
+            user: { name: faker.internet.username() },
+          })
+        ),
+    },
+  ],
+
   system: [
     {
       name: 'Failed SSH Login Attempt',

@@ -38,6 +38,8 @@ export interface Device {
   diskEncryptionEnabled: boolean;
   crowdstrikeAgentId: string;
   crowdstrikeDeviceId: string;
+  macAddress: string;
+  ipAddress: string;
 }
 
 /**
@@ -64,6 +66,8 @@ export interface Employee {
   githubUsername?: string; // Only for Engineering + Executive departments
   duoUserId: string;
   onePasswordUuid: string;
+  windowsSid: string;
+  unixUid: number;
 }
 
 /**
@@ -1072,7 +1076,8 @@ export type IntegrationName =
   | 'ping_one'
   | 'workday'
   | 'ping_directory'
-  | 'system';
+  | 'system'
+  | 'endpoint';
 
 /**
  * @deprecated Legacy type from entityanalytics_jamf integration.
@@ -1178,4 +1183,5 @@ export interface CorrelationMap {
   crowdstrikeAgentIdToDevice: Map<string, { employee: Employee; device: Device }>;
   jamfUdidToDevice: Map<string, { employee: Employee; device: Device }>;
   adDnToEmployee: Map<string, Employee>;
+  windowsSidToEmployee: Map<string, Employee>;
 }

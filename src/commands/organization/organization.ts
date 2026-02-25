@@ -211,7 +211,7 @@ const validateOptions = async (options: OrganizationOptions): Promise<ValidatedO
   const integrations = options.all
     ? getAvailableIntegrations().join(',')
     : options.integrations ||
-      `active_directory,okta,okta_system,entra_id,jamf_pro,workday,ping_directory,sailpoint,github,slack,${productivityIntegration},servicenow`;
+      `active_directory,okta,okta_system,entra_id,jamf_pro,workday,ping_directory,sailpoint,github,slack,${productivityIntegration},servicenow,endpoint`;
 
   return {
     size: options.size,

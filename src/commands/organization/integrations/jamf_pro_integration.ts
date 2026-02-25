@@ -176,7 +176,7 @@ export class JamfProIntegration extends BaseIntegration {
         version: osInfo.version,
       },
       hardware: {
-        mac_address: faker.internet.mac({ separator: ':' }).toLowerCase(),
+        mac_address: device.macAddress.replace(/-/g, ':').toLowerCase(),
       },
     };
 
@@ -204,12 +204,9 @@ export class JamfProIntegration extends BaseIntegration {
     jssId: string
   ): IntegrationDocument {
     const webhookEvent = faker.helpers.arrayElement(WEBHOOK_EVENTS);
-    const ipAddress = `${faker.number.int({ min: 1, max: 223 })}.${faker.number.int({ min: 0, max: 255 })}.${faker.number.int({ min: 0, max: 255 })}.${faker.number.int({ min: 1, max: 254 })}`;
     const modelId = faker.helpers.arrayElement(MAC_MODEL_IDENTIFIERS);
     const osInfo = faker.helpers.arrayElement(MACOS_VERSIONS);
-    const macAddress = Array.from({ length: 6 }, () =>
-      faker.string.hexadecimal({ length: 2, prefix: '' }).toLowerCase()
-    ).join(':');
+    const macColonFormat = device.macAddress.replace(/-/g, ':').toLowerCase();
 
     return {
       '@timestamp': this.getRandomTimestamp(48),
@@ -221,10 +218,10 @@ export class JamfProIntegration extends BaseIntegration {
           serial_number: device.serialNumber,
           os_version: osInfo.version,
           os_build: osInfo.build,
-          ip_address: ipAddress,
-          reported_ip_address: ipAddress,
-          mac_address: macAddress,
-          alternate_mac_address: macAddress,
+          ip_address: device.ipAddress,
+          reported_ip_address: device.ipAddress,
+          mac_address: macColonFormat,
+          alternate_mac_address: macColonFormat,
           username: `${employee.firstName} ${employee.lastName}`,
           real_name: `${employee.firstName} ${employee.lastName}`,
           email_address: employee.email,

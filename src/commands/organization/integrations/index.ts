@@ -34,6 +34,7 @@ import { PingOneIntegration } from './ping_one_integration';
 import { WorkdayIntegration } from './workday_integration';
 import { PingDirectoryIntegration } from './ping_directory_integration';
 import { SystemIntegration } from './system_integration';
+import { EndpointIntegration } from './endpoint_integration';
 import { IntegrationName } from '../types';
 
 // Re-export types and classes from base_integration
@@ -62,6 +63,7 @@ export { PingOneIntegration } from './ping_one_integration';
 export { WorkdayIntegration } from './workday_integration';
 export { PingDirectoryIntegration } from './ping_directory_integration';
 export { SystemIntegration } from './system_integration';
+export { EndpointIntegration } from './endpoint_integration';
 
 /**
  * Create integration registry with all available integrations
@@ -106,6 +108,9 @@ export const createIntegrationRegistry = (): IntegrationRegistry => {
   // Register system log integrations
   registry.set('system', new SystemIntegration());
 
+  // Register endpoint (Elastic Defend) integration
+  registry.set('endpoint', new EndpointIntegration());
+
   return registry;
 };
 
@@ -147,6 +152,7 @@ export const getAvailableIntegrations = (): IntegrationName[] => {
     'workday',
     'ping_directory',
     'system',
+    'endpoint',
   ];
 };
 

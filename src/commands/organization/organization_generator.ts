@@ -250,11 +250,16 @@ const generateEmployees = (
   const employees: Employee[] = [];
   const cloudAccessDepts = getCloudAccessDepartments().map((d) => d.name);
 
+  // Shared AD domain SID prefix (S-1-5-21-{3 sub-authorities}) used by all employees
+  const domainSidPrefix = `S-1-5-21-${faker.number.int({ min: 100000000, max: 2147483647 })}-${faker.number.int({ min: 100000000, max: 2147483647 })}-${faker.number.int({ min: 100000000, max: 2147483647 })}`;
+  let nextRid = 1001;
+  let nextUid = 1000;
+
   // Single employee mode: create John Doe directly in Product & Engineering
   // Force Mac laptop so Jamf Pro MDM always has a device to manage
   if (totalCount === 1) {
     const engDept = DEPARTMENTS.find((d) => d.name === 'Product & Engineering')!;
-    const employee = generateEmployee(engDept.name, engDept.roles, domain, cloudAccessDepts, true);
+    const employee = generateEmployee(engDept.name, engDept.roles, domain, cloudAccessDepts, domainSidPrefix, nextRid++, nextUid++, true);
     employee.firstName = 'John';
     employee.lastName = 'Doe';
     employee.userName = 'john.doe';
@@ -272,7 +277,7 @@ const generateEmployees = (
     managersByDept.set(dept.name, []);
 
     for (let i = 0; i < deptEmployeeCount; i++) {
-      const employee = generateEmployee(dept.name, dept.roles, domain, cloudAccessDepts);
+      const employee = generateEmployee(dept.name, dept.roles, domain, cloudAccessDepts, domainSidPrefix, nextRid++, nextUid++);
       employees.push(employee);
 
       // Track potential managers (senior roles)
@@ -323,6 +328,9 @@ const generateEmployee = (
   roles: string[],
   domain: string,
   cloudAccessDepts: string[],
+  domainSidPrefix: string,
+  rid: number,
+  uid: number,
   allPlatforms: boolean = false
 ): Employee => {
   const firstName = faker.person.firstName();
@@ -359,6 +367,8 @@ const generateEmployee = (
     githubUsername,
     duoUserId: `DU${faker.string.alphanumeric(18).toUpperCase()}`,
     onePasswordUuid: faker.string.uuid(),
+    windowsSid: `${domainSidPrefix}-${rid}`,
+    unixUid: uid,
   };
 };
 
@@ -419,6 +429,8 @@ const generateDevice = (type: DeviceType, platform: LaptopPlatform | MobilePlatf
     diskEncryptionEnabled: faker.datatype.boolean(0.9), // 90% have encryption
     crowdstrikeAgentId: faker.string.hexadecimal({ length: 32, prefix: '' }).toLowerCase(),
     crowdstrikeDeviceId: faker.string.hexadecimal({ length: 32, prefix: '' }).toLowerCase(),
+    macAddress: faker.internet.mac({ separator: '-' }),
+    ipAddress: faker.internet.ipv4(),
   };
 };
 

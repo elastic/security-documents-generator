@@ -113,7 +113,7 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
 
     const sAMAccountName = employee.userName.replace(/\./g, '');
     const objectGuid = this.generateObjectGuidBase64();
-    const objectSid = this.generateObjectSidBase64();
+    const objectSid = this.sidToBase64(employee.windowsSid);
 
     // Build group memberships (Distinguished Names of groups)
     const memberOf: string[] = [];
@@ -188,7 +188,7 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
         type: ['user', 'info'],
       },
       user: {
-        id: userDn,
+        id: employee.windowsSid,
       },
       labels: {
         identity_source: IDENTITY_SOURCE,
@@ -314,7 +314,30 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
   }
 
   /**
-   * Generate objectSid in binary form encoded as base64.
+   * Convert a SID string (e.g. S-1-5-21-XXX-XXX-XXX-1001) to binary base64.
+   * SID layout: revision(1), subAuthCount(1), identifierAuthority(6), subAuthorities(n*4 LE)
+   */
+  private sidToBase64(sidString: string): string {
+    const parts = sidString.split('-');
+    // S-{revision}-{identifierAuthority}-{subAuth1}-{subAuth2}-...
+    const revision = parseInt(parts[1], 10);
+    const identifierAuthority = parseInt(parts[2], 10);
+    const subAuthorities = parts.slice(3).map((p) => parseInt(p, 10));
+
+    const sid = Buffer.alloc(8 + subAuthorities.length * 4);
+    sid[0] = revision;
+    sid[1] = subAuthorities.length;
+    sid[7] = identifierAuthority;
+
+    subAuthorities.forEach((value, index) => {
+      sid.writeUInt32LE(value >>> 0, 8 + index * 4);
+    });
+
+    return sid.toString('base64');
+  }
+
+  /**
+   * Generate objectSid in binary form encoded as base64 (for computer objects).
    * SID layout: revision(1), subAuthCount(1), identifierAuthority(6), subAuthorities(n*4 LE)
    */
   private generateObjectSidBase64(): string {
