@@ -28,6 +28,8 @@ interface RuleGenerationOptions {
   interval: string;
   from: number;
   gapsPerRule: number;
+  gapDurationDays?: number; // If specified, creates gap(s) within this duration range
+  gapCountInRange?: number; // Number of gaps to create within the gapDurationDays range (default: 1)
 }
 
 interface GapRange {
@@ -112,6 +114,140 @@ const generateEvent = (from: number): Event => ({
     outcome: faker.helpers.arrayElement(['success', 'failure']),
   },
 });
+
+const createGapEvent = (
+  ruleId: string,
+  ruleName: string,
+  range: GapRange,
+  gapDurationMs: number
+): GapEvent => {
+  return {
+    '@timestamp': range.lte,
+    event: {
+      provider: 'alerting',
+      action: 'gap',
+      kind: 'alert',
+      category: ['siem'],
+    },
+    kibana: {
+      alert: {
+        rule: {
+          revision: 1,
+          rule_type_id: 'siem.queryRule',
+          consumer: 'siem',
+          execution: {
+            uuid: faker.string.uuid(),
+          },
+          gap: {
+            range,
+            filled_intervals: [],
+            in_progress_intervals: [],
+            unfilled_intervals: [range],
+            status: 'unfilled',
+            total_gap_duration_ms: gapDurationMs,
+            filled_duration_ms: 0,
+            unfilled_duration_ms: gapDurationMs,
+            in_progress_duration_ms: 0,
+          },
+        },
+      },
+      saved_objects: [
+        {
+          rel: 'primary',
+          type: 'alert',
+          id: ruleId,
+          type_id: 'siem.queryRule',
+        },
+      ],
+      space_ids: ['default'],
+      server_uuid: '5d29f261-1b85-4d90-9088-53e0e0e87c7c',
+      version: '9.1.0',
+    },
+    rule: {
+      id: ruleId,
+      license: 'basic',
+      category: 'siem.queryRule',
+      ruleset: 'siem',
+      name: ruleName,
+    },
+    ecs: {
+      version: '1.8.0',
+    },
+  };
+};
+
+const generateSingleLargeGapEvent = (
+  ruleId: string,
+  ruleName: string,
+  gapDurationDays: number
+): GapEvent => {
+  const gapDurationMs = gapDurationDays * 24 * 60 * 60 * 1000;
+  const gapEndTime = moment();
+  const gapStartTime = moment().subtract(gapDurationDays, 'days');
+
+  const range = {
+    gte: gapStartTime.toISOString(),
+    lte: gapEndTime.toISOString(),
+  };
+
+  return createGapEvent(ruleId, ruleName, range, gapDurationMs);
+};
+
+const generateMultipleGapsInRange = (
+  ruleId: string,
+  ruleName: string,
+  gapDurationDays: number,
+  gapCount: number
+): GapEvent[] => {
+  const rangeEnd = moment();
+  const rangeStart = moment().subtract(gapDurationDays, 'days');
+
+  // Calculate gap durations - each gap should be a reasonable portion of the total range
+  const minGapDurationHours = Math.max(1, Math.floor((gapDurationDays * 24) / gapCount / 3)); // At least 1 hour, but try to make gaps reasonable
+  const maxGapDurationHours = Math.floor((gapDurationDays * 24) / gapCount / 1.5); // Leave some space between gaps
+
+  const gaps: GapEvent[] = [];
+  let currentTime = rangeStart.clone();
+
+  for (let i = 0; i < gapCount; i++) {
+    // Calculate gap duration (in hours, then convert to ms)
+    const gapDurationHours = faker.number.int({
+      min: minGapDurationHours,
+      max: Math.max(minGapDurationHours + 1, maxGapDurationHours),
+    });
+    const gapDurationMs = gapDurationHours * 60 * 60 * 1000;
+
+    // Calculate gap start and end times
+    const gapStart = currentTime.clone();
+    const gapEnd = gapStart.clone().add(gapDurationHours, 'hours');
+
+    // Make sure we don't exceed the range
+    if (gapEnd.isAfter(rangeEnd)) {
+      break;
+    }
+
+    const range: GapRange = {
+      gte: gapStart.toISOString(),
+      lte: gapEnd.toISOString(),
+    };
+
+    gaps.push(createGapEvent(ruleId, ruleName, range, gapDurationMs));
+
+    // Move to next gap position with some spacing
+    const spacingHours = faker.number.int({
+      min: 1,
+      max: Math.max(2, Math.floor((gapDurationDays * 24) / gapCount / 4)),
+    });
+    currentTime = gapEnd.clone().add(spacingHours, 'hours');
+
+    // If we've reached the end, stop
+    if (currentTime.isAfter(rangeEnd) || currentTime.isSame(rangeEnd)) {
+      break;
+    }
+  }
+
+  return gaps;
+};
 
 const generateNonOverlappingGapEvents = (
   ruleId: string,
@@ -319,7 +455,29 @@ export const generateRulesAndAlerts = async (
   const events = Array.from({ length: eventCount }, () => generateEvent(options.from));
 
   let gapEvents: GapEvent[] = [];
-  if (options.gapsPerRule > 0) {
+  if (options.gapDurationDays && options.gapDurationDays > 0) {
+    const gapCount = options.gapCountInRange || 1;
+    if (gapCount === 1) {
+      // Generate a single large gap for each rule
+      gapEvents = ruleResults.map((rule) => {
+        return generateSingleLargeGapEvent(
+          rule.id,
+          rule.name || 'Unknown Rule',
+          options.gapDurationDays!
+        );
+      });
+    } else {
+      // Generate multiple gaps within the specified range
+      gapEvents = ruleResults.flatMap((rule) => {
+        return generateMultipleGapsInRange(
+          rule.id,
+          rule.name || 'Unknown Rule',
+          options.gapDurationDays!,
+          gapCount
+        );
+      });
+    }
+  } else if (options.gapsPerRule > 0) {
     // Generate non-overlapping gap events for each rule
     gapEvents = ruleResults.flatMap((rule) => {
       return generateNonOverlappingGapEvents(

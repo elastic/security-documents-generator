@@ -393,18 +393,41 @@ program
   .option('-i, --interval <string>', 'Rule execution interval', '5m')
   .option('-f, --from <number>', 'Generate events from last N hours', '24')
   .option('-g, --gaps <number>', 'Amount of gaps per rule', '0')
-  .option('-c, --clean', 'Clean gap events before generating rules', 'false')
+  .option(
+    '-d, --gap-duration-days <number>',
+    'Create gap(s) within specified duration range in days (overrides --gaps)',
+    undefined
+  )
+  .option(
+    '-n, --gap-count <number>',
+    'Number of gaps to create within the gap-duration-days range (default: 1)',
+    undefined
+  )
+  .option('-c, --clean', 'Clean gap events before generating rules', false)
   .action(async (options) => {
     try {
       const ruleCount = parseInt(options.rules);
       const eventCount = parseInt(options.events);
       const fromHours = parseInt(options.from);
       const gaps = parseInt(options.gaps);
+      const gapDurationDays = options.gapDurationDays
+        ? parseFloat(options.gapDurationDays)
+        : undefined;
+      const gapCountInRange = options.gapCount ? parseInt(options.gapCount) : undefined;
 
       console.log(`Generating ${ruleCount} rules and ${eventCount} events...`);
       console.log(`Using interval: ${options.interval}`);
       console.log(`Generating events from last ${fromHours} hours`);
-      console.log(`Generating ${gaps} gaps per rule`);
+      if (gapDurationDays) {
+        const gapCount = gapCountInRange || 1;
+        if (gapCount === 1) {
+          console.log(`Generating 1 large gap of ${gapDurationDays} days per rule`);
+        } else {
+          console.log(`Generating ${gapCount} gaps within ${gapDurationDays} days range per rule`);
+        }
+      } else {
+        console.log(`Generating ${gaps} gaps per rule`);
+      }
 
       if (options.clean) {
         await deleteAllRules();
@@ -414,6 +437,8 @@ program
         interval: options.interval,
         from: fromHours,
         gapsPerRule: gaps,
+        gapDurationDays: gapDurationDays,
+        gapCountInRange: gapCountInRange,
       });
 
       console.log('Successfully generated rules and events');
