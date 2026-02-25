@@ -241,9 +241,7 @@ export class JamfProIntegration extends BaseIntegration {
           user_directory_id: faker.string.numeric(10),
         },
         webhook: {
-          event_timestamp: new Date(
-            Date.now() - faker.number.int({ min: 0, max: 48 * 60 * 60 * 1000 })
-          ).toISOString(),
+          event_timestamp: Date.now() - faker.number.int({ min: 0, max: 48 * 60 * 60 * 1000 }),
           id: faker.string.numeric(10),
           name: `${org.name}-webhook`,
           webhook_event: webhookEvent,

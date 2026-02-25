@@ -202,6 +202,91 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
           })
         ),
     },
+    {
+      name: 'CrowdStrike Falcon High Severity Detection',
+      description: 'Detects high-severity DetectionSummaryEvent from the Falcon Event Stream',
+      query:
+        'data_stream.dataset: "crowdstrike.falcon" AND crowdstrike.metadata.eventType: "DetectionSummaryEvent" AND crowdstrike.event.Severity >= 4',
+      severity: 'high',
+      riskScore: 75,
+      index: ['logs-crowdstrike.falcon-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('crowdstrike.falcon', {
+            event: {
+              action: 'detection_summary_event',
+              category: ['malware'],
+              type: ['info'],
+              severity: faker.helpers.arrayElement([4, 5]),
+            },
+            crowdstrike: {
+              metadata: { eventType: 'DetectionSummaryEvent' },
+              event: {
+                Severity: faker.helpers.arrayElement([4, 5]),
+                DetectName: 'Suspicious PowerShell Execution',
+              },
+            },
+            host: { name: faker.internet.domainWord() },
+            process: { name: 'powershell.exe' },
+          })
+        ),
+    },
+    {
+      name: 'CrowdStrike Falcon Remote Response Session',
+      description: 'Detects remote response sessions initiated via the Falcon console',
+      query:
+        'data_stream.dataset: "crowdstrike.falcon" AND crowdstrike.metadata.eventType: "RemoteResponseSessionStartEvent"',
+      severity: 'medium',
+      riskScore: 50,
+      index: ['logs-crowdstrike.falcon-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('crowdstrike.falcon', {
+            event: {
+              action: 'remote_response_session_start_event',
+              category: ['network', 'session'],
+              type: ['start'],
+            },
+            crowdstrike: {
+              metadata: { eventType: 'RemoteResponseSessionStartEvent' },
+              event: {
+                SessionId: faker.string.uuid(),
+              },
+            },
+            host: { name: faker.internet.domainWord() },
+            user: { email: faker.internet.email() },
+          })
+        ),
+    },
+    {
+      name: 'CrowdStrike Falcon Firewall Block',
+      description: 'Detects network connections blocked by the CrowdStrike Falcon firewall',
+      query:
+        'data_stream.dataset: "crowdstrike.falcon" AND crowdstrike.metadata.eventType: "FirewallMatchEvent" AND crowdstrike.event.RuleAction: "block"',
+      severity: 'low',
+      riskScore: 30,
+      index: ['logs-crowdstrike.falcon-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('crowdstrike.falcon', {
+            event: {
+              action: 'firewall_match_event',
+              category: ['network'],
+              type: ['connection'],
+            },
+            crowdstrike: {
+              metadata: { eventType: 'FirewallMatchEvent' },
+              event: {
+                RuleAction: 'block',
+                Protocol: 'TCP',
+              },
+            },
+            host: { name: faker.internet.domainWord() },
+            source: { ip: faker.internet.ipv4(), port: faker.internet.port() },
+            destination: { ip: faker.internet.ipv4(), port: 443 },
+          })
+        ),
+    },
   ],
 
   o365: [
