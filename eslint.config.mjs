@@ -23,6 +23,14 @@ export default [
       ...tseslint.configs['eslint-recommended'].rules,
       ...tseslint.configs.recommended.rules,
       ...eslintPluginPrettierRecommended.rules,
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          destructuredArrayIgnorePattern: '^_',
+        },
+      ],
       'prettier/prettier': ['error', { singleQuote: true }],
       'check-file/filename-naming-convention': [
         'error',
