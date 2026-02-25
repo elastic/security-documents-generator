@@ -259,7 +259,16 @@ const generateEmployees = (
   // Force Mac laptop so Jamf Pro MDM always has a device to manage
   if (totalCount === 1) {
     const engDept = DEPARTMENTS.find((d) => d.name === 'Product & Engineering')!;
-    const employee = generateEmployee(engDept.name, engDept.roles, domain, cloudAccessDepts, domainSidPrefix, nextRid++, nextUid++, true);
+    const employee = generateEmployee(
+      engDept.name,
+      engDept.roles,
+      domain,
+      cloudAccessDepts,
+      domainSidPrefix,
+      nextRid,
+      nextUid,
+      true
+    );
     employee.firstName = 'John';
     employee.lastName = 'Doe';
     employee.userName = 'john.doe';
@@ -277,7 +286,15 @@ const generateEmployees = (
     managersByDept.set(dept.name, []);
 
     for (let i = 0; i < deptEmployeeCount; i++) {
-      const employee = generateEmployee(dept.name, dept.roles, domain, cloudAccessDepts, domainSidPrefix, nextRid++, nextUid++);
+      const employee = generateEmployee(
+        dept.name,
+        dept.roles,
+        domain,
+        cloudAccessDepts,
+        domainSidPrefix,
+        nextRid++,
+        nextUid++
+      );
       employees.push(employee);
 
       // Track potential managers (senior roles)

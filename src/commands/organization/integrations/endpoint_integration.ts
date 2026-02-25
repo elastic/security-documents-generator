@@ -24,7 +24,11 @@ const COMMON_PROCESSES: Array<{
 }> = [
   {
     name: 'svchost.exe',
-    executable: { windows: 'C:\\Windows\\System32\\svchost.exe', mac: '/usr/sbin/svchost', linux: '/usr/sbin/svchost' },
+    executable: {
+      windows: 'C:\\Windows\\System32\\svchost.exe',
+      mac: '/usr/sbin/svchost',
+      linux: '/usr/sbin/svchost',
+    },
     args: ['-k', 'netsvcs'],
   },
   {
@@ -83,7 +87,11 @@ const COMMON_PROCESSES: Array<{
   },
   {
     name: 'explorer.exe',
-    executable: { windows: 'C:\\Windows\\explorer.exe', mac: '/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder', linux: '/usr/bin/nautilus' },
+    executable: {
+      windows: 'C:\\Windows\\explorer.exe',
+      mac: '/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder',
+      linux: '/usr/bin/nautilus',
+    },
     args: [],
   },
 ];
@@ -139,11 +147,31 @@ const DESTINATION_HOSTS = [
 const SECURITY_LOGON_TYPES = ['Interactive', 'Network', 'RemoteInteractive', 'Unlock'];
 
 const ALERT_TYPES = [
-  { code: 'malicious_file', category: ['malware', 'intrusion_detection', 'file'], message: 'Malware Prevention Alert' },
-  { code: 'memory_signature', category: ['malware', 'intrusion_detection'], message: 'Memory Threat Prevention Alert' },
-  { code: 'behavior', category: ['malware', 'intrusion_detection', 'process'], message: 'Malicious Behavior Prevention Alert' },
-  { code: 'ransomware', category: ['malware', 'intrusion_detection', 'file'], message: 'Ransomware Prevention Alert' },
-  { code: 'shellcode_thread', category: ['malware', 'intrusion_detection'], message: 'Memory Threat Prevention Alert' },
+  {
+    code: 'malicious_file',
+    category: ['malware', 'intrusion_detection', 'file'],
+    message: 'Malware Prevention Alert',
+  },
+  {
+    code: 'memory_signature',
+    category: ['malware', 'intrusion_detection'],
+    message: 'Memory Threat Prevention Alert',
+  },
+  {
+    code: 'behavior',
+    category: ['malware', 'intrusion_detection', 'process'],
+    message: 'Malicious Behavior Prevention Alert',
+  },
+  {
+    code: 'ransomware',
+    category: ['malware', 'intrusion_detection', 'file'],
+    message: 'Ransomware Prevention Alert',
+  },
+  {
+    code: 'shellcode_thread',
+    category: ['malware', 'intrusion_detection'],
+    message: 'Memory Threat Prevention Alert',
+  },
 ];
 
 const REGISTRY_HIVES = ['HKLM', 'HKCU', 'HKU'];
@@ -179,11 +207,20 @@ const SHARED_LIBS: Array<{ name: string; path: string }> = [
 const MAC_DYLIBS: Array<{ name: string; path: string }> = [
   { name: 'libSystem.B.dylib', path: '/usr/lib/libSystem.B.dylib' },
   { name: 'libobjc.A.dylib', path: '/usr/lib/libobjc.A.dylib' },
-  { name: 'Security.framework', path: '/System/Library/Frameworks/Security.framework/Versions/A/Security' },
-  { name: 'CoreFoundation', path: '/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation' },
+  {
+    name: 'Security.framework',
+    path: '/System/Library/Frameworks/Security.framework/Versions/A/Security',
+  },
+  {
+    name: 'CoreFoundation',
+    path: '/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation',
+  },
 ];
 
-const OS_INFO: Record<string, { name: string; family: string; version: string; platform: string; full: string; kernel: string }> = {
+const OS_INFO: Record<
+  string,
+  { name: string; family: string; version: string; platform: string; full: string; kernel: string }
+> = {
   mac: {
     name: 'macOS',
     family: 'darwin',
@@ -250,7 +287,9 @@ export class EndpointIntegration extends BaseIntegration {
 
         const processCount = faker.number.int({ min: 3, max: 5 });
         for (let i = 0; i < processCount; i++) {
-          processDocs.push(this.generateProcessDocument(employee, device, agentId, hostId, platform));
+          processDocs.push(
+            this.generateProcessDocument(employee, device, agentId, hostId, platform)
+          );
         }
 
         const fileCount = faker.number.int({ min: 2, max: 4 });
@@ -260,12 +299,16 @@ export class EndpointIntegration extends BaseIntegration {
 
         const networkCount = faker.number.int({ min: 2, max: 4 });
         for (let i = 0; i < networkCount; i++) {
-          networkDocs.push(this.generateNetworkDocument(employee, device, agentId, hostId, platform));
+          networkDocs.push(
+            this.generateNetworkDocument(employee, device, agentId, hostId, platform)
+          );
         }
 
         const securityCount = faker.number.int({ min: 1, max: 2 });
         for (let i = 0; i < securityCount; i++) {
-          securityDocs.push(this.generateSecurityDocument(employee, device, agentId, hostId, platform));
+          securityDocs.push(
+            this.generateSecurityDocument(employee, device, agentId, hostId, platform)
+          );
         }
 
         if (platform === 'windows') {
@@ -277,7 +320,9 @@ export class EndpointIntegration extends BaseIntegration {
 
         const libraryCount = faker.number.int({ min: 1, max: 2 });
         for (let i = 0; i < libraryCount; i++) {
-          libraryDocs.push(this.generateLibraryDocument(employee, device, agentId, hostId, platform));
+          libraryDocs.push(
+            this.generateLibraryDocument(employee, device, agentId, hostId, platform)
+          );
         }
       }
     }
@@ -286,10 +331,19 @@ export class EndpointIntegration extends BaseIntegration {
       1,
       Math.floor(allLaptops.length * faker.number.float({ min: 0.02, max: 0.05 }))
     );
-    const alertDevices = faker.helpers.arrayElements(allLaptops, Math.min(alertCount, allLaptops.length));
+    const alertDevices = faker.helpers.arrayElements(
+      allLaptops,
+      Math.min(alertCount, allLaptops.length)
+    );
     for (const { employee, device } of alertDevices) {
       alertDocs.push(
-        this.generateAlertDocument(employee, device, device.crowdstrikeAgentId, device.id, device.platform as string)
+        this.generateAlertDocument(
+          employee,
+          device,
+          device.crowdstrikeAgentId,
+          device.id,
+          device.platform as string
+        )
       );
     }
 
@@ -349,7 +403,10 @@ export class EndpointIntegration extends BaseIntegration {
     const parentPid = faker.number.int({ min: 1, max: 10000 });
     const entityId = faker.string.alphanumeric(40);
     const parentEntityId = faker.string.alphanumeric(40);
-    const executablePath = (proc.executable[platform] ?? proc.executable.linux).replace('%USER%', employee.userName);
+    const executablePath = (proc.executable[platform] ?? proc.executable.linux).replace(
+      '%USER%',
+      employee.userName
+    );
 
     return {
       '@timestamp': timestamp,
@@ -482,7 +539,10 @@ export class EndpointIntegration extends BaseIntegration {
         name: proc.name,
         pid: faker.number.int({ min: 100, max: 65535 }),
         entity_id: entityId,
-        executable: (proc.executable[platform] ?? proc.executable.linux).replace('%USER%', employee.userName),
+        executable: (proc.executable[platform] ?? proc.executable.linux).replace(
+          '%USER%',
+          employee.userName
+        ),
       },
       destination: {
         address: dest.ip,
@@ -555,9 +615,11 @@ export class EndpointIntegration extends BaseIntegration {
         },
         name: platform === 'windows' ? 'services.exe' : 'sshd',
         entity_id: entityId,
-        executable: platform === 'windows' ? 'C:\\Windows\\System32\\services.exe' : '/usr/sbin/sshd',
+        executable:
+          platform === 'windows' ? 'C:\\Windows\\System32\\services.exe' : '/usr/sbin/sshd',
         parent: {
-          executable: platform === 'windows' ? 'C:\\Windows\\System32\\wininit.exe' : '/usr/sbin/sshd',
+          executable:
+            platform === 'windows' ? 'C:\\Windows\\System32\\wininit.exe' : '/usr/sbin/sshd',
           pid: faker.number.int({ min: 1, max: 1000 }),
         },
       },
@@ -653,9 +715,10 @@ export class EndpointIntegration extends BaseIntegration {
         },
         extension: fileName.split('.').pop(),
         size: faker.number.int({ min: 1024, max: 5242880 }),
-        path: platform === 'windows'
-          ? `C:\\Users\\${employee.userName}\\AppData\\Local\\Temp\\${fileName}`
-          : `/tmp/${fileName}`,
+        path:
+          platform === 'windows'
+            ? `C:\\Users\\${employee.userName}\\AppData\\Local\\Temp\\${fileName}`
+            : `/tmp/${fileName}`,
         name: fileName,
         hash: {
           sha256,
@@ -780,11 +843,12 @@ export class EndpointIntegration extends BaseIntegration {
         name: platform === 'windows' ? 'svchost.exe' : 'node',
         pid: faker.number.int({ min: 100, max: 65535 }),
         entity_id: entityId,
-        executable: platform === 'windows'
-          ? 'C:\\Windows\\System32\\svchost.exe'
-          : platform === 'mac'
-            ? '/usr/local/bin/node'
-            : '/usr/bin/node',
+        executable:
+          platform === 'windows'
+            ? 'C:\\Windows\\System32\\svchost.exe'
+            : platform === 'mac'
+              ? '/usr/local/bin/node'
+              : '/usr/bin/node',
       },
       dll: {
         path: lib.path,

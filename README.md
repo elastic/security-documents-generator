@@ -183,6 +183,14 @@ Detailed command documentation is colocated with command code under `src/command
 - **Organization**
   - `organization`, `organization-quick`
 
+## Cursor skills
+
+### `/update-organization-integrations`
+
+Updates existing integrations or creates new ones for the `organization` command, using real field
+mappings and sample events from upstream Elastic repos as the source of truth. Recommended to use in
+**Plan mode** so the agent proposes changes before applying them.
+
 ## Performance and baselines
 
 Perf-data generation and baseline workflows are documented in command-specific pages:

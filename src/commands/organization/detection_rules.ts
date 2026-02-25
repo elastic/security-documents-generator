@@ -735,7 +735,9 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             agent: { type: 'endpoint' },
             file: {
               name: `${faker.string.alphanumeric(8)}.dll`,
-              hash: { sha256: faker.string.hexadecimal({ length: 64, casing: 'lower', prefix: '' }) },
+              hash: {
+                sha256: faker.string.hexadecimal({ length: 64, casing: 'lower', prefix: '' }),
+              },
             },
             host: { name: faker.internet.domainWord(), os: { family: 'windows' } },
             user: { name: faker.internet.username() },
@@ -753,7 +755,10 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
       index: ['logs-endpoint.events.process-*'],
       generateMatchingEvents: (count) => {
         const suspiciousProcs = [
-          { name: 'powershell.exe', exe: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe' },
+          {
+            name: 'powershell.exe',
+            exe: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+          },
           { name: 'cmd.exe', exe: 'C:\\Windows\\System32\\cmd.exe' },
           { name: 'certutil.exe', exe: 'C:\\Windows\\System32\\certutil.exe' },
           { name: 'mshta.exe', exe: 'C:\\Windows\\System32\\mshta.exe' },
@@ -772,7 +777,11 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               dataset: 'endpoint.events.process',
             },
             agent: { type: 'endpoint' },
-            process: { name: proc.name, executable: proc.exe, pid: faker.number.int({ min: 100, max: 65535 }) },
+            process: {
+              name: proc.name,
+              executable: proc.exe,
+              pid: faker.number.int({ min: 100, max: 65535 }),
+            },
             host: { name: faker.internet.domainWord(), os: { family: 'windows' } },
             user: { name: faker.internet.username() },
           });
@@ -801,15 +810,17 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             agent: { type: 'endpoint' },
             user: { name: faker.internet.username() },
-            source: { ip: faker.internet.ipv4(), port: faker.number.int({ min: 49152, max: 65535 }) },
+            source: {
+              ip: faker.internet.ipv4(),
+              port: faker.number.int({ min: 49152, max: 65535 }),
+            },
             host: { name: faker.internet.domainWord(), os: { family: 'windows' } },
           })
         ),
     },
     {
       name: 'Suspicious Network Connection from Endpoint',
-      description:
-        'Detects outbound network connections to uncommon ports from endpoint hosts',
+      description: 'Detects outbound network connections to uncommon ports from endpoint hosts',
       query:
         'data_stream.dataset: "endpoint.events.network" AND network.direction: "egress" AND NOT destination.port: (80 OR 443 OR 53)',
       severity: 'medium',
@@ -832,8 +843,13 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               ip: faker.internet.ipv4(),
               port: faker.helpers.arrayElement([4444, 8443, 8888, 9001, 1337, 6667]),
             },
-            source: { ip: faker.internet.ipv4(), port: faker.number.int({ min: 49152, max: 65535 }) },
-            process: { name: faker.helpers.arrayElement(['cmd.exe', 'powershell.exe', 'python3', 'nc']) },
+            source: {
+              ip: faker.internet.ipv4(),
+              port: faker.number.int({ min: 49152, max: 65535 }),
+            },
+            process: {
+              name: faker.helpers.arrayElement(['cmd.exe', 'powershell.exe', 'python3', 'nc']),
+            },
             host: { name: faker.internet.domainWord(), os: { family: 'windows' } },
           })
         ),

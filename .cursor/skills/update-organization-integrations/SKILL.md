@@ -36,6 +36,7 @@ Task Progress:
 - [ ] Step 4: Register the integration (new integrations only)
 - [ ] Step 5: Add detection rules
 - [ ] Step 6: Verify the changes compile
+- [ ] Step 7: Lint and format the code
 ```
 
 ### Step 1: Read Real Integration Data
@@ -272,10 +273,31 @@ Guidelines:
 Run from the project root:
 
 ```bash
-yarn build
+yarn --ignore-engines build
 ```
 
 Fix any TypeScript errors before finishing.
+
+### Step 7: Lint and Format the Code
+
+Run eslint and prettier to catch formatting and lint issues:
+
+```bash
+yarn --ignore-engines lint
+yarn --ignore-engines prettier --check "src/**/*.ts"
+```
+
+If there are errors, auto-fix them:
+
+```bash
+yarn --ignore-engines prettier --write "src/**/*.ts"
+```
+
+Then re-run the lint check. For lint errors that prettier cannot fix (e.g. `no-useless-assignment`,
+`no-unused-vars`), fix them manually in the source code and re-run until clean.
+
+The CI runs `yarn checks` which chains `typecheck`, `lint`, and `prettier --check` -- all three
+must pass before finishing.
 
 ## File Locations
 
