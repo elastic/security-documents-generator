@@ -183,13 +183,15 @@ Detailed command documentation is colocated with command code under `src/command
 - **Correlated Organization Data**
   - `generate-correlated-organization-data` (`org-data`), `generate-correlated-organization-data-quick` (`org-data-quick`)
 
-## Cursor skills
+## Agent skills
 
 ### `/update-org-data-integrations`
 
 Updates existing integrations or creates new ones for the `org-data` command, using upstream field
 definitions and reference sample events from Elastic repos as the source of truth. Recommended to
-use in **Plan mode** so the agent proposes changes before applying them.
+use in **Plan mode** (or equivalent) so the agent proposes changes before applying them.
+
+Located at `.agents/skills/update-org-data-integrations/SKILL.md`.
 
 ## Performance and baselines
 
