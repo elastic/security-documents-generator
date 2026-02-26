@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { CommandModule } from '../types';
 import { kibanaApi } from '../../utils';
 import { generateAssetCriticality } from './asset_criticality';
-import { generateInsights } from './insights';
+import { generateAiInsights } from './insights';
 import { generateLegacyRiskScore } from './legacy_risk_score';
 import { singleEntityCommand } from './single_entity';
 import { ensureSpace } from '../../utils';
@@ -17,14 +17,38 @@ export const miscCommands: CommandModule = {
       .action(kibanaApi.fetchRiskScore);
 
     program
-      .command('generate-entity-insights')
-      .description('Generate entities vulnerabilities and misconfigurations')
+      .command('generate-entity-ai-insights')
+      .option('-s <s>', 'space', 'default')
+      .option('-h <h>', 'number of hosts (default 10)')
+      .option('-u <u>', 'number of users (default 10)')
+      .option('-a <a>', 'number of anomaly records per job id (default 10)')
+      .option(
+        '--no-anomalies',
+        'create entity data without generating ML jobs or anomalous behavior records'
+      )
+      .option(
+        '--no-anomaly-data',
+        'create entity data and ML modules without starting datafeeds or generating anomalous behavior records'
+      )
+      .description(
+        'Generate vulnerabilities, misconfigurations, ML jobs, and anomalous behavior for entities.'
+      )
       .action(
         wrapAction(async (options) => {
           const users = parseOptionInt(options.u, 10);
           const hosts = parseOptionInt(options.h, 10);
           const space = await ensureSpace(options.s);
-          await generateInsights({ users, hosts, space });
+          const records = parseOptionInt(options.a, 10);
+          const generateAnomalies = options.anomalies;
+          const generateAnomalyData = !options.anomalyData;
+          await generateAiInsights({
+            users,
+            hosts,
+            records,
+            space,
+            generateAnomalies,
+            generateAnomalyData,
+          });
         })
       );
 
