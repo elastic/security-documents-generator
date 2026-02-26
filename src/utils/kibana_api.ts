@@ -24,6 +24,7 @@ import {
   KIBANA_SETTINGS_URL,
   KIBANA_SETTINGS_INTERNAL_URL,
   ENTITY_STORE_ENTITIES_URL,
+  ML_GROUP_ID,
 } from '../constants';
 
 export const buildKibanaUrl = (opts: { path: string; space?: string }) => {
@@ -887,6 +888,71 @@ export const forceStartDatafeeds = async (datafeedIds: string[], space?: string)
   );
 };
 
+export const getMlJobsSummary = async (jobIds: string[], space?: string) => {
+  return kibanaFetch(
+    '/internal/ml/jobs/jobs_summary',
+    {
+      method: 'POST',
+      body: JSON.stringify({ jobIds }),
+    },
+    { apiVersion: API_VERSIONS.internal.v1, space }
+  );
+};
+
+export const setupMlModule = async (
+  moduleId: string,
+  indexPatternName: string,
+  space?: string
+): Promise<{ jobs?: Array<{ id: string; success: boolean; error?: { status: number } }> }> => {
+  return kibanaFetch(
+    `/internal/ml/modules/setup/${moduleId}`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        prefix: '',
+        groups: [ML_GROUP_ID],
+        indexPatternName,
+        startDatafeed: false,
+        useDedicatedIndex: true,
+        applyToAllSpaces: true,
+      }),
+    },
+    { apiVersion: API_VERSIONS.internal.v1, space }
+  );
+};
+
+export const installIntegrationAndCreatePolicy = async (
+  integrationName: string,
+  space?: string
+): Promise<{ agentPolicyId: string; packagePolicyId: string }> => {
+  await installPackage({ packageName: integrationName, space });
+  const pkg = await getPackageInfo({ packageName: integrationName, space });
+  const packageName = pkg.item.name;
+  const packageVersion = pkg.item.version;
+
+  const agentPolicy = await createAgentPolicy({
+    name: `Test agent policy ${faker.string.uuid()}`,
+    namespace: space ?? 'default',
+    space,
+  });
+  const agentPolicyId = agentPolicy.item.id;
+
+  const packagePolicy = await createPackagePolicy({
+    name: `Test package policy ${faker.string.uuid()}`,
+    agentPolicyIds: [agentPolicyId],
+    packageName,
+    packageVersion,
+    namespace: space ?? 'default',
+    inputs: {},
+    space,
+  });
+
+  return {
+    agentPolicyId,
+    packagePolicyId: packagePolicy.item.id,
+  };
+};
+
 export const getDataView = async (dataViewId: string, space?: string) => {
   try {
     return await kibanaFetch(
@@ -908,6 +974,17 @@ export const createDataView = async (dataview: object, space?: string) => {
     {
       method: 'POST',
       body: JSON.stringify({ data_view: dataview }),
+    },
+    { apiVersion: API_VERSIONS.public.v1, space }
+  );
+};
+
+export const createAlertsIndex = async (space?: string) => {
+  return kibanaFetch(
+    '/api/detection_engine/index',
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
     },
     { apiVersion: API_VERSIONS.public.v1, space }
   );

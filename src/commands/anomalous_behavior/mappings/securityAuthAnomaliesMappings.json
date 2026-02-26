@@ -1,0 +1,38 @@
+{
+  "_meta": { "managed_index_mappings_version": 1, "version": "8.11.0" },
+  "dynamic_templates": [
+    { "map_objects": { "match_mapping_type": "object", "mapping": { "type": "object" } } },
+    { "non_objects_as_keywords": { "match": "*", "mapping": { "type": "keyword" } } }
+  ],
+  "properties": {
+    "@timestamp": { "type": "alias", "path": "timestamp" },
+    "job_id": { "type": "keyword" },
+    "result_type": { "type": "keyword" },
+    "record_score": { "type": "double" },
+    "timestamp": { "type": "date" },
+    "user": { "properties": { "name": { "type": "keyword" } } },
+    "source": {
+      "properties": {
+        "ip": { "type": "keyword" },
+        "geo": {
+          "properties": {
+            "country_iso_code": { "type": "keyword" },
+            "region_name": { "type": "keyword" },
+            "city_name": { "type": "keyword" }
+          }
+        }
+      }
+    },
+    "destination": {
+      "properties": { "geo": { "properties": { "country_iso_code": { "type": "keyword" } } } }
+    },
+    "event": { "properties": { "outcome": { "type": "keyword" } } },
+    "influencers": {
+      "type": "nested",
+      "properties": {
+        "influencer_field_name": { "type": "keyword" },
+        "influencer_field_values": { "type": "keyword" }
+      }
+    }
+  }
+}
