@@ -16,6 +16,18 @@ export const ENTITY_STORE_OPTIONS = {
   apiEnrichment: 'apiEnrichment',
 } as const;
 
+export const ENTITY_STORE_V2_INDEX = '.entities.v2.latest.security_default';
+
+export const ENTITY_MAINTAINERS_OPTIONS = {
+  riskScore: 'riskScore',
+  assetCriticality: 'assetCriticality',
+  anomalyBehaviors: 'anomalyBehaviors',
+  relationships: 'relationships',
+  watchlist: 'watchlist',
+} as const;
+
+export type EntityMaintainerOption = keyof typeof ENTITY_MAINTAINERS_OPTIONS;
+
 export const PRIVILEGED_USER_MONITORING_OPTIONS = {
   anomalyData: 'anomalyData',
   sourceEventData: 'sourceEventData',
