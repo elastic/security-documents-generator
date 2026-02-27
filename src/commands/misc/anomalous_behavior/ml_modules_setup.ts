@@ -4,7 +4,7 @@ import {
   installIntegrationAndCreatePolicy,
   forceStartDatafeeds,
   getMlJobsSummary,
-} from '../../utils/kibana_api';
+} from '../../../utils/kibana_api';
 export const SECURITY_AUTH_MODULE = 'security_auth';
 export const SECURITY_AUTH_JOB_IDS = [
   'auth_rare_source_ip_for_a_user',
@@ -75,7 +75,7 @@ const setupMlModulesWithRetry = (moduleId: string, indexPatternName: string, spa
 
 export const setupAnomalyMlModulesAndStartDatafeeds = async (
   space: string,
-  modulesOnly: boolean
+  generateAnomalyData: boolean
 ): Promise<void> => {
   try {
     // Security Auth (built-in, no Fleet integration)
@@ -123,7 +123,7 @@ export const setupAnomalyMlModulesAndStartDatafeeds = async (
     console.warn('Failed to setup DED ML module:', err);
   }
 
-  if (!modulesOnly) {
+  if (!generateAnomalyData) {
     // Start all datafeeds again so any that failed earlier can be retried together
     console.log('Starting all anomaly job datafeeds');
     await forceStartDatafeeds(
@@ -133,7 +133,7 @@ export const setupAnomalyMlModulesAndStartDatafeeds = async (
     console.log('ML modules setup and datafeeds started.');
   } else {
     console.log(
-      'ML modules setup completed. Skipping datafeed start and anomaly record generation due to --modules-only flag.'
+      'ML modules setup completed. Skipping datafeed start and anomaly record generation due to --no-anomaly-data flag.'
     );
   }
 };
