@@ -1,6 +1,6 @@
 import { MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
-import { indexCheck } from '../utils/indices';
-import { bulkIngest } from '../shared/elasticsearch';
+import { indexCheck } from '../../utils/indices';
+import { bulkIngest } from '../../shared/elasticsearch';
 import {
   ALL_ANOMALY_JOB_IDS,
   waitForAllJobsToStart,
@@ -14,7 +14,7 @@ import padAnomaliesMappings from './mappings/padAnomaliesMappings.json' assert {
 import lmdAnomaliesMappings from './mappings/lmdAnomaliesMappings.json' assert { type: 'json' };
 import packetbeatAnomaliesMappings from './mappings/packetbeatAnomaliesMappings.json' assert { type: 'json' };
 import sharedAnomaliesMappings from './mappings/sharedAnomaliesMappings.json' assert { type: 'json' };
-import { createAlertsIndex } from '../../utils/kibana_api';
+import { createAlertsIndex } from '../../../utils/kibana_api';
 import {
   generateSecurityAuthRecords,
   generatePadRecords,
@@ -167,13 +167,13 @@ const setupIndexMappings = async (space: string): Promise<void> => {
 export const generateAnomalousBehaviorDataWithMlJobs = async (
   space: string,
   recordCount: number,
-  modulesOnly: boolean
+  generateAnomalyData: boolean
 ): Promise<void> => {
   await setupIndexMappings(space);
   await generateSource();
-  await setupAnomalyMlModulesAndStartDatafeeds(space, modulesOnly);
+  await setupAnomalyMlModulesAndStartDatafeeds(space, generateAnomalyData);
 
-  if (!modulesOnly) {
+  if (!generateAnomalyData) {
     await generateAnomalousBehaviorRecords(recordCount);
     await waitForAllJobsToStart(ALL_ANOMALY_JOB_IDS, space);
   }

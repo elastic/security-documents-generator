@@ -8,12 +8,12 @@ Run the risk score API timing/response test.
 yarn start test-risk-score
 ```
 
-## `generate-entity-insights`
+## `generate-entity-ai-insights`
 
-Generate vulnerabilities and misconfigurations for entities.
+Generate vulnerabilities, misconfigurations and anomalous behavior for entities.
 
 ```bash
-yarn start generate-entity-insights
+yarn start generate-entity-ai-insights
 ```
 
 ## `generate-asset-criticality`

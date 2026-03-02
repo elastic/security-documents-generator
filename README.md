@@ -135,7 +135,7 @@ Detailed command documentation is colocated with command code under `src/command
 | `quick-entity-store` | Quick non-interactive Entity Store setup | `src/commands/entity_store/README.md` |
 | `clean-entity-store` | Clean Entity Store data | `src/commands/entity_store/README.md` |
 | `test-risk-score` | Run risk score API test call | `src/commands/misc/README.md` |
-| `generate-entity-insights` | Generate entity vulnerabilities and misconfigurations | `src/commands/misc/README.md` |
+| `generate-entity-ai-insights` | Generate vulnerabilities, misconfigurations and anomalous behavior for entities. | `src/commands/misc/README.md` |
 | `generate-asset-criticality` | Generate asset criticality assignments | `src/commands/misc/README.md` |
 | `generate-legacy-risk-score` | Install and generate legacy risk score data | `src/commands/misc/README.md` |
 | `single-entity` | Create one entity with optional setup flows | `src/commands/misc/README.md` |
@@ -167,7 +167,7 @@ Detailed command documentation is colocated with command code under `src/command
 - **Entity Store**
   - `entity-resolution-demo`, `entity-store`, `quick-entity-store`, `clean-entity-store`
 - **Risk and Security utilities**
-  - `test-risk-score`, `generate-entity-insights`, `generate-asset-criticality`, `generate-legacy-risk-score`, `single-entity`
+  - `test-risk-score`, `generate-entity-ai-insights`, `generate-asset-criticality`, `generate-legacy-risk-score`, `single-entity`
 - **Privileged User Monitoring**
   - `privileged-user-monitoring` (`privmon`), `privmon-quick` (`quickmon`)
 - **Rules**
