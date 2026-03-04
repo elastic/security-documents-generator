@@ -1,6 +1,11 @@
 import urlJoin from 'url-join';
 import fetch, { Headers } from 'node-fetch';
+import https from 'https';
 import { getConfig } from '../get_config';
+
+const httpsAgent = new https.Agent({
+  rejectUnauthorized: false,
+});
 import { faker } from '@faker-js/faker';
 import fs from 'fs';
 import FormData from 'form-data';
@@ -74,11 +79,17 @@ export const kibanaFetch = async <T>(
   headers.set('elastic-api-version', apiVersion);
   const result = await fetch(url, {
     headers: headers,
+    agent: url.startsWith('https') ? httpsAgent : undefined,
     ...params,
   });
   const rawResponse = await result.text();
   // log response status
-  const data = rawResponse ? JSON.parse(rawResponse) : {};
+  let data: unknown;
+  try {
+    data = rawResponse ? JSON.parse(rawResponse) : {};
+  } catch {
+    data = { message: rawResponse };
+  }
   if (!data || typeof data !== 'object') {
     throw new Error();
   }
@@ -90,7 +101,7 @@ export const kibanaFetch = async <T>(
       data
     );
   }
-  return data;
+  return data as T;
 };
 
 export const fetchRiskScore = async (space?: string) => {
@@ -753,22 +764,21 @@ export const uploadPrivmonCsv = async (
     const formData = new FormData();
     formData.append('file', fs.createReadStream(csvFilePath));
 
-    const response = await fetch(
-      buildKibanaUrl({
-        path: '/api/entity_analytics/monitoring/users/_csv',
-        space,
-      }),
-      {
-        method: 'POST',
-        headers: {
-          'kbn-xsrf': 'true',
-          'elastic-api-version': API_VERSIONS.public.v1,
-          ...formData.getHeaders(),
-          Authorization: getAuthorizationHeader(),
-        },
-        body: formData,
-      }
-    );
+    const uploadUrl = buildKibanaUrl({
+      path: '/api/entity_analytics/monitoring/users/_csv',
+      space,
+    });
+    const response = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        'kbn-xsrf': 'true',
+        'elastic-api-version': API_VERSIONS.public.v1,
+        ...formData.getHeaders(),
+        Authorization: getAuthorizationHeader(),
+      },
+      body: formData,
+      agent: uploadUrl.startsWith('https') ? httpsAgent : undefined,
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
