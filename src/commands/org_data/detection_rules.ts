@@ -975,6 +975,275 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
     },
   ],
 
+  atlassian_bitbucket: [
+    {
+      name: 'Bitbucket Project Deletion Requested',
+      description: 'Detects when a Bitbucket project deletion is requested',
+      query:
+        'data_stream.dataset: "atlassian_bitbucket.audit" AND event.action: "bitbucket.service.project.audit.action.projectdeletionrequested"',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-atlassian_bitbucket.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('atlassian_bitbucket.audit', {
+            event: {
+              action: 'bitbucket.service.project.audit.action.projectdeletionrequested',
+              category: ['configuration'],
+              type: ['deletion'],
+              kind: 'event',
+            },
+            user: { name: faker.internet.username() },
+          })
+        ),
+    },
+    {
+      name: 'Bitbucket Repository Permission Changed',
+      description: 'Detects permission changes on Bitbucket repositories',
+      query:
+        'data_stream.dataset: "atlassian_bitbucket.audit" AND event.action: "bitbucket.service.permission.audit.action.permissiongranted"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-atlassian_bitbucket.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('atlassian_bitbucket.audit', {
+            event: {
+              action: 'bitbucket.service.permission.audit.action.permissiongranted',
+              category: ['iam'],
+              type: ['change'],
+              kind: 'event',
+            },
+            user: { name: faker.internet.username() },
+          })
+        ),
+    },
+  ],
+
+  atlassian_confluence: [
+    {
+      name: 'Confluence Global Permission Granted',
+      description: 'Detects when global permissions are granted in Confluence',
+      query:
+        'data_stream.dataset: "atlassian_confluence.audit" AND event.action: "atlassian.confluence.audit.action.globalpermissiongranted"',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-atlassian_confluence.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('atlassian_confluence.audit', {
+            event: {
+              action: 'atlassian.confluence.audit.action.globalpermissiongranted',
+              category: ['iam'],
+              type: ['change'],
+              kind: 'event',
+            },
+            user: { name: faker.internet.username() },
+          })
+        ),
+    },
+    {
+      name: 'Confluence Page Deleted',
+      description: 'Detects when a Confluence page is deleted',
+      query:
+        'data_stream.dataset: "atlassian_confluence.audit" AND event.action: "atlassian.confluence.audit.action.pagedeleted"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-atlassian_confluence.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('atlassian_confluence.audit', {
+            event: {
+              action: 'atlassian.confluence.audit.action.pagedeleted',
+              category: ['configuration'],
+              type: ['deletion'],
+              kind: 'event',
+            },
+            user: { name: faker.internet.username() },
+          })
+        ),
+    },
+  ],
+
+  atlassian_jira: [
+    {
+      name: 'Jira Global Permission Granted',
+      description: 'Detects when global permissions are granted in Jira',
+      query:
+        'data_stream.dataset: "atlassian_jira.audit" AND event.action: "jira.auditing.global.permission.granted"',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-atlassian_jira.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('atlassian_jira.audit', {
+            event: {
+              action: 'jira.auditing.global.permission.granted',
+              category: ['iam'],
+              type: ['change'],
+              kind: 'event',
+            },
+            user: { name: faker.internet.username() },
+          })
+        ),
+    },
+    {
+      name: 'Jira Group Created',
+      description: 'Detects when a new group is created in Jira',
+      query:
+        'data_stream.dataset: "atlassian_jira.audit" AND event.action: "jira.auditing.group.created"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-atlassian_jira.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('atlassian_jira.audit', {
+            event: {
+              action: 'jira.auditing.group.created',
+              category: ['iam'],
+              type: ['group', 'creation'],
+              kind: 'event',
+            },
+            group: {
+              name: faker.helpers.arrayElement([
+                'jira-software-users',
+                'developers',
+                'project-managers',
+              ]),
+            },
+          })
+        ),
+    },
+  ],
+
+  auth0: [
+    {
+      name: 'Auth0 Failed Login Attempt',
+      description: 'Detects failed login attempts in Auth0',
+      query:
+        'data_stream.dataset: "auth0.logs" AND event.action: "failed-login" AND event.outcome: "failure"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-auth0.logs-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('auth0.logs', {
+            event: {
+              action: 'failed-login',
+              category: ['authentication'],
+              outcome: 'failure',
+              kind: 'event',
+            },
+            user: { name: faker.internet.username(), email: faker.internet.email() },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'Auth0 MFA Failure',
+      description: 'Detects failed multi-factor authentication attempts in Auth0',
+      query:
+        'data_stream.dataset: "auth0.logs" AND event.action: "mfa-failure" AND event.outcome: "failure"',
+      severity: 'high',
+      riskScore: 63,
+      index: ['logs-auth0.logs-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('auth0.logs', {
+            event: {
+              action: 'mfa-failure',
+              category: ['authentication'],
+              outcome: 'failure',
+              kind: 'event',
+            },
+            user: { name: faker.internet.username(), email: faker.internet.email() },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'Auth0 Rate Limit Exceeded',
+      description: 'Detects API rate limiting events in Auth0',
+      query: 'data_stream.dataset: "auth0.logs" AND event.action: "rate-limit"',
+      severity: 'low',
+      riskScore: 21,
+      index: ['logs-auth0.logs-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('auth0.logs', {
+            event: {
+              action: 'rate-limit',
+              category: ['web'],
+              outcome: 'failure',
+              kind: 'event',
+            },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+  ],
+
+  authentik: [
+    {
+      name: 'authentik Login Failure',
+      description: 'Detects failed login attempts in authentik',
+      query: 'data_stream.dataset: "authentik.event" AND event.action: "login-failed"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-authentik.event-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('authentik.event', {
+            event: {
+              action: 'login-failed',
+              category: ['authentication'],
+              kind: 'event',
+            },
+            user: { name: faker.internet.username(), email: faker.internet.email() },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'authentik Impersonation Started',
+      description: 'Detects when an admin starts impersonating another user in authentik',
+      query: 'data_stream.dataset: "authentik.event" AND event.action: "impersonation-started"',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-authentik.event-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('authentik.event', {
+            event: {
+              action: 'impersonation-started',
+              category: ['iam'],
+              kind: 'event',
+            },
+            user: { name: faker.internet.username(), email: faker.internet.email() },
+          })
+        ),
+    },
+    {
+      name: 'authentik Suspicious Request',
+      description: 'Detects suspicious requests flagged by authentik',
+      query: 'data_stream.dataset: "authentik.event" AND event.action: "suspicious-request"',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-authentik.event-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('authentik.event', {
+            event: {
+              action: 'suspicious-request',
+              category: ['intrusion_detection'],
+              kind: 'event',
+            },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+  ],
+
   system: [
     {
       name: 'Failed SSH Login Attempt',

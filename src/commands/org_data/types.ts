@@ -1077,7 +1077,12 @@ export type IntegrationName =
   | 'workday'
   | 'ping_directory'
   | 'system'
-  | 'endpoint';
+  | 'endpoint'
+  | 'atlassian_bitbucket'
+  | 'atlassian_confluence'
+  | 'atlassian_jira'
+  | 'auth0'
+  | 'authentik';
 
 /**
  * @deprecated Legacy type from entityanalytics_jamf integration.

@@ -35,6 +35,11 @@ import { WorkdayIntegration } from './workday_integration';
 import { PingDirectoryIntegration } from './ping_directory_integration';
 import { SystemIntegration } from './system_integration';
 import { EndpointIntegration } from './endpoint_integration';
+import { AtlassianBitbucketIntegration } from './atlassian_bitbucket_integration';
+import { AtlassianConfluenceIntegration } from './atlassian_confluence_integration';
+import { AtlassianJiraIntegration } from './atlassian_jira_integration';
+import { Auth0Integration } from './auth0_integration';
+import { AuthentikIntegration } from './authentik_integration';
 import { IntegrationName } from '../types';
 
 // Re-export types and classes from base_integration
@@ -64,6 +69,11 @@ export { WorkdayIntegration } from './workday_integration';
 export { PingDirectoryIntegration } from './ping_directory_integration';
 export { SystemIntegration } from './system_integration';
 export { EndpointIntegration } from './endpoint_integration';
+export { AtlassianBitbucketIntegration } from './atlassian_bitbucket_integration';
+export { AtlassianConfluenceIntegration } from './atlassian_confluence_integration';
+export { AtlassianJiraIntegration } from './atlassian_jira_integration';
+export { Auth0Integration } from './auth0_integration';
+export { AuthentikIntegration } from './authentik_integration';
 
 /**
  * Create integration registry with all available integrations
@@ -111,6 +121,13 @@ export const createIntegrationRegistry = (): IntegrationRegistry => {
   // Register endpoint (Elastic Defend) integration
   registry.set('endpoint', new EndpointIntegration());
 
+  // Register Atlassian, Auth0, and authentik integrations
+  registry.set('atlassian_bitbucket', new AtlassianBitbucketIntegration());
+  registry.set('atlassian_confluence', new AtlassianConfluenceIntegration());
+  registry.set('atlassian_jira', new AtlassianJiraIntegration());
+  registry.set('auth0', new Auth0Integration());
+  registry.set('authentik', new AuthentikIntegration());
+
   return registry;
 };
 
@@ -153,6 +170,11 @@ export const getAvailableIntegrations = (): IntegrationName[] => {
     'ping_directory',
     'system',
     'endpoint',
+    'atlassian_bitbucket',
+    'atlassian_confluence',
+    'atlassian_jira',
+    'auth0',
+    'authentik',
   ];
 };
 
