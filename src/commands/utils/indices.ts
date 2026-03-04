@@ -31,9 +31,9 @@ export const getEsClient = () => {
   esClient = new Client({
     node: config.elastic.node,
     auth: getClientAuth(config),
-    tls: {
-      rejectUnauthorized: false,
-    },
+    ...(config.allowSelfSignedCerts && {
+      tls: { rejectUnauthorized: false },
+    }),
   });
 
   return esClient;

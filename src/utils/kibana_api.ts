@@ -2,13 +2,17 @@ import urlJoin from 'url-join';
 import fetch, { Headers } from 'node-fetch';
 import https from 'https';
 import { getConfig } from '../get_config';
-
-const httpsAgent = new https.Agent({
-  rejectUnauthorized: false,
-});
 import { faker } from '@faker-js/faker';
 import fs from 'fs';
 import FormData from 'form-data';
+
+const getHttpsAgent = () => {
+  const config = getConfig();
+  if (config.allowSelfSignedCerts) {
+    return new https.Agent({ rejectUnauthorized: false });
+  }
+  return undefined;
+};
 import {
   RISK_SCORE_SCORES_URL,
   RISK_SCORE_ENGINE_INIT_URL,
@@ -79,8 +83,8 @@ export const kibanaFetch = async <T>(
   headers.set('elastic-api-version', apiVersion);
   const result = await fetch(url, {
     headers: headers,
-    agent: url.startsWith('https') ? httpsAgent : undefined,
     ...params,
+    agent: url.startsWith('https') ? getHttpsAgent() : undefined,
   });
   const rawResponse = await result.text();
   // log response status
@@ -777,7 +781,7 @@ export const uploadPrivmonCsv = async (
         Authorization: getAuthorizationHeader(),
       },
       body: formData,
-      agent: uploadUrl.startsWith('https') ? httpsAgent : undefined,
+      agent: uploadUrl.startsWith('https') ? getHttpsAgent() : undefined,
     });
 
     if (!response.ok) {

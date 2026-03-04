@@ -56,6 +56,26 @@ You can authenticate with either:
 }
 ```
 
+### Example `config.json` (local development with self-signed certificates)
+
+```json
+{
+  "elastic": {
+    "node": "https://localhost:9200",
+    "apiKey": "your-elastic-api-key"
+  },
+  "kibana": {
+    "node": "https://localhost:5601",
+    "apiKey": "your-kibana-api-key"
+  },
+  "serverless": false,
+  "eventIndex": "logs-testlogs-default",
+  "allowSelfSignedCerts": true
+}
+```
+
+> **Security note**: Only enable `allowSelfSignedCerts` for local development or testing environments. This option disables TLS certificate verification, which should never be used in production.
+
 ### Example `config.json` (basic auth)
 
 ```json
@@ -84,6 +104,7 @@ Environment variables override `config.json` values:
 - `SERVERLESS`
 - `EVENT_INDEX`
 - `EVENT_DATE_OFFSET_HOURS`
+- `ALLOW_SELF_SIGNED_CERTS` - Set to `true` or `1` to disable TLS certificate verification (for local development only)
 
 ## CLI help
 

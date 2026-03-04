@@ -24,6 +24,7 @@ const Config = t.type({
   serverless: t.union([t.boolean, t.undefined]),
   eventIndex: t.union([t.string, t.undefined]),
   eventDateOffsetHours: t.union([t.number, t.undefined]),
+  allowSelfSignedCerts: t.union([t.boolean, t.undefined]),
 });
 
 export type ConfigType = t.TypeOf<typeof Config>;
@@ -45,6 +46,7 @@ export const configPath = resolve(directoryName, `../${CONFIG_FILE_NAME}`);
  * - SERVERLESS (true/false)
  * - EVENT_INDEX
  * - EVENT_DATE_OFFSET_HOURS (number)
+ * - ALLOW_SELF_SIGNED_CERTS (true/false)
  */
 const getConfigFromEnv = (): Partial<ConfigType> | null => {
   const envConfig: Partial<ConfigType> = {};
@@ -111,13 +113,19 @@ const getConfigFromEnv = (): Partial<ConfigType> | null => {
     }
   }
 
+  if (process.env.ALLOW_SELF_SIGNED_CERTS !== undefined) {
+    envConfig.allowSelfSignedCerts =
+      process.env.ALLOW_SELF_SIGNED_CERTS === 'true' || process.env.ALLOW_SELF_SIGNED_CERTS === '1';
+  }
+
   // Return null if no env vars were set (to indicate we should use file config)
   const hasAnyEnvConfig =
     envConfig.elastic ||
     envConfig.kibana ||
     envConfig.serverless !== undefined ||
     envConfig.eventIndex !== undefined ||
-    envConfig.eventDateOffsetHours !== undefined;
+    envConfig.eventDateOffsetHours !== undefined ||
+    envConfig.allowSelfSignedCerts !== undefined;
 
   return hasAnyEnvConfig ? envConfig : null;
 };
