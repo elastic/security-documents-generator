@@ -40,6 +40,11 @@ import { AtlassianConfluenceIntegration } from './atlassian_confluence_integrati
 import { AtlassianJiraIntegration } from './atlassian_jira_integration';
 import { Auth0Integration } from './auth0_integration';
 import { AuthentikIntegration } from './authentik_integration';
+import { BeyondInsightIntegration } from './beyondinsight_integration';
+import { BitwardenIntegration } from './bitwarden_integration';
+import { BoxIntegration } from './box_integration';
+import { CanvaIntegration } from './canva_integration';
+import { CyberArkPasIntegration } from './cyberark_pas_integration';
 import { IntegrationName } from '../types';
 
 // Re-export types and classes from base_integration
@@ -74,6 +79,11 @@ export { AtlassianConfluenceIntegration } from './atlassian_confluence_integrati
 export { AtlassianJiraIntegration } from './atlassian_jira_integration';
 export { Auth0Integration } from './auth0_integration';
 export { AuthentikIntegration } from './authentik_integration';
+export { BeyondInsightIntegration } from './beyondinsight_integration';
+export { BitwardenIntegration } from './bitwarden_integration';
+export { BoxIntegration } from './box_integration';
+export { CanvaIntegration } from './canva_integration';
+export { CyberArkPasIntegration } from './cyberark_pas_integration';
 
 /**
  * Create integration registry with all available integrations
@@ -128,6 +138,13 @@ export const createIntegrationRegistry = (): IntegrationRegistry => {
   registry.set('auth0', new Auth0Integration());
   registry.set('authentik', new AuthentikIntegration());
 
+  // Register PAM, credential management, and collaboration integrations
+  registry.set('beyondinsight', new BeyondInsightIntegration());
+  registry.set('bitwarden', new BitwardenIntegration());
+  registry.set('box', new BoxIntegration());
+  registry.set('canva', new CanvaIntegration());
+  registry.set('cyberark_pas', new CyberArkPasIntegration());
+
   return registry;
 };
 
@@ -175,6 +192,11 @@ export const getAvailableIntegrations = (): IntegrationName[] => {
     'atlassian_jira',
     'auth0',
     'authentik',
+    'beyondinsight',
+    'bitwarden',
+    'box',
+    'canva',
+    'cyberark_pas',
   ];
 };
 

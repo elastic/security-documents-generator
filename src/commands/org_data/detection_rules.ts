@@ -1277,6 +1277,465 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
         ),
     },
   ],
+
+  beyondinsight: [
+    {
+      name: 'BeyondInsight Access Denied',
+      description: 'Detects access denied events in BeyondInsight PAM',
+      query:
+        'data_stream.dataset: "beyondinsight_password_safe.useraudit" AND beyondinsight_password_safe.useraudit.action_type: "AccessDenied"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-beyondinsight_password_safe.useraudit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('beyondinsight_password_safe.useraudit', {
+            event: {
+              category: ['iam'],
+              type: ['denied'],
+              kind: 'event',
+            },
+            beyondinsight_password_safe: {
+              useraudit: {
+                action_type: 'AccessDenied',
+                section: 'Authorization',
+                user_name: faker.internet.username(),
+              },
+            },
+            user: { name: faker.internet.username() },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'BeyondInsight Suspicious Privileged Session',
+      description: 'Detects privileged sessions using high-risk protocols',
+      query:
+        'data_stream.dataset: "beyondinsight_password_safe.session" AND beyondinsight_password_safe.session.protocol: "rdp"',
+      severity: 'high',
+      riskScore: 63,
+      index: ['logs-beyondinsight_password_safe.session-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('beyondinsight_password_safe.session', {
+            event: {
+              category: ['session'],
+              type: ['info'],
+              kind: 'event',
+            },
+            beyondinsight_password_safe: {
+              session: {
+                protocol: 'rdp',
+                status: 'in_progress',
+                managed_account_name: 'Administrator',
+                asset_name: 'ProdDB-01',
+              },
+            },
+            network: { protocol: 'rdp' },
+            user: { name: faker.internet.username() },
+          })
+        ),
+    },
+    {
+      name: 'BeyondInsight Password Retrieval Spike',
+      description: 'Detects password retrieval activity in BeyondInsight',
+      query:
+        'data_stream.dataset: "beyondinsight_password_safe.useraudit" AND beyondinsight_password_safe.useraudit.action_type: "PasswordRetrieval"',
+      severity: 'medium',
+      riskScore: 50,
+      index: ['logs-beyondinsight_password_safe.useraudit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('beyondinsight_password_safe.useraudit', {
+            event: {
+              category: ['iam'],
+              type: ['access'],
+              kind: 'event',
+            },
+            beyondinsight_password_safe: {
+              useraudit: {
+                action_type: 'PasswordRetrieval',
+                section: 'PasswordSafe',
+                user_name: faker.internet.username(),
+              },
+            },
+            user: { name: faker.internet.username() },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+  ],
+
+  bitwarden: [
+    {
+      name: 'Bitwarden Failed Login Attempt',
+      description: 'Detects failed login attempts to Bitwarden',
+      query:
+        'data_stream.dataset: "bitwarden.event" AND bitwarden.event.type.name: "User_FailedLogIn"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-bitwarden.event-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('bitwarden.event', {
+            event: {
+              category: ['authentication'],
+              type: ['info'],
+              outcome: 'failure',
+              kind: 'event',
+            },
+            bitwarden: {
+              object: 'event',
+              event: {
+                type: { name: 'User_FailedLogIn', value: '1005' },
+                ip_address: faker.internet.ipv4(),
+                device: { name: 'WebVault', value: '15' },
+              },
+            },
+            user: { name: faker.internet.username(), email: faker.internet.email() },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'Bitwarden Vault Export',
+      description: 'Detects vault export events which may indicate data exfiltration',
+      query:
+        'data_stream.dataset: "bitwarden.event" AND bitwarden.event.type.name: "User_ExportedVault"',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-bitwarden.event-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('bitwarden.event', {
+            event: {
+              category: ['iam'],
+              type: ['info'],
+              outcome: 'success',
+              kind: 'event',
+            },
+            bitwarden: {
+              object: 'event',
+              event: {
+                type: { name: 'User_ExportedVault', value: '1007' },
+                ip_address: faker.internet.ipv4(),
+                device: { name: 'WebVault', value: '15' },
+              },
+            },
+            user: { name: faker.internet.username(), email: faker.internet.email() },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'Bitwarden 2FA Disabled',
+      description: 'Detects users disabling two-factor authentication',
+      query:
+        'data_stream.dataset: "bitwarden.event" AND bitwarden.event.type.name: "User_Disabled2fa"',
+      severity: 'high',
+      riskScore: 63,
+      index: ['logs-bitwarden.event-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('bitwarden.event', {
+            event: {
+              category: ['iam'],
+              type: ['info'],
+              outcome: 'success',
+              kind: 'event',
+            },
+            bitwarden: {
+              object: 'event',
+              event: {
+                type: { name: 'User_Disabled2fa', value: '1003' },
+                ip_address: faker.internet.ipv4(),
+                device: { name: 'WebVault', value: '15' },
+              },
+            },
+            user: { name: faker.internet.username(), email: faker.internet.email() },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+  ],
+
+  box: [
+    {
+      name: 'Box Shield Anomalous Download Alert',
+      description: 'Detects Box Shield alerts for anomalous download activity',
+      query: 'data_stream.dataset: "box_events.events" AND event.action: "SHIELD_ALERT"',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-box_events.events-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('box_events.events', {
+            event: {
+              action: 'SHIELD_ALERT',
+              kind: 'alert',
+              category: ['threat', 'file'],
+              type: ['indicator', 'access'],
+              risk_score: faker.number.int({ min: 50, max: 99 }),
+            },
+            box: {
+              additional_details: {
+                shield_alert: {
+                  alert_id: faker.number.int({ min: 100, max: 999 }),
+                  alert_summary: {
+                    description: 'Significant increase in download content',
+                    download_delta_percent: faker.number.int({ min: 500, max: 10000 }),
+                  },
+                },
+              },
+            },
+            user: { full_name: faker.person.fullName() },
+            client: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'Box Failed Login',
+      description: 'Detects failed login attempts to Box',
+      query: 'data_stream.dataset: "box_events.events" AND event.action: "FAILED_LOGIN"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-box_events.events-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('box_events.events', {
+            event: {
+              action: 'FAILED_LOGIN',
+              kind: 'event',
+              category: ['authentication'],
+              type: ['start'],
+              outcome: 'failure',
+            },
+            user: {
+              full_name: faker.person.fullName(),
+              effective: { email: faker.internet.email() },
+            },
+            client: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'Box Suspicious File Share',
+      description: 'Detects file sharing activity in Box that may indicate data leakage',
+      query: 'data_stream.dataset: "box_events.events" AND event.action: "SHARE"',
+      severity: 'low',
+      riskScore: 30,
+      index: ['logs-box_events.events-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('box_events.events', {
+            event: {
+              action: 'SHARE',
+              kind: 'event',
+              category: ['file'],
+              type: ['access'],
+              outcome: 'success',
+            },
+            box: {
+              source: {
+                name: `${faker.word.noun()}.${faker.helpers.arrayElement(['pdf', 'xlsx', 'docx'])}`,
+                type: 'file',
+              },
+            },
+            user: { full_name: faker.person.fullName() },
+            client: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+  ],
+
+  canva: [
+    {
+      name: 'Canva Team Removed from Organization',
+      description: 'Detects removal of a team from the Canva organization',
+      query: 'data_stream.dataset: "canva.audit" AND event.action: "remove_team_from_organization"',
+      severity: 'high',
+      riskScore: 63,
+      index: ['logs-canva.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('canva.audit', {
+            event: {
+              action: 'remove_team_from_organization',
+              kind: 'event',
+              category: ['iam'],
+              type: ['deletion'],
+            },
+            canva: {
+              audit: {
+                action: { type: 'REMOVE_TEAM_FROM_ORGANIZATION' },
+                actor: { type: 'ADMIN' },
+              },
+            },
+            user: { name: faker.internet.username(), email: faker.internet.email() },
+          })
+        ),
+    },
+    {
+      name: 'Canva SSO Setting Changed',
+      description: 'Detects changes to SSO configuration in Canva',
+      query: 'data_stream.dataset: "canva.audit" AND event.action: "sso_setting_changed"',
+      severity: 'high',
+      riskScore: 63,
+      index: ['logs-canva.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('canva.audit', {
+            event: {
+              action: 'sso_setting_changed',
+              kind: 'event',
+              category: ['configuration'],
+              type: ['change'],
+            },
+            canva: {
+              audit: {
+                action: { type: 'SSO_SETTING_CHANGED' },
+                actor: { type: 'ADMIN' },
+              },
+            },
+            user: { name: faker.internet.username(), email: faker.internet.email() },
+          })
+        ),
+    },
+    {
+      name: 'Canva Design Export',
+      description: 'Detects design export activity which could indicate IP theft',
+      query: 'data_stream.dataset: "canva.audit" AND event.action: "export_design"',
+      severity: 'low',
+      riskScore: 25,
+      index: ['logs-canva.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('canva.audit', {
+            event: {
+              action: 'export_design',
+              kind: 'event',
+              category: ['file'],
+              type: ['access'],
+            },
+            canva: {
+              audit: {
+                action: { type: 'EXPORT_DESIGN' },
+                actor: { type: 'USER' },
+              },
+            },
+            user: { name: faker.internet.username(), email: faker.internet.email() },
+          })
+        ),
+    },
+  ],
+
+  cyberark_pas: [
+    {
+      name: 'CyberArk PAS Logon Failure',
+      description: 'Detects failed logon attempts to CyberArk PAS vault',
+      query: 'data_stream.dataset: "cyberarkpas.audit" AND event.action: "authentication_failure"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-cyberarkpas.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('cyberarkpas.audit', {
+            event: {
+              action: 'authentication_failure',
+              code: '9',
+              kind: 'event',
+              category: ['authentication'],
+              type: ['start'],
+              outcome: 'failure',
+            },
+            cyberarkpas: {
+              audit: {
+                action: 'Logon Failure',
+                severity: 'Warning',
+                issuer: faker.internet.username(),
+              },
+            },
+            user: { name: faker.internet.username() },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'CyberArk PAS Password Retrieval',
+      description: 'Detects password retrieval from CyberArk vault',
+      query:
+        'data_stream.dataset: "cyberarkpas.audit" AND cyberarkpas.audit.action: "Retrieve Password"',
+      severity: 'medium',
+      riskScore: 50,
+      index: ['logs-cyberarkpas.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('cyberarkpas.audit', {
+            event: {
+              action: 'retrieve_password',
+              code: '22',
+              kind: 'event',
+              category: ['iam'],
+              type: ['access'],
+              outcome: 'success',
+            },
+            cyberarkpas: {
+              audit: {
+                action: 'Retrieve Password',
+                severity: 'Info',
+                issuer: faker.internet.username(),
+                safe: faker.helpers.arrayElement(['Windows', 'Linux', 'Databases']),
+              },
+            },
+            user: { name: faker.internet.username() },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'CyberArk PAS Suspicious PSM Session',
+      description: 'Detects PSM privileged session connections which may require review',
+      query: 'data_stream.dataset: "cyberarkpas.audit" AND cyberarkpas.audit.action: "PSMConnect"',
+      severity: 'high',
+      riskScore: 63,
+      index: ['logs-cyberarkpas.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('cyberarkpas.audit', {
+            event: {
+              action: 'psmconnect',
+              code: '295',
+              kind: 'event',
+              category: ['session'],
+              type: ['start'],
+              outcome: 'success',
+            },
+            cyberarkpas: {
+              audit: {
+                action: 'PSMConnect',
+                severity: 'Info',
+                issuer: faker.internet.username(),
+                safe: 'Windows',
+                extra_details: {
+                  dst_host: 'prodserver.corp.local',
+                  protocol: 'RDP',
+                  session_id: faker.string.uuid(),
+                },
+                ca_properties: {
+                  address: 'prodserver.corp.local',
+                  user_name: 'Administrator',
+                  device_type: 'Operating System',
+                  policy_id: 'WIN-SERVER-LOCAL',
+                },
+              },
+            },
+            user: { name: faker.internet.username() },
+            source: { ip: faker.internet.ipv4() },
+            destination: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+  ],
 };
 
 function getApplicableIntegrations(enabledIntegrations: IntegrationName[]): IntegrationName[] {

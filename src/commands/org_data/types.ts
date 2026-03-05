@@ -1082,7 +1082,12 @@ export type IntegrationName =
   | 'atlassian_confluence'
   | 'atlassian_jira'
   | 'auth0'
-  | 'authentik';
+  | 'authentik'
+  | 'beyondinsight'
+  | 'bitwarden'
+  | 'box'
+  | 'canva'
+  | 'cyberark_pas';
 
 /**
  * @deprecated Legacy type from entityanalytics_jamf integration.
