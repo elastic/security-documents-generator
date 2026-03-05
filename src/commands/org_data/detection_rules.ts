@@ -507,6 +507,119 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
           })
         ),
     },
+    {
+      name: 'Google Workspace SAML Login Failure',
+      description: 'Detects failed SAML SSO authentication attempts through Google Workspace',
+      query:
+        'data_stream.dataset: "google_workspace.saml" AND event.action: "login_failure" AND event.outcome: "failure"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-google_workspace.saml-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('google_workspace.saml', {
+            event: {
+              action: 'login_failure',
+              category: ['authentication', 'session'],
+              type: ['start'],
+              outcome: 'failure',
+              kind: 'event',
+            },
+            google_workspace: {
+              saml: {
+                application_name: faker.helpers.arrayElement([
+                  'Salesforce',
+                  'Slack',
+                  'AWS Console',
+                ]),
+                failure_type: 'failure_app_not_configured_for_user',
+              },
+            },
+            user: { name: faker.internet.email() },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'Google Workspace DLP Rule Match',
+      description: 'Detects DLP rule matches indicating potential data loss',
+      query:
+        'data_stream.dataset: "google_workspace.rules" AND event.action: "rule_match" AND google_workspace.rules.has_alert: true',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-google_workspace.rules-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('google_workspace.rules', {
+            event: { action: 'rule_match', kind: 'event' },
+            google_workspace: {
+              rules: {
+                has_alert: true,
+                severity: 'HIGH',
+                data_source: 'DRIVE',
+                name: ['PII Detection Rule'],
+              },
+            },
+            user: { name: faker.internet.email() },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'Google Workspace Alert Center Phishing',
+      description: 'Detects phishing alerts from Google Workspace Alert Center',
+      query: 'data_stream.dataset: "google_workspace.alert" AND event.action: "Gmail phishing"',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-google_workspace.alert-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('google_workspace.alert', {
+            event: {
+              action: 'Gmail phishing',
+              category: ['email', 'threat'],
+              type: ['info'],
+              kind: 'alert',
+            },
+            google_workspace: {
+              alert: {
+                source: 'Gmail phishing',
+                type: 'User reported phishing',
+                metadata: { severity: 'HIGH' },
+              },
+            },
+            user: { name: faker.internet.email() },
+          })
+        ),
+    },
+    {
+      name: 'Google Workspace Suspicious Chrome Extension Install',
+      description: 'Detects Chrome browser extension installations from external sources',
+      query:
+        'data_stream.dataset: "google_workspace.chrome" AND google_workspace.chrome.extension_source: "EXTERNAL"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-google_workspace.chrome-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('google_workspace.chrome', {
+            event: {
+              action: 'browser-extension-install',
+              kind: 'event',
+              reason: 'BROWSER_EXTENSION_INSTALL',
+            },
+            google_workspace: {
+              chrome: {
+                name: 'BROWSER_EXTENSION_INSTALL',
+                extension_source: 'EXTERNAL',
+                extension_action: 'INSTALL',
+                app_name: faker.word.sample(),
+              },
+            },
+            user: { name: faker.internet.email() },
+          })
+        ),
+    },
   ],
 
   cloudflare_logpush: [
