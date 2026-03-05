@@ -64,6 +64,7 @@ export interface Employee {
   entraIdUserId: string;
   employeeNumber: string;
   githubUsername?: string; // Only for Engineering + Executive departments
+  gitlabUserId?: number; // Only for Engineering + Executive departments
   duoUserId: string;
   onePasswordUuid: string;
   windowsSid: string;
@@ -1087,7 +1088,11 @@ export type IntegrationName =
   | 'bitwarden'
   | 'box'
   | 'canva'
-  | 'cyberark_pas';
+  | 'cyberark_pas'
+  | 'forgerock'
+  | 'gcp'
+  | 'gitlab'
+  | 'hashicorp_vault';
 
 /**
  * @deprecated Legacy type from entityanalytics_jamf integration.

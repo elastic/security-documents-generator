@@ -360,9 +360,10 @@ const generateEmployee = (
 
   const hasAwsAccess = cloudAccessDepts.includes(department);
 
-  // GitHub username only for Engineering + Executive departments
-  const hasGithubAccess = department === 'Product & Engineering' || department === 'Executive';
-  const githubUsername = hasGithubAccess ? userName.replace(/\./g, '-') : undefined;
+  // GitHub/GitLab username only for Engineering + Executive departments
+  const hasDevToolAccess = department === 'Product & Engineering' || department === 'Executive';
+  const githubUsername = hasDevToolAccess ? userName.replace(/\./g, '-') : undefined;
+  const gitlabUserId = hasDevToolAccess ? faker.number.int({ min: 1, max: 99999 }) : undefined;
 
   return {
     id: faker.string.uuid(),
@@ -382,6 +383,7 @@ const generateEmployee = (
     entraIdUserId: faker.string.uuid(),
     employeeNumber: faker.string.numeric(6),
     githubUsername,
+    gitlabUserId,
     duoUserId: `DU${faker.string.alphanumeric(18).toUpperCase()}`,
     onePasswordUuid: faker.string.uuid(),
     windowsSid: `${domainSidPrefix}-${rid}`,

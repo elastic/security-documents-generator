@@ -1736,6 +1736,316 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
         ),
     },
   ],
+
+  forgerock: [
+    {
+      name: 'ForgeRock Failed AM Authentication',
+      description: 'Detects failed authentication attempts in ForgeRock Access Management',
+      query: 'data_stream.dataset: "forgerock.am_authentication" AND event.outcome: "failure"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-forgerock.am_authentication-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('forgerock.am_authentication', {
+            event: {
+              action: 'login',
+              category: ['authentication'],
+              type: ['start'],
+              outcome: 'failure',
+            },
+            forgerock: {
+              eventName: 'AM-LOGIN-COMPLETED',
+              level: 'INFO',
+              realm: '/alpha',
+              topic: 'authentication',
+            },
+            user: { name: faker.internet.username(), email: faker.internet.email() },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'ForgeRock IDM Access Failure',
+      description: 'Detects failed IDM access attempts that may indicate unauthorized API usage',
+      query: 'data_stream.dataset: "forgerock.idm_access" AND forgerock.response.status: "FAILED"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-forgerock.idm_access-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('forgerock.idm_access', {
+            event: {
+              action: 'access',
+              category: ['network'],
+              type: ['access'],
+              outcome: 'failure',
+            },
+            forgerock: {
+              eventName: 'access',
+              level: 'INFO',
+              request: { operation: 'READ', protocol: 'CREST' },
+              response: { status: 'FAILED', elapsedTime: 12, elapsedTimeUnits: 'MILLISECONDS' },
+              topic: 'access',
+            },
+            user: { id: faker.internet.username() },
+          })
+        ),
+    },
+    {
+      name: 'ForgeRock IDM Authentication Failure',
+      description: 'Detects failed IDM authentication indicating credential compromise attempts',
+      query: 'data_stream.dataset: "forgerock.idm_authentication" AND forgerock.result: "FAILED"',
+      severity: 'high',
+      riskScore: 63,
+      index: ['logs-forgerock.idm_authentication-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('forgerock.idm_authentication', {
+            event: {
+              action: 'authentication',
+              category: ['authentication'],
+              type: ['info'],
+              outcome: 'failure',
+            },
+            forgerock: {
+              eventName: 'authentication',
+              method: 'MANAGED_USER',
+              principal: [faker.internet.username()],
+              result: 'FAILED',
+              topic: 'authentication',
+            },
+            user: { name: faker.internet.username() },
+          })
+        ),
+    },
+  ],
+
+  gcp: [
+    {
+      name: 'GCP Permission Denied',
+      description:
+        'Detects permission-denied events in GCP audit logs indicating unauthorized access attempts',
+      query: 'data_stream.dataset: "gcp.audit" AND gcp.audit.status.code: 7',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-gcp.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('gcp.audit', {
+            event: {
+              action: 'v1.compute.instances.list',
+              category: ['network'],
+              type: ['access'],
+              outcome: 'failure',
+            },
+            gcp: {
+              audit: {
+                authentication_info: { principal_email: faker.internet.email() },
+                method_name: 'v1.compute.instances.list',
+                service_name: 'compute.googleapis.com',
+                status: { code: 7, message: 'PERMISSION_DENIED' },
+              },
+            },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'GCP IAM Policy Change',
+      description: 'Detects IAM policy modifications in GCP that could escalate privileges',
+      query: 'data_stream.dataset: "gcp.audit" AND gcp.audit.method_name: "SetIamPolicy"',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-gcp.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('gcp.audit', {
+            event: {
+              action: 'SetIamPolicy',
+              category: ['network'],
+              type: ['access'],
+              outcome: 'success',
+            },
+            gcp: {
+              audit: {
+                authentication_info: { principal_email: faker.internet.email() },
+                method_name: 'SetIamPolicy',
+                service_name: 'cloudresourcemanager.googleapis.com',
+                status: { code: 0 },
+              },
+            },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+  ],
+
+  gitlab: [
+    {
+      name: 'GitLab Failed Authentication',
+      description: 'Detects failed authentication attempts to GitLab',
+      query: 'data_stream.dataset: "gitlab.auth" AND event.outcome: "failure"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-gitlab.auth-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('gitlab.auth', {
+            event: {
+              action: 'failed-login',
+              category: ['authentication'],
+              type: ['start'],
+              outcome: 'failure',
+            },
+            gitlab: {
+              auth: {
+                message: 'Failed Login',
+                env: 'production',
+              },
+            },
+            user: { name: faker.internet.username() },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'GitLab Repository Visibility Change',
+      description: 'Detects project visibility changes that could expose private code',
+      query: 'data_stream.dataset: "gitlab.audit" AND gitlab.audit.change: "visibility"',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-gitlab.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('gitlab.audit', {
+            event: {
+              action: 'visibility_changed',
+              category: ['configuration'],
+              type: ['change'],
+            },
+            gitlab: {
+              audit: {
+                change: 'visibility',
+                from: 'private',
+                to: 'public',
+                entity_type: 'Project',
+                target_type: 'Project',
+              },
+            },
+            user: { name: faker.internet.username() },
+          })
+        ),
+    },
+    {
+      name: 'GitLab API Unauthorized Access',
+      description: 'Detects unauthorized API access attempts to GitLab',
+      query:
+        'data_stream.dataset: "gitlab.api" AND http.response.status_code >= 401 AND http.response.status_code <= 403',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-gitlab.api-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('gitlab.api', {
+            event: {
+              action: '/api/:version/projects',
+              category: ['web'],
+              type: ['access'],
+              outcome: 'failure',
+            },
+            gitlab: {
+              api: {
+                route: '/api/:version/projects',
+                meta: { user: faker.internet.username() },
+              },
+            },
+            http: { response: { status_code: 403 } },
+            user: { name: faker.internet.username() },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+  ],
+
+  hashicorp_vault: [
+    {
+      name: 'HashiCorp Vault Access Denied',
+      description: 'Detects permission-denied events when accessing Vault secrets',
+      query: 'data_stream.dataset: "hashicorp_vault.audit" AND event.outcome: "failure"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-hashicorp_vault.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('hashicorp_vault.audit', {
+            event: {
+              action: 'read',
+              category: ['authentication', 'database'],
+              type: ['access'],
+              outcome: 'failure',
+            },
+            hashicorp_vault: {
+              audit: {
+                type: 'request',
+                auth: {
+                  display_name: `ldap-${faker.internet.username()}`,
+                  policies: ['default'],
+                  policy_results: { allowed: false },
+                  token_type: 'service',
+                },
+                request: {
+                  operation: 'read',
+                  path: 'secret/data/production-credentials',
+                  remote_address: faker.internet.ipv4(),
+                },
+                response: { data: { error: 'permission denied' } },
+              },
+            },
+            user: { name: faker.internet.username() },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'HashiCorp Vault Policy Change',
+      description: 'Detects policy modifications in Vault that could alter access controls',
+      query:
+        'data_stream.dataset: "hashicorp_vault.audit" AND hashicorp_vault.audit.request.path: "sys/policy/*"',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-hashicorp_vault.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('hashicorp_vault.audit', {
+            event: {
+              action: 'update',
+              category: ['authentication', 'database'],
+              type: ['access'],
+              outcome: 'success',
+            },
+            hashicorp_vault: {
+              audit: {
+                type: 'request',
+                auth: {
+                  display_name: `ldap-${faker.internet.username()}`,
+                  policies: ['default', 'admin'],
+                  policy_results: { allowed: true },
+                  token_type: 'service',
+                },
+                request: {
+                  operation: 'update',
+                  path: 'sys/policy/default',
+                  remote_address: faker.internet.ipv4(),
+                },
+              },
+            },
+            user: { name: faker.internet.username() },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+  ],
 };
 
 function getApplicableIntegrations(enabledIntegrations: IntegrationName[]): IntegrationName[] {

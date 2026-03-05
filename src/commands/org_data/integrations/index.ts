@@ -45,6 +45,10 @@ import { BitwardenIntegration } from './bitwarden_integration';
 import { BoxIntegration } from './box_integration';
 import { CanvaIntegration } from './canva_integration';
 import { CyberArkPasIntegration } from './cyberark_pas_integration';
+import { ForgeRockIntegration } from './forgerock_integration';
+import { GcpIntegration } from './gcp_integration';
+import { GitLabIntegration } from './gitlab_integration';
+import { HashiCorpVaultIntegration } from './hashicorp_vault_integration';
 import { IntegrationName } from '../types';
 
 // Re-export types and classes from base_integration
@@ -84,6 +88,10 @@ export { BitwardenIntegration } from './bitwarden_integration';
 export { BoxIntegration } from './box_integration';
 export { CanvaIntegration } from './canva_integration';
 export { CyberArkPasIntegration } from './cyberark_pas_integration';
+export { ForgeRockIntegration } from './forgerock_integration';
+export { GcpIntegration } from './gcp_integration';
+export { GitLabIntegration } from './gitlab_integration';
+export { HashiCorpVaultIntegration } from './hashicorp_vault_integration';
 
 /**
  * Create integration registry with all available integrations
@@ -145,6 +153,12 @@ export const createIntegrationRegistry = (): IntegrationRegistry => {
   registry.set('canva', new CanvaIntegration());
   registry.set('cyberark_pas', new CyberArkPasIntegration());
 
+  // Register identity platform, cloud, DevOps, and secrets management integrations
+  registry.set('forgerock', new ForgeRockIntegration());
+  registry.set('gcp', new GcpIntegration());
+  registry.set('gitlab', new GitLabIntegration());
+  registry.set('hashicorp_vault', new HashiCorpVaultIntegration());
+
   return registry;
 };
 
@@ -197,6 +211,10 @@ export const getAvailableIntegrations = (): IntegrationName[] => {
     'box',
     'canva',
     'cyberark_pas',
+    'forgerock',
+    'gcp',
+    'gitlab',
+    'hashicorp_vault',
   ];
 };
 
