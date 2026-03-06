@@ -49,6 +49,7 @@ import { ForgeRockIntegration } from './forgerock_integration';
 import { GcpIntegration } from './gcp_integration';
 import { GitLabIntegration } from './gitlab_integration';
 import { HashiCorpVaultIntegration } from './hashicorp_vault_integration';
+import { AzureIntegration } from './azure_integration';
 import { IntegrationName } from '../types';
 
 // Re-export types and classes from base_integration
@@ -92,6 +93,7 @@ export { ForgeRockIntegration } from './forgerock_integration';
 export { GcpIntegration } from './gcp_integration';
 export { GitLabIntegration } from './gitlab_integration';
 export { HashiCorpVaultIntegration } from './hashicorp_vault_integration';
+export { AzureIntegration } from './azure_integration';
 
 /**
  * Create integration registry with all available integrations
@@ -159,6 +161,9 @@ export const createIntegrationRegistry = (): IntegrationRegistry => {
   registry.set('gitlab', new GitLabIntegration());
   registry.set('hashicorp_vault', new HashiCorpVaultIntegration());
 
+  // Register Azure (cloud + identity) integration
+  registry.set('azure', new AzureIntegration());
+
   return registry;
 };
 
@@ -215,6 +220,7 @@ export const getAvailableIntegrations = (): IntegrationName[] => {
     'gcp',
     'gitlab',
     'hashicorp_vault',
+    'azure',
   ];
 };
 

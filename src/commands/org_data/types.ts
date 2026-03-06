@@ -1092,7 +1092,8 @@ export type IntegrationName =
   | 'forgerock'
   | 'gcp'
   | 'gitlab'
-  | 'hashicorp_vault';
+  | 'hashicorp_vault'
+  | 'azure';
 
 /**
  * @deprecated Legacy type from entityanalytics_jamf integration.

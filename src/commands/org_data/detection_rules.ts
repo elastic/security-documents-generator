@@ -2159,6 +2159,139 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
         ),
     },
   ],
+
+  azure: [
+    {
+      name: 'Azure Failed Sign-In Attempt',
+      description: 'Detects failed sign-in attempts to Azure / Entra ID',
+      query: 'data_stream.dataset: "azure.signinlogs" AND event.outcome: "failure"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-azure.signinlogs-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('azure.signinlogs', {
+            event: {
+              action: 'Sign-in activity',
+              category: ['authentication'],
+              kind: 'event',
+              outcome: 'failure',
+              type: ['info'],
+            },
+            azure: {
+              signinlogs: {
+                properties: {
+                  user_id: faker.string.uuid(),
+                  user_principal_name: faker.internet.email(),
+                  risk_level_aggregated: 'none',
+                  status: { error_code: 50126 },
+                },
+                result_type: '50126',
+              },
+            },
+            user: {
+              email: faker.internet.email(),
+              name: faker.internet.email(),
+              id: faker.string.uuid(),
+            },
+            source: { ip: faker.internet.ipv4() },
+            cloud: { provider: 'azure' },
+          })
+        ),
+    },
+    {
+      name: 'Azure High-Risk Sign-In Detected',
+      description: 'Detects high-risk sign-in events flagged by Azure Identity Protection',
+      query:
+        'data_stream.dataset: "azure.identity_protection" AND azure.identityprotection.properties.risk_level: "high"',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-azure.identity_protection-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('azure.identity_protection', {
+            event: { action: 'User Risk Detection', kind: 'event' },
+            azure: {
+              identityprotection: {
+                properties: {
+                  risk_level: 'high',
+                  risk_state: 'atRisk',
+                  risk_event_type: 'anonymizedIPAddress',
+                  user_id: faker.string.uuid(),
+                  user_principal_name: faker.internet.email(),
+                  user_display_name: faker.person.fullName(),
+                  activity: 'signin',
+                },
+              },
+            },
+            user: {
+              email: faker.internet.email(),
+              id: faker.string.uuid(),
+              full_name: faker.person.fullName(),
+            },
+            source: { ip: faker.internet.ipv4() },
+            cloud: { provider: 'azure' },
+          })
+        ),
+    },
+    {
+      name: 'Azure Firewall Connection Denied',
+      description: 'Detects denied connections through Azure Firewall',
+      query: 'data_stream.dataset: "azure.firewall_logs" AND azure.firewall.action: "Deny"',
+      severity: 'low',
+      riskScore: 21,
+      index: ['logs-azure.firewall_logs-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('azure.firewall_logs', {
+            event: {
+              category: ['network'],
+              kind: 'event',
+              type: ['connection', 'denied'],
+            },
+            azure: {
+              firewall: {
+                action: 'Deny',
+                category: 'AzureFirewallNetworkRule',
+                operation_name: 'AzureFirewallNetworkRuleLog',
+              },
+            },
+            source: { ip: faker.internet.ipv4() },
+            destination: { ip: faker.internet.ipv4() },
+            network: { transport: 'tcp' },
+            cloud: { provider: 'azure' },
+          })
+        ),
+    },
+    {
+      name: 'Suspicious Azure Resource Deletion',
+      description: 'Detects successful deletion of Azure resources',
+      query:
+        'data_stream.dataset: "azure.activitylogs" AND azure.activitylogs.operation_name: *DELETE* AND event.outcome: "success"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-azure.activitylogs-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('azure.activitylogs', {
+            event: {
+              action: 'MICROSOFT.COMPUTE/VIRTUALMACHINES/DELETE',
+              dataset: 'azure.activitylogs',
+              kind: 'event',
+              outcome: 'success',
+            },
+            azure: {
+              activitylogs: {
+                operation_name: 'MICROSOFT.COMPUTE/VIRTUALMACHINES/DELETE',
+                result_type: 'Success',
+                category: 'Administrative',
+              },
+            },
+            cloud: { provider: 'azure' },
+          })
+        ),
+    },
+  ],
 };
 
 function getApplicableIntegrations(enabledIntegrations: IntegrationName[]): IntegrationName[] {
