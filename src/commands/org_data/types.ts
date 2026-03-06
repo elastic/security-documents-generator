@@ -64,6 +64,7 @@ export interface Employee {
   entraIdUserId: string;
   employeeNumber: string;
   githubUsername?: string; // Only for Engineering + Executive departments
+  gitlabUserId?: number; // Only for Engineering + Executive departments
   duoUserId: string;
   onePasswordUuid: string;
   windowsSid: string;
@@ -1077,7 +1078,33 @@ export type IntegrationName =
   | 'workday'
   | 'ping_directory'
   | 'system'
-  | 'endpoint';
+  | 'endpoint'
+  | 'atlassian_bitbucket'
+  | 'atlassian_confluence'
+  | 'atlassian_jira'
+  | 'auth0'
+  | 'authentik'
+  | 'beyondinsight'
+  | 'bitwarden'
+  | 'box'
+  | 'canva'
+  | 'cyberark_pas'
+  | 'forgerock'
+  | 'gcp'
+  | 'gitlab'
+  | 'hashicorp_vault'
+  | 'azure'
+  | 'island_browser'
+  | 'jumpcloud'
+  | 'keeper'
+  | 'keycloak'
+  | 'lastpass'
+  | 'lyve_cloud'
+  | 'mattermost'
+  | 'mongodb_atlas'
+  | 'teleport'
+  | 'thycotic_ss'
+  | 'zoom';
 
 /**
  * @deprecated Legacy type from entityanalytics_jamf integration.

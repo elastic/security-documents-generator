@@ -35,6 +35,32 @@ import { WorkdayIntegration } from './workday_integration';
 import { PingDirectoryIntegration } from './ping_directory_integration';
 import { SystemIntegration } from './system_integration';
 import { EndpointIntegration } from './endpoint_integration';
+import { AtlassianBitbucketIntegration } from './atlassian_bitbucket_integration';
+import { AtlassianConfluenceIntegration } from './atlassian_confluence_integration';
+import { AtlassianJiraIntegration } from './atlassian_jira_integration';
+import { Auth0Integration } from './auth0_integration';
+import { AuthentikIntegration } from './authentik_integration';
+import { BeyondInsightIntegration } from './beyondinsight_integration';
+import { BitwardenIntegration } from './bitwarden_integration';
+import { BoxIntegration } from './box_integration';
+import { CanvaIntegration } from './canva_integration';
+import { CyberArkPasIntegration } from './cyberark_pas_integration';
+import { ForgeRockIntegration } from './forgerock_integration';
+import { GcpIntegration } from './gcp_integration';
+import { GitLabIntegration } from './gitlab_integration';
+import { HashiCorpVaultIntegration } from './hashicorp_vault_integration';
+import { AzureIntegration } from './azure_integration';
+import { IslandBrowserIntegration } from './island_browser_integration';
+import { JumpCloudIntegration } from './jumpcloud_integration';
+import { KeeperIntegration } from './keeper_integration';
+import { KeycloakIntegration } from './keycloak_integration';
+import { LastPassIntegration } from './lastpass_integration';
+import { LyveCloudIntegration } from './lyve_cloud_integration';
+import { MattermostIntegration } from './mattermost_integration';
+import { MongoDbAtlasIntegration } from './mongodb_atlas_integration';
+import { TeleportIntegration } from './teleport_integration';
+import { ThycoticSsIntegration } from './thycotic_ss_integration';
+import { ZoomIntegration } from './zoom_integration';
 import { IntegrationName } from '../types';
 
 // Re-export types and classes from base_integration
@@ -64,6 +90,32 @@ export { WorkdayIntegration } from './workday_integration';
 export { PingDirectoryIntegration } from './ping_directory_integration';
 export { SystemIntegration } from './system_integration';
 export { EndpointIntegration } from './endpoint_integration';
+export { AtlassianBitbucketIntegration } from './atlassian_bitbucket_integration';
+export { AtlassianConfluenceIntegration } from './atlassian_confluence_integration';
+export { AtlassianJiraIntegration } from './atlassian_jira_integration';
+export { Auth0Integration } from './auth0_integration';
+export { AuthentikIntegration } from './authentik_integration';
+export { BeyondInsightIntegration } from './beyondinsight_integration';
+export { BitwardenIntegration } from './bitwarden_integration';
+export { BoxIntegration } from './box_integration';
+export { CanvaIntegration } from './canva_integration';
+export { CyberArkPasIntegration } from './cyberark_pas_integration';
+export { ForgeRockIntegration } from './forgerock_integration';
+export { GcpIntegration } from './gcp_integration';
+export { GitLabIntegration } from './gitlab_integration';
+export { HashiCorpVaultIntegration } from './hashicorp_vault_integration';
+export { AzureIntegration } from './azure_integration';
+export { IslandBrowserIntegration } from './island_browser_integration';
+export { JumpCloudIntegration } from './jumpcloud_integration';
+export { KeeperIntegration } from './keeper_integration';
+export { KeycloakIntegration } from './keycloak_integration';
+export { LastPassIntegration } from './lastpass_integration';
+export { LyveCloudIntegration } from './lyve_cloud_integration';
+export { MattermostIntegration } from './mattermost_integration';
+export { MongoDbAtlasIntegration } from './mongodb_atlas_integration';
+export { TeleportIntegration } from './teleport_integration';
+export { ThycoticSsIntegration } from './thycotic_ss_integration';
+export { ZoomIntegration } from './zoom_integration';
 
 /**
  * Create integration registry with all available integrations
@@ -111,6 +163,44 @@ export const createIntegrationRegistry = (): IntegrationRegistry => {
   // Register endpoint (Elastic Defend) integration
   registry.set('endpoint', new EndpointIntegration());
 
+  // Register Atlassian, Auth0, and authentik integrations
+  registry.set('atlassian_bitbucket', new AtlassianBitbucketIntegration());
+  registry.set('atlassian_confluence', new AtlassianConfluenceIntegration());
+  registry.set('atlassian_jira', new AtlassianJiraIntegration());
+  registry.set('auth0', new Auth0Integration());
+  registry.set('authentik', new AuthentikIntegration());
+
+  // Register PAM, credential management, and collaboration integrations
+  registry.set('beyondinsight', new BeyondInsightIntegration());
+  registry.set('bitwarden', new BitwardenIntegration());
+  registry.set('box', new BoxIntegration());
+  registry.set('canva', new CanvaIntegration());
+  registry.set('cyberark_pas', new CyberArkPasIntegration());
+
+  // Register identity platform, cloud, DevOps, and secrets management integrations
+  registry.set('forgerock', new ForgeRockIntegration());
+  registry.set('gcp', new GcpIntegration());
+  registry.set('gitlab', new GitLabIntegration());
+  registry.set('hashicorp_vault', new HashiCorpVaultIntegration());
+
+  // Register Azure (cloud + identity) integration
+  registry.set('azure', new AzureIntegration());
+
+  // Register identity provider and credential management integrations
+  registry.set('island_browser', new IslandBrowserIntegration());
+  registry.set('jumpcloud', new JumpCloudIntegration());
+  registry.set('keeper', new KeeperIntegration());
+  registry.set('keycloak', new KeycloakIntegration());
+  registry.set('lastpass', new LastPassIntegration());
+
+  // Register cloud storage, collaboration, database, access, secrets, and video integrations
+  registry.set('lyve_cloud', new LyveCloudIntegration());
+  registry.set('mattermost', new MattermostIntegration());
+  registry.set('mongodb_atlas', new MongoDbAtlasIntegration());
+  registry.set('teleport', new TeleportIntegration());
+  registry.set('thycotic_ss', new ThycoticSsIntegration());
+  registry.set('zoom', new ZoomIntegration());
+
   return registry;
 };
 
@@ -153,6 +243,32 @@ export const getAvailableIntegrations = (): IntegrationName[] => {
     'ping_directory',
     'system',
     'endpoint',
+    'atlassian_bitbucket',
+    'atlassian_confluence',
+    'atlassian_jira',
+    'auth0',
+    'authentik',
+    'beyondinsight',
+    'bitwarden',
+    'box',
+    'canva',
+    'cyberark_pas',
+    'forgerock',
+    'gcp',
+    'gitlab',
+    'hashicorp_vault',
+    'azure',
+    'island_browser',
+    'jumpcloud',
+    'keeper',
+    'keycloak',
+    'lastpass',
+    'lyve_cloud',
+    'mattermost',
+    'mongodb_atlas',
+    'teleport',
+    'thycotic_ss',
+    'zoom',
   ];
 };
 

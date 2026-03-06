@@ -182,6 +182,7 @@ integration that references users:
 | `onePasswordUuid` | 1Password member UUID                                                       | `a1b2c3d4-...`                                   |
 | `employeeNumber`  | HR employee number                                                          | `123456`                                         |
 | `githubUsername`   | GitHub username (Engineering + Executive only)                              | `reese-doyle`                                    |
+| `gitlabUserId`    | GitLab numeric user ID (Engineering + Executive only)                       | `42518`                                          |
 
 #### Stable fields on Device
 
