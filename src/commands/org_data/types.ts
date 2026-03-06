@@ -1093,7 +1093,18 @@ export type IntegrationName =
   | 'gcp'
   | 'gitlab'
   | 'hashicorp_vault'
-  | 'azure';
+  | 'azure'
+  | 'island_browser'
+  | 'jumpcloud'
+  | 'keeper'
+  | 'keycloak'
+  | 'lastpass'
+  | 'lyve_cloud'
+  | 'mattermost'
+  | 'mongodb_atlas'
+  | 'teleport'
+  | 'thycotic_ss'
+  | 'zoom';
 
 /**
  * @deprecated Legacy type from entityanalytics_jamf integration.

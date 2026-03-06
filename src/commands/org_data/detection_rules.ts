@@ -2292,6 +2292,834 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
         ),
     },
   ],
+
+  island_browser: [
+    {
+      name: 'Island Browser Navigation Blocked',
+      description: 'Detects blocked navigation events in Island Browser',
+      query:
+        'data_stream.dataset: "island_browser.audit" AND island_browser.audit.verdict: "Blocked"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-island_browser.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('island_browser.audit', {
+            event: { dataset: 'island_browser.audit', kind: 'event' },
+            island_browser: {
+              audit: {
+                type: 'Navigation',
+                verdict: 'Blocked',
+                verdict_reason: 'Blocked by DLP policy',
+                email: faker.internet.email(),
+                top_level_url: `https://${faker.internet.domainName()}`,
+              },
+            },
+            user: { email: faker.internet.email() },
+          })
+        ),
+    },
+    {
+      name: 'Island Browser DLP Policy Violation',
+      description: 'Detects data loss prevention policy violations in Island Browser',
+      query:
+        'data_stream.dataset: "island_browser.audit" AND island_browser.audit.verdict_reason: "Blocked by DLP policy"',
+      severity: 'high',
+      riskScore: 63,
+      index: ['logs-island_browser.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('island_browser.audit', {
+            event: { dataset: 'island_browser.audit', kind: 'event' },
+            island_browser: {
+              audit: {
+                type: faker.helpers.arrayElement(['Upload', 'Download', 'Copy', 'Paste']),
+                verdict: 'Blocked',
+                verdict_reason: 'Blocked by DLP policy',
+                email: faker.internet.email(),
+              },
+            },
+            user: { email: faker.internet.email() },
+          })
+        ),
+    },
+    {
+      name: 'Island Browser Admin Configuration Change',
+      description: 'Detects administrative configuration changes in Island Browser',
+      query:
+        'data_stream.dataset: "island_browser.admin_actions" AND event.action: ("Create" OR "Delete")',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-island_browser.admin_actions-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('island_browser.admin_actions', {
+            event: {
+              action: faker.helpers.arrayElement(['Create', 'Delete']),
+              dataset: 'island_browser.admin_actions',
+              kind: 'event',
+            },
+            island_browser: {
+              admin_actions: {
+                action_domain: 'SecuritySettings',
+                action_type: faker.helpers.arrayElement(['Create', 'Delete']),
+                entity_type: faker.helpers.arrayElement(['Policy', 'DLPRule', 'AccessRule']),
+                email: faker.internet.email(),
+              },
+            },
+            user: { email: faker.internet.email() },
+          })
+        ),
+    },
+  ],
+
+  jumpcloud: [
+    {
+      name: 'JumpCloud Failed Admin Login',
+      description: 'Detects failed admin login attempts in JumpCloud',
+      query:
+        'data_stream.dataset: "jumpcloud.events" AND jumpcloud.event.event_type: "admin_login_attempt" AND jumpcloud.event.success: false',
+      severity: 'high',
+      riskScore: 63,
+      index: ['logs-jumpcloud.events-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('jumpcloud.events', {
+            event: {
+              action: 'admin_login_attempt',
+              category: ['authentication'],
+              kind: 'event',
+              outcome: 'failure',
+              type: ['info'],
+            },
+            jumpcloud: {
+              event: {
+                event_type: 'admin_login_attempt',
+                success: false,
+                service: 'directory',
+                client_ip: faker.internet.ipv4(),
+                initiated_by: { email: faker.internet.email(), type: 'admin' },
+              },
+            },
+            source: { user: { email: faker.internet.email() } },
+          })
+        ),
+    },
+    {
+      name: 'JumpCloud Failed User Authentication',
+      description: 'Detects failed user login attempts in JumpCloud',
+      query:
+        'data_stream.dataset: "jumpcloud.events" AND jumpcloud.event.event_type: "user_login_attempt" AND jumpcloud.event.success: false',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-jumpcloud.events-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('jumpcloud.events', {
+            event: {
+              action: 'user_login_attempt',
+              category: ['authentication'],
+              kind: 'event',
+              outcome: 'failure',
+              type: ['info'],
+            },
+            jumpcloud: {
+              event: {
+                event_type: 'user_login_attempt',
+                success: false,
+                service: 'directory',
+                client_ip: faker.internet.ipv4(),
+                initiated_by: { email: faker.internet.email(), type: 'user' },
+              },
+            },
+            source: { user: { email: faker.internet.email() } },
+          })
+        ),
+    },
+    {
+      name: 'JumpCloud User Locked Out',
+      description: 'Detects user lockout events in JumpCloud',
+      query:
+        'data_stream.dataset: "jumpcloud.events" AND jumpcloud.event.event_type: "user_locked_out"',
+      severity: 'high',
+      riskScore: 63,
+      index: ['logs-jumpcloud.events-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('jumpcloud.events', {
+            event: {
+              action: 'user_locked_out',
+              category: ['authentication'],
+              kind: 'event',
+              outcome: 'failure',
+              type: ['info'],
+            },
+            jumpcloud: {
+              event: {
+                event_type: 'user_locked_out',
+                success: false,
+                service: 'directory',
+                client_ip: faker.internet.ipv4(),
+                initiated_by: { email: faker.internet.email(), type: 'user' },
+              },
+            },
+          })
+        ),
+    },
+  ],
+
+  keeper: [
+    {
+      name: 'Keeper Vault Export',
+      description: 'Detects vault export events in Keeper Security',
+      query: 'data_stream.dataset: "keeper.audit" AND audit_event: "vault_export"',
+      severity: 'critical',
+      riskScore: 87,
+      index: ['logs-keeper.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('keeper.audit', {
+            audit_event: 'vault_export',
+            category: 'security',
+            event: {
+              action: 'vault_export',
+              category: ['database'],
+              kind: 'event',
+              module: 'keeper',
+              outcome: 'success',
+              type: ['access'],
+            },
+            username: faker.internet.email(),
+            user: { email: faker.internet.email(), name: faker.internet.email() },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'Keeper Failed Login',
+      description: 'Detects failed login attempts to Keeper Security',
+      query: 'data_stream.dataset: "keeper.audit" AND audit_event: "failed_login"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-keeper.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('keeper.audit', {
+            audit_event: 'failed_login',
+            category: 'security',
+            event: {
+              action: 'failed_login',
+              category: ['authentication'],
+              kind: 'event',
+              module: 'keeper',
+              outcome: 'failure',
+              type: ['start'],
+            },
+            username: faker.internet.email(),
+            user: { email: faker.internet.email(), name: faker.internet.email() },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'Keeper Master Password Changed',
+      description: 'Detects master password changes in Keeper Security',
+      query: 'data_stream.dataset: "keeper.audit" AND audit_event: "change_master_password"',
+      severity: 'high',
+      riskScore: 63,
+      index: ['logs-keeper.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('keeper.audit', {
+            audit_event: 'change_master_password',
+            category: 'security',
+            event: {
+              action: 'change_master_password',
+              category: ['authentication', 'web'],
+              kind: 'event',
+              module: 'keeper',
+              outcome: 'success',
+              type: ['access', 'info'],
+            },
+            username: faker.internet.email(),
+            user: { email: faker.internet.email(), name: faker.internet.email() },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+  ],
+
+  keycloak: [
+    {
+      name: 'Keycloak Login Error',
+      description: 'Detects failed login attempts in Keycloak',
+      query: 'data_stream.dataset: "keycloak.log" AND keycloak.event_type: "LOGIN_ERROR"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-keycloak.log-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('keycloak.log', {
+            event: { dataset: 'keycloak.log' },
+            keycloak: {
+              event_type: 'LOGIN_ERROR',
+              client: { id: 'account-console' },
+              realm: { id: 'corp' },
+            },
+            log: { level: 'WARN', logger: 'org.keycloak.events' },
+            message:
+              'type=LOGIN_ERROR, realmId=corp, clientId=account-console, error=invalid_credentials',
+          })
+        ),
+    },
+    {
+      name: 'Keycloak User Impersonation',
+      description: 'Detects user impersonation events in Keycloak',
+      query: 'data_stream.dataset: "keycloak.log" AND keycloak.event_type: "IMPERSONATE"',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-keycloak.log-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('keycloak.log', {
+            event: { dataset: 'keycloak.log' },
+            keycloak: {
+              event_type: 'IMPERSONATE',
+              client: { id: 'admin-cli' },
+              realm: { id: 'master' },
+            },
+            log: { level: 'WARN', logger: 'org.keycloak.events' },
+            message: 'type=IMPERSONATE, realmId=master, clientId=admin-cli',
+          })
+        ),
+    },
+    {
+      name: 'Keycloak Admin Resource Deletion',
+      description: 'Detects administrative resource deletions in Keycloak',
+      query: 'data_stream.dataset: "keycloak.log" AND keycloak.admin.operation: "DELETE"',
+      severity: 'high',
+      riskScore: 63,
+      index: ['logs-keycloak.log-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('keycloak.log', {
+            event: { dataset: 'keycloak.log' },
+            keycloak: {
+              event_type: 'DELETE',
+              admin: {
+                operation: 'DELETE',
+                resource: {
+                  type: faker.helpers.arrayElement(['User', 'Group', 'Client']),
+                  path: `users/${faker.string.uuid()}`,
+                },
+              },
+              realm: { id: 'corp' },
+            },
+            log: { level: 'WARN', logger: 'org.keycloak.events.admin' },
+            message: 'type=DELETE, realmId=corp, operationType=DELETE, resourceType=User',
+          })
+        ),
+    },
+  ],
+
+  lyve_cloud: [
+    {
+      name: 'Lyve Cloud S3 Access Denied',
+      description: 'Detects access denied errors on Lyve Cloud S3 API operations',
+      query:
+        'data_stream.dataset: "lyve_cloud.audit" AND lyve_cloud.audit.auditEntry.api.status: "AccessDenied"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-lyve_cloud.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('lyve_cloud.audit', {
+            event: { kind: 'event' },
+            lyve_cloud: {
+              audit: {
+                auditEntry: {
+                  api: { name: 'GetObject', bucket: 'prod-backups', status: 'AccessDenied' },
+                },
+              },
+            },
+            user: { name: faker.internet.username(), email: faker.internet.email() },
+          })
+        ),
+    },
+    {
+      name: 'Lyve Cloud Bucket Deletion',
+      description: 'Detects S3 bucket deletion operations on Lyve Cloud',
+      query:
+        'data_stream.dataset: "lyve_cloud.audit" AND lyve_cloud.audit.auditEntry.api.name: "DeleteBucket"',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-lyve_cloud.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('lyve_cloud.audit', {
+            event: { kind: 'event' },
+            lyve_cloud: {
+              audit: {
+                auditEntry: {
+                  api: { name: 'DeleteBucket', bucket: 'staging-data', status: 'OK' },
+                },
+              },
+            },
+            user: { name: faker.internet.username(), email: faker.internet.email() },
+          })
+        ),
+    },
+  ],
+
+  mattermost: [
+    {
+      name: 'Mattermost Configuration Change',
+      description:
+        'Detects configuration changes in Mattermost which may indicate admin compromise',
+      query: 'data_stream.dataset: "mattermost.audit" AND event.action: "updateConfig"',
+      severity: 'high',
+      riskScore: 63,
+      index: ['logs-mattermost.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('mattermost.audit', {
+            event: {
+              action: 'updateConfig',
+              category: ['configuration'],
+              type: ['change'],
+              outcome: 'success',
+              kind: 'event',
+            },
+            user: { id: faker.string.alphanumeric(26) },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'Mattermost User Deactivation',
+      description: 'Detects user deactivation events in Mattermost',
+      query: 'data_stream.dataset: "mattermost.audit" AND event.action: "deactivateUser"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-mattermost.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('mattermost.audit', {
+            event: {
+              action: 'deactivateUser',
+              category: ['iam'],
+              type: ['deletion'],
+              outcome: 'success',
+              kind: 'event',
+            },
+            user: { id: faker.string.alphanumeric(26) },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+  ],
+
+  mongodb_atlas: [
+    {
+      name: 'MongoDB Atlas Failed Authentication',
+      description: 'Detects failed authentication attempts in MongoDB Atlas',
+      query:
+        'data_stream.dataset: "mongodb_atlas.mongod_audit" AND event.action: "authenticate" AND mongodb_atlas.mongod_audit.result: "Failure"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-mongodb_atlas.mongod_audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('mongodb_atlas.mongod_audit', {
+            event: {
+              action: 'authenticate',
+              category: ['network', 'authentication'],
+              type: ['access', 'info'],
+              kind: 'event',
+            },
+            mongodb_atlas: {
+              mongod_audit: {
+                result: 'Failure',
+                user: { names: [{ db: 'admin', user: faker.internet.username() }] },
+              },
+            },
+          })
+        ),
+    },
+    {
+      name: 'MongoDB Atlas User Dropped',
+      description: 'Detects user deletion events in MongoDB Atlas',
+      query: 'data_stream.dataset: "mongodb_atlas.mongod_audit" AND event.action: "dropUser"',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-mongodb_atlas.mongod_audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('mongodb_atlas.mongod_audit', {
+            event: {
+              action: 'dropUser',
+              category: ['database'],
+              type: ['info', 'change'],
+              kind: 'event',
+            },
+            mongodb_atlas: {
+              mongod_audit: {
+                result: 'Success',
+                user: { names: [{ db: 'admin', user: faker.internet.username() }] },
+              },
+            },
+          })
+        ),
+    },
+    {
+      name: 'MongoDB Atlas API Key Created',
+      description: 'Detects API key creation events in MongoDB Atlas organization',
+      query:
+        'data_stream.dataset: "mongodb_atlas.organization" AND mongodb_atlas.organization.event_type.name: "API_KEY_CREATED"',
+      severity: 'medium',
+      riskScore: 50,
+      index: ['logs-mongodb_atlas.organization-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('mongodb_atlas.organization', {
+            event: {
+              category: ['configuration', 'database'],
+              type: ['info', 'access', 'change'],
+              kind: 'event',
+            },
+            mongodb_atlas: {
+              organization: {
+                event_type: { name: 'API_KEY_CREATED' },
+                is_global_admin: false,
+              },
+            },
+            user: { name: faker.internet.email() },
+          })
+        ),
+    },
+  ],
+
+  teleport: [
+    {
+      name: 'Teleport Failed Login',
+      description: 'Detects failed login attempts in Teleport',
+      query:
+        'data_stream.dataset: "teleport.audit" AND event.action: "user.login" AND event.outcome: "failure"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-teleport.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('teleport.audit', {
+            event: {
+              action: 'user.login',
+              category: ['authentication'],
+              type: ['start'],
+              outcome: 'failure',
+              code: 'T1000W',
+              kind: 'event',
+            },
+            user: { name: faker.internet.username(), email: faker.internet.email() },
+          })
+        ),
+    },
+    {
+      name: 'Teleport Suspicious Command Execution',
+      description:
+        'Detects execution of sensitive commands (passwd, shadow, sudoers) via Teleport sessions',
+      query:
+        'data_stream.dataset: "teleport.audit" AND event.action: "exec" AND (message: *passwd* OR message: *shadow* OR message: *sudoers*)',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-teleport.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('teleport.audit', {
+            event: {
+              action: 'exec',
+              category: ['process'],
+              type: ['start'],
+              kind: 'event',
+            },
+            message: JSON.stringify({
+              event: 'exec',
+              command: 'cat /etc/passwd',
+              login: faker.internet.username(),
+            }),
+            user: { name: faker.internet.username(), email: faker.internet.email() },
+          })
+        ),
+    },
+    {
+      name: 'Teleport User Password Change',
+      description: 'Detects password change events in Teleport',
+      query: 'data_stream.dataset: "teleport.audit" AND event.action: "user.password_change"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-teleport.audit-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('teleport.audit', {
+            event: {
+              action: 'user.password_change',
+              category: ['iam'],
+              type: ['change'],
+              kind: 'event',
+            },
+            user: { name: faker.internet.username(), email: faker.internet.email() },
+          })
+        ),
+    },
+  ],
+
+  thycotic_ss: [
+    {
+      name: 'Thycotic Secret Server Failed Login',
+      description: 'Detects failed login attempts to Thycotic Secret Server',
+      query: 'data_stream.dataset: "thycotic_ss.logs" AND event.action: "login_failed"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-thycotic_ss.logs-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('thycotic_ss.logs', {
+            event: {
+              action: 'login_failed',
+              category: ['authentication'],
+              type: ['start'],
+              outcome: 'failure',
+              kind: 'event',
+              provider: 'system',
+            },
+            user: { full_name: faker.person.fullName(), domain: 'CORP' },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'Thycotic Secret Server Password Displayed',
+      description: 'Detects password display events which may indicate credential harvesting',
+      query: 'data_stream.dataset: "thycotic_ss.logs" AND event.action: "password_displayed"',
+      severity: 'high',
+      riskScore: 63,
+      index: ['logs-thycotic_ss.logs-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('thycotic_ss.logs', {
+            event: {
+              action: 'password_displayed',
+              category: ['iam'],
+              type: ['info'],
+              kind: 'event',
+              provider: 'secret',
+            },
+            thycotic_ss: {
+              event: {
+                secret: {
+                  name: 'Production Database Credentials',
+                  id: String(faker.number.int({ min: 1000, max: 9999 })),
+                },
+              },
+            },
+            user: { full_name: faker.person.fullName(), domain: 'CORP' },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'Thycotic Secret Server Secret Checked Out',
+      description: 'Detects secret checkout events from Thycotic Secret Server',
+      query: 'data_stream.dataset: "thycotic_ss.logs" AND event.action: "secret_checked_out"',
+      severity: 'medium',
+      riskScore: 50,
+      index: ['logs-thycotic_ss.logs-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('thycotic_ss.logs', {
+            event: {
+              action: 'secret_checked_out',
+              category: ['iam'],
+              type: ['access'],
+              kind: 'event',
+              provider: 'secret',
+            },
+            thycotic_ss: {
+              event: {
+                secret: {
+                  name: faker.helpers.arrayElement([
+                    'AWS Root Access Key',
+                    'VPN Admin Password',
+                    'SSH Key - Production Bastion',
+                  ]),
+                  id: String(faker.number.int({ min: 1000, max: 9999 })),
+                },
+              },
+            },
+            user: { full_name: faker.person.fullName(), domain: 'CORP' },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+  ],
+
+  zoom: [
+    {
+      name: 'Zoom User Deactivated',
+      description: 'Detects user deactivation events in Zoom',
+      query: 'data_stream.dataset: "zoom.webhook" AND event.action: "user.deactivated"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-zoom.webhook-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('zoom.webhook', {
+            event: {
+              action: 'user.deactivated',
+              category: ['iam'],
+              type: ['user', 'deletion'],
+              kind: 'event',
+            },
+            user: { email: faker.internet.email(), id: faker.string.alphanumeric(22) },
+            zoom: { operator: faker.internet.email() },
+          })
+        ),
+    },
+    {
+      name: 'Zoom Account Settings Changed',
+      description: 'Detects account-level settings changes in Zoom',
+      query: 'data_stream.dataset: "zoom.webhook" AND event.action: "account.updated"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-zoom.webhook-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('zoom.webhook', {
+            event: {
+              action: 'account.updated',
+              category: ['iam'],
+              type: ['user', 'change'],
+              kind: 'event',
+            },
+            user: { email: faker.internet.email(), id: faker.string.alphanumeric(22) },
+            zoom: { operator: faker.internet.email(), account: { account_name: 'Corp' } },
+          })
+        ),
+    },
+    {
+      name: 'Zoom Recording Deleted',
+      description: 'Detects deletion of meeting recordings in Zoom',
+      query: 'data_stream.dataset: "zoom.webhook" AND event.action: "recording.deleted"',
+      severity: 'low',
+      riskScore: 30,
+      index: ['logs-zoom.webhook-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('zoom.webhook', {
+            event: {
+              action: 'recording.deleted',
+              category: ['file'],
+              type: ['deletion'],
+              kind: 'event',
+            },
+            user: { email: faker.internet.email(), id: faker.string.alphanumeric(22) },
+            zoom: { operator: faker.internet.email() },
+          })
+        ),
+    },
+  ],
+
+  lastpass: [
+    {
+      name: 'LastPass Failed Login Attempt',
+      description: 'Detects failed login attempts to LastPass',
+      query:
+        'data_stream.dataset: "lastpass.event_report" AND lastpass.event_report.action: "Failed Login Attempt"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-lastpass.event_report-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('lastpass.event_report', {
+            event: {
+              action: 'failed login attempt',
+              category: ['authentication'],
+              kind: 'event',
+              outcome: 'failure',
+              type: ['start'],
+            },
+            lastpass: {
+              event_report: {
+                action: 'Failed Login Attempt',
+                ip: faker.internet.ipv4(),
+                user_name: faker.internet.email(),
+              },
+            },
+            user: { email: [faker.internet.email()] },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'LastPass Vault Export',
+      description: 'Detects vault export events from LastPass',
+      query:
+        'data_stream.dataset: "lastpass.event_report" AND lastpass.event_report.action: "Vault Export"',
+      severity: 'critical',
+      riskScore: 87,
+      index: ['logs-lastpass.event_report-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('lastpass.event_report', {
+            event: {
+              action: 'vault export',
+              category: ['database'],
+              kind: 'event',
+              outcome: 'success',
+              type: ['info'],
+            },
+            lastpass: {
+              event_report: {
+                action: 'Vault Export',
+                ip: faker.internet.ipv4(),
+                user_name: faker.internet.email(),
+              },
+            },
+            user: { email: [faker.internet.email()] },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+    {
+      name: 'LastPass Master Password Reenter',
+      description: 'Detects master password re-entry events in LastPass',
+      query:
+        'data_stream.dataset: "lastpass.event_report" AND lastpass.event_report.action: "Master Password Reenter"',
+      severity: 'low',
+      riskScore: 21,
+      index: ['logs-lastpass.event_report-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('lastpass.event_report', {
+            event: {
+              action: 'master password reenter',
+              category: ['authentication'],
+              kind: 'event',
+              outcome: 'success',
+              type: ['info'],
+            },
+            lastpass: {
+              event_report: {
+                action: 'Master Password Reenter',
+                ip: faker.internet.ipv4(),
+                user_name: faker.internet.email(),
+              },
+            },
+            user: { email: [faker.internet.email()] },
+            source: { ip: faker.internet.ipv4() },
+          })
+        ),
+    },
+  ],
 };
 
 function getApplicableIntegrations(enabledIntegrations: IntegrationName[]): IntegrationName[] {
