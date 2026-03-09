@@ -53,8 +53,6 @@ const FOLDER_NAMES = [
 
 const SHIELD_RULE_CATEGORIES = [
   'Anomalous Download',
-  'Suspicious Locations',
-  'Suspicious Sessions',
   'Malicious Content',
 ];
 

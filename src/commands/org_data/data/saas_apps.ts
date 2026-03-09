@@ -462,11 +462,11 @@ export const GOOGLE_WORKSPACE_SERVICES = {
   keep: {
     events: [
       'uploaded_attachment',
+      'deleted_attachment',
       'created_note',
-      'edited_note',
+      'edited_note_content',
       'deleted_note',
-      'shared_note',
-      'trashed_note',
+      'modified_acl',
     ],
     eventTypes: ['user_action'],
   },

@@ -89,6 +89,7 @@ export class TiAbusechIntegration extends BaseIntegration {
     return {
       '@timestamp': lastSeen,
       message: JSON.stringify(rawEvent),
+      _conf: { ioc_expiration_duration: '90d' },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'ti_abusech.malware' },
     } as IntegrationDocument;
   }
@@ -135,6 +136,7 @@ export class TiAbusechIntegration extends BaseIntegration {
     return {
       '@timestamp': lastSeen,
       message: JSON.stringify(rawEvent),
+      _conf: { interval: '24h' },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'ti_abusech.url' },
     } as IntegrationDocument;
   }

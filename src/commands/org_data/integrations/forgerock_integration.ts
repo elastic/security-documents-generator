@@ -167,60 +167,38 @@ export class ForgeRockIntegration extends BaseIntegration {
       { value: 'FAILED', weight: 10 },
     ]);
     const httpMethod = operation === 'READ' ? 'GET' : operation === 'CREATE' ? 'POST' : 'PUT';
-    const path = `https://${tenantHost}/am/json${realm === '/' ? '' : realm}/users/${employee.userName}`;
+    const path = `/am/json${realm === '/' ? '' : realm}/users/${employee.userName}`;
+    const serverIp = faker.internet.ipv4();
+
+    const payload = {
+      _id: faker.string.uuid(),
+      transactionId,
+      timestamp,
+      eventName: 'AM-ACCESS-ATTEMPT',
+      userId: employee.userName,
+      client: { ip: sourceIp, port: faker.number.int({ min: 1024, max: 65535 }) },
+      server: { ip: serverIp, port: 443 },
+      http: { request: { method: httpMethod, path } },
+      request: { operation, protocol },
+      response: {
+        statusCode: status === 'SUCCESSFUL' ? 200 : 403,
+        status,
+        elapsedTime,
+        elapsedTimeUnits: 'MILLISECONDS',
+      },
+      roles: ['internal/role/openidm-authorized'],
+      source: 'audit',
+      topic: 'access',
+      trackingIds: [trackingId],
+      realm,
+      level: 'INFO',
+      component: 'Policy',
+    };
 
     return {
       '@timestamp': timestamp,
-      event: {
-        action: 'AM-ACCESS-ATTEMPT',
-        category: ['network'],
-        type: ['access'],
-        dataset: 'forgerock.am_access',
-      },
-      forgerock: {
-        eventName: 'AM-ACCESS-ATTEMPT',
-        http: {
-          request: {
-            headers: {
-              host: [tenantHost],
-              'user-agent': [faker.internet.userAgent()],
-              'x-forwarded-for': [sourceIp],
-              'x-forwarded-proto': ['https'],
-            },
-            secure: true,
-          },
-        },
-        level: 'INFO',
-        realm,
-        request: { operation, protocol },
-        response: {
-          elapsedTime,
-          elapsedTimeUnits: 'MILLISECONDS',
-          status,
-        },
-        roles: [`internal/role/openidm-authorized`],
-        source: 'audit',
-        topic: 'access',
-        trackingIds: [trackingId],
-      },
-      http: {
-        request: { Path: path, method: httpMethod },
-      },
-      client: { ip: sourceIp },
-      user: {
-        name: employee.userName,
-        email: employee.email,
-      },
-      observer: {
-        vendor: 'ForgeRock Identity Platform',
-      },
-      related: {
-        ip: [sourceIp],
-        user: [employee.userName],
-      },
-      transaction: { id: transactionId },
+      message: JSON.stringify({ payload }),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'forgerock.am_access' },
-      tags: ['forwarded', 'forgerock-audit', 'forgerock-am-access'],
     } as IntegrationDocument;
   }
 

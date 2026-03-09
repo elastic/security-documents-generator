@@ -519,23 +519,156 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
     const cfg = GOOGLE_WORKSPACE_SERVICES.gmail;
     const action = faker.helpers.arrayElement(cfg.events);
     const recipient = faker.helpers.arrayElement(org.employees);
-    return this.rawActivityDoc('gmail', 'gmail', employee, org, {
-      name: action,
-      type: 'delivery_type',
-      parameters: [
-        param('email', recipient.email),
-        param('mail_event_type', faker.helpers.arrayElement(cfg.mailEventTypes)),
-        param('action_type', faker.helpers.arrayElement(cfg.actionTypes)),
-        paramInt('num_message_attachments', faker.number.int({ min: 0, max: 3 })),
-        paramInt('payload_size', faker.number.int({ min: 1000, max: 100000 })),
-        paramBool('dkim_pass', true),
-        paramBool('spf_pass', true),
-        paramBool('is_internal', employee.email.endsWith(`@${org.domain}`)),
-        param('from_header_address', employee.email),
-        param('service', 'smtp-inbound'),
-        paramBool('is_spam', faker.datatype.boolean(0.05)),
+    const sourceIp = faker.internet.ipv4();
+    const timestampUsec = (Date.now() - faker.number.int({ min: 0, max: 72 * 3600 * 1000 })) * 1000;
+    const elapsedUsec = faker.number.int({ min: 100000, max: 2000000 });
+    const isInternal = employee.email.endsWith(`@${org.domain}`);
+    const subject = faker.lorem.sentence({ min: 3, max: 8 });
+    const messageId = `<${faker.string.alphanumeric(20)}@${org.domain}>`;
+    const actionType = faker.helpers.arrayElement(cfg.actionTypes);
+    const mailEventType = faker.helpers.arrayElement(cfg.mailEventTypes);
+    const encodedIp = Buffer.from(sourceIp).toString('base64');
+
+    const bv = (v: unknown) => ({ v });
+    const bRecord = (fields: Array<{ v: unknown }>) => ({ v: { f: fields } });
+
+    const row = {
+      f: [
+        bv(recipient.email),
+        bv(faker.string.uuid()),
+        bv(action),
+        bv('delivery_type'),
+        bv(encodedIp),
+        bv(timestampUsec),
+        bRecord([
+          bv(timestampUsec),
+          bv(elapsedUsec),
+          bv(true),
+          bv(mailEventType),
+          bRecord([
+            bRecord([
+              bv(employee.email),
+            ]),
+          ]),
+        ]),
+        bRecord([
+          bRecord([
+            bv(employee.email),
+            bv(employee.email),
+            bv(`${employee.firstName} ${employee.lastName}`),
+            bv('smtp-inbound'),
+          ]),
+          bRecord([
+            bv(true),
+            bv(true),
+            bv(isInternal),
+            bv(false),
+            bv(sourceIp),
+            bv(sourceIp),
+            bv(250),
+            bv('1'),
+            bv('1'),
+            bv([
+              bRecord([bv(org.domain), bv('2')]),
+            ]),
+          ]),
+          bv(subject),
+          bv(messageId),
+          bv(faker.number.int({ min: 0, max: 3 })),
+          bv(faker.number.int({ min: 1000, max: 100000 })),
+          bv(faker.datatype.boolean(0.05)),
+          bv(false),
+          bv('250 2.0.0 OK'),
+          bv(actionType),
+          bv(`gmail-ui::${recipient.email}`),
+          bv([
+            bRecord([bv(recipient.email), bv('1'), bv('gmail-ui')]),
+          ]),
+        ]),
       ],
-    });
+    };
+
+    const schema = {
+      fields: [
+        { name: 'email', type: 'STRING' },
+        { name: 'event_id', type: 'STRING' },
+        { name: 'event_name', type: 'STRING' },
+        { name: 'event_type', type: 'STRING' },
+        { name: 'ip_address', type: 'STRING' },
+        { name: 'time_usec', type: 'INTEGER' },
+        {
+          name: 'event_info', type: 'RECORD', fields: [
+            { name: 'timestamp_usec', type: 'INTEGER' },
+            { name: 'elapsed_time_usec', type: 'INTEGER' },
+            { name: 'success', type: 'BOOLEAN' },
+            { name: 'mail_event_type', type: 'STRING' },
+            {
+              name: 'client_context', type: 'RECORD', fields: [
+                {
+                  name: 'session_context', type: 'RECORD', fields: [
+                    { name: 'delegate_user_email', type: 'STRING' },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          name: 'message_info', type: 'RECORD', fields: [
+            {
+              name: 'source', type: 'RECORD', fields: [
+                { name: 'address', type: 'STRING' },
+                { name: 'from_header_address', type: 'STRING' },
+                { name: 'from_header_displayname', type: 'STRING' },
+                { name: 'service', type: 'STRING' },
+              ],
+            },
+            {
+              name: 'connection_info', type: 'RECORD', fields: [
+                { name: 'dkim_pass', type: 'BOOLEAN' },
+                { name: 'spf_pass', type: 'BOOLEAN' },
+                { name: 'is_internal', type: 'BOOLEAN' },
+                { name: 'is_intra_domain', type: 'BOOLEAN' },
+                { name: 'smtp_in_connect_ip', type: 'STRING' },
+                { name: 'smtp_user_agent_ip', type: 'STRING' },
+                { name: 'smtp_reply_code', type: 'INTEGER' },
+                { name: 'smtp_tls_state', type: 'STRING' },
+                { name: 'smtp_response_reason', type: 'STRING' },
+                {
+                  name: 'authenticated_domain', type: 'RECORD', mode: 'REPEATED', fields: [
+                    { name: 'name', type: 'STRING' },
+                    { name: 'type', type: 'STRING' },
+                  ],
+                },
+              ],
+            },
+            { name: 'subject', type: 'STRING' },
+            { name: 'rfc2822_message_id', type: 'STRING' },
+            { name: 'num_message_attachments', type: 'INTEGER' },
+            { name: 'payload_size', type: 'INTEGER' },
+            { name: 'is_spam', type: 'BOOLEAN' },
+            { name: 'is_policy_check_for_sender', type: 'BOOLEAN' },
+            { name: 'description', type: 'STRING' },
+            { name: 'action_type', type: 'STRING' },
+            { name: 'flattened_destinations', type: 'STRING' },
+            {
+              name: 'destination', type: 'RECORD', mode: 'REPEATED', fields: [
+                { name: 'address', type: 'STRING' },
+                { name: 'selector', type: 'STRING' },
+                { name: 'service', type: 'STRING' },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const raw = { row, schema };
+    return {
+      '@timestamp': new Date(timestampUsec / 1000).toISOString(),
+      message: JSON.stringify(raw),
+      data_stream: { namespace: 'default', type: 'logs', dataset: 'google_workspace.gmail' },
+    } as IntegrationDocument;
   }
 
   private calendarDoc(employee: Employee, org: Organization): IntegrationDocument {
@@ -602,7 +735,7 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
       params.push(param('attachment_name', `https://keep.googleapis.com/v1/notes/${noteId}/attachments/${faker.string.alphanumeric(8)}`));
     }
     return this.rawActivityDoc('keep', 'keep', employee, org, {
-      name: action.replace(/_/g, '-'),
+      name: action,
       type: 'user_action',
       parameters: params,
     });
