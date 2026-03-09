@@ -1,7 +1,8 @@
 /**
  * BeyondInsight and Password Safe Integration
- * Generates PAM audit, session, managed system/account, and asset documents
- * Based on the Elastic beyondinsight_password_safe integration package
+ * Generates raw pre-pipeline documents (CamelCase API JSON in event.original)
+ * for PAM audit, session, managed system/account, and asset data streams.
+ * Based on the Elastic beyondinsight_password_safe integration package.
  */
 
 import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
@@ -30,10 +31,14 @@ const AUDIT_SECTIONS = [
   'PolicyManagement',
 ];
 
-const SESSION_PROTOCOLS = ['rdp', 'ssh', 'telnet', 'vnc'];
-const SESSION_STATUSES = ['completed', 'in_progress', 'terminated', 'expired'];
-const SESSION_TYPES = ['regular', 'isa', 'admin'];
-const ARCHIVE_STATUSES = ['archived', 'not_archived', 'pending'];
+// Session pipeline expects numeric codes: 0=rdp, 1=ssh
+const SESSION_PROTOCOL_CODES = [0, 1];
+// Session pipeline: 0=not_started, 1=in_progress, 2=completed, 5=locked, 7=terminated, 8=logged_off, 9=disconnected
+const SESSION_STATUS_CODES = [0, 1, 2, 5, 7, 8, 9];
+// Session pipeline: 1=regular, 2=isa, 3=admin
+const SESSION_TYPE_CODES = [1, 2, 3];
+// Session pipeline: 0=not_archived, 1=archived, 2=restoring, 3=archiving
+const ARCHIVE_STATUS_CODES = [0, 1, 2, 3];
 
 const MANAGED_SYSTEM_NAMES = [
   'ProdDB-01',
@@ -68,6 +73,12 @@ const OPERATING_SYSTEMS = [
   'CentOS 8',
   'Debian 12',
 ];
+
+// Managedaccount pipeline: ChangeState 0=idle, 1=changing, 2=queued
+const CHANGE_STATE_CODES = [0, 1, 2];
+
+// Managedsystem pipeline: SshKeyEnforcementMode 0=None, 1=Auto, 2=Strict
+const SSH_KEY_ENFORCEMENT_CODES = [0, 1, 2];
 
 export class BeyondInsightIntegration extends BaseIntegration {
   readonly packageName = 'beyondinsight_password_safe';
@@ -124,47 +135,28 @@ export class BeyondInsightIntegration extends BaseIntegration {
     );
     const timestamp = this.getRandomTimestamp(72);
     const sourceIp = faker.internet.ipv4();
-    const auditId = String(faker.number.int({ min: 1, max: 99999 }));
-    const userId = String(faker.number.int({ min: 100, max: 999 }));
+    const auditId = faker.number.int({ min: 1, max: 99999 });
+    const userId =
+      parseInt(employee.employeeNumber, 10) || faker.number.int({ min: 100, max: 999 });
 
-    const eventCategory =
-      action.value === 'Login' || action.value === 'Logout' ? ['authentication'] : ['iam'];
-    const eventType = action.value === 'AccessDenied' ? ['denied'] : ['info'];
+    const rawEvent = {
+      ActionType: action.value,
+      AuditID: auditId,
+      CreateDate: timestamp,
+      IPAddress: sourceIp,
+      Section: faker.helpers.arrayElement(AUDIT_SECTIONS),
+      UserID: userId,
+      UserName: employee.userName,
+    };
 
     return {
       '@timestamp': timestamp,
-      beyondinsight_password_safe: {
-        useraudit: {
-          action_type: action.value,
-          audit_id: auditId,
-          create_date: timestamp,
-          ip_address: sourceIp,
-          section: faker.helpers.arrayElement(AUDIT_SECTIONS),
-          user_id: userId,
-          user_name: employee.userName,
-        },
-      },
+      event: { original: JSON.stringify(rawEvent) },
       data_stream: {
         dataset: 'beyondinsight_password_safe.useraudit',
         namespace: 'default',
         type: 'logs',
       },
-      event: {
-        dataset: 'beyondinsight_password_safe.useraudit',
-        kind: 'event',
-        category: eventCategory,
-        type: eventType,
-      },
-      related: {
-        ip: [sourceIp],
-        user: [employee.userName],
-      },
-      user: {
-        id: userId,
-        name: employee.userName,
-      },
-      source: { ip: sourceIp },
-      tags: ['forwarded', 'beyondinsight_password_safe-useraudit'],
     } as IntegrationDocument;
   }
 
@@ -172,98 +164,72 @@ export class BeyondInsightIntegration extends BaseIntegration {
     const startTime = this.getRandomTimestamp(72);
     const durationSec = faker.number.int({ min: 300, max: 14400 });
     const endTime = new Date(new Date(startTime).getTime() + durationSec * 1000).toISOString();
-    const protocol = faker.helpers.arrayElement(SESSION_PROTOCOLS);
     const systemName = faker.helpers.arrayElement(MANAGED_SYSTEM_NAMES);
     const accountName = faker.helpers.arrayElement(MANAGED_ACCOUNT_NAMES);
-    const sessionId = String(faker.number.int({ min: 1000, max: 9999 }));
+    const sessionId = faker.number.int({ min: 1000, max: 9999 });
+
+    const rawEvent = {
+      ApplicationID: faker.number.int({ min: 100, max: 199 }),
+      ArchiveStatus: faker.helpers.arrayElement(ARCHIVE_STATUS_CODES),
+      AssetName: systemName,
+      Duration: durationSec,
+      EndTime: endTime,
+      ManagedAccountID: faker.number.int({ min: 1, max: 50 }),
+      ManagedAccountName: accountName,
+      ManagedSystemID: faker.number.int({ min: 1, max: 30 }),
+      NodeID: `node-${faker.string.alphanumeric(3)}`,
+      Protocol: faker.helpers.arrayElement(SESSION_PROTOCOL_CODES),
+      RecordKey: `rec_key_${faker.string.alphanumeric(8)}`,
+      RequestID: faker.number.int({ min: 100, max: 999 }),
+      SessionID: sessionId,
+      SessionType: faker.helpers.arrayElement(SESSION_TYPE_CODES),
+      StartTime: startTime,
+      Status: faker.helpers.arrayElement(SESSION_STATUS_CODES),
+      Token: `token_${faker.string.alphanumeric(12)}`,
+      UserID:
+        parseInt(employee.employeeNumber, 10) || faker.number.int({ min: 100, max: 999 }),
+    };
 
     return {
       '@timestamp': endTime,
-      beyondinsight_password_safe: {
-        session: {
-          application_id: String(faker.number.int({ min: 100, max: 199 })),
-          archive_status: faker.helpers.arrayElement(ARCHIVE_STATUSES),
-          asset_name: systemName,
-          duration: durationSec,
-          end_time: endTime,
-          managed_account_id: String(faker.number.int({ min: 1, max: 50 })),
-          managed_account_name: accountName,
-          managed_system_id: String(faker.number.int({ min: 1, max: 30 })),
-          node_id: `node-${faker.string.alphanumeric(3)}`,
-          protocol,
-          record_key: `rec_key_${faker.string.alphanumeric(8)}`,
-          request_id: String(faker.number.int({ min: 100, max: 999 })),
-          session_id: sessionId,
-          session_type: faker.helpers.arrayElement(SESSION_TYPES),
-          start_time: startTime,
-          status: faker.helpers.arrayElement(SESSION_STATUSES),
-          token: `token_${faker.string.alphanumeric(12)}`,
-          user_id: String(faker.number.int({ min: 100, max: 999 })),
-        },
-      },
+      event: { original: JSON.stringify(rawEvent) },
       data_stream: {
         dataset: 'beyondinsight_password_safe.session',
         namespace: 'default',
         type: 'logs',
       },
-      event: {
-        category: ['session'],
-        duration: durationSec * 1_000_000_000,
-        end: endTime,
-        id: sessionId,
-        start: startTime,
-        type: ['info'],
-      },
-      network: { protocol },
-      user: {
-        id: String(faker.number.int({ min: 100, max: 999 })),
-        name: employee.userName,
-      },
-      tags: ['forwarded', 'beyondinsight_password_safe-session'],
     } as IntegrationDocument;
   }
 
   private createManagedSystemDocuments(): IntegrationDocument[] {
     return MANAGED_SYSTEM_NAMES.map((name, idx) => {
-      const systemId = String(idx + 1);
+      const systemId = idx + 1;
       const ip = faker.internet.ipv4();
       const dnsName = `${name.toLowerCase()}.example.com`;
 
+      const rawEvent = {
+        AccessURL: `https://${dnsName}/manage`,
+        AssetID: systemId,
+        AutoManagementFlag: faker.datatype.boolean(0.7),
+        ChangeFrequencyDays: faker.helpers.arrayElement([7, 14, 30, 60, 90]),
+        ChangeFrequencyType: 'first',
+        DNSName: dnsName,
+        HostName: name,
+        IPAddress: ip,
+        ManagedSystemID: systemId,
+        Port: faker.helpers.arrayElement([22, 443, 3389, 5985, 8080]),
+        SystemName: name,
+        SshKeyEnforcementMode: faker.helpers.arrayElement(SSH_KEY_ENFORCEMENT_CODES),
+      };
+
       return {
         '@timestamp': this.getRandomTimestamp(168),
-        beyondinsight_password_safe: {
-          managedsystem: {
-            access_url: `https://${dnsName}/manage`,
-            asset_id: systemId,
-            auto_management_flag: faker.datatype.boolean(0.7),
-            change_frequency_days: faker.helpers.arrayElement([7, 14, 30, 60, 90]),
-            change_frequency_type: 'first',
-            dns_name: dnsName,
-            host_name: name,
-            ip_address: ip,
-            managed_system_id: systemId,
-            port: faker.helpers.arrayElement([22, 443, 3389, 5985, 8080]),
-            system_name: name,
-          },
-        },
+        event: { original: JSON.stringify(rawEvent) },
         data_stream: {
           dataset: 'beyondinsight_password_safe.managedsystem',
           namespace: 'default',
           type: 'logs',
         },
-        event: {
-          dataset: 'beyondinsight_password_safe.managedsystem',
-          kind: 'event',
-          category: ['host'],
-          type: ['info'],
-        },
-        host: {
-          domain: 'example.com',
-          hostname: name,
-          ip: [ip],
-          name: dnsName,
-        },
-        tags: ['forwarded', 'beyondinsight_password_safe-managedsystem'],
       } as IntegrationDocument;
     });
   }
@@ -271,104 +237,81 @@ export class BeyondInsightIntegration extends BaseIntegration {
   private createManagedAccountDocument(idx: number): IntegrationDocument {
     const accountName = faker.helpers.arrayElement(MANAGED_ACCOUNT_NAMES);
     const systemName = faker.helpers.arrayElement(MANAGED_SYSTEM_NAMES);
-    const accountId = String(idx + 1);
-    const upn = `${accountName.toLowerCase()}@example.com`;
+    const accountId = idx + 1;
+    const upn = `${accountName.toLowerCase().replace(/\s+/g, '_')}@example.com`;
     const lastChange = this.getRandomTimestamp(168);
+    const nextChange = new Date(
+      new Date(lastChange).getTime() + 30 * 24 * 60 * 60 * 1000
+    ).toISOString();
+
+    const rawEvent = {
+      AccountDescription: `Managed account for ${systemName}`,
+      AccountId: accountId,
+      AccountName: accountName,
+      ApplicationDisplayName: faker.helpers.arrayElement([
+        'PasswordSafe',
+        'AccountingApp',
+        'AdminPortal',
+      ]),
+      ApplicationID: faker.number.int({ min: 100, max: 200 }),
+      ChangeState: faker.helpers.arrayElement(CHANGE_STATE_CODES),
+      DefaultReleaseDuration: 120,
+      DomainName: 'example.com',
+      InstanceName: 'Primary',
+      IsChanging: faker.datatype.boolean(0.1),
+      IsISAAccess: faker.datatype.boolean(0.3),
+      LastChangeDate: lastChange,
+      MaximumReleaseDuration: 525600,
+      NextChangeDate: nextChange,
+      PlatformID: faker.number.int({ min: 1, max: 10 }),
+      SystemId: faker.number.int({ min: 1, max: MANAGED_SYSTEM_NAMES.length }),
+      SystemName: systemName,
+      UserPrincipalName: upn,
+    };
 
     return {
       '@timestamp': lastChange,
-      beyondinsight_password_safe: {
-        managedaccount: {
-          account_description: `Managed account for ${systemName}`,
-          account_id: accountId,
-          account_name: accountName,
-          application_display_name: faker.helpers.arrayElement([
-            'PasswordSafe',
-            'AccountingApp',
-            'AdminPortal',
-          ]),
-          application_id: String(faker.number.int({ min: 100, max: 200 })),
-          change_state: faker.helpers.arrayElement(['queued', 'completed', 'pending', 'failed']),
-          default_release_duration: 120,
-          domain_name: 'example.com',
-          instance_name: 'Primary',
-          is_changing: faker.datatype.boolean(0.1),
-          is_isa_access: faker.datatype.boolean(0.3),
-          last_change_date: lastChange,
-          maximum_release_duration: 525600,
-          next_change_date: new Date(
-            new Date(lastChange).getTime() + 30 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          platform_id: String(faker.number.int({ min: 1, max: 10 })),
-          system_id: String(faker.number.int({ min: 1, max: MANAGED_SYSTEM_NAMES.length })),
-          system_name: systemName,
-          user_principal_name: upn,
-        },
-      },
+      event: { original: JSON.stringify(rawEvent) },
       data_stream: {
         dataset: 'beyondinsight_password_safe.managedaccount',
         namespace: 'default',
         type: 'logs',
       },
-      event: {
-        dataset: 'beyondinsight_password_safe.managedaccount',
-        kind: 'event',
-        category: ['iam'],
-        type: ['info'],
-      },
-      user: {
-        email: upn,
-        id: accountId,
-        name: accountName,
-      },
-      tags: ['forwarded', 'beyondinsight_password_safe-managedaccount'],
     } as IntegrationDocument;
   }
 
   private createAssetDocuments(): IntegrationDocument[] {
     return MANAGED_SYSTEM_NAMES.map((name, idx) => {
-      const assetId = String(idx + 1);
+      const assetId = idx + 1;
       const ip = faker.internet.ipv4();
       const mac = faker.internet.mac({ separator: '-' }).toUpperCase();
       const os = faker.helpers.arrayElement(OPERATING_SYSTEMS);
       const dnsName = `${name.toLowerCase()}.example.com`;
       const createDate = this.getRandomTimestamp(720);
+      const lastUpdateDate = this.getRandomTimestamp(72);
+
+      const rawEvent = {
+        AssetID: assetId,
+        AssetName: name,
+        AssetType: faker.helpers.arrayElement(ASSET_TYPES),
+        CreateDate: createDate,
+        DnsName: dnsName,
+        DomainName: 'example.com',
+        IPAddress: ip,
+        LastUpdateDate: lastUpdateDate,
+        MacAddress: mac,
+        OperatingSystem: os,
+        WorkgroupID: 1,
+      };
 
       return {
-        '@timestamp': this.getRandomTimestamp(168),
-        beyondinsight_password_safe: {
-          asset: {
-            asset_id: assetId,
-            asset_name: name,
-            asset_type: faker.helpers.arrayElement(ASSET_TYPES),
-            create_date: createDate,
-            dns_name: dnsName,
-            domain_name: 'example.com',
-            ip_address: ip,
-            last_update_date: this.getRandomTimestamp(72),
-            mac_address: mac,
-            operating_system: os,
-            workgroup_id: '1',
-          },
-        },
+        '@timestamp': lastUpdateDate,
+        event: { original: JSON.stringify(rawEvent) },
         data_stream: {
           dataset: 'beyondinsight_password_safe.asset',
           namespace: 'default',
           type: 'logs',
         },
-        event: {
-          dataset: 'beyondinsight_password_safe.asset',
-          kind: 'asset',
-          category: ['host'],
-        },
-        host: {
-          domain: 'example.com',
-          ip: [ip],
-          mac: [mac],
-          name,
-          os: { full: os },
-        },
-        tags: ['forwarded', 'beyondinsight_password_safe-asset'],
       } as IntegrationDocument;
     });
   }

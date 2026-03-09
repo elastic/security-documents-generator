@@ -185,84 +185,57 @@ export class JumpCloudIntegration extends BaseIntegration {
             .map((field) => ({ field, to: field === 'active' ? true : `updated-${field}` }))
         : [];
 
-    return {
-      '@timestamp': timestamp,
-      jumpcloud: {
-        event: {
-          ...(changes.length > 0 ? { changes } : {}),
-          client_ip: clientIp,
-          event_type: eventDef.eventType,
-          geoip: {
-            continent_code: faker.helpers.arrayElement(['NA', 'EU', 'OC', 'AS']),
-            country_code: employee.countryCode,
-            latitude: faker.location.latitude(),
-            longitude: faker.location.longitude(),
-            region_name: faker.location.state(),
-            timezone: employee.timezone,
-          },
-          id: eventId,
-          initiated_by: {
-            email: employee.email,
-            id: initiatorId,
-            type: isAdmin ? 'admin' : 'user',
-          },
-          mfa: faker.datatype.boolean(0.7),
-          organization: orgId,
-          service: eventDef.service,
-          success: outcome === 'success',
-          timestamp,
-          useragent: {
-            device: ua.device,
-            name: ua.name,
-            os: ua.os,
-            os_full: `${ua.os} ${ua.osVersion}`,
-            os_name: ua.os,
-            os_version: ua.osVersion,
-            version: ua.version,
-          },
-          version: '1',
-        },
+    // Raw JumpCloud Events API JSON - pipeline parses message → event.original → jumpcloud.event
+    const rawJumpCloudEvent: Record<string, unknown> = {
+      '@version': '1',
+      client_ip: clientIp,
+      event_type: eventDef.eventType,
+      geoip: {
+        continent_code: faker.helpers.arrayElement(['NA', 'EU', 'OC', 'AS']),
+        country_code: employee.countryCode,
+        latitude: faker.location.latitude(),
+        longitude: faker.location.longitude(),
+        region_code: faker.string.alpha({ length: 3 }).toUpperCase(),
+        region_name: faker.location.state(),
+        timezone: employee.timezone,
       },
-      client: {
-        geo: {
-          city_name: faker.location.city(),
-          country_iso_code: employee.countryCode,
-          country_name: employee.country,
-        },
-        ip: clientIp,
+      id: eventId,
+      initiated_by: {
+        email: employee.email,
+        id: initiatorId,
+        type: isAdmin ? 'admin' : 'user',
       },
-      event: {
-        action: eventDef.eventType,
-        category: eventDef.category,
-        dataset: 'jumpcloud.events',
-        id: eventId,
-        kind: 'event',
-        module: eventDef.service,
-        outcome,
-        type: ['info'],
-      },
-      source: {
-        user: {
-          email: employee.email,
-          id: initiatorId,
-        },
-      },
-      user_agent: {
-        device: { name: ua.device },
+      mfa: faker.datatype.boolean(0.7),
+      organization: orgId,
+      provider: null,
+      service: eventDef.service,
+      success: outcome === 'success',
+      timestamp,
+      useragent: {
+        device: ua.device,
+        major: ua.version.split('.')[0] ?? '126',
+        minor: '0',
         name: ua.name,
-        os: {
-          full: `${ua.os} ${ua.osVersion}`,
-          name: ua.os,
-          version: ua.osVersion,
-        },
+        os: ua.os,
+        os_full: `${ua.os} ${ua.osVersion}`,
+        os_major: ua.osVersion.split('.')[0] ?? '14',
+        os_minor: ua.osVersion.split('.')[1] ?? '5',
+        os_name: ua.os,
+        os_patch: ua.osVersion.split('.')[2] ?? '0',
+        os_version: ua.osVersion,
+        patch: '0',
         version: ua.version,
       },
-      related: {
-        ip: [clientIp],
-        user: [employee.email, initiatorId],
-      },
+    };
+
+    if (changes.length > 0) {
+      rawJumpCloudEvent.changes = changes;
+    }
+
+    return {
+      '@timestamp': timestamp,
+      message: JSON.stringify(rawJumpCloudEvent),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'jumpcloud.events' },
-      tags: ['forwarded', 'jumpcloud-events'],
     } as IntegrationDocument;
   }
 }

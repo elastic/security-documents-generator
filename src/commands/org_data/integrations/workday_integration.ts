@@ -117,7 +117,7 @@ export class WorkdayIntegration extends BaseIntegration {
   }
 
   /**
-   * Create a Workday People API v4 person document
+   * Create a Workday People API v4 person document - raw pre-pipeline format
    */
   private createPersonDocument(
     employee: Employee,
@@ -144,172 +144,106 @@ export class WorkdayIntegration extends BaseIntegration {
       ? `${employee.firstName} ${middleName} ${employee.lastName}`
       : `${employee.firstName} ${employee.lastName}`;
 
+    const rawEvent = {
+      id: workdayId,
+      descriptor: `${employee.firstName} ${employee.lastName}`,
+      worker_id: workdayId,
+      employee_id: employee.employeeNumber,
+      legal_name: {
+        first_name: employee.firstName,
+        middle_name: middleName || '',
+        last_name: employee.lastName,
+        full_name: fullLegalName,
+      },
+      preferred_name: {
+        first_name: employee.firstName,
+        last_name: employee.lastName,
+        full_name: `${employee.firstName} ${employee.lastName}`,
+      },
+      primary_work_email: employee.email,
+      primary_work_phone: faker.phone.number({ style: 'international' }),
+      primary_home_email: faker.internet.email({
+        firstName: employee.firstName,
+        lastName: employee.lastName,
+        provider: faker.helpers.arrayElement([
+          'gmail.com',
+          'outlook.com',
+          'yahoo.com',
+          'proton.me',
+        ]),
+      }),
+      business_title: employee.role,
+      job_profile: {
+        id: `JP-${faker.string.alphanumeric(6).toUpperCase()}`,
+        descriptor: employee.role,
+      },
+      job_family: {
+        id: `JF-${faker.string.alphanumeric(4).toUpperCase()}`,
+        descriptor: jobFamily,
+      },
+      supervisory_organization: {
+        id: `SO-${faker.string.alphanumeric(6).toUpperCase()}`,
+        descriptor: employee.department,
+      },
+      cost_center: {
+        id: costCenter.code,
+        descriptor: costCenter.name,
+      },
+      company: {
+        id: 'COMP-001',
+        descriptor: org.name,
+      },
+      location: {
+        id: locationId,
+        descriptor: `${employee.city}, ${employee.country}`,
+        city: employee.city,
+        country: employee.country,
+        country_code: employee.countryCode,
+        timezone: employee.timezone,
+      },
+      business_address: {
+        address_line_1: faker.location.streetAddress(),
+        city: employee.city,
+        country: employee.country,
+        country_code: employee.countryCode,
+        postal_code: faker.location.zipCode(),
+      },
+      hire_date: hireDate,
+      worker_type: workerType,
+      time_type: timeType,
+      pay_group: {
+        id: `PG-${faker.string.alphanumeric(4).toUpperCase()}`,
+        descriptor: payGroup,
+      },
+      active: isActive,
+      end_employment_date: isActive
+        ? undefined
+        : faker.date.recent({ days: 90 }).toISOString().split('T')[0],
+      ...(manager
+        ? {
+            manager: {
+              worker_id: faker.string.hexadecimal({ length: 32, prefix: '' }).toLowerCase(),
+              employee_id: manager.employeeNumber,
+              descriptor: `${manager.firstName} ${manager.lastName}`,
+              primary_work_email: manager.email,
+            },
+          }
+        : {}),
+      custom_ids: {
+        badge_id: `BDG-${faker.string.alphanumeric(8).toUpperCase()}`,
+        okta_id: employee.oktaUserId,
+        entra_id: employee.entraIdUserId,
+      },
+    };
+
     return {
       '@timestamp': this.getRandomTimestamp(24),
-      event: {
-        dataset: 'workday.people',
-        kind: 'asset',
-        category: ['iam'],
-        type: ['user', 'info'],
-        module: 'workday',
-        action: 'worker-sync',
-      },
-      workday: {
-        people: {
-          // Worker identification
-          id: workdayId,
-          descriptor: `${employee.firstName} ${employee.lastName}`,
-          worker_id: workdayId,
-          employee_id: employee.employeeNumber,
-
-          // Legal name
-          legal_name: {
-            first_name: employee.firstName,
-            middle_name: middleName || '',
-            last_name: employee.lastName,
-            full_name: fullLegalName,
-          },
-
-          // Preferred name (may differ from legal)
-          preferred_name: {
-            first_name: employee.firstName,
-            last_name: employee.lastName,
-            full_name: `${employee.firstName} ${employee.lastName}`,
-          },
-
-          // Contact information
-          primary_work_email: employee.email,
-          primary_work_phone: faker.phone.number({ style: 'international' }),
-          primary_home_email: faker.internet.email({
-            firstName: employee.firstName,
-            lastName: employee.lastName,
-            provider: faker.helpers.arrayElement([
-              'gmail.com',
-              'outlook.com',
-              'yahoo.com',
-              'proton.me',
-            ]),
-          }),
-
-          // Job information
-          business_title: employee.role,
-          job_profile: {
-            id: `JP-${faker.string.alphanumeric(6).toUpperCase()}`,
-            descriptor: employee.role,
-          },
-          job_family: {
-            id: `JF-${faker.string.alphanumeric(4).toUpperCase()}`,
-            descriptor: jobFamily,
-          },
-
-          // Organization
-          supervisory_organization: {
-            id: `SO-${faker.string.alphanumeric(6).toUpperCase()}`,
-            descriptor: employee.department,
-          },
-          cost_center: {
-            id: costCenter.code,
-            descriptor: costCenter.name,
-          },
-          company: {
-            id: `COMP-001`,
-            descriptor: org.name,
-          },
-
-          // Location
-          location: {
-            id: locationId,
-            descriptor: `${employee.city}, ${employee.country}`,
-            city: employee.city,
-            country: employee.country,
-            country_code: employee.countryCode,
-            timezone: employee.timezone,
-          },
-
-          // Business address
-          business_address: {
-            address_line_1: faker.location.streetAddress(),
-            city: employee.city,
-            country: employee.country,
-            country_code: employee.countryCode,
-            postal_code: faker.location.zipCode(),
-          },
-
-          // Employment details
-          hire_date: hireDate,
-          worker_type: workerType,
-          time_type: timeType,
-          pay_group: {
-            id: `PG-${faker.string.alphanumeric(4).toUpperCase()}`,
-            descriptor: payGroup,
-          },
-          active: isActive,
-          end_employment_date: isActive
-            ? undefined
-            : faker.date.recent({ days: 90 }).toISOString().split('T')[0],
-
-          // Manager
-          ...(manager
-            ? {
-                manager: {
-                  worker_id: faker.string.hexadecimal({ length: 32, prefix: '' }).toLowerCase(),
-                  employee_id: manager.employeeNumber,
-                  descriptor: `${manager.firstName} ${manager.lastName}`,
-                  primary_work_email: manager.email,
-                },
-              }
-            : {}),
-
-          // Custom IDs (common in Workday implementations)
-          custom_ids: {
-            badge_id: `BDG-${faker.string.alphanumeric(8).toUpperCase()}`,
-            okta_id: employee.oktaUserId,
-            entra_id: employee.entraIdUserId,
-          },
-        },
-      },
-
-      // ECS fields for correlation
-      user: {
-        id: employee.employeeNumber,
-        name: employee.userName,
-        email: employee.email,
-        full_name: `${employee.firstName} ${employee.lastName}`,
-        roles: [employee.role],
-      },
-
-      asset: {
-        id: workdayId,
-        category: 'entity',
-        type: 'worker',
-        status: isActive ? 'active' : 'inactive',
-        name: `${employee.firstName} ${employee.lastName}`,
-        vendor: 'Workday',
-        create_date: hireDate,
-        last_updated: this.getRandomTimestamp(48),
-        last_seen: this.getRandomTimestamp(24),
-      },
-
-      labels: {
-        identity_source: 'workday',
-        integration_type: 'custom',
-      },
-
-      related: {
-        user: [
-          employee.email,
-          employee.userName,
-          employee.employeeNumber,
-          ...(manager ? [manager.email] : []),
-        ],
-      },
-
+      message: JSON.stringify(rawEvent),
       data_stream: {
         namespace: 'default',
         type: 'logs',
         dataset: 'workday.people',
       },
-      tags: ['forwarded', 'workday.people', 'custom-integration'],
     } as IntegrationDocument;
   }
 }

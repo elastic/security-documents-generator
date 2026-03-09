@@ -43,8 +43,6 @@ const AM_AUTH_EVENTS: Array<{
   },
 ];
 
-const AM_ACCESS_PROTOCOLS = ['CREST', 'HTTP'] as const;
-
 const IDM_AUTH_METHODS = [
   'MANAGED_USER',
   'INTERNAL_USER',
@@ -55,12 +53,7 @@ const IDM_AUTH_METHODS = [
 
 const FORGEROCK_REALMS = ['/', '/alpha', '/bravo', '/employees', '/partners'] as const;
 
-const IDM_ROLES = [
-  'internal/role/openidm-admin',
-  'internal/role/openidm-authorized',
-  'internal/role/openidm-reg',
-  'internal/role/openidm-cert',
-] as const;
+const AM_ACCESS_PROTOCOLS = ['CREST', 'HTTP', 'OAuth2', 'OIDC', 'SAML'] as const;
 
 export class ForgeRockIntegration extends BaseIntegration {
   readonly packageName = 'forgerock';
@@ -119,61 +112,37 @@ export class ForgeRockIntegration extends BaseIntegration {
     const timestamp = this.getRandomTimestamp(72);
     const sourceIp = faker.internet.ipv4();
     const realm = faker.helpers.arrayElement(FORGEROCK_REALMS);
-    const tenantHost = `${org.name.toLowerCase().replace(/\s+/g, '-')}.forgeblocks.com`;
-    const trackingId = faker.string.uuid();
     const transactionId = faker.string.uuid();
+    const eventId = faker.string.uuid();
 
-    const principal =
-      evt.outcome === 'failure'
-        ? `id=${employee.userName},ou=user,${realm === '/' ? '' : `o=${realm.slice(1)},`}ou=services,dc=openam,dc=forgerock,dc=org`
-        : `id=${employee.userName},ou=user,${realm === '/' ? '' : `o=${realm.slice(1)},`}ou=services,dc=openam,dc=forgerock,dc=org`;
+    const payload = {
+      _id: eventId,
+      transactionId,
+      timestamp,
+      eventName: evt.eventName,
+      result: evt.outcome === 'success' ? 'SUCCESSFUL' : 'FAILED',
+      userId: employee.userName,
+      component: 'DataStore',
+      entries: [
+        {
+          moduleId: 'DataStore',
+          info: { authIndex: 'AuthTree', ipAddress: sourceIp },
+        },
+      ],
+      level: 'INFO',
+      principal: [
+        `id=${employee.userName},ou=user,${realm === '/' ? '' : `o=${realm.slice(1)},`}ou=services,dc=openam,dc=forgerock,dc=org`,
+      ],
+      realm,
+      source: 'audit',
+      topic: 'authentication',
+      trackingIds: [faker.string.uuid()],
+    };
 
     return {
       '@timestamp': timestamp,
-      event: {
-        action: evt.eventAction,
-        category: ['authentication'],
-        type: evt.outcome === 'success' ? ['start'] : ['start'],
-        outcome: evt.outcome,
-        dataset: 'forgerock.am_authentication',
-      },
-      forgerock: {
-        eventName: evt.eventName,
-        entries: [
-          {
-            moduleId: 'DataStore',
-            info: {
-              authIndex: 'AuthTree',
-              ipAddress: sourceIp,
-            },
-          },
-        ],
-        level: 'INFO',
-        principal: [principal],
-        realm,
-        source: 'audit',
-        topic: 'authentication',
-        trackingIds: [trackingId],
-      },
-      user: {
-        id: principal,
-        name: employee.userName,
-        email: employee.email,
-      },
-      source: {
-        ip: sourceIp,
-      },
-      observer: {
-        vendor: 'ForgeRock Identity Platform',
-      },
-      related: {
-        ip: [sourceIp],
-        user: [employee.userName, employee.email],
-      },
-      transaction: { id: transactionId },
+      message: JSON.stringify({ payload }),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'forgerock.am_authentication' },
-      tags: ['forwarded', 'forgerock-audit', 'forgerock-am-authentication'],
-      host: { name: tenantHost },
     } as IntegrationDocument;
   }
 
@@ -255,136 +224,83 @@ export class ForgeRockIntegration extends BaseIntegration {
     } as IntegrationDocument;
   }
 
-  private createIdmAuthDocument(employee: Employee, org: Organization): IntegrationDocument {
+  private createIdmAuthDocument(employee: Employee, _org: Organization): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const method = faker.helpers.arrayElement(IDM_AUTH_METHODS);
     const result = faker.helpers.weightedArrayElement([
       { value: 'SUCCESSFUL', weight: 85 },
       { value: 'FAILED', weight: 15 },
     ]);
-    const outcome = result === 'SUCCESSFUL' ? 'success' : 'failure';
-    const trackingId = faker.string.uuid();
     const transactionId = faker.string.uuid();
-    const tenantHost = `${org.name.toLowerCase().replace(/\s+/g, '-')}.forgeblocks.com`;
+
+    const payload = {
+      _id: faker.string.uuid(),
+      transactionId,
+      timestamp,
+      eventName: 'authentication',
+      result,
+      userId: employee.userName,
+      entries: [{ moduleId: method, info: { authIndex: method } }],
+      level: 'INFO',
+      method,
+      principal: [employee.userName],
+      topic: 'authentication',
+      trackingIds: [faker.string.uuid()],
+    };
 
     return {
       '@timestamp': timestamp,
-      event: {
-        action: 'authentication',
-        category: ['authentication'],
-        type: ['info'],
-        outcome: outcome as 'success' | 'failure',
-        dataset: 'forgerock.idm_authentication',
-      },
-      forgerock: {
-        eventName: 'authentication',
-        entries: [
-          {
-            moduleId: method,
-            info: {
-              authIndex: method,
-            },
-          },
-        ],
-        level: 'INFO',
-        method,
-        principal: [employee.userName],
-        result,
-        topic: 'authentication',
-        trackingIds: [trackingId],
-      },
-      user: {
-        id: employee.userName,
-        name: employee.userName,
-        email: employee.email,
-      },
-      observer: {
-        vendor: 'ForgeRock Identity Platform',
-      },
-      related: {
-        user: [employee.userName, employee.email],
-      },
-      transaction: { id: transactionId },
+      message: JSON.stringify({ payload }),
       data_stream: {
         namespace: 'default',
         type: 'logs',
         dataset: 'forgerock.idm_authentication',
       },
-      tags: ['forwarded', 'forgerock-audit', 'forgerock-idm-authentication'],
-      host: { name: tenantHost },
     } as IntegrationDocument;
   }
 
   private createIdmAccessDocument(employee: Employee): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
-    const operation = faker.helpers.weightedArrayElement([
-      { value: 'READ', weight: 50 },
-      { value: 'CREATE', weight: 15 },
-      { value: 'UPDATE', weight: 20 },
-      { value: 'PATCH', weight: 10 },
-      { value: 'DELETE', weight: 5 },
-    ]);
     const status = faker.helpers.weightedArrayElement([
       { value: 'SUCCESSFUL', weight: 92 },
       { value: 'FAILED', weight: 8 },
     ]);
     const elapsedTime = faker.number.int({ min: 1, max: 200 });
-    const role = faker.helpers.arrayElement(IDM_ROLES);
     const transactionId = faker.string.uuid();
+    const sourceIp = faker.internet.ipv4();
     const path = faker.helpers.arrayElement([
-      'http://idm/openidm/info/ping',
-      `http://idm/openidm/managed/alpha_user/${employee.userName}`,
-      'http://idm/openidm/managed/alpha_user?_queryFilter=true',
-      'http://idm/openidm/config/ui/configuration',
-      'http://idm/openidm/endpoint/userNotifications',
+      '/openidm/info/ping',
+      `/openidm/managed/alpha_user/${employee.userName}`,
+      '/openidm/managed/alpha_user?_queryFilter=true',
+      '/openidm/config/ui/configuration',
+      '/openidm/endpoint/userNotifications',
     ]);
+    const httpMethod = faker.helpers.arrayElement(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
+
+    const payload = {
+      _id: faker.string.uuid(),
+      transactionId,
+      timestamp,
+      eventName: 'access',
+      userId: employee.userName,
+      client: { port: 443, ip: sourceIp },
+      server: { host: 'idm', ip: faker.internet.ipv4() },
+      http: { request: { method: httpMethod, path } },
+      response: {
+        statusCode: status === 'SUCCESSFUL' ? 200 : 403,
+        status,
+        elapsedTime,
+        elapsedTimeUnits: 'MILLISECONDS',
+      },
+      level: 'INFO',
+      source: 'audit',
+      topic: 'access',
+    };
 
     return {
       '@timestamp': timestamp,
-      event: {
-        action: 'access',
-        category: ['network'],
-        type: ['access'],
-        outcome: status === 'SUCCESSFUL' ? 'success' : 'failure',
-        dataset: 'forgerock.idm_access',
-      },
-      forgerock: {
-        eventName: 'access',
-        http: {
-          request: {
-            headers: {
-              host: ['idm'],
-            },
-            secure: false,
-          },
-        },
-        level: 'INFO',
-        request: { operation, protocol: 'CREST' },
-        response: {
-          elapsedTime,
-          elapsedTimeUnits: 'MILLISECONDS',
-          status,
-        },
-        roles: [role],
-        source: 'audit',
-        topic: 'access',
-      },
-      http: {
-        request: { Path: path },
-      },
-      user: {
-        id: employee.userName,
-        name: employee.userName,
-      },
-      observer: {
-        vendor: 'ForgeRock Identity Platform',
-      },
-      related: {
-        user: [employee.userName],
-      },
-      transaction: { id: transactionId },
+      message: JSON.stringify({ payload }),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'forgerock.idm_access' },
-      tags: ['forwarded', 'forgerock-audit', 'forgerock-idm-access'],
     } as IntegrationDocument;
   }
 }

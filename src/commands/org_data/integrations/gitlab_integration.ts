@@ -1,7 +1,9 @@
 /**
  * GitLab Integration
- * Generates audit, API, and auth log documents for GitLab
- * Based on the Elastic gitlab integration package
+ * Generates raw/pre-pipeline audit, API, and auth log documents for GitLab.
+ * Documents have `message` containing JSON that the ingest pipeline parses:
+ * message → event.original → json parse → gitlab.auth | gitlab.audit | gitlab.api
+ * Pipelines: integrations/packages/gitlab/data_stream/{auth,audit,api}/elasticsearch/ingest_pipeline/default.yml
  */
 
 import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
@@ -198,49 +200,29 @@ export class GitLabIntegration extends BaseIntegration {
 
     const auditFrom = evt.change === 'name' ? `${project}-old` : evt.from;
     const auditTo = evt.change === 'name' ? project : evt.to;
+    const targetDetails =
+      evt.targetType === 'User' ? employee.userName : `${group}/${project}`;
+
+    const raw: Record<string, unknown> = {
+      severity: 'INFO',
+      time: timestamp,
+      author_id: employee.gitlabUserId,
+      author_name: `${employee.firstName} ${employee.lastName}`,
+      entity_id: entityId,
+      entity_type: evt.entityType,
+      change: evt.change,
+      from: auditFrom,
+      to: auditTo,
+      target_id: targetId,
+      target_type: evt.targetType,
+      target_details: targetDetails,
+      'meta.remote_ip': sourceIp,
+    };
 
     return {
       '@timestamp': timestamp,
-      event: {
-        action: `${evt.change}_changed`,
-        category: ['configuration'],
-        type: ['change'],
-        dataset: 'gitlab.audit',
-      },
-      gitlab: {
-        audit: {
-          change: evt.change,
-          from: auditFrom,
-          to: auditTo,
-          entity_id: String(entityId),
-          entity_type: evt.entityType,
-          target_id: String(targetId),
-          target_type: evt.targetType,
-          target_details: evt.targetType === 'User' ? employee.userName : `${group}/${project}`,
-          meta: {
-            caller_id: 'application',
-            remote_ip: sourceIp,
-            user: employee.userName,
-            user_id: String(employee.gitlabUserId),
-            project: `${group}/${project}`,
-            root_namespace: group,
-            client_id: `user/${employee.gitlabUserId}`,
-          },
-        },
-      },
-      user: {
-        id: String(employee.gitlabUserId),
-        name: `${employee.firstName} ${employee.lastName}`,
-      },
-      source: {
-        ip: sourceIp,
-      },
-      related: {
-        ip: [sourceIp],
-        user: [employee.userName, String(employee.gitlabUserId)],
-      },
+      message: JSON.stringify(raw),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'gitlab.audit' },
-      tags: ['forwarded', 'gitlab-audit'],
     } as IntegrationDocument;
   }
 
@@ -263,118 +245,104 @@ export class GitLabIntegration extends BaseIntegration {
       { value: 404, weight: 5 },
       { value: 500, weight: 2 },
     ]);
-    const dbDuration = faker.number.float({ min: 0.5, max: 200, fractionDigits: 2 });
-    const duration = faker.number.float({ min: 10, max: 2000, fractionDigits: 2 });
+    const dbDuration = faker.number.float({ min: 0.001, max: 0.2, fractionDigits: 5 });
+    const duration = faker.number.float({ min: 0.01, max: 2, fractionDigits: 5 });
+    const path = route
+      .replace(':version', 'v4')
+      .replace(':id', String(faker.number.int({ min: 1, max: 500 })));
     const gitlabHost = `gitlab.${org.domain}`;
-    const correlationId = faker.string.alphanumeric(32);
-    const tokenId = faker.number.int({ min: 1, max: 999 });
+    const correlationId = faker.string.uuid();
+    const params = faker.datatype.boolean(0.3)
+      ? [{ key: 'private_token', value: '[FILTERED]' }]
+      : [];
+
+    const raw: Record<string, unknown> = {
+      time: timestamp,
+      severity: 'INFO',
+      duration_s: duration,
+      db_duration_s: dbDuration,
+      view_duration_s: duration,
+      status: statusCode,
+      method,
+      path,
+      params,
+      host: gitlabHost,
+      remote_ip: sourceIp,
+      ua: faker.internet.userAgent(),
+      route,
+      correlation_id: correlationId,
+      user_id: employee.gitlabUserId,
+      username: employee.userName,
+      'meta.caller_id': `${method} ${route}`,
+      'meta.remote_ip': sourceIp,
+      'meta.feature_category': faker.helpers.arrayElement([
+        'geo_replication',
+        'groups_and_projects',
+        'user_profile',
+        'devops_reports',
+      ]),
+      'meta.client_id': `user/${employee.gitlabUserId}`,
+      'meta.user': employee.userName,
+      'meta.user_id': employee.gitlabUserId,
+      pid: faker.number.int({ min: 1000, max: 9999 }),
+      mem_objects: faker.number.int({ min: 5000, max: 100000 }),
+      mem_bytes: faker.number.int({ min: 500000, max: 50000000 }),
+      mem_mallocs: faker.number.int({ min: 5000, max: 100000 }),
+      db_count: faker.number.int({ min: 0, max: 20 }),
+      db_write_count: 0,
+      db_cached_count: 0,
+      db_txn_count: 0,
+    };
 
     return {
       '@timestamp': timestamp,
-      event: {
-        action: route,
-        category: ['web'],
-        type: ['access'],
-        outcome: statusCode < 400 ? 'success' : 'failure',
-        dataset: 'gitlab.api',
-      },
-      gitlab: {
-        api: {
-          route,
-          db_duration_s: dbDuration,
-          duration_s: duration,
-          mem_bytes: faker.number.int({ min: 100000, max: 50000000 }),
-          mem_mallocs: faker.number.int({ min: 1000, max: 100000 }),
-          mem_objects: faker.number.int({ min: 500, max: 50000 }),
-          redis_calls: faker.number.int({ min: 0, max: 20 }),
-          redis_duration_s: faker.number.float({ min: 0, max: 5, fractionDigits: 4 }),
-          correlation_id: correlationId,
-          token_id: tokenId,
-          token_type: faker.helpers.arrayElement([
-            'PersonalAccessToken',
-            'OauthAccessToken',
-            'DeployToken',
-          ]),
-          meta: {
-            user: employee.userName,
-            user_id: String(employee.gitlabUserId),
-            remote_ip: sourceIp,
-            client_id: `user/${employee.gitlabUserId}`,
-          },
-        },
-      },
-      http: {
-        request: { method },
-        response: { status_code: statusCode },
-      },
-      url: {
-        path: route
-          .replace(':version', 'v4')
-          .replace(':id', String(faker.number.int({ min: 1, max: 500 }))),
-      },
-      user: {
-        id: String(employee.gitlabUserId),
-        name: employee.userName,
-      },
-      source: {
-        ip: sourceIp,
-      },
-      user_agent: {
-        original: faker.internet.userAgent(),
-      },
-      related: {
-        ip: [sourceIp],
-        user: [employee.userName],
-      },
+      message: JSON.stringify(raw),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'gitlab.api' },
-      tags: ['forwarded', 'gitlab-api'],
-      host: { name: gitlabHost },
     } as IntegrationDocument;
   }
 
-  private createAuthDocument(employee: Employee, org: Organization): IntegrationDocument {
+  private createAuthDocument(employee: Employee, _org: Organization): IntegrationDocument {
     const evt = faker.helpers.weightedArrayElement(
       AUTH_MESSAGES.map((e) => ({ value: e, weight: e.weight }))
     );
     const timestamp = this.getRandomTimestamp(72);
     const sourceIp = faker.internet.ipv4();
-    const gitlabHost = `gitlab.${org.domain}`;
+    const correlationId = faker.string.uuid();
+
+    const raw: Record<string, unknown> = {
+      severity: evt.isFailure ? 'ERROR' : 'INFO',
+      time: timestamp,
+      correlation_id: correlationId,
+      message: evt.message,
+      env: evt.env,
+      remote_ip: sourceIp,
+      user_id: String(employee.gitlabUserId),
+      'meta.user': employee.userName,
+    };
+
+    if (evt.env === 'blocklist') {
+      raw.matched = 'blocklist';
+    }
+    if (faker.datatype.boolean(0.5)) {
+      raw.request_method = faker.helpers.arrayElement(['GET', 'POST']);
+      raw.path = faker.helpers.arrayElement([
+        '/users/sign_in',
+        '/users/saml/auth',
+        '/oauth/token',
+        `/group/project.git/info/refs?service=git-upload-pack`,
+      ]);
+    }
+    if (evt.isFailure && faker.datatype.boolean(0.5)) {
+      raw.status = faker.helpers.arrayElement([401, 403]);
+    }
+    if (faker.datatype.boolean(0.3)) {
+      raw.pid = faker.number.int({ min: 1000, max: 9999 });
+    }
 
     return {
       '@timestamp': timestamp,
-      event: {
-        action: evt.isFailure ? 'failed-login' : 'successful-login',
-        category: ['authentication'],
-        type: evt.isFailure ? ['start'] : ['start'],
-        outcome: evt.isFailure ? 'failure' : 'success',
-        dataset: 'gitlab.auth',
-      },
-      gitlab: {
-        auth: {
-          message: evt.message,
-          env: evt.env,
-          remote_ip: sourceIp,
-          matched: evt.env === 'blocklist' ? 'blocklist' : undefined,
-          meta: {
-            user: employee.userName,
-          },
-        },
-      },
-      user: {
-        id: String(employee.gitlabUserId),
-        name: employee.userName,
-        email: employee.email,
-      },
-      source: {
-        ip: sourceIp,
-      },
-      related: {
-        ip: [sourceIp],
-        user: [employee.userName, employee.email],
-      },
+      message: JSON.stringify(raw),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'gitlab.auth' },
-      tags: ['forwarded', 'gitlab-auth'],
-      host: { name: gitlabHost },
     } as IntegrationDocument;
   }
 }

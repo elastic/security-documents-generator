@@ -181,66 +181,42 @@ export class ZscalerZiaIntegration extends BaseIntegration {
       { value: 'Reset', weight: 5 },
     ]);
 
+    // Raw pre-pipeline format: pipeline expects message with JSON { event: {...} }
+    const rawEvent = {
+      action,
+      rule: faker.helpers.arrayElement([
+        'Default Allow',
+        'Block Suspicious Ports',
+        'Allow HTTPS',
+        'Block P2P',
+      ]),
+      rulelabel: faker.helpers.arrayElement([
+        'corporate-policy',
+        'security-policy',
+        'default-rule',
+      ]),
+      csip: clientIp,
+      csport: faker.number.int({ min: 1024, max: 65535 }),
+      cdip: destIp,
+      cdport: faker.helpers.arrayElement([80, 443, 8080, 8443, 3389, 22]),
+      nwapp: faker.helpers.arrayElement(['HTTPS', 'HTTP', 'DNS', 'SSH', 'SMTP']),
+      nwsvc: faker.helpers.arrayElement(['ssl', 'http', 'dns', 'ssh', 'smtp']),
+      proto: faker.helpers.arrayElement(['TCP', 'UDP']),
+      department: employee.department,
+      login: employee.email,
+      locationname: employee.city,
+      durationms: faker.number.int({ min: 100, max: 30000 }),
+      inbytes: faker.number.int({ min: 100, max: 100000 }),
+      outbytes: faker.number.int({ min: 100, max: 500000 }),
+      numsessions: 1,
+      devicehostname: `${employee.userName}-${employee.devices[0]?.platform || 'unknown'}`,
+      devicename: employee.devices[0]?.displayName || 'Unknown',
+    };
+
     return {
       '@timestamp': this.getRandomTimestamp(72),
-      event: {
-        action,
-        category: ['network'],
-        type: action === 'Allow' ? ['connection', 'allowed'] : ['connection', 'denied'],
-        kind: 'event',
-        dataset: 'zscaler_zia.firewall',
-        outcome: action === 'Allow' ? 'success' : 'failure',
-      },
-      zscaler_zia: {
-        firewall: {
-          action,
-          rule: faker.helpers.arrayElement([
-            'Default Allow',
-            'Block Suspicious Ports',
-            'Allow HTTPS',
-            'Block P2P',
-          ]),
-          rule_label: faker.helpers.arrayElement([
-            'corporate-policy',
-            'security-policy',
-            'default-rule',
-          ]),
-          client: {
-            source: { ip: clientIp, port: faker.number.int({ min: 1024, max: 65535 }) },
-            destination: {
-              ip: destIp,
-              port: faker.helpers.arrayElement([80, 443, 8080, 8443, 3389, 22]),
-            },
-          },
-          network: {
-            application: faker.helpers.arrayElement(['HTTPS', 'HTTP', 'DNS', 'SSH', 'SMTP']),
-            service: faker.helpers.arrayElement(['ssl', 'http', 'dns', 'ssh', 'smtp']),
-          },
-          ip_protocol: faker.helpers.arrayElement(['TCP', 'UDP']),
-          department: employee.department,
-          login: employee.email,
-          location_name: employee.city,
-          duration: { milliseconds: faker.number.int({ min: 100, max: 30000 }) },
-          bytes_in: faker.number.int({ min: 100, max: 100000 }),
-          out_bytes: faker.number.int({ min: 100, max: 500000 }),
-          session: { count: 1 },
-          device: {
-            hostname: `${employee.userName}-${employee.devices[0]?.platform || 'unknown'}`,
-            name: employee.devices[0]?.displayName || 'Unknown',
-          },
-        },
-      },
-      source: { ip: clientIp, port: faker.number.int({ min: 1024, max: 65535 }) },
-      destination: { ip: destIp, port: faker.helpers.arrayElement([80, 443, 8080]) },
-      network: { transport: 'tcp', protocol: 'https' },
-      user: {
-        email: employee.email,
-        name: employee.userName,
-        domain: employee.email.split('@')[1],
-      },
-      related: { user: [employee.email], ip: [clientIp, destIp] },
+      message: JSON.stringify({ event: rawEvent }),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'zscaler_zia.firewall' },
-      tags: ['forwarded', 'zscaler_zia-firewall'],
     } as IntegrationDocument;
   }
 

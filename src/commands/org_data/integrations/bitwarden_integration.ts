@@ -2,6 +2,7 @@
  * Bitwarden Integration
  * Generates credential management audit and organizational documents
  * Based on the Elastic bitwarden integration package
+ * Produces raw Bitwarden API JSON in message for ingest pipeline processing
  */
 
 import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
@@ -74,6 +75,16 @@ const GROUP_NAMES = [
   'Executive Team',
 ];
 
+/** Stable Bitwarden member ID from employee (short alphanumeric) */
+function getStableMemberId(employee: Employee): string {
+  return employee.id.replace(/-/g, '').slice(0, 8);
+}
+
+/** Stable Bitwarden user UUID from employee (for correlation with SSO) */
+function getStableUserId(employee: Employee): string {
+  return employee.entraIdUserId ?? employee.oktaUserId ?? employee.id;
+}
+
 export class BitwardenIntegration extends BaseIntegration {
   readonly packageName = 'bitwarden';
   readonly displayName = 'Bitwarden';
@@ -123,97 +134,66 @@ export class BitwardenIntegration extends BaseIntegration {
     const device = faker.helpers.arrayElement(DEVICE_TYPES);
     const timestamp = this.getRandomTimestamp(72);
     const sourceIp = faker.internet.ipv4();
-    const actingUserId = faker.string.uuid();
-    const memberId = faker.string.uuid();
 
-    const isFailure =
-      eventType.value === 'User_FailedLogIn' || eventType.value === 'User_FailedLogIn2fa';
+    const memberId = getStableMemberId(employee);
+    const actingUserId = getStableUserId(employee);
+
+    const rawEvent = {
+      object: 'event',
+      type: eventType.code,
+      date: timestamp,
+      actingUserId,
+      memberId,
+      itemId: faker.string.uuid(),
+      collectionId: faker.datatype.boolean(0.3) ? faker.string.uuid() : null,
+      groupId: faker.datatype.boolean(0.2) ? faker.string.uuid() : null,
+      policyId: faker.datatype.boolean(0.2) ? faker.string.uuid() : null,
+      installationId: null,
+      device: device.value,
+      ipAddress: sourceIp,
+    };
 
     return {
       '@timestamp': timestamp,
-      bitwarden: {
-        object: 'event',
-        event: {
-          acting_user: { id: actingUserId },
-          collection: { id: faker.string.uuid() },
-          date: timestamp,
-          device: { name: device.name, value: String(device.value) },
-          group: { id: faker.string.uuid() },
-          ip_address: sourceIp,
-          item: { id: faker.string.uuid() },
-          member: { id: memberId },
-          policy: { id: faker.string.uuid() },
-          type: { name: eventType.value, value: String(eventType.code) },
-        },
-      },
+      message: JSON.stringify(rawEvent),
       data_stream: {
         dataset: 'bitwarden.event',
         namespace: 'default',
         type: 'logs',
       },
-      event: {
-        dataset: 'bitwarden.event',
-        kind: 'event',
-        category:
-          eventType.value.startsWith('User_LoggedIn') || eventType.value.includes('FailedLogIn')
-            ? ['authentication']
-            : ['iam'],
-        type: ['info'],
-        outcome: isFailure ? 'failure' : 'success',
-      },
-      source: { ip: sourceIp },
-      user: {
-        id: memberId,
-        name: employee.userName,
-        email: employee.email,
-      },
-      related: {
-        ip: [sourceIp],
-        user: [employee.userName],
-      },
-      tags: ['forwarded', 'bitwarden-event'],
     } as IntegrationDocument;
   }
 
   private createMemberDocument(employee: Employee): IntegrationDocument {
-    const memberId = faker.string.alphanumeric(8);
-    const memberUserId = faker.string.uuid();
+    const memberId = getStableMemberId(employee);
+    const userId = getStableUserId(employee);
     const status = faker.helpers.arrayElement(MEMBER_STATUSES);
     const memberType = faker.helpers.arrayElement(MEMBER_TYPES);
+    const timestamp = this.getRandomTimestamp(168);
+
+    const rawMember = {
+      type: memberType.value,
+      accessAll: faker.datatype.boolean(0.3),
+      externalId: `ext-${faker.string.alphanumeric(12)}`,
+      resetPasswordEnrolled: faker.datatype.boolean(0.6),
+      userId,
+      id: memberId,
+      name: `${employee.firstName} ${employee.lastName}`,
+      email: employee.email,
+      twoFactorEnabled: faker.datatype.boolean(0.7),
+      status: status.value,
+      collections: [],
+      object: 'member',
+    };
 
     return {
-      '@timestamp': this.getRandomTimestamp(168),
-      bitwarden: {
-        object: 'member',
-        member: {
-          access_all: faker.datatype.boolean(0.3),
-          email: employee.email,
-          external: { id: `ext_${faker.string.alphanumeric(12)}` },
-          id: memberId,
-          name: `${employee.firstName} ${employee.lastName}`,
-          reset_password_enrolled: faker.datatype.boolean(0.6),
-          status: { name: status.name, value: String(status.value) },
-          two_factor_enabled: faker.datatype.boolean(0.7),
-          type: { name: memberType.name, value: String(memberType.value) },
-          user: { id: memberUserId },
-        },
-      },
+      '@timestamp': timestamp,
+      message: JSON.stringify(rawMember),
       data_stream: {
         dataset: 'bitwarden.member',
         namespace: 'default',
         type: 'logs',
       },
-      event: {
-        dataset: 'bitwarden.member',
-        kind: 'event',
-        type: ['info'],
-      },
-      user: {
-        email: employee.email,
-        id: memberId,
-        name: `${employee.firstName} ${employee.lastName}`,
-      },
-      tags: ['forwarded', 'bitwarden-member'],
     } as IntegrationDocument;
   }
 
@@ -223,36 +203,27 @@ export class BitwardenIntegration extends BaseIntegration {
       const collectionCount = faker.number.int({ min: 1, max: 3 });
       const collections = Array.from({ length: collectionCount }, () => ({
         id: faker.string.uuid(),
-        read_only: faker.datatype.boolean(0.4),
+        readOnly: faker.datatype.boolean(0.4),
       }));
+      const timestamp = this.getRandomTimestamp(168);
+
+      const rawGroup = {
+        object: 'group',
+        id: groupId,
+        name,
+        accessAll: faker.datatype.boolean(0.2),
+        externalId: `ext-${faker.string.alphanumeric(12)}`,
+        collections,
+      };
 
       return {
-        '@timestamp': this.getRandomTimestamp(168),
-        bitwarden: {
-          object: 'group',
-          group: {
-            access_all: faker.datatype.boolean(0.2),
-            collection: collections,
-            external: { id: `ext_${faker.string.alphanumeric(12)}` },
-            id: groupId,
-            name,
-          },
-        },
+        '@timestamp': timestamp,
+        message: JSON.stringify(rawGroup),
         data_stream: {
           dataset: 'bitwarden.group',
           namespace: 'default',
           type: 'logs',
         },
-        event: {
-          dataset: 'bitwarden.group',
-          kind: 'event',
-          type: ['info'],
-        },
-        group: {
-          id: groupId,
-          name,
-        },
-        tags: ['forwarded', 'bitwarden-group'],
       } as IntegrationDocument;
     });
   }
@@ -260,45 +231,36 @@ export class BitwardenIntegration extends BaseIntegration {
   private createPolicyDocuments(): IntegrationDocument[] {
     return POLICY_TYPES.map((policy) => {
       const policyId = faker.string.uuid();
+      const timestamp = this.getRandomTimestamp(168);
+
+      const rawPolicy = {
+        object: 'policy',
+        id: policyId,
+        type: policy.value,
+        enabled: faker.datatype.boolean(0.8),
+        data: {
+          capitalize: true,
+          defaultType: 'password',
+          includeNumber: true,
+          minLength: faker.number.int({ min: 8, max: 16 }),
+          minNumberWords: 3,
+          minNumbers: 1,
+          minSpecial: 1,
+          useLower: true,
+          useNumbers: true,
+          useSpecial: true,
+          useUpper: true,
+        },
+      };
 
       return {
-        '@timestamp': this.getRandomTimestamp(168),
-        bitwarden: {
-          object: 'policy',
-          policy: {
-            data: {
-              capitalize: 'true',
-              default_type: 'password',
-              include_number: 'true',
-              min: {
-                length: String(faker.number.int({ min: 8, max: 16 })),
-                number_words: '3',
-                numbers: '1',
-                special: '1',
-              },
-              use: {
-                lower: 'true',
-                numbers: 'true',
-                special: 'true',
-                upper: 'true',
-              },
-            },
-            enabled: faker.datatype.boolean(0.8),
-            id: policyId,
-            type: { name: policy.name, value: String(policy.value) },
-          },
-        },
+        '@timestamp': timestamp,
+        message: JSON.stringify(rawPolicy),
         data_stream: {
           dataset: 'bitwarden.policy',
           namespace: 'default',
           type: 'logs',
         },
-        event: {
-          dataset: 'bitwarden.policy',
-          kind: 'event',
-          type: ['info'],
-        },
-        tags: ['forwarded', 'bitwarden-policy'],
       } as IntegrationDocument;
     });
   }
@@ -314,28 +276,23 @@ export class BitwardenIntegration extends BaseIntegration {
 
     return collectionNames.map((name) => {
       const collectionId = faker.string.uuid();
+      const timestamp = this.getRandomTimestamp(168);
+
+      const rawCollection = {
+        object: 'collection',
+        id: collectionId,
+        externalId: `ext-${faker.string.alphanumeric(12)}`,
+        groups: null,
+      };
 
       return {
-        '@timestamp': this.getRandomTimestamp(168),
-        bitwarden: {
-          object: 'collection',
-          collection: {
-            external: { id: `ext_${faker.string.alphanumeric(12)}` },
-            id: collectionId,
-            name,
-          },
-        },
+        '@timestamp': timestamp,
+        message: JSON.stringify(rawCollection),
         data_stream: {
           dataset: 'bitwarden.collection',
           namespace: 'default',
           type: 'logs',
         },
-        event: {
-          dataset: 'bitwarden.collection',
-          kind: 'event',
-          type: ['info'],
-        },
-        tags: ['forwarded', 'bitwarden-collection'],
       } as IntegrationDocument;
     });
   }

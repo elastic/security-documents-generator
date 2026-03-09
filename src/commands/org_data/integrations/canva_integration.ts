@@ -161,91 +161,73 @@ export class CanvaIntegration extends BaseIntegration {
     const targetEmployee = faker.helpers.arrayElement(org.employees);
     const isDesignAction = action.categories.includes('file');
 
-    const doc: Record<string, unknown> = {
-      '@timestamp': timestamp,
-      canva: {
-        audit: {
-          action: {
-            type: action.value,
-            ...(isDesignAction && {
-              approval_status: faker.helpers.arrayElement(APPROVAL_STATUSES),
-              create_type: faker.helpers.arrayElement(DESIGN_TYPES),
-            }),
-            display_name: isDesignAction
-              ? `${faker.word.adjective()} ${faker.word.noun()} design`
-              : teamName,
-            email: targetEmployee.email,
-            team: {
-              id: teamId,
-              display_name: teamName,
-            },
-          },
-          actor: {
-            type: faker.helpers.arrayElement(ACTOR_TYPES),
-            user: {
-              id: actorUserId,
-              display_name: `${employee.firstName} ${employee.lastName}`,
-              email: employee.email,
-            },
-            organization: { id: orgId },
-            team: { id: teamId, display_name: teamName },
-            details: { type: 'USER' },
-          },
-          target: {
-            id: targetId,
-            target_type: faker.helpers.arrayElement(TARGET_TYPES),
-            resource_type: faker.helpers.arrayElement(RESOURCE_TYPES),
-            owner: {
-              type: 'USER',
-              user: {
-                id: actorUserId,
-                display_name: `${employee.firstName} ${employee.lastName}`,
-                email: employee.email,
-              },
-            },
-          },
-          outcome: {
-            result: 'success',
-            details: {
-              type: 'RESOURCE_CREATED',
-              resource: {
-                id: `DX${faker.string.alphanumeric(9)}`,
-                type: 'DESIGN',
-              },
-            },
-          },
-          context: {
-            request_id: faker.string.uuid(),
-            device_id: faker.string.uuid(),
-            ip_address: faker.internet.ipv4(),
+    const rawAudit = {
+      action: {
+        type: action.value,
+        ...(isDesignAction && {
+          approval_status: faker.helpers.arrayElement(APPROVAL_STATUSES),
+          create_type: faker.helpers.arrayElement(DESIGN_TYPES),
+        }),
+        display_name: isDesignAction
+          ? `${faker.word.adjective()} ${faker.word.noun()} design`
+          : teamName,
+        email: targetEmployee.email,
+        team: {
+          id: teamId,
+          display_name: teamName,
+        },
+      },
+      actor: {
+        type: faker.helpers.arrayElement(ACTOR_TYPES),
+        user: {
+          id: actorUserId,
+          display_name: `${employee.firstName} ${employee.lastName}`,
+          email: employee.email,
+        },
+        organization: { id: orgId },
+        team: { id: teamId, display_name: teamName },
+        details: { type: 'USER' },
+      },
+      target: {
+        id: targetId,
+        target_type: faker.helpers.arrayElement(TARGET_TYPES),
+        resource_type: faker.helpers.arrayElement(RESOURCE_TYPES),
+        owner: {
+          type: 'USER',
+          user: {
+            id: actorUserId,
+            display_name: `${employee.firstName} ${employee.lastName}`,
+            email: employee.email,
           },
         },
       },
+      outcome: {
+        result: 'success',
+        details: {
+          type: 'RESOURCE_CREATED',
+          resource: {
+            id: `DX${faker.string.alphanumeric(9)}`,
+            type: 'DESIGN',
+          },
+        },
+      },
+      context: {
+        request_id: faker.string.uuid(),
+        device_id: faker.string.uuid(),
+        ip_address: faker.internet.ipv4(),
+      },
+      timestamp,
+      id: faker.string.uuid(),
+    };
+
+    return {
+      '@timestamp': timestamp,
+      message: JSON.stringify(rawAudit),
       data_stream: {
         dataset: 'canva.audit',
         namespace: 'default',
         type: 'logs',
       },
-      event: {
-        action: action.value.toLowerCase(),
-        dataset: 'canva.audit',
-        kind: 'event',
-        category: action.categories,
-        type: action.type,
-      },
-      user: {
-        id: actorUserId,
-        email: employee.email,
-        name: employee.userName,
-        full_name: `${employee.firstName} ${employee.lastName}`,
-        group: {
-          id: teamId,
-          name: teamName,
-        },
-      },
-      tags: ['forwarded', 'canva-audit'],
-    };
-
-    return doc as IntegrationDocument;
+    } as IntegrationDocument;
   }
 }

@@ -1,6 +1,9 @@
 /**
  * Okta Entity Analytics Integration
- * Generates user and device documents for entityanalytics_okta data streams
+ *
+ * Generates user and device documents for the entity data stream.
+ * Matches Beats entity-analytics input format: flat `okta` object that the
+ * entity ingest pipeline renames to entityanalytics_okta and routes to user/device.
  */
 
 import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
@@ -9,14 +12,13 @@ import {
   Employee,
   Device,
   OktaGroup,
-  OktaUserDocument,
-  OktaDeviceDocument,
   OktaSyncMarkerDocument,
   CorrelationMap,
 } from '../types';
 import { faker } from '@faker-js/faker';
 
 const IDENTITY_SOURCE = 'okta-saas-organization';
+const ENTITY_DATASET = 'entityanalytics_okta.entity';
 
 /**
  * Okta Entity Analytics Integration
@@ -27,96 +29,56 @@ export class OktaIntegration extends BaseIntegration {
 
   readonly dataStreams: DataStreamConfig[] = [
     {
-      name: 'user',
-      index: 'logs-entityanalytics_okta.user-default',
-    },
-    {
-      name: 'device',
-      index: 'logs-entityanalytics_okta.device-default',
+      name: 'entity',
+      index: 'logs-entityanalytics_okta.entity-default',
     },
   ];
 
   /**
-   * Generate all Okta documents
+   * Generate all Okta documents.
+   * All docs go to entity index; pipeline routes user/device to their indices.
    */
   generateDocuments(
     org: Organization,
     correlationMap: CorrelationMap
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
+    const documents: IntegrationDocument[] = [];
+    const entityIndex = this.dataStreams[0].index;
+    const timestamp = this.getTimestamp();
 
-    // Generate user documents
-    const userDocuments = this.generateUserDocuments(org, correlationMap);
-    documentsMap.set(this.dataStreams[0].index, userDocuments);
+    documents.push(this.createSyncMarker('started', timestamp));
 
-    // Generate device documents
-    const deviceDocuments = this.generateDeviceDocuments(org);
-    documentsMap.set(this.dataStreams[1].index, deviceDocuments);
+    for (const employee of org.employees) {
+      correlationMap.oktaUserIdToEmployee.set(employee.oktaUserId, employee);
+      correlationMap.employeeIdToOktaUserId.set(employee.id, employee.oktaUserId);
+      documents.push(this.createUserDocument(employee, org, timestamp));
+    }
 
+    documents.push(this.createSyncMarker('completed', timestamp));
+    documents.push(this.createDeviceSyncMarker('started', timestamp));
+
+    for (const employee of org.employees) {
+      for (const device of employee.devices) {
+        documents.push(this.createDeviceDocument(device, employee, org, timestamp));
+      }
+    }
+
+    documents.push(this.createDeviceSyncMarker('completed', timestamp));
+
+    documentsMap.set(entityIndex, documents);
     return documentsMap;
   }
 
   /**
-   * Generate Okta user documents for all employees
-   */
-  private generateUserDocuments(
-    org: Organization,
-    correlationMap: CorrelationMap
-  ): IntegrationDocument[] {
-    const documents: IntegrationDocument[] = [];
-    const timestamp = this.getTimestamp();
-
-    // Add sync start marker
-    documents.push(this.createSyncMarker('started', timestamp));
-
-    // Generate user document for each employee
-    for (const employee of org.employees) {
-      // Build correlation maps
-      correlationMap.oktaUserIdToEmployee.set(employee.oktaUserId, employee);
-      correlationMap.employeeIdToOktaUserId.set(employee.id, employee.oktaUserId);
-
-      const userDoc = this.createUserDocument(employee, org, timestamp);
-      documents.push(userDoc);
-    }
-
-    // Add sync end marker
-    documents.push(this.createSyncMarker('completed', timestamp));
-
-    return documents;
-  }
-
-  /**
-   * Generate Okta device documents for all employee devices
-   */
-  private generateDeviceDocuments(org: Organization): IntegrationDocument[] {
-    const documents: IntegrationDocument[] = [];
-    const timestamp = this.getTimestamp();
-
-    // Add sync start marker
-    documents.push(this.createDeviceSyncMarker('started', timestamp));
-
-    // Generate device document for each employee device
-    for (const employee of org.employees) {
-      for (const device of employee.devices) {
-        const deviceDoc = this.createDeviceDocument(device, employee, org, timestamp);
-        documents.push(deviceDoc);
-      }
-    }
-
-    // Add sync end marker
-    documents.push(this.createDeviceSyncMarker('completed', timestamp));
-
-    return documents;
-  }
-
-  /**
-   * Create an Okta user document
+   * Create an Okta user document in Beats entity-analytics format (flat okta).
+   * Pipeline renames okta -> entityanalytics_okta.user and enriches ECS.
    */
   private createUserDocument(
     employee: Employee,
     org: Organization,
     timestamp: string
-  ): OktaUserDocument {
+  ): IntegrationDocument {
     const createdDate = faker.date.past({ years: 2 }).toISOString();
     const activatedDate = new Date(new Date(createdDate).getTime() + 60000).toISOString();
     const lastLogin = faker.date.recent({ days: 7 }).toISOString();
@@ -124,20 +86,9 @@ export class OktaIntegration extends BaseIntegration {
     const statusChanged = faker.date.past({ years: 1 }).toISOString();
     const passwordChanged = faker.date.recent({ days: 90 }).toISOString();
     const displayName = `${employee.firstName} ${employee.lastName}`;
-
-    // Find groups for this employee
     const employeeGroups = this.getEmployeeGroups(employee, org.oktaGroups);
-
-    // Determine user roles based on department
     const userRoles = this.getUserRoles(employee);
-
-    // Generate MFA factors for the user
-    const factors = this.getUserFactors(employee);
-
-    // Determine user type
     const userType = employee.role.includes('Contractor') ? 'Contractor' : 'Employee';
-
-    // Generate additional profile fields
     const mobilePhone = faker.phone.number({ style: 'international' });
     const primaryPhone = faker.phone.number({ style: 'international' });
     const secondEmail = `${employee.userName}+recovery@${org.domain}`;
@@ -145,199 +96,91 @@ export class OktaIntegration extends BaseIntegration {
     const state = faker.location.state();
     const zipCode = faker.location.zipCode();
 
-    // Build roles array for user.roles ECS field
-    const ecsRoles: string[] = [];
-    for (const role of userRoles) {
-      ecsRoles.push(role.id, role.label);
-    }
-
-    // Build related.user array
-    const relatedUsers = [
-      employee.oktaUserId,
-      employee.email,
-      employee.firstName,
-      employee.lastName,
-      employee.userName,
-      displayName,
-      employee.employeeNumber,
-      secondEmail,
-    ];
-    if (employee.managerId) {
-      relatedUsers.push(employee.managerId);
-    }
-
     return {
       '@timestamp': timestamp,
-      event: {
-        action: 'user-discovered',
-        kind: 'asset',
-        dataset: 'entityanalytics_okta.user',
-        category: ['iam'],
-        type: ['user', 'info'],
-      },
-      entityanalytics_okta: {
-        user: {
-          id: employee.oktaUserId,
-          status: 'ACTIVE',
-          created: createdDate,
-          activated: activatedDate,
-          status_changed: statusChanged,
-          last_login: lastLogin,
-          last_updated: lastUpdated,
-          password_changed: passwordChanged,
-          type: { id: `oty${faker.string.alphanumeric(14)}` },
-          profile: {
-            login: employee.email,
-            email: employee.email,
-            first_name: employee.firstName,
-            last_name: employee.lastName,
-            middle_name: faker.datatype.boolean(0.3) ? faker.person.middleName() : undefined,
-            nick_name: employee.firstName,
-            display_name: displayName,
-            second_email: secondEmail,
-            primary_phone: primaryPhone,
-            mobile_phone: mobilePhone,
-            street_address: streetAddress,
-            city: employee.city,
-            state: state,
-            zip_code: zipCode,
-            country_code: employee.countryCode,
-            preferred_language: 'en',
-            locale: 'en_US',
-            timezone: employee.timezone,
-            user_type: userType,
-            employee_number: employee.employeeNumber,
-            cost_center: `CC-${employee.department
-              .replace(/[^A-Za-z]/g, '')
-              .substring(0, 4)
-              .toUpperCase()}`,
-            organization: org.name,
-            division: employee.department,
-            department: employee.department,
-            title: employee.role,
-            manager: employee.managerId
-              ? {
-                  id: employee.managerId,
-                }
-              : undefined,
-          },
-          credentials: {
-            provider: {
-              type: 'OKTA',
-              name: 'OKTA',
-            },
-            recovery_question: {
-              is_set: true,
-            },
-          },
-          _links: {
-            self: {
-              href: `https://${org.domain.replace('.com', '')}.okta.com/api/v1/users/${employee.oktaUserId}`,
-            },
-          },
-        },
-        groups: employeeGroups.map((g) => ({
-          id: g.id,
-          profile: {
-            name: g.name,
-            description: g.description,
-          },
-        })),
-        roles: userRoles,
-        factors: factors,
-      },
-      user: {
+      event: { action: 'user-discovered' },
+      okta: {
         id: employee.oktaUserId,
-        name: employee.email,
-        email: employee.email,
-        full_name: displayName,
-        roles: ecsRoles.length > 0 ? ecsRoles : undefined,
-        profile: {
-          department: employee.department,
-          job_title: employee.role,
-          first_name: employee.firstName,
-          last_name: employee.lastName,
-          status: 'ACTIVE',
-          id: employee.employeeNumber,
-          type: userType,
-          mobile_phone: mobilePhone,
-          primaryPhone: primaryPhone,
-          other_identities: secondEmail,
-          secondEmail: secondEmail,
-          manager: employee.managerId || undefined,
-        },
-        account: {
-          create_date: createdDate,
-          activated_date: activatedDate,
-          change_date: statusChanged,
-          password_change_date: passwordChanged,
-          status: {
-            password_expired: false,
-            deprovisioned: false,
-            locked_out: false,
-            recovery: false,
-            suspended: false,
-          },
-        },
-        geo: {
-          name: streetAddress,
-          city_name: employee.city,
-          region_name: state,
-          postal_code: zipCode,
-          country_iso_code: employee.countryCode,
-          timezone: employee.timezone,
-        },
-        organization: {
-          name: org.name,
-        },
-        group: {
-          name: employeeGroups.map((g) => g.name),
-          id: employeeGroups.map((g) => g.id),
-        },
-      },
-      asset: {
-        id: employee.oktaUserId,
-        category: 'entity',
-        type: 'okta_user',
         status: 'ACTIVE',
-        name: displayName,
-        vendor: 'OKTA',
-        costCenter: `CC-${employee.department
-          .replace(/[^A-Za-z]/g, '')
-          .substring(0, 4)
-          .toUpperCase()}`,
-        create_date: createdDate,
-        last_updated: lastUpdated,
-        last_seen: lastLogin,
-        last_status_change_date: statusChanged,
+        created: createdDate,
+        activated: activatedDate,
+        statusChanged: statusChanged,
+        lastLogin: lastLogin,
+        lastUpdated: lastUpdated,
+        passwordChanged: passwordChanged,
+        type: { id: `oty${faker.string.alphanumeric(14)}` },
+        profile: {
+          login: employee.email,
+          email: employee.email,
+          firstName: employee.firstName,
+          lastName: employee.lastName,
+          middleName: faker.datatype.boolean(0.3) ? faker.person.middleName() : undefined,
+          nickName: employee.firstName,
+          displayName: displayName,
+          secondEmail: secondEmail,
+          primaryPhone: primaryPhone,
+          mobilePhone: mobilePhone,
+          streetAddress: streetAddress,
+          city: employee.city,
+          state: state,
+          zipCode: zipCode,
+          countryCode: employee.countryCode,
+          preferredLanguage: 'en',
+          locale: 'en_US',
+          timezone: employee.timezone,
+          userType: userType,
+          employeeNumber: employee.employeeNumber,
+          costCenter: `CC-${employee.department
+            .replace(/[^A-Za-z]/g, '')
+            .substring(0, 4)
+            .toUpperCase()}`,
+          organization: org.name,
+          division: employee.department,
+          department: employee.department,
+          title: employee.role,
+          managerId: employee.managerId,
+        },
+        credentials: {
+          provider: { type: 'OKTA', name: 'OKTA' },
+          recovery_question: { is_set: true },
+        },
+        _links: {
+          self: {
+            href: `https://${org.domain.replace('.com', '')}.okta.com/api/v1/users/${employee.oktaUserId}`,
+          },
+        },
       },
-      labels: {
-        identity_source: IDENTITY_SOURCE,
-      },
-      related: {
-        user: relatedUsers,
-      },
+      groups: employeeGroups.map((g) => ({
+        id: g.id,
+        profile: { name: g.name, description: g.description },
+      })),
+      roles: userRoles.map((r) => ({
+        id: r.id,
+        label: r.label,
+        assignmentType: r.assignment_type,
+        lastUpdated: r.last_updated ?? r.created ?? lastUpdated,
+      })),
+      user: { id: employee.oktaUserId },
+      labels: { identity_source: IDENTITY_SOURCE },
       data_stream: {
         namespace: 'default',
         type: 'logs',
-        dataset: 'entityanalytics_okta.user',
-      },
-      host: {
-        name: `${org.domain.replace('.com', '')}.okta.com`,
+        dataset: ENTITY_DATASET,
       },
       tags: ['forwarded', 'entityanalytics_okta-entity'],
     };
   }
 
   /**
-   * Create an Okta device document
+   * Create an Okta device document in Beats entity-analytics format (flat okta).
+   * Pipeline renames okta -> entityanalytics_okta.device and enriches ECS.
    */
   private createDeviceDocument(
     device: Device,
     employee: Employee,
     org: Organization,
     timestamp: string
-  ): OktaDeviceDocument {
+  ): IntegrationDocument {
     const createdDate = faker.date.past({ years: 1 }).toISOString();
     const activatedDate = new Date(new Date(createdDate).getTime() + 60000).toISOString();
     const lastUpdated = faker.date.recent({ days: 30 }).toISOString();
@@ -353,103 +196,59 @@ export class OktaIntegration extends BaseIntegration {
 
     const platform = platformMapping[device.platform] || device.platform.toUpperCase();
     const diskEncryptionType = device.diskEncryptionEnabled ? 'ALL_INTERNAL_VOLUMES' : 'NONE';
-    const resourceId = `guo${faker.string.alphanumeric(14)}`;
     const displayName = device.displayName;
-
-    // Build related.user array from device users
-    const relatedUsers = [
-      employee.oktaUserId,
-      employee.email,
-      `${employee.firstName} ${employee.lastName}`,
-      employee.firstName,
-    ];
 
     return {
       '@timestamp': timestamp,
-      event: {
-        action: 'device-discovered',
-        kind: 'asset',
-        dataset: 'entityanalytics_okta.device',
-        category: ['host'],
-        type: ['info'],
-      },
-      entityanalytics_okta: {
-        device: {
-          id: device.id,
-          status: 'ACTIVE',
-          created: createdDate,
-          activated: activatedDate,
-          status_changed: statusChanged,
-          last_updated: lastUpdated,
-          resourceAlternateID: employee.email,
-          resourceDisplayName: {
-            sensitive: false,
-            value: displayName,
+      event: { action: 'device-discovered' },
+      okta: {
+        id: device.id,
+        status: 'ACTIVE',
+        created: createdDate,
+        activated: activatedDate,
+        statusChanged: statusChanged,
+        lastUpdated: lastUpdated,
+        profile: {
+          platform: platform,
+          displayName: displayName,
+          sid:
+            device.platform === 'windows'
+              ? `S-1-5-21-${faker.string.numeric(10)}-${faker.string.numeric(10)}-${faker.string.numeric(10)}`
+              : undefined,
+          serialNumber: device.serialNumber,
+          diskEncryptionType: diskEncryptionType,
+          registered: device.registered,
+          secureHardwarePresent: device.platform === 'mac' || device.platform === 'ios',
+        },
+        users: [
+          {
+            id: employee.oktaUserId,
+            status: 'ACTIVE',
+            profile: {
+              login: employee.email,
+              email: employee.email,
+              firstName: employee.firstName,
+              lastName: employee.lastName,
+              displayName: `${employee.firstName} ${employee.lastName}`,
+              nickName: employee.firstName,
+            },
           },
-          resourceID: resourceId,
-          resourceType: 'UDDevice',
-          profile: {
-            display_name: displayName,
-            platform: platform,
-            sid:
-              device.platform === 'windows'
-                ? `S-1-5-21-${faker.string.numeric(10)}-${faker.string.numeric(10)}-${faker.string.numeric(10)}`
-                : undefined,
-            disk_encryption_type: diskEncryptionType,
-            registered: device.registered,
-            secure_hardware_present: device.platform === 'mac' || device.platform === 'ios',
+        ],
+        _links: {
+          self: {
+            href: `https://${org.domain.replace('.com', '')}.okta.com/api/v1/devices/${device.id}`,
           },
-          users: [
-            {
-              id: employee.oktaUserId,
-              status: 'ACTIVE',
-              profile: {
-                login: employee.email,
-                email: employee.email,
-                firstName: employee.firstName,
-                lastName: employee.lastName,
-                displayName: `${employee.firstName} ${employee.lastName}`,
-                nickName: employee.firstName,
-              },
-            },
-          ],
-          _links: {
-            self: {
-              href: `https://${org.domain.replace('.com', '')}.okta.com/api/v1/devices/${device.id}`,
-            },
-            users: {
-              href: `https://${org.domain.replace('.com', '')}.okta.com/api/v1/devices/${device.id}/users`,
-            },
+          users: {
+            href: `https://${org.domain.replace('.com', '')}.okta.com/api/v1/devices/${device.id}/users`,
           },
         },
       },
-      os: {
-        platform: platform.toLowerCase(),
-      },
-      device: {
-        id: device.id,
-        serial_number: device.serialNumber,
-      },
-      asset: {
-        id: device.id,
-        category: 'device',
-        type: 'okta_device',
-        status: 'ACTIVE',
-        name: displayName,
-        create_date: createdDate,
-        last_updated: lastUpdated,
-        last_status_change_date: statusChanged,
-      },
-      labels: {
-        identity_source: IDENTITY_SOURCE,
-      },
-      related: {
-        user: relatedUsers,
-      },
+      device: { id: device.id },
+      labels: { identity_source: IDENTITY_SOURCE },
       data_stream: {
         namespace: 'default',
         type: 'logs',
-        dataset: 'entityanalytics_okta.device',
+        dataset: ENTITY_DATASET,
       },
       tags: ['forwarded', 'entityanalytics_okta-entity'],
     };
@@ -467,12 +266,16 @@ export class OktaIntegration extends BaseIntegration {
       event: {
         action,
         kind: 'asset',
-        dataset: 'entityanalytics_okta.user',
+        dataset: ENTITY_DATASET,
         ...(action === 'started' ? { start: timestamp } : { end: timestamp }),
       },
-      labels: {
-        identity_source: IDENTITY_SOURCE,
+      labels: { identity_source: IDENTITY_SOURCE },
+      data_stream: {
+        namespace: 'default',
+        type: 'logs',
+        dataset: ENTITY_DATASET,
       },
+      tags: ['forwarded', 'entityanalytics_okta-entity'],
     };
   }
 
@@ -488,12 +291,16 @@ export class OktaIntegration extends BaseIntegration {
       event: {
         action,
         kind: 'asset',
-        dataset: 'entityanalytics_okta.device',
+        dataset: ENTITY_DATASET,
         ...(action === 'started' ? { start: timestamp } : { end: timestamp }),
       },
-      labels: {
-        identity_source: IDENTITY_SOURCE,
+      labels: { identity_source: IDENTITY_SOURCE },
+      data_stream: {
+        namespace: 'default',
+        type: 'logs',
+        dataset: ENTITY_DATASET,
       },
+      tags: ['forwarded', 'entityanalytics_okta-entity'],
     };
   }
 

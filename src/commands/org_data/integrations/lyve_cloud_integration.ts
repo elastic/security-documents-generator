@@ -79,6 +79,7 @@ export class LyveCloudIntegration extends BaseIntegration {
     const sourceIp = faker.internet.ipv4();
     const forwardedIp = faker.internet.ipv4();
     const timeToResponse = faker.number.int({ min: 1000000, max: 100000000 });
+    const timeToFirstByte = timeToResponse - faker.number.int({ min: 10000, max: 500000 });
 
     const auditEntry: Record<string, unknown> = {
       api: {
@@ -87,7 +88,7 @@ export class LyveCloudIntegration extends BaseIntegration {
         status: statusEntry.status,
         statusCode: statusEntry.code,
         timeToResponse: `${timeToResponse}ns`,
-        timeToFirstByte: `${timeToResponse - faker.number.int({ min: 10000, max: 500000 })}ns`,
+        timeToFirstByte: `${timeToFirstByte}ns`,
       },
       time: timestamp,
       version: '1',
@@ -99,8 +100,16 @@ export class LyveCloudIntegration extends BaseIntegration {
         `s3cmd/2.3.0 Python/3.8.10 Linux/${faker.system.semver()}`,
       ]),
       deploymentid: faker.string.uuid(),
-      serviceAccountName,
-      serviceAccountCreatorId: employee.email,
+      requestHeader: {
+        'X-Forwarded-For': `${forwardedIp}, ${sourceIp}`,
+        'X-Forwarded-Host': 's3.us-east-1.lyvecloud.seagate.com',
+        'X-Real-Ip': `${sourceIp}:${faker.number.int({ min: 10000, max: 65535 })}`,
+      },
+      responseHeader: {
+        'Accept-Ranges': 'bytes',
+        'X-Amz-Bucket-Region': 'us-east-1',
+        'X-Amz-Server-Side-Encryption': 'AES256',
+      },
     };
 
     if (api.value.includes('Object')) {
@@ -111,53 +120,16 @@ export class LyveCloudIntegration extends BaseIntegration {
       };
     }
 
-    const rawEvent = JSON.stringify({ auditEntry });
+    const rawAudit = {
+      serviceAccountName,
+      serviceAccountCreatorId: employee.email,
+      auditEntry,
+    };
 
     return {
       '@timestamp': timestamp,
-      event: { original: rawEvent },
-      cloud: { provider: 'lyvecloud' },
-      lyve_cloud: {
-        audit: {
-          auditEntry: {
-            api: {
-              bucket,
-              name: api.value,
-              status: statusEntry.status,
-              timeToFirstByte: timeToResponse - faker.number.int({ min: 10000, max: 500000 }),
-              timeToResponse,
-            },
-            requestHeader: {
-              'X-Forwarded-For': `${forwardedIp}, ${sourceIp}`,
-              'X-Forwarded-Host': `s3.us-east-1.lyvecloud.seagate.com`,
-              'X-Real-Ip': `${sourceIp}:${faker.number.int({ min: 10000, max: 65535 })}`,
-            },
-            responseHeader: {
-              'Accept-Ranges': 'bytes',
-              'X-Amz-Bucket-Region': 'us-east-1',
-              'X-Amz-Server-Side-Encryption': 'AES256',
-            },
-            version: '1',
-          },
-        },
-      },
-      http: {
-        response: {
-          status_code: statusEntry.code,
-          mime_type: 'application/octet-stream',
-        },
-      },
-      user: {
-        email: employee.email,
-        id: employee.email,
-        name: serviceAccountName,
-      },
-      user_agent: { original: (auditEntry as Record<string, unknown>).userAgent as string },
-      related: {
-        ip: [forwardedIp, sourceIp],
-        user: [serviceAccountName],
-      },
-      tags: ['preserve_original_event'],
+      message: JSON.stringify(rawAudit),
+      log: { file: { path: '/var/log/lyve/S3/audit.json' } },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'lyve_cloud.audit' },
     } as IntegrationDocument;
   }

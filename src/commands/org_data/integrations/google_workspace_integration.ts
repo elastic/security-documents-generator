@@ -1,6 +1,8 @@
 /**
  * Google Workspace Integration
- * Generates documents for all 21 Google Workspace data streams
+ * Generates raw/pre-pipeline documents for all 21 Google Workspace data streams.
+ * Documents use message field with JSON.stringify(raw) matching Google Admin Reports API format.
+ * The ingest pipeline parses message and derives ECS fields.
  */
 
 import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
@@ -34,6 +36,50 @@ const DS = {
 } as const;
 
 type DsKey = keyof typeof DS;
+
+interface RawActivityEvent {
+  name: string;
+  type: string;
+  parameters?: Array<{
+    name: string;
+    value?: string;
+    intValue?: number | string;
+    boolValue?: boolean;
+    multiValue?: string[];
+  }>;
+}
+
+interface RawActivityPayload {
+  kind: string;
+  id: {
+    time: string;
+    applicationName: string;
+    uniqueQualifier: string;
+    customerId: string;
+  };
+  actor: {
+    email: string;
+    profileId: string;
+    callerType: string;
+    key?: string;
+  };
+  ipAddress?: string;
+  events: RawActivityEvent;
+  ownerDomain: string;
+}
+
+function param(name: string, value: string): { name: string; value: string } {
+  return { name, value };
+}
+function paramInt(name: string, val: number): { name: string; intValue: number } {
+  return { name, intValue: val };
+}
+function paramBool(name: string, val: boolean): { name: string; boolValue: boolean } {
+  return { name, boolValue: val };
+}
+function paramMulti(name: string, vals: string[]): { name: string; multiValue: string[] } {
+  return { name, multiValue: vals };
+}
 
 export class GoogleWorkspaceIntegration extends BaseIntegration {
   readonly packageName = 'google_workspace';
@@ -105,10 +151,6 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
     return docs;
   }
 
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
-
   private repeat(min: number, max: number, fn: () => void): void {
     const count = faker.number.int({ min, max });
     for (let i = 0; i < count; i++) fn();
@@ -123,42 +165,39 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
       : org.employees.filter((e) => e.department === 'Operations').slice(0, 3);
   }
 
-  private base(
+  private rawActivityDoc(
     dataset: string,
-    provider: string,
+    applicationName: string,
     employee: Employee,
     org: Organization,
-    extra: Record<string, unknown>
+    events: RawActivityEvent
   ): IntegrationDocument {
     const sourceIp = faker.internet.ipv4();
+    const ts = this.getRandomTimestamp(72);
+    const raw: RawActivityPayload = {
+      kind: 'admin#reports#activity',
+      id: {
+        time: ts,
+        applicationName,
+        uniqueQualifier: String(faker.number.int({ min: 1, max: 999999999 })),
+        customerId: faker.string.alphanumeric(8),
+      },
+      actor: {
+        email: employee.email,
+        profileId: String(faker.number.int({ min: 1e5, max: 1e10 })),
+        callerType: 'USER',
+        key: '',
+      },
+      ipAddress: sourceIp,
+      events,
+      ownerDomain: org.domain,
+    };
     return {
-      '@timestamp': this.getRandomTimestamp(72),
-      event: {
-        dataset: `google_workspace.${dataset}`,
-        provider,
-        kind: 'event',
-        ...((extra.event as Record<string, unknown>) ?? {}),
-      },
-      google_workspace: {
-        actor: { type: 'USER' },
-        kind: 'admin#reports#activity',
-        organization: { domain: org.domain },
-        ...((extra.google_workspace as Record<string, unknown>) ?? {}),
-      },
-      source: { ip: sourceIp, user: { email: employee.email } },
-      user: { email: employee.email, name: employee.userName, domain: org.domain },
-      related: { user: [employee.email, employee.userName], ip: [sourceIp] },
+      '@timestamp': ts,
+      message: JSON.stringify(raw),
       data_stream: { namespace: 'default', type: 'logs', dataset: `google_workspace.${dataset}` },
-      tags: ['forwarded', `google_workspace-${dataset}`],
-      ...Object.fromEntries(
-        Object.entries(extra).filter(([k]) => k !== 'event' && k !== 'google_workspace')
-      ),
     } as IntegrationDocument;
   }
-
-  // ---------------------------------------------------------------------------
-  // Document generators – existing datasets
-  // ---------------------------------------------------------------------------
 
   private loginDoc(employee: Employee, org: Organization): IntegrationDocument {
     const cfg = GOOGLE_WORKSPACE_SERVICES.login;
@@ -168,49 +207,35 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
       { value: 'login_challenge', weight: 5 },
       { value: 'logout', weight: 2 },
     ]);
-    const isSuccess = eventType === 'login_success' || eventType === 'logout';
-
-    return this.base('login', 'login', employee, org, {
-      event: {
-        action: eventType,
-        category: ['authentication'],
-        type: isSuccess ? ['start'] : ['info'],
-        outcome: isSuccess ? 'success' : 'failure',
-      },
-      google_workspace: {
-        event: { type: eventType.includes('login') ? 'login' : 'logout' },
-        login: {
-          challenge_method:
-            eventType === 'login_challenge'
-              ? faker.helpers.arrayElement(cfg.challengeMethods)
-              : undefined,
-          is_suspicious: eventType === 'login_failure' && faker.datatype.boolean(0.1),
-          type: faker.helpers.arrayElement(['exchange', 'google_password', 'saml', 'reauth']),
-          timestamp: Date.now() * 1000,
-        },
-      },
+    const params: RawActivityEvent['parameters'] = [
+      param('login_type', faker.helpers.arrayElement(['exchange', 'google_password', 'saml', 'reauth'])),
+      paramInt('login_timestamp', Date.now() * 1000),
+    ];
+    if (eventType === 'login_challenge') {
+      params.push(param('login_challenge_method', faker.helpers.arrayElement(cfg.challengeMethods)));
+    }
+    if (eventType === 'login_failure') {
+      if (faker.datatype.boolean(0.1)) params.push(paramBool('is_suspicious', true));
+    }
+    return this.rawActivityDoc('login', 'login', employee, org, {
+      name: eventType,
+      type: eventType.includes('login') ? 'login' : 'logout',
+      parameters: params,
     });
   }
 
   private adminDoc(employee: Employee, org: Organization): IntegrationDocument {
     const cfg = GOOGLE_WORKSPACE_SERVICES.admin;
     const eventAction = faker.helpers.arrayElement(cfg.events);
-
-    return this.base('admin', 'admin', employee, org, {
-      event: {
-        action: eventAction,
-        category: ['iam', 'configuration'],
-        type: ['change'],
-      },
-      google_workspace: {
-        event: { type: eventAction },
-        admin: {
-          application: { name: faker.helpers.arrayElement(cfg.applications) },
-          setting: { name: eventAction.toLowerCase().replace(/_/g, ' ') },
-          old_value: faker.helpers.arrayElement(['true', 'false', 'enabled', 'disabled']),
-          new_value: faker.helpers.arrayElement(['true', 'false', 'enabled', 'disabled']),
-        },
-      },
+    return this.rawActivityDoc('admin', 'admin', employee, org, {
+      name: eventAction,
+      type: eventAction.includes('SETTING') ? 'APPLICATION_SETTINGS' : 'USER_SETTINGS',
+      parameters: [
+        param('APPLICATION_NAME', faker.helpers.arrayElement(cfg.applications)),
+        param('SETTING_NAME', eventAction.toLowerCase().replace(/_/g, ' ')),
+        param('OLD_VALUE', faker.helpers.arrayElement(['true', 'false', 'enabled', 'disabled'])),
+        param('NEW_VALUE', faker.helpers.arrayElement(['true', 'false', 'enabled', 'disabled'])),
+      ],
     });
   }
 
@@ -219,76 +244,51 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
     const eventAction = faker.helpers.arrayElement(cfg.events);
     const fileType = this.pickFileType(employee.department);
     const visibility = faker.helpers.arrayElement(cfg.visibilities);
-
-    return this.base('drive', 'drive', employee, org, {
-      event: {
-        action: eventAction,
-        category: ['file'],
-        type: this.mapDriveEventType(eventAction),
-      },
-      google_workspace: {
-        event: { type: eventAction },
-        drive: {
-          file: {
-            id: faker.string.alphanumeric(44),
-            type: fileType,
-            owner: { email: employee.email, is_shared_drive: false },
-          },
-          billable: faker.datatype.boolean(0.8),
-          visibility,
-          primary_event: true,
-          originating_app_id: faker.string.numeric(12),
-          ...(eventAction.includes('folder')
-            ? {
-                destination_folder_id: faker.string.alphanumeric(33),
-                destination_folder_title: faker.helpers.arrayElement([
-                  'Projects',
-                  'Shared',
-                  'Archive',
-                  'Templates',
-                ]),
-              }
-            : {}),
-          ...(eventAction.includes('change_acl') || eventAction.includes('shared')
-            ? { target_user: faker.helpers.arrayElement(org.employees).email }
-            : {}),
-        },
-      },
-      file: {
-        name: `${faker.word.adjective()}-${faker.word.noun()}.${this.fileTypeToExt(fileType)}`,
-        owner: employee.email,
-        type: 'file',
-      },
+    const params: Array<{ name: string; value?: string; boolValue?: boolean }> = [
+      param('doc_id', faker.string.alphanumeric(44)),
+      param('doc_title', `${faker.word.adjective()}-${faker.word.noun()}.${this.fileTypeToExt(fileType)}`),
+      param('doc_type', fileType),
+      param('owner', employee.email),
+      paramBool('owner_is_shared_drive', false),
+      paramBool('billable', faker.datatype.boolean(0.8)),
+      paramBool('primary_event', true),
+      param('visibility', visibility),
+      param('originating_app_id', faker.string.numeric(12)),
+    ];
+    if (eventAction.includes('folder')) {
+      params.push(param('destination_folder_id', faker.string.alphanumeric(33)));
+      params.push(
+        param(
+          'destination_folder_title',
+          faker.helpers.arrayElement(['Projects', 'Shared', 'Archive', 'Templates'])
+        )
+      );
+    }
+    if (eventAction.includes('change_acl') || eventAction.includes('shared')) {
+      params.push(param('target_user', faker.helpers.arrayElement(org.employees).email));
+    }
+    return this.rawActivityDoc('drive', 'drive', employee, org, {
+      name: eventAction,
+      type: eventAction.includes('view') || eventAction.includes('download') || eventAction.includes('preview') ? 'access' : 'change',
+      parameters: params,
     });
   }
-
-  // ---------------------------------------------------------------------------
-  // Document generators – security / authentication
-  // ---------------------------------------------------------------------------
 
   private samlDoc(employee: Employee, org: Organization): IntegrationDocument {
     const cfg = GOOGLE_WORKSPACE_SERVICES.saml;
     const action = faker.helpers.arrayElement(cfg.events);
     const isFailure = action === 'login_failure';
-
-    return this.base('saml', 'saml', employee, org, {
-      event: {
-        action,
-        category: ['authentication', 'session'],
-        type: ['start'],
-        outcome: isFailure ? 'failure' : 'success',
-      },
-      google_workspace: {
-        event: { type: 'login' },
-        saml: {
-          application_name: faker.helpers.arrayElement(cfg.applications),
-          failure_type: isFailure ? faker.helpers.arrayElement(cfg.failureTypes) : undefined,
-          initiated_by: faker.helpers.arrayElement(cfg.initiatedBy),
-          orgunit_path: `/${org.domain}`,
-          status_code: isFailure ? 'FAILURE_URI' : 'SUCCESS_URI',
-          second_level_status_code: 'SUCCESS_URI',
-        },
-      },
+    return this.rawActivityDoc('saml', 'saml', employee, org, {
+      name: action,
+      type: 'login',
+      parameters: [
+        param('application_name', faker.helpers.arrayElement(cfg.applications)),
+        param('initiated_by', faker.helpers.arrayElement(cfg.initiatedBy)),
+        param('orgunit_path', `/${org.domain}`),
+        param('saml_status_code', isFailure ? 'FAILURE_URI' : 'SUCCESS_URI'),
+        param('saml_second_level_status_code', 'SUCCESS_URI'),
+        ...(isFailure ? [param('failure_type', faker.helpers.arrayElement(cfg.failureTypes))] : []),
+      ],
     });
   }
 
@@ -296,83 +296,45 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
     const cfg = GOOGLE_WORKSPACE_SERVICES.token;
     const action = faker.helpers.arrayElement(cfg.events);
     const appName = faker.helpers.arrayElement(cfg.appNames);
-
-    return this.base('token', 'token', employee, org, {
-      event: {
-        action,
-        category: ['iam'],
-        type: ['info', 'user'],
-      },
-      google_workspace: {
-        event: { name: action },
-        token: {
-          api_name: 'token',
-          app_name: appName,
-          client: {
-            id: faker.string.alphanumeric(40),
-            type: faker.helpers.arrayElement(cfg.clientTypes),
-          },
-          method_name: 'oauth',
-          num_response_bytes: faker.number.int({ min: 500, max: 5000 }),
-          scope: {
-            value: faker.helpers.arrayElements(cfg.scopes, { min: 1, max: 3 }),
-          },
-        },
-      },
+    const scopes = faker.helpers.arrayElements(cfg.scopes, { min: 1, max: 3 });
+    return this.rawActivityDoc('token', 'token', employee, org, {
+      name: action,
+      type: 'token',
+      parameters: [
+        param('client_id', `${faker.string.numeric(12)}-${faker.string.alphanumeric(32)}.apps.googleusercontent.com`),
+        param('app_name', appName),
+        param('api_name', 'token'),
+        param('method_name', 'oauth'),
+        paramInt('num_response_bytes', faker.number.int({ min: 500, max: 5000 })),
+        param('client_type', faker.helpers.arrayElement(cfg.clientTypes)),
+        paramMulti('scope', scopes),
+      ],
     });
   }
 
   private accessTransparencyDoc(employee: Employee, org: Organization): IntegrationDocument {
     const cfg = GOOGLE_WORKSPACE_SERVICES.access_transparency;
     const product = faker.helpers.arrayElement(cfg.products);
-
-    return this.base('access_transparency', 'device', employee, org, {
-      event: { action: 'APPLICATION_EVENT' },
-      google_workspace: {
-        event: { name: 'APPLICATION_EVENT', type: 'device_applications' },
-        access_transparency: {
-          access_approval: {
-            alert_center_ids: faker.string.alphanumeric(10),
-            request_ids: faker.string.alphanumeric(10),
-          },
-          access_management: { policy: 'default' },
-          actor_home_office: faker.location.city(),
-          gsuite_product_name: product,
-          justifications: faker.helpers.arrayElement([
-            'Customer Initiated Support',
-            'Google Initiated Review',
-            'Third Party Data Request',
-          ]),
-          log_id: faker.string.alphanumeric(10),
-          on_behalf_of: employee.email,
-          owner_email: employee.email,
-          resource_name: faker.system.fileName(),
-          tickets: faker.string.alphanumeric(8),
-        },
-      },
+    return this.rawActivityDoc('access_transparency', 'device', employee, org, {
+      name: 'APPLICATION_EVENT',
+      type: 'device_applications',
+      parameters: [
+        param('gsuite_product_name', product),
+        param('on_behalf_of', employee.email),
+      ],
     });
   }
 
   private contextAwareAccessDoc(employee: Employee, org: Organization): IntegrationDocument {
     const cfg = GOOGLE_WORKSPACE_SERVICES.context_aware_access;
-
-    return this.base('context_aware_access', 'device', employee, org, {
-      event: { action: 'APPLICATION_EVENT' },
-      google_workspace: {
-        event: { name: 'APPLICATION_EVENT', type: 'device_applications' },
-        context_aware_access: {
-          access_level: {
-            applied: faker.helpers.arrayElement(cfg.accessLevels),
-            satisfied: faker.helpers.arrayElement(cfg.accessLevels),
-            unsatisfied: faker.helpers.arrayElement(cfg.accessLevels),
-          },
-          application: faker.helpers.arrayElement(cfg.applications),
-          device: {
-            id: faker.string.alphanumeric(12),
-            state: faker.helpers.arrayElement(cfg.deviceStates),
-          },
-        },
-      },
+    return this.rawActivityDoc('context_aware_access', 'device', employee, org, {
+      name: 'APPLICATION_EVENT',
+      type: 'device_applications',
+      parameters: [
+        param('access_level_applied', faker.helpers.arrayElement(cfg.accessLevels)),
+        param('application', faker.helpers.arrayElement(cfg.applications)),
+        param('device_state', faker.helpers.arrayElement(cfg.deviceStates)),
+      ],
     });
   }
 
@@ -382,71 +344,64 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
     const source = faker.helpers.arrayElement(cfg.sources);
     const severity = faker.helpers.arrayElement(cfg.severities);
     const alertId = faker.string.uuid();
-
-    return {
-      '@timestamp': this.getRandomTimestamp(72),
-      event: {
-        action: source,
-        category: ['email', 'threat'],
-        type: ['info'],
-        kind: 'alert',
-        dataset: 'google_workspace.alert',
-        id: alertId,
-      },
-      google_workspace: {
-        alert: {
-          create_time: this.getRandomTimestamp(72),
-          customer: { id: faker.string.alphanumeric(8) },
-          data: {
-            type: 'type.googleapis.com/google.apps.alertcenter.type.MailPhishing',
-            is_internal: faker.datatype.boolean(0.3),
-            system_action_type: faker.helpers.arrayElement([
-              'NO_OPERATION',
-              'ALERT',
-              'DELETE_MESSAGE',
-            ]),
-          },
-          deleted: false,
-          etag: faker.string.alphanumeric(12),
-          id: alertId,
-          metadata: {
-            alert: { id: alertId },
-            assignee: employee.email,
-            customer: { id: faker.string.alphanumeric(8) },
-            etag: faker.string.alphanumeric(12),
-            severity,
-            status: faker.helpers.arrayElement(cfg.statuses),
-            update_time: this.getRandomTimestamp(72),
-          },
-          source,
-          type: alertType,
-          update_time: this.getRandomTimestamp(72),
+    const ts = this.getRandomTimestamp(72);
+    const raw = {
+      alertId,
+      createTime: ts,
+      customerId: faker.string.alphanumeric(8),
+      data: {
+        '@type': 'type.googleapis.com/google.apps.alertcenter.type.MailPhishing',
+        domainId: { customerPrimaryDomain: org.domain },
+        isInternal: faker.datatype.boolean(0.3),
+        systemActionType: faker.helpers.arrayElement(['NO_OPERATION', 'ALERT', 'DELETE_MESSAGE']),
+        maliciousEntity: {
+          displayName: faker.person.fullName(),
+          entity: { displayName: employee.userName, emailAddress: employee.email },
+          fromHeader: `${faker.string.alphanumeric(8)}@${org.domain}`,
         },
+        messages: [
+          {
+            messageId: `${faker.string.alphanumeric(10)}@${org.domain}`,
+            subjectText: faker.lorem.sentence({ min: 2, max: 5 }),
+            recipient: employee.email,
+            date: ts,
+            attachmentsSha256Hash: [faker.string.alphanumeric(64)],
+            md5HashMessageBody: faker.string.alphanumeric(32),
+            md5HashSubject: faker.string.alphanumeric(32),
+            messageBodySnippet: faker.lorem.sentence({ min: 3, max: 8 }),
+          },
+        ],
       },
-      user: { email: employee.email, name: employee.userName, domain: org.domain },
-      related: { user: [employee.email, employee.userName] },
+      deleted: false,
+      etag: faker.string.alphanumeric(12),
+      metadata: {
+        alertId,
+        assignee: employee.email,
+        customerId: faker.string.alphanumeric(8),
+        etag: faker.string.alphanumeric(12),
+        severity,
+        status: faker.helpers.arrayElement(cfg.statuses),
+        updateTime: ts,
+      },
+      source,
+      type: alertType,
+      updateTime: ts,
+      startTime: ts,
+      endTime: ts,
+    };
+    return {
+      '@timestamp': ts,
+      message: JSON.stringify(raw),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'google_workspace.alert' },
-      tags: ['forwarded', 'google_workspace-alert'],
     } as IntegrationDocument;
   }
-
-  // ---------------------------------------------------------------------------
-  // Document generators – user / group management
-  // ---------------------------------------------------------------------------
 
   private userAccountsDoc(employee: Employee, org: Organization): IntegrationDocument {
     const cfg = GOOGLE_WORKSPACE_SERVICES.user_accounts;
     const action = faker.helpers.arrayElement(cfg.events);
-
-    return this.base('user_accounts', 'user_accounts', employee, org, {
-      event: {
-        action,
-        category: ['iam'],
-        type: ['change', 'user'],
-      },
-      google_workspace: {
-        event: { type: faker.helpers.arrayElement(cfg.eventTypes) },
-      },
+    return this.rawActivityDoc('user_accounts', 'user_accounts', employee, org, {
+      name: action,
+      type: faker.helpers.arrayElement(cfg.eventTypes),
     });
   }
 
@@ -462,84 +417,56 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
       'finance',
       'leadership',
     ]);
-
-    return this.base('groups', 'groups', employee, org, {
-      event: {
-        action,
-        category: ['iam'],
-        type: ['group', 'change'],
-      },
-      google_workspace: {
-        event: { type: faker.helpers.arrayElement(cfg.eventTypes) },
-        groups: {
-          acl_permission: faker.helpers.arrayElement(cfg.aclPermissions),
-          email: `${groupName}@${org.domain}`,
-          new_value: faker.helpers.arrayElements(cfg.memberRoles, { min: 1, max: 2 }),
-          old_value: [faker.helpers.arrayElement(cfg.memberRoles)],
-        },
-      },
-      group: { domain: org.domain, name: groupName },
+    return this.rawActivityDoc('groups', 'groups', employee, org, {
+      name: action,
+      type: faker.helpers.arrayElement(cfg.eventTypes),
+      parameters: [
+        param('acl_permission', faker.helpers.arrayElement(cfg.aclPermissions)),
+        param('email', `${groupName}@${org.domain}`),
+        param('new_value', faker.helpers.arrayElements(cfg.memberRoles, { min: 1, max: 2 }).join(',')),
+        param('old_value', faker.helpers.arrayElement(cfg.memberRoles)),
+      ],
     });
   }
 
   private groupEnterpriseDoc(employee: Employee, org: Organization): IntegrationDocument {
     const cfg = GOOGLE_WORKSPACE_SERVICES.group_enterprise;
     const action = faker.helpers.arrayElement(cfg.events);
-
-    return this.base('group_enterprise', 'group_enterprise', employee, org, {
-      event: { action },
-      google_workspace: {
-        event: { name: action, type: faker.helpers.arrayElement(cfg.eventTypes) },
-        group_enterprise: {
-          group: { id: faker.string.alphanumeric(10) },
-          info_setting: faker.helpers.arrayElement(['description', 'name', 'alias']),
-          member: {
-            id: faker.string.alphanumeric(10),
-            role: faker.helpers.arrayElement(cfg.memberRoles),
-            type: faker.helpers.arrayElement(cfg.memberTypes),
-          },
-          namespace: org.domain,
-          new_value: faker.word.sample(),
-          old_value: faker.word.sample(),
-          security_setting: {
-            state: faker.helpers.arrayElement(['enabled', 'disabled']),
-            value: faker.helpers.arrayElement([
-              'ALLOW_EXTERNAL_MEMBERS',
-              'COLLABORATIVE_INBOX',
-              'WHO_CAN_JOIN',
-            ]),
-          },
-        },
-      },
+    return this.rawActivityDoc('group_enterprise', 'group_enterprise', employee, org, {
+      name: action,
+      type: faker.helpers.arrayElement(cfg.eventTypes),
+      parameters: [
+        param('group_id', faker.string.alphanumeric(10)),
+        param('info_setting', faker.helpers.arrayElement(['description', 'name', 'alias'])),
+        param('member_id', faker.string.alphanumeric(10)),
+        param('member_role', faker.helpers.arrayElement(cfg.memberRoles)),
+        param('member_type', faker.helpers.arrayElement(cfg.memberTypes)),
+        param('namespace', org.domain),
+        param('new_value', faker.word.sample()),
+        param('old_value', faker.word.sample()),
+        param('security_setting_state', faker.helpers.arrayElement(['enabled', 'disabled'])),
+        param('security_setting_value', faker.helpers.arrayElement(['ALLOW_EXTERNAL_MEMBERS', 'COLLABORATIVE_INBOX', 'WHO_CAN_JOIN'])),
+      ],
     });
   }
-
-  // ---------------------------------------------------------------------------
-  // Document generators – device & security rules
-  // ---------------------------------------------------------------------------
 
   private deviceDoc(employee: Employee, org: Organization): IntegrationDocument {
     const cfg = GOOGLE_WORKSPACE_SERVICES.device;
     const action = faker.helpers.arrayElement(cfg.events);
-    const deviceType = faker.helpers.arrayElement(cfg.deviceTypes);
-
-    return this.base('device', 'device', employee, org, {
-      event: { action },
-      google_workspace: {
-        event: { name: action, type: 'device_applications' },
-        device: {
-          account_state: faker.helpers.arrayElement(cfg.accountStates),
-          compliance: faker.helpers.arrayElement(cfg.complianceStates),
-          compromised_state: faker.helpers.arrayElement(cfg.compromisedStates),
-          id: faker.string.alphanumeric(12),
-          model: faker.helpers.arrayElement(['Pixel 8', 'iPhone 15', 'Galaxy S24', 'Surface Pro']),
-          os: { version: faker.system.semver() },
-          ownership: faker.helpers.arrayElement(cfg.ownerships),
-          serial_number: faker.string.alphanumeric(12).toUpperCase(),
-          type: deviceType,
-          user_email: employee.email,
-        },
-      },
+    return this.rawActivityDoc('device', 'device', employee, org, {
+      name: action,
+      type: 'device_applications',
+      parameters: [
+        param('account_state', faker.helpers.arrayElement(cfg.accountStates)),
+        param('compliance', faker.helpers.arrayElement(cfg.complianceStates)),
+        param('compromised_state', faker.helpers.arrayElement(cfg.compromisedStates)),
+        param('device_id', faker.string.alphanumeric(12)),
+        param('device_model', faker.helpers.arrayElement(['Pixel 8', 'iPhone 15', 'Galaxy S24', 'Surface Pro'])),
+        param('ownership', faker.helpers.arrayElement(cfg.ownerships)),
+        param('serial_number', faker.string.alphanumeric(12).toUpperCase()),
+        param('device_type', faker.helpers.arrayElement(cfg.deviceTypes)),
+        param('user_email', employee.email),
+      ],
     });
   }
 
@@ -547,23 +474,19 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
     const cfg = GOOGLE_WORKSPACE_SERVICES.rules;
     const action = faker.helpers.arrayElement(cfg.events);
     const ruleId = String(faker.number.int({ min: 100, max: 9999 }));
-
-    return this.base('rules', 'rules', employee, org, {
-      event: { action },
-      google_workspace: {
-        event: { name: action, type: faker.helpers.arrayElement(cfg.eventTypes) },
-        rules: {
-          actor_ip_address: faker.internet.ipv4(),
-          has_alert: faker.datatype.boolean(0.4),
-          id: [ruleId],
-          name: [faker.helpers.arrayElement(cfg.ruleNames)],
-          data_source: faker.helpers.arrayElement(cfg.dataSources),
-          severity: faker.helpers.arrayElement(cfg.severities),
-          scan_type: faker.helpers.arrayElement(cfg.scanTypes),
-          resource: { recipients_omitted_count: faker.number.int({ min: 0, max: 50 }) },
-        },
-      },
-      rule: { id: [ruleId], name: [faker.helpers.arrayElement(cfg.ruleNames)] },
+    const ruleName = faker.helpers.arrayElement(cfg.ruleNames);
+    return this.rawActivityDoc('rules', 'rules', employee, org, {
+      name: action,
+      type: faker.helpers.arrayElement(cfg.eventTypes),
+      parameters: [
+        param('actor_ip_address', faker.internet.ipv4()),
+        paramBool('has_alert', faker.datatype.boolean(0.4)),
+        param('rule_id', ruleId),
+        param('rule_name', ruleName),
+        param('data_source', faker.helpers.arrayElement(cfg.dataSources)),
+        param('severity', faker.helpers.arrayElement(cfg.severities)),
+        param('scan_type', faker.helpers.arrayElement(cfg.scanTypes)),
+      ],
     });
   }
 
@@ -571,126 +494,59 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
     const cfg = GOOGLE_WORKSPACE_SERVICES.chrome;
     const action = faker.helpers.arrayElement(cfg.events);
     const browserVersion = faker.helpers.arrayElement(cfg.browserVersions);
-
-    return {
-      '@timestamp': this.getRandomTimestamp(72),
-      event: {
-        action: action.toLowerCase().replace(/_/g, '-'),
-        category: ['configuration'],
-        type: ['change'],
-        kind: 'event',
-        dataset: 'google_workspace.chrome',
-        provider: 'chrome',
-        outcome: 'success',
-        reason: action,
-      },
-      google_workspace: {
-        chrome: {
-          actor: { caller_type: 'USER', email: employee.email },
-          app_name: faker.helpers.arrayElement(cfg.extensionNames),
-          app_id: faker.string.alphanumeric(32),
-          browser_version: browserVersion,
-          client_type: faker.helpers.arrayElement(cfg.clientTypes),
-          device_name: `${employee.userName}-device`,
-          device_user: employee.email,
-          event_reason: action,
-          event_result: 'REPORTED',
-          extension_action: action.includes('INSTALL') ? 'INSTALL' : 'UNINSTALL',
-          extension_source: faker.helpers.arrayElement(cfg.extensionSources),
-          name: action,
-          type: `${action}_TYPE`,
-          org_unit_name: org.domain,
-          profile_user_name: employee.email,
-        },
-      },
-      observer: { product: 'Chrome', vendor: 'Google Workspace' },
-      source: { user: { email: employee.email, domain: org.domain, name: employee.userName } },
-      user: { email: employee.email, name: employee.userName, domain: org.domain },
-      related: { user: [employee.email, employee.userName] },
-      data_stream: { namespace: 'default', type: 'logs', dataset: 'google_workspace.chrome' },
-      tags: ['forwarded', 'google_workspace-chrome'],
-    } as IntegrationDocument;
+    return this.rawActivityDoc('chrome', 'chrome', employee, org, {
+      name: action,
+      type: `${action}_TYPE`,
+      parameters: [
+        paramInt('TIMESTAMP', Date.now()),
+        param('EVENT_REASON', action),
+        param('APP_ID', faker.string.alphanumeric(32)),
+        param('APP_NAME', faker.helpers.arrayElement(cfg.extensionNames)),
+        param('BROWSER_VERSION', browserVersion),
+        param('CLIENT_TYPE', faker.helpers.arrayElement(cfg.clientTypes)),
+        param('DEVICE_NAME', `${employee.userName}-device`),
+        param('DEVICE_USER', employee.email),
+        param('EVENT_RESULT', 'REPORTED'),
+        param('EXTENSION_ACTION', action.includes('INSTALL') ? 'INSTALL' : 'UNINSTALL'),
+        param('EXTENSION_SOURCE', faker.helpers.arrayElement(cfg.extensionSources)),
+        param('ORG_UNIT_NAME', org.domain),
+        param('PROFILE_USER_NAME', employee.email),
+      ],
+    });
   }
-
-  // ---------------------------------------------------------------------------
-  // Document generators – collaboration
-  // ---------------------------------------------------------------------------
 
   private gmailDoc(employee: Employee, org: Organization): IntegrationDocument {
     const cfg = GOOGLE_WORKSPACE_SERVICES.gmail;
     const action = faker.helpers.arrayElement(cfg.events);
     const recipient = faker.helpers.arrayElement(org.employees);
-    const sourceIp = faker.internet.ipv4();
-
-    return {
-      '@timestamp': this.getRandomTimestamp(72),
-      event: {
-        action,
-        category: ['email'],
-        type: ['info'],
-        kind: 'event',
-        dataset: 'google_workspace.gmail',
-        outcome: 'success',
-      },
-      email: {
-        from: { address: [employee.email] },
-        to: { address: [recipient.email] },
-        subject: faker.lorem.sentence({ min: 3, max: 8 }),
-        message_id: `${faker.string.alphanumeric(20)}@${org.domain}`,
-      },
-      google_workspace: {
-        gmail: {
-          email: recipient.email,
-          event_info: {
-            mail_event_type: faker.helpers.arrayElement(cfg.mailEventTypes),
-          },
-          event_type: 'delivery_type',
-          ip_address: sourceIp,
-          message_info: {
-            action_type: faker.helpers.arrayElement(cfg.actionTypes),
-            connection_info: {
-              dkim_pass: true,
-              is_internal: employee.email.endsWith(org.domain),
-              spf_pass: true,
-            },
-            is_spam: faker.datatype.boolean(0.05),
-            num_message_attachments: faker.number.int({ min: 0, max: 3 }),
-            payload_size: faker.number.int({ min: 1000, max: 100000 }),
-            source: {
-              from_header_address: employee.email,
-              service: 'smtp-inbound',
-            },
-          },
-        },
-      },
-      related: { ip: [sourceIp], user: [employee.email, recipient.email] },
-      data_stream: { namespace: 'default', type: 'logs', dataset: 'google_workspace.gmail' },
-      tags: ['forwarded', 'google_workspace-gmail'],
-    } as IntegrationDocument;
+    return this.rawActivityDoc('gmail', 'gmail', employee, org, {
+      name: action,
+      type: 'delivery_type',
+      parameters: [
+        param('email', recipient.email),
+        param('mail_event_type', faker.helpers.arrayElement(cfg.mailEventTypes)),
+        param('action_type', faker.helpers.arrayElement(cfg.actionTypes)),
+        paramInt('num_message_attachments', faker.number.int({ min: 0, max: 3 })),
+        paramInt('payload_size', faker.number.int({ min: 1000, max: 100000 })),
+        paramBool('dkim_pass', true),
+        paramBool('spf_pass', true),
+        paramBool('is_internal', employee.email.endsWith(`@${org.domain}`)),
+        param('from_header_address', employee.email),
+        param('service', 'smtp-inbound'),
+        paramBool('is_spam', faker.datatype.boolean(0.05)),
+      ],
+    });
   }
 
   private calendarDoc(employee: Employee, org: Organization): IntegrationDocument {
     const cfg = GOOGLE_WORKSPACE_SERVICES.calendar;
     const action = faker.helpers.arrayElement(cfg.events);
-
-    return this.base('calendar', 'calendar', employee, org, {
-      event: {
-        action: action.replace(/_/g, '-'),
-        category: ['configuration'],
-        type: action.includes('delete')
-          ? ['deletion']
-          : action.includes('create')
-            ? ['creation']
-            : ['change'],
-      },
-      google_workspace: {
-        calendar: {
-          api_kind: faker.helpers.arrayElement(cfg.apiKinds),
-          name: action,
-          type: faker.helpers.arrayElement(cfg.eventTypes),
-        },
-      },
-      observer: { product: 'Calendar', vendor: 'Google Workspace' },
+    return this.rawActivityDoc('calendar', 'calendar', employee, org, {
+      name: action.replace(/_/g, '-'),
+      type: faker.helpers.arrayElement(cfg.eventTypes),
+      parameters: [
+        param('api_kind', faker.helpers.arrayElement(cfg.apiKinds)),
+      ],
     });
   }
 
@@ -705,120 +561,52 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
       'Incidents',
       'Design',
     ]);
-
-    return {
-      '@timestamp': this.getRandomTimestamp(72),
-      event: {
-        action: action.replace(/_/g, '-'),
-        category: ['configuration'],
-        type: ['change'],
-        kind: 'event',
-        dataset: 'google_workspace.chat',
-        provider: 'chat',
-      },
-      google_workspace: {
-        actor: { caller_type: 'USER' },
-        kind: 'admin#reports#activity',
-        chat: {
-          actor: employee.email,
-          actor_type: faker.helpers.arrayElement(cfg.actorTypes),
-          conversation_ownership: faker.helpers.arrayElement(cfg.conversationOwnerships),
-          conversation_type: faker.helpers.arrayElement(cfg.conversationTypes),
-          external_room: 'DISABLED',
-          name: action,
-          room_id: faker.string.numeric(6),
-          room_name: roomName,
-          type: faker.helpers.arrayElement(cfg.eventTypes),
-        },
-      },
-      observer: { product: 'Chat', vendor: 'Google Workspace' },
-      source: { user: { email: employee.email, domain: org.domain, name: employee.userName } },
-      user: { email: employee.email, name: employee.userName, domain: org.domain },
-      related: { user: [employee.email] },
-      data_stream: { namespace: 'default', type: 'logs', dataset: 'google_workspace.chat' },
-      tags: ['forwarded', 'google_workspace-chat'],
-    } as IntegrationDocument;
+    return this.rawActivityDoc('chat', 'chat', employee, org, {
+      name: action.replace(/_/g, '-'),
+      type: faker.helpers.arrayElement(cfg.eventTypes),
+      parameters: [
+        param('actor', employee.email),
+        param('room_id', faker.string.numeric(6)),
+        param('room_name', roomName),
+      ],
+    });
   }
 
   private meetDoc(employee: Employee, org: Organization): IntegrationDocument {
     const cfg = GOOGLE_WORKSPACE_SERVICES.meet;
     const action = faker.helpers.arrayElement(cfg.events);
-
-    return {
-      '@timestamp': this.getRandomTimestamp(72),
-      event: {
-        action: action.replace(/_/g, '-'),
-        type: ['info'],
-        kind: 'event',
-        dataset: 'google_workspace.meet',
-        provider: 'meet',
-      },
-      google_workspace: {
-        actor: { caller_type: 'USER' },
-        kind: 'admin#reports#activity',
-        meet: {
-          conference_id: faker.string.alphanumeric(24),
-          endpoint: {
-            identifier: employee.email,
-            identifier_type: faker.helpers.arrayElement(cfg.identifierTypes),
-            is_external: false,
-          },
-          meeting_code: faker.string.alpha({ length: 10, casing: 'upper' }),
-          name: action,
-          target: { user_count: faker.number.int({ min: 1, max: 20 }) },
-          type: faker.helpers.arrayElement(cfg.eventTypes),
-        },
-      },
-      observer: { product: 'Meet', vendor: 'Google Workspace' },
-      source: { user: { email: employee.email, domain: org.domain, name: employee.userName } },
-      user: { email: employee.email, name: employee.userName, domain: org.domain },
-      related: { user: [employee.email] },
-      data_stream: { namespace: 'default', type: 'logs', dataset: 'google_workspace.meet' },
-      tags: ['forwarded', 'google_workspace-meet'],
-    } as IntegrationDocument;
+    return this.rawActivityDoc('meet', 'meet', employee, org, {
+      name: action.replace(/_/g, '-'),
+      type: faker.helpers.arrayElement(cfg.eventTypes),
+      parameters: [
+        paramBool('is_external', false),
+        param('meeting_code', faker.string.alpha({ length: 10, casing: 'upper' })),
+        param('conference_id', faker.string.alphanumeric(24)),
+        paramInt('target_user_count', faker.number.int({ min: 1, max: 20 })),
+        param('identifier', employee.email),
+        param('identifier_type', faker.helpers.arrayElement(cfg.identifierTypes)),
+      ],
+    });
   }
 
   private keepDoc(employee: Employee, org: Organization): IntegrationDocument {
     const cfg = GOOGLE_WORKSPACE_SERVICES.keep;
     const action = faker.helpers.arrayElement(cfg.events);
     const noteId = faker.string.alphanumeric(12);
-
-    return {
-      '@timestamp': this.getRandomTimestamp(72),
-      event: {
-        action: action.replace(/_/g, '-'),
-        type: ['change'],
-        kind: 'event',
-        dataset: 'google_workspace.keep',
-        provider: 'keep',
-      },
-      google_workspace: {
-        actor: { caller_type: 'USER' },
-        kind: 'admin#reports#activity',
-        keep: {
-          name: action,
-          note_name: `https://keep.googleapis.com/v1/notes/${noteId}`,
-          owner_email: employee.email,
-          type: 'user_action',
-          ...(action.includes('attachment')
-            ? {
-                attachment_name: `https://keep.googleapis.com/v1/notes/${noteId}/attachments/${faker.string.alphanumeric(8)}`,
-              }
-            : {}),
-        },
-      },
-      observer: { product: 'Keep', vendor: 'Google Workspace' },
-      source: { user: { email: employee.email, domain: org.domain, name: employee.userName } },
-      user: { email: employee.email, name: employee.userName, domain: org.domain },
-      related: { user: [employee.email] },
-      data_stream: { namespace: 'default', type: 'logs', dataset: 'google_workspace.keep' },
-      tags: ['forwarded', 'google_workspace-keep'],
-    } as IntegrationDocument;
+    const params: Array<{ name: string; value?: string }> = [
+      param('note_name', `https://keep.googleapis.com/v1/notes/${noteId}`),
+      param('owner_email', employee.email),
+      param('type', 'user_action'),
+    ];
+    if (action.includes('attachment')) {
+      params.push(param('attachment_name', `https://keep.googleapis.com/v1/notes/${noteId}/attachments/${faker.string.alphanumeric(8)}`));
+    }
+    return this.rawActivityDoc('keep', 'keep', employee, org, {
+      name: action.replace(/_/g, '-'),
+      type: 'user_action',
+      parameters: params,
+    });
   }
-
-  // ---------------------------------------------------------------------------
-  // Document generators – analytics / compliance
-  // ---------------------------------------------------------------------------
 
   private dataStudioDoc(employee: Employee, org: Organization): IntegrationDocument {
     const cfg = GOOGLE_WORKSPACE_SERVICES.data_studio;
@@ -830,84 +618,41 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
       'Engineering Velocity',
       'Customer Health',
     ]);
-
-    return this.base('data_studio', 'data_studio', employee, org, {
-      event: {
-        action: action.replace(/_/g, '-'),
-        category: ['configuration'],
-        type: action.includes('delete') ? ['deletion'] : ['access'],
-      },
-      google_workspace: {
-        data_studio: {
-          asset_id: faker.string.alphanumeric(12),
-          asset_name: reportName,
-          asset_type: faker.helpers.arrayElement(cfg.assetTypes),
-          name: action.toUpperCase(),
-          owner_email: employee.email,
-          type: faker.helpers.arrayElement(cfg.eventTypes),
-          visibility: faker.helpers.arrayElement(cfg.visibilities),
-        },
-      },
-      observer: { product: 'Data Studio', vendor: 'Google Workspace' },
+    return this.rawActivityDoc('data_studio', 'data_studio', employee, org, {
+      name: action.replace(/_/g, '-').toUpperCase(),
+      type: faker.helpers.arrayElement(cfg.eventTypes),
+      parameters: [
+        param('asset_id', faker.string.alphanumeric(12)),
+        param('asset_name', reportName),
+        param('asset_type', faker.helpers.arrayElement(cfg.assetTypes)),
+        param('owner_email', employee.email),
+        param('visibility', faker.helpers.arrayElement(cfg.visibilities)),
+      ],
     });
   }
 
   private vaultDoc(employee: Employee, org: Organization): IntegrationDocument {
     const cfg = GOOGLE_WORKSPACE_SERVICES.vault;
     const action = faker.helpers.arrayElement(cfg.events);
-
-    return {
-      '@timestamp': this.getRandomTimestamp(72),
-      event: {
-        action: action.replace(/_/g, '-'),
-        category: ['configuration'],
-        type: ['access'],
-        kind: 'event',
-        dataset: 'google_workspace.vault',
-        provider: 'vault',
-      },
-      google_workspace: {
-        actor: { caller_type: 'USER' },
-        kind: 'admin#reports#activity',
-        vault: {
-          name: action,
-          type: 'user_action',
-          matter_id: faker.string.uuid(),
-          additional_details: {
-            matter_name: faker.helpers.arrayElement([
-              'Legal Review 2025',
-              'HR Investigation',
-              'Compliance Audit',
-              'eDiscovery Case',
-            ]),
-          },
-        },
-      },
-      observer: { product: 'Vault', vendor: 'Google Workspace' },
-      source: { user: { email: employee.email, domain: org.domain, name: employee.userName } },
-      user: { email: employee.email, name: employee.userName, domain: org.domain },
-      related: { user: [employee.email] },
-      data_stream: { namespace: 'default', type: 'logs', dataset: 'google_workspace.vault' },
-      tags: ['forwarded', 'google_workspace-vault'],
-    } as IntegrationDocument;
+    return this.rawActivityDoc('vault', 'vault', employee, org, {
+      name: action.replace(/_/g, '-'),
+      type: 'user_action',
+      parameters: [
+        param('matter_id', faker.string.uuid()),
+        param('matter_name', faker.helpers.arrayElement(['Legal Review 2025', 'HR Investigation', 'Compliance Audit', 'eDiscovery Case'])),
+      ],
+    });
   }
 
   private gcpDoc(employee: Employee, org: Organization): IntegrationDocument {
     const cfg = GOOGLE_WORKSPACE_SERVICES.gcp;
     const action = faker.helpers.arrayElement(cfg.events);
-
-    return this.base('gcp', 'device', employee, org, {
-      event: { action },
-      google_workspace: {
-        event: { name: action, type: faker.helpers.arrayElement(cfg.eventTypes) },
-        gcp: { user_email: employee.email },
-      },
+    return this.rawActivityDoc('gcp', 'device', employee, org, {
+      name: action,
+      type: faker.helpers.arrayElement(cfg.eventTypes),
+      parameters: [param('user_email', employee.email)],
     });
   }
-
-  // ---------------------------------------------------------------------------
-  // Drive helpers
-  // ---------------------------------------------------------------------------
 
   private pickFileType(department: DepartmentName): string {
     const weights = DEPT_DRIVE_WEIGHTS[department];
@@ -933,19 +678,5 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
       folder: '',
     };
     return map[fileType] || 'txt';
-  }
-
-  private mapDriveEventType(action: string): string[] {
-    if (action.includes('create') || action.includes('upload') || action.includes('add'))
-      return ['creation'];
-    if (action.includes('delete') || action.includes('remove')) return ['deletion'];
-    if (
-      action.includes('edit') ||
-      action.includes('rename') ||
-      action.includes('move') ||
-      action.includes('change')
-    )
-      return ['change'];
-    return ['access'];
   }
 }

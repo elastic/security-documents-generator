@@ -169,61 +169,35 @@ export class Auth0Integration extends BaseIntegration {
     const clientId = faker.string.alphanumeric(32);
     const clientName = faker.helpers.arrayElement(AUTH0_CLIENT_NAMES);
     const hostname = `${org.name.toLowerCase().replace(/\s+/g, '-')}.auth0.com`;
+    const logId = faker.string.alphanumeric(24);
+    const eventId = faker.string.alphanumeric(24);
 
-    const logData: Record<string, unknown> = {
+    // Raw Auth0 log format for json.data - pipeline copies this to auth0.logs.data
+    const rawAuth0Data: Record<string, unknown> = {
       date: timestamp,
-      type: eventType.type,
-      type_id: eventType.typeId,
+      type: eventType.typeId,
       description: this.getDescription(eventType.typeId, employee),
-      classification: eventType.classification,
       client_id: clientId,
       client_name: clientName,
-      connection: connection,
+      connection,
       connection_id: `con_${faker.string.alphanumeric(16)}`,
-      hostname: hostname,
+      hostname,
       ip: sourceIp,
       user_id: `auth0|${faker.string.hexadecimal({ length: 24, prefix: '' })}`,
       user_name: employee.email,
       user_agent: faker.internet.userAgent(),
       details: this.getDetails(eventType.typeId),
+      log_id: logId,
+      strategy: 'auth0',
+      strategy_type: 'database',
+      _id: eventId,
+      isMobile: false,
     };
 
     return {
       '@timestamp': timestamp,
-      event: {
-        action: eventType.eventAction,
-        category: eventType.eventCategory,
-        kind: 'event',
-        outcome: eventType.eventOutcome,
-        dataset: 'auth0.logs',
-      },
-      auth0: {
-        logs: {
-          log_id: faker.string.alphanumeric(24),
-          data: logData,
-        },
-      },
-      user: {
-        name: employee.userName,
-        email: employee.email,
-        id: logData.user_id as string,
-      },
-      source: {
-        ip: sourceIp,
-        geo: {
-          city_name: faker.location.city(),
-          country_iso_code: faker.location.countryCode(),
-        },
-      },
-      user_agent: {
-        original: logData.user_agent as string,
-      },
-      related: {
-        ip: [sourceIp],
-        user: [employee.email, employee.userName],
-      },
+      json: { data: rawAuth0Data },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'auth0.logs' },
-      tags: ['forwarded', 'auth0-logs', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 

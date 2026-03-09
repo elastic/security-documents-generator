@@ -2,11 +2,18 @@
  * LastPass Integration
  * Generates user, event report, and shared folder documents
  * Based on the Elastic lastpass integration package
+ * Produces raw LastPass API JSON in message for ingest pipeline processing
  */
 
 import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
 import { Organization, Employee, CorrelationMap } from '../types';
 import { faker } from '@faker-js/faker';
+
+/** Stable LastPass user ID from employee (numeric string for API) */
+function getStableLastPassUserId(employee: Employee): string {
+  const hash = employee.id.replace(/-/g, '').slice(0, 6);
+  return String(parseInt(hash, 16) % 90000 + 10000);
+}
 
 const EVENT_ACTIONS: Array<{
   action: string;
@@ -176,50 +183,46 @@ export class LastPassIntegration extends BaseIntegration {
 
   private createUserDocument(employee: Employee): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(24);
-    const userId = String(faker.number.int({ min: 100, max: 99999 }));
+    const userId = getStableLastPassUserId(employee);
     const groups = faker.helpers.arrayElements(USER_GROUPS, { min: 1, max: 3 });
     groups.push(employee.department);
+    const created = this.getRandomTimestamp(2160);
+    const lastLogin = this.getRandomTimestamp(48);
+    const lastPwChange = this.getRandomTimestamp(720);
+
+    const rawUser: Record<string, unknown> = {
+      admin: false,
+      applications: faker.number.int({ min: 0, max: 10 }),
+      attachments: faker.number.int({ min: 0, max: 20 }),
+      created: this.formatLastPassDateTime(created),
+      disabled: false,
+      formfills: faker.number.int({ min: 0, max: 15 }),
+      fullname: `${employee.firstName} ${employee.lastName}`,
+      groups,
+      id: userId,
+      last_login: this.formatLastPassDateTime(lastLogin),
+      last_pw_change: this.formatLastPassDateTime(lastPwChange),
+      linked: null,
+      mpstrength: String(faker.number.int({ min: 40, max: 100 })),
+      neverloggedin: false,
+      notes: faker.number.int({ min: 0, max: 50 }),
+      password_reset_required: false,
+      sites: faker.number.int({ min: 5, max: 200 }),
+      username: employee.email,
+    };
 
     return {
       '@timestamp': timestamp,
-      lastpass: {
-        user: {
-          application: faker.number.int({ min: 0, max: 10 }),
-          attachment: faker.number.int({ min: 0, max: 20 }),
-          created: this.getRandomTimestamp(2160),
-          disabled: false,
-          form_fill: faker.number.int({ min: 0, max: 15 }),
-          full_name: `${employee.firstName} ${employee.lastName}`,
-          group: groups,
-          id: userId,
-          last_login: this.getRandomTimestamp(48),
-          last_password_change: this.getRandomTimestamp(720),
-          master_password_strength: faker.number.int({ min: 40, max: 100 }),
-          never_logged_in: false,
-          note: faker.number.int({ min: 0, max: 50 }),
-          password_reset_required: false,
-          sites: faker.number.int({ min: 5, max: 200 }),
-          user_name: employee.email,
-        },
-      },
-      event: {
-        category: ['iam'],
-        dataset: 'lastpass.user',
-        kind: 'state',
-        type: ['user'],
-      },
-      related: {
-        user: [employee.email, `${employee.firstName} ${employee.lastName}`],
-      },
-      user: {
-        email: employee.email,
-        full_name: `${employee.firstName} ${employee.lastName}`,
-        group: { name: groups },
-        id: userId,
-      },
+      message: JSON.stringify(rawUser),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'lastpass.user' },
-      tags: ['forwarded', 'lastpass-user'],
     } as IntegrationDocument;
+  }
+
+  /** Format ISO timestamp to LastPass API format (yyyy-MM-dd HH:mm:ss) */
+  private formatLastPassDateTime(iso: string): string {
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
 
   private createEventReportDocument(employee: Employee): IntegrationDocument {
@@ -228,76 +231,66 @@ export class LastPassIntegration extends BaseIntegration {
     );
     const timestamp = this.getRandomTimestamp(72);
     const sourceIp = faker.internet.ipv4();
+    const eventId = `Event${faker.string.alphanumeric(6)}`;
+
+    const rawEvent = {
+      Action: eventDef.action,
+      Data: '',
+      IP_Address: sourceIp,
+      Time: this.formatLastPassDateTime(timestamp),
+      Username: employee.email,
+      id: eventId,
+    };
 
     return {
       '@timestamp': timestamp,
-      lastpass: {
-        event_report: {
-          action: eventDef.action,
-          ip: sourceIp,
-          time: timestamp,
-          user_name: employee.email,
-        },
-      },
-      event: {
-        action: eventDef.action.toLowerCase(),
-        category: eventDef.category,
+      message: JSON.stringify(rawEvent),
+      data_stream: {
+        namespace: 'default',
+        type: 'logs',
         dataset: 'lastpass.event_report',
-        kind: 'event',
-        outcome: eventDef.outcome,
-        type: ['info'],
       },
-      source: { ip: sourceIp },
-      related: {
-        ip: [sourceIp],
-        user: [employee.email],
-      },
-      user: {
-        email: [employee.email],
-      },
-      data_stream: { namespace: 'default', type: 'logs', dataset: 'lastpass.event_report' },
-      tags: ['forwarded', 'lastpass-event_report'],
     } as IntegrationDocument;
   }
 
   private createSharedFolderDocuments(org: Organization): IntegrationDocument[] {
-    return SHARED_FOLDER_NAMES.map((name) => {
+    const docs: IntegrationDocument[] = [];
+    for (const name of SHARED_FOLDER_NAMES) {
       const timestamp = this.getRandomTimestamp(168);
       const folderId = String(faker.number.int({ min: 10000, max: 99999 }));
       const members = faker.helpers.arrayElements(org.employees, { min: 2, max: 5 });
+      const score = faker.number.int({ min: 50, max: 100 });
 
-      const users = members.map((m) => ({
-        can_administer: faker.datatype.boolean(0.2),
-        give: faker.datatype.boolean(0.5),
-        name: m.email,
-        read_only: faker.datatype.boolean(0.3),
-        sites: faker.number.int({ min: 1, max: 20 }),
-        super_admin: false,
-      }));
-
-      return {
-        '@timestamp': timestamp,
-        lastpass: {
-          detailed_shared_folder: {
-            deleted: false,
-            name,
-            score: faker.number.int({ min: 50, max: 100 }),
-            shared_folder: { id: folderId },
-            user: users,
+      for (const member of members) {
+        const rawFolder = {
+          id: folderId,
+          score,
+          sharedfoldername: name,
+          deleted: false,
+          users: {
+            username: member.email,
+            superadmin: false,
+            readonly: faker.datatype.boolean(0.3),
+            give: faker.datatype.boolean(0.5),
+            can_administer: faker.datatype.boolean(0.2),
+            sites: Array.from(
+              { length: faker.number.int({ min: 1, max: 5 }) },
+              () => faker.internet.domainName()
+            ),
           },
-        },
-        event: {
-          dataset: 'lastpass.detailed_shared_folder',
-          kind: 'state',
-          type: ['info'],
-        },
-        data_stream: {
-          namespace: 'default',
-          type: 'logs',
-          dataset: 'lastpass.detailed_shared_folder',
-        },
-        tags: ['forwarded', 'lastpass-detailed_shared_folder'],
-      } as IntegrationDocument;
-    });
+        };
+
+        docs.push({
+          '@timestamp': timestamp,
+          message: JSON.stringify(rawFolder),
+          data_stream: {
+            namespace: 'default',
+            type: 'logs',
+            dataset: 'lastpass.detailed_shared_folder',
+          },
+        } as IntegrationDocument);
+      }
+    }
+    return docs;
   }
 }

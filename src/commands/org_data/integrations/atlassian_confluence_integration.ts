@@ -153,6 +153,15 @@ const AUDIT_ACTIONS: Array<{
   },
 ];
 
+const CONFLUENCE_GROUPS = [
+  'confluence-users',
+  'confluence-administrators',
+  'site-admins',
+  'developers',
+  'product-team',
+  'security-team',
+];
+
 const SPACE_NAMES = [
   'Engineering',
   'Product',
@@ -220,7 +229,13 @@ export class AtlassianConfluenceIntegration extends BaseIntegration {
     const spaceKey = SPACE_KEYS[spaceIdx];
     const pageTitle = faker.helpers.arrayElement(PAGE_TITLES);
 
-    const affectedObjects = this.buildAffectedObjects(action.value, spaceName, spaceKey, pageTitle);
+    const affectedObjects = this.buildAffectedObjects(
+      action.value,
+      spaceName,
+      spaceKey,
+      pageTitle,
+      employee
+    );
     const extraAttributes = this.buildExtraAttributes(action.value);
 
     const rawEvent: Record<string, unknown> = {
@@ -237,6 +252,7 @@ export class AtlassianConfluenceIntegration extends BaseIntegration {
         id: faker.string.hexadecimal({ length: 32, prefix: '' }),
         name: employee.userName,
         type: 'user',
+        uri: `/admin/users/viewuser.action?username=${employee.userName}`,
       },
       changedValues: [],
       extraAttributes,
@@ -249,42 +265,7 @@ export class AtlassianConfluenceIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
-      event: {
-        action: action.actionI18nKey,
-        category: action.eventCategory,
-        kind: 'event',
-        type: action.eventType,
-        dataset: 'atlassian_confluence.audit',
-      },
-      confluence: {
-        audit: {
-          type: {
-            action: action.value,
-            actionI18nKey: action.actionI18nKey,
-            area: action.area,
-            category: action.category,
-            categoryI18nKey: action.categoryI18nKey,
-            level: action.level,
-          },
-          method: 'Browser',
-          affected_objects: affectedObjects,
-          extra_attributes: extraAttributes,
-          changed_values: [],
-        },
-      },
-      user: {
-        full_name: employee.userName,
-        id: String(rawEvent.author && (rawEvent.author as Record<string, unknown>).id),
-      },
-      source: { ip: sourceIp, address: sourceIp },
-      related: {
-        hosts: [`confluence.${org.domain}`],
-        ip: [sourceIp],
-        user: [employee.userName],
-      },
-      service: { address: `http://confluence.${org.domain}:8090` },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'atlassian_confluence.audit' },
-      tags: ['forwarded', 'confluence-audit', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 
@@ -292,7 +273,8 @@ export class AtlassianConfluenceIntegration extends BaseIntegration {
     action: string,
     spaceName: string,
     spaceKey: string,
-    pageTitle: string
+    pageTitle: string,
+    employee: Employee
   ): Array<Record<string, string>> {
     if (
       action.includes('Page') ||
@@ -310,6 +292,19 @@ export class AtlassianConfluenceIntegration extends BaseIntegration {
     }
     if (action.includes('permission')) {
       return [{ id: faker.string.numeric(4), name: `${spaceName} (${spaceKey})`, type: 'SPACE' }];
+    }
+    if (action.includes('User') && action.includes('group')) {
+      const groupName = faker.helpers.arrayElement(CONFLUENCE_GROUPS);
+      const authorId = faker.string.hexadecimal({ length: 32, prefix: '' });
+      return [
+        { id: faker.string.numeric(5), name: groupName, type: 'Group' },
+        {
+          id: authorId,
+          name: employee.userName,
+          type: 'User',
+          uri: `/admin/users/viewuser.action?username=${employee.userName}`,
+        },
+      ];
     }
     return [];
   }

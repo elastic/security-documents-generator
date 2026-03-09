@@ -284,42 +284,7 @@ export class AtlassianBitbucketIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
-      event: {
-        action: action.actionI18nKey,
-        category: action.eventCategory,
-        kind: 'event',
-        type: action.eventType,
-        dataset: 'atlassian_bitbucket.audit',
-      },
-      bitbucket: {
-        audit: {
-          type: {
-            action: action.value,
-            actionI18nKey: action.actionI18nKey,
-            area: action.area,
-            category: action.category,
-            categoryI18nKey: action.categoryI18nKey,
-            level: action.level,
-          },
-          method: rawEvent.method,
-          affected_objects: affectedObjects,
-          extra_attributes: rawEvent.extraAttributes,
-          changed_values: [],
-        },
-      },
-      user: {
-        id: String(rawEvent.author && (rawEvent.author as Record<string, unknown>).id),
-        name: employee.userName,
-      },
-      source: { ip: sourceIp, address: sourceIp },
-      related: {
-        hosts: [`bitbucket.${org.domain}`],
-        ip: [sourceIp],
-        user: [employee.userName],
-      },
-      service: { address: `http://bitbucket.${org.domain}:7990` },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'atlassian_bitbucket.audit' },
-      tags: ['forwarded', 'bitbucket-audit', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 

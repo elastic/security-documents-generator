@@ -140,7 +140,6 @@ export class TeleportIntegration extends BaseIntegration {
     );
     const timestamp = this.getRandomTimestamp(72);
     const isFailure = eventDef.code.endsWith('W');
-    const outcome = isFailure ? 'failure' : 'success';
     const serverHostname = faker.helpers.arrayElement(SERVER_HOSTNAMES);
     const sessionId = faker.string.uuid();
 
@@ -174,49 +173,11 @@ export class TeleportIntegration extends BaseIntegration {
       rawEvent.action = faker.helpers.arrayElement(['upload', 'download']);
     }
 
-    const teleportAudit: Record<string, unknown> = {};
-    if (eventDef.event === 'user.login') {
-      teleportAudit.login = { method: rawEvent.method as string };
-    }
-    if (eventDef.event === 'session.start' || eventDef.event === 'session.end') {
-      teleportAudit.session = {
-        id: sessionId,
-        server_hostname: serverHostname,
-      };
-    }
-    if (eventDef.event === 'exec' || eventDef.event === 'session.command') {
-      teleportAudit.server = { hostname: serverHostname };
-    }
-    if (eventDef.event === 'session.network') {
-      teleportAudit.network = {
-        dest_addr: faker.internet.ipv4(),
-        dest_port: faker.helpers.arrayElement([80, 443, 5432, 3306, 6379, 27017]),
-      };
-    }
-
-    const userDomain = employee.email.split('@')[1];
-
+    // Raw pre-pipeline format: pipeline parses message JSON -> teleport.audit
+    // user must be string (pipeline expects it in raw JSON)
     return {
       '@timestamp': timestamp,
-      event: {
-        action: eventDef.event,
-        category: eventDef.category,
-        type: eventDef.type,
-        code: eventDef.code,
-        kind: 'event',
-        outcome: [outcome],
-        id: rawEvent.uid as string,
-        dataset: 'teleport.audit',
-      },
-      teleport: { audit: teleportAudit },
-      user: {
-        name: employee.userName,
-        email: employee.email,
-        domain: userDomain,
-      },
-      related: { user: [employee.userName, employee.email] },
       message: JSON.stringify(rawEvent),
-      tags: ['preserve_original_event', 'forwarded', 'teleport-audit'],
       data_stream: { namespace: 'default', type: 'logs', dataset: 'teleport.audit' },
     } as IntegrationDocument;
   }

@@ -227,7 +227,6 @@ export class PingOneIntegration extends BaseIntegration {
         type: 'logs',
         dataset: 'ping_one.audit',
       },
-      tags: ['forwarded', 'ping_one-audit', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 }

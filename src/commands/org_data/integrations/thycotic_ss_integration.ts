@@ -163,53 +163,15 @@ export class ThycoticSsIntegration extends BaseIntegration {
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(' ');
 
+    // Raw pre-pipeline format: pipeline parses from message (Thycotic native format)
     const message =
       eventDef.provider === 'system'
         ? `[[SecretServer]] Event: [System] Action: [${actionLabel}] By User: ${userDomain}\\${employee.userName}`
         : `[[SecretServer]] Event: [Secret] Action: [${actionLabel}] By User: ${userDomain}\\${employee.userName} Item name: ${secretName} (Item Id: ${secretId}) Container name: ${fullName} (Container Id: ${containerId})`;
 
-    const thycoticEvent: Record<string, unknown> = {};
-    if (eventDef.provider === 'secret') {
-      thycoticEvent.secret = {
-        folder: folderName,
-        id: secretId,
-        name: secretName,
-      };
-    }
-
     return {
       '@timestamp': timestamp,
-      event: {
-        action: eventDef.action,
-        category: eventDef.category,
-        type: eventDef.type,
-        code: eventDef.code,
-        kind: 'event',
-        outcome,
-        provider: eventDef.provider,
-        dataset: 'thycotic_ss.logs',
-      },
       message,
-      host: { name: serverHostname, ip: [serverIp] },
-      observer: {
-        hostname: serverHostname,
-        ip: [serverIp],
-        product: 'Secret Server',
-        vendor: 'Thycotic Software',
-        version: '11.7.000061',
-      },
-      source: { ip: sourceIp },
-      user: {
-        domain: userDomain,
-        full_name: fullName,
-        id: userId,
-      },
-      thycotic_ss: { event: thycoticEvent },
-      related: {
-        hosts: [serverHostname],
-        ip: [serverIp, sourceIp],
-      },
-      tags: ['forwarded'],
       data_stream: { namespace: 'default', type: 'logs', dataset: 'thycotic_ss.logs' },
     } as IntegrationDocument;
   }

@@ -392,60 +392,48 @@ export class AzureIntegration extends BaseIntegration {
     ]);
     const correlationId = faker.string.uuid();
     const resourceName = faker.string.alphanumeric(12).toUpperCase();
+    const callerIp = faker.internet.ipv4();
+    const resourceId = `/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/${resourceDef.provider}/${resourceName}`;
+
+    const rawAzureJson = {
+      time: timestamp,
+      callerIpAddress: callerIp,
+      operationName: operation.name,
+      resultType: isSuccess ? 'Success' : 'Failure',
+      resultSignature: isSuccess ? 'Succeeded.' : 'Failed.',
+      identity: {
+        authorization: {
+          action: operation.name.toLowerCase(),
+          evidence: {
+            principalId: employee.entraIdUserId.replace(/-/g, ''),
+            principalType: 'User',
+            role: faker.helpers.arrayElement(['Owner', 'Contributor', 'Reader']),
+            roleAssignmentId: faker.string.hexadecimal({ length: 32, prefix: '' }),
+            roleAssignmentScope: `/subscriptions/${subscriptionId}`,
+            roleDefinitionId: faker.string.hexadecimal({ length: 32, prefix: '' }),
+          },
+          scope: resourceId,
+        },
+        claims: {
+          'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name': employee.email,
+          'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname': employee.firstName,
+          'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname': employee.lastName,
+          'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn': employee.email,
+          'http://schemas.microsoft.com/identity/claims/objectidentifier': employee.entraIdUserId,
+          'http://schemas.microsoft.com/identity/claims/tenantid': tenantId,
+          ipaddr: callerIp,
+        },
+      },
+      resourceId,
+      category: 'Administrative',
+      level: 'Information',
+      correlationId,
+    };
 
     return {
       '@timestamp': timestamp,
-      azure: {
-        activitylogs: {
-          category: 'Administrative',
-          event_category: 'Administrative',
-          identity: {
-            authorization: {
-              action: operation.name.toLowerCase(),
-              evidence: {
-                principal_id: employee.entraIdUserId.replace(/-/g, ''),
-                principal_type: 'User',
-                role: faker.helpers.arrayElement(['Owner', 'Contributor', 'Reader']),
-                role_assignment_id: faker.string.hexadecimal({ length: 32, prefix: '' }),
-                role_assignment_scope: `/subscriptions/${subscriptionId}`,
-                role_definition_id: faker.string.hexadecimal({ length: 32, prefix: '' }),
-              },
-              scope: `/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/${resourceDef.provider}/${resourceName}`,
-            },
-            claims: {
-              'http://schemas_xmlsoap_org/ws/2005/05/identity/claims/name': employee.email,
-              'http://schemas_xmlsoap_org/ws/2005/05/identity/claims/givenname': employee.firstName,
-              'http://schemas_xmlsoap_org/ws/2005/05/identity/claims/surname': employee.lastName,
-              'http://schemas_xmlsoap_org/ws/2005/05/identity/claims/upn': employee.email,
-              'http://schemas_microsoft_com/identity/claims/objectidentifier':
-                employee.entraIdUserId,
-              'http://schemas_microsoft_com/identity/claims/tenantid': tenantId,
-              ipaddr: faker.internet.ipv4(),
-            },
-          },
-          operation_name: operation.name,
-          result_signature: isSuccess ? 'Succeeded.' : 'Failed.',
-          result_type: isSuccess ? 'Success' : 'Failure',
-        },
-        correlation_id: correlationId,
-        resource: {
-          group: resourceGroup,
-          id: `/SUBSCRIPTIONS/${subscriptionId}/RESOURCEGROUPS/${resourceGroup}/PROVIDERS/${resourceDef.provider}/${resourceName}`,
-          name: resourceName,
-          provider: resourceDef.provider,
-        },
-        subscription_id: subscriptionId,
-      },
-      cloud: { provider: 'azure' },
+      message: JSON.stringify(rawAzureJson),
       data_stream: { dataset: 'azure.activitylogs', namespace: 'default', type: 'logs' },
-      event: {
-        action: operation.name,
-        dataset: 'azure.activitylogs',
-        kind: 'event',
-        outcome: isSuccess ? 'success' : 'failure',
-      },
-      log: { level: 'Information' },
-      tags: ['forwarded', 'azure-activitylogs'],
     } as IntegrationDocument;
   }
 
@@ -481,54 +469,53 @@ export class AzureIntegration extends BaseIntegration {
 
     const isAppInitiated = faker.datatype.boolean();
 
-    const doc: Record<string, unknown> = {
-      '@timestamp': timestamp,
-      'azure.auditlogs.category': 'AuditLogs',
-      'azure.auditlogs.identity': isAppInitiated
-        ? 'Device Registration Service'
-        : `${employee.firstName} ${employee.lastName}`,
-      'azure.auditlogs.operation_name': activity.displayName,
-      'azure.auditlogs.operation_version': '1.0',
-      'azure.auditlogs.properties.activity_datetime': timestamp,
-      'azure.auditlogs.properties.activity_display_name': activity.displayName,
-      'azure.auditlogs.properties.category': activity.category,
-      'azure.auditlogs.properties.correlation_id': correlationId,
-      'azure.auditlogs.properties.id': `Directory_${faker.string.alphanumeric(3).toUpperCase()}`,
-      'azure.auditlogs.properties.logged_by_service': activity.loggedByService,
-      'azure.auditlogs.properties.operation_type': activity.operationType,
-      'azure.auditlogs.properties.result_reason': '',
-      'azure.auditlogs.properties.target_resources.0.display_name': targetDisplayName,
-      'azure.auditlogs.properties.target_resources.0.id': targetId,
-      'azure.auditlogs.properties.target_resources.0.type': activity.targetType,
-      'azure.auditlogs.result_signature': 'None',
-      'azure.correlation_id': correlationId,
-      'azure.resource.id': `/tenants/${tenantId}/providers/Microsoft.aadiam`,
-      'azure.resource.provider': 'Microsoft.aadiam',
-      'azure.tenant_id': tenantId,
-      cloud: { provider: 'azure' },
-      data_stream: { dataset: 'azure.auditlogs', namespace: 'default', type: 'logs' },
-      event: {
-        action: activity.displayName,
-        dataset: 'azure.auditlogs',
-        kind: 'event',
-        outcome: 'success',
+    const rawAzureJson = {
+      time: timestamp,
+      category: 'AuditLogs',
+      operationName: activity.displayName,
+      operationVersion: '1.0',
+      resultSignature: 'None',
+      resourceId: `/tenants/${tenantId}/providers/Microsoft.aadiam`,
+      correlationId,
+      tenantId,
+      properties: {
+        activityDateTime: timestamp,
+        activityDisplayName: activity.displayName,
+        category: activity.category,
+        correlationId,
+        id: `Directory_${faker.string.alphanumeric(3).toUpperCase()}`,
+        loggedByService: activity.loggedByService,
+        operationType: activity.operationType,
+        resultReason: '',
+        targetResources: [
+          {
+            displayName: targetDisplayName,
+            id: targetId,
+            type: activity.targetType,
+          },
+        ],
+        initiatedBy: isAppInitiated
+          ? {
+              app: {
+                displayName: 'Device Registration Service',
+                servicePrincipalId: faker.string.uuid(),
+              },
+            }
+          : {
+              user: {
+                displayName: `${employee.firstName} ${employee.lastName}`,
+                userPrincipalName: employee.email,
+                id: employee.entraIdUserId,
+              },
+            },
       },
-      log: { level: 'Information' },
-      tags: ['forwarded', 'azure-auditlogs'],
     };
 
-    if (isAppInitiated) {
-      doc['azure.auditlogs.properties.initiated_by.app.displayName'] =
-        'Device Registration Service';
-      doc['azure.auditlogs.properties.initiated_by.app.servicePrincipalId'] = faker.string.uuid();
-    } else {
-      doc['azure.auditlogs.properties.initiated_by.user.displayName'] =
-        `${employee.firstName} ${employee.lastName}`;
-      doc['azure.auditlogs.properties.initiated_by.user.userPrincipalName'] = employee.email;
-      doc['azure.auditlogs.properties.initiated_by.user.id'] = employee.entraIdUserId;
-    }
-
-    return doc as IntegrationDocument;
+    return {
+      '@timestamp': timestamp,
+      message: JSON.stringify(rawAzureJson),
+      data_stream: { dataset: 'azure.auditlogs', namespace: 'default', type: 'logs' },
+    } as IntegrationDocument;
   }
 
   private generateSignInLogs(employees: Employee[], tenantId: string): IntegrationDocument[] {
@@ -590,79 +577,55 @@ export class AzureIntegration extends BaseIntegration {
 
     const displayName = `${employee.firstName} ${employee.lastName}`;
 
+    const rawAzureJson = {
+      Level: '4',
+      time: timestamp,
+      callerIpAddress: clientIp,
+      category: 'SignInLogs',
+      correlationId,
+      durationMs: 0,
+      identity: displayName,
+      location: employee.countryCode,
+      operationName: 'Sign-in activity',
+      operationVersion: '1.0',
+      resourceId: `/tenants/${tenantId}/providers/Microsoft.aadiam`,
+      resultDescription: isSuccess ? '' : 'Invalid username or password.',
+      resultSignature: 'None',
+      resultType: String(errorCode),
+      tenantId,
+      properties: {
+        appDisplayName: app.name,
+        appId: app.id,
+        clientAppUsed: clientApp,
+        conditionalAccessStatus: faker.helpers.arrayElement([
+          'notApplied',
+          'success',
+          'failure',
+        ]),
+        correlationId,
+        createdDateTime: timestamp,
+        deviceDetail: { browser, deviceId: '', operatingSystem: os },
+        id: correlationId,
+        ipAddress: clientIp,
+        isInteractive: isInteractive,
+        originalRequestId: correlationId,
+        processingTimeInMilliseconds: faker.number.int({ min: 50, max: 500 }),
+        riskDetail: riskLevel === 'none' ? 'none' : 'aiConfirmedSigninSafe',
+        riskLevelAggregated: riskLevel,
+        riskLevelDuringSignIn: riskLevel,
+        riskState: riskLevel === 'none' ? 'none' : 'atRisk',
+        status: { errorCode },
+        tokenIssuerType: 'AzureAD',
+        userDisplayName: displayName,
+        userId: employee.entraIdUserId,
+        userPrincipalName: employee.email,
+      },
+    };
+
     return {
       '@timestamp': timestamp,
-      azure: {
-        correlation_id: correlationId,
-        resource: {
-          id: `/tenants/${tenantId}/providers/Microsoft.aadiam`,
-          provider: 'Microsoft.aadiam',
-        },
-        signinlogs: {
-          caller_ip_address: clientIp,
-          category: 'SignInLogs',
-          identity: displayName,
-          operation_name: 'Sign-in activity',
-          operation_version: '1.0',
-          properties: {
-            app_display_name: app.name,
-            app_id: app.id,
-            client_app_used: clientApp,
-            conditional_access_status: faker.helpers.arrayElement([
-              'notApplied',
-              'success',
-              'failure',
-            ]),
-            correlation_id: correlationId,
-            created_at: timestamp,
-            device_detail: { browser, operating_system: os },
-            id: correlationId,
-            is_interactive: isInteractive,
-            original_request_id: correlationId,
-            processing_time_ms: faker.number.int({ min: 50, max: 500 }),
-            risk_detail: riskLevel === 'none' ? 'none' : 'aiConfirmedSigninSafe',
-            risk_level_aggregated: riskLevel,
-            risk_level_during_signin: riskLevel,
-            risk_state: riskLevel === 'none' ? 'none' : 'atRisk',
-            status: { error_code: errorCode },
-            token_issuer_type: 'AzureAD',
-            user_display_name: displayName,
-            user_id: employee.entraIdUserId,
-            user_principal_name: employee.email,
-          },
-          result_description: isSuccess ? '' : 'Invalid username or password.',
-          result_signature: 'None',
-          result_type: String(errorCode),
-        },
-        tenant_id: tenantId,
-      },
-      client: { ip: clientIp },
-      cloud: { provider: 'azure' },
-      event: {
-        action: 'Sign-in activity',
-        category: ['authentication'],
-        kind: 'event',
-        outcome: isSuccess ? 'success' : 'failure',
-        type: ['info'],
-      },
-      geo: {
-        city_name: employee.city,
-        country_iso_code: employee.countryCode,
-      },
-      log: { level: '4' },
-      related: {
-        ip: [clientIp],
-        user: [employee.entraIdUserId, employee.email, displayName],
-      },
-      source: { address: clientIp, ip: clientIp },
-      user: {
-        email: employee.email,
-        full_name: displayName,
-        id: employee.entraIdUserId,
-        name: employee.email,
-      },
+      message: JSON.stringify(rawAzureJson),
       data_stream: { dataset: 'azure.signinlogs', namespace: 'default', type: 'logs' },
-      tags: ['forwarded', 'azure-signinlogs', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 
@@ -694,80 +657,65 @@ export class AzureIntegration extends BaseIntegration {
     const sourceIp = faker.internet.ipv4();
     const displayName = `${employee.firstName} ${employee.lastName}`;
 
+    const rawAzureJson = {
+      time: timestamp,
+      resourceId: `/tenants/${tenantId}/providers/microsoft.aadiam`,
+      operationName: 'User Risk Detection',
+      operationVersion: '1.0',
+      category: 'UserRiskEvents',
+      tenantId,
+      resultSignature: 'None',
+      durationMs: 0,
+      callerIpAddress: sourceIp,
+      correlationId,
+      identity: displayName.toLowerCase(),
+      Level: 4,
+      location: employee.countryCode?.toLowerCase() ?? 'us',
+      properties: {
+        id: detectionId,
+        requestId: faker.string.uuid(),
+        correlationId: faker.string.uuid(),
+        riskType: riskEventType,
+        riskEventType: riskEventType,
+        riskState: 'atRisk',
+        riskLevel: riskLevel,
+        riskDetail: 'none',
+        source: 'IdentityProtection',
+        detectionTimingType: faker.helpers.arrayElement(['realtime', 'offline']),
+        activity: 'signin',
+        ipAddress: sourceIp,
+        location: {
+          city: faker.location.city(),
+          state: faker.location.state(),
+          countryOrRegion: employee.countryCode ?? 'US',
+          geoCoordinates: {
+            altitude: 0,
+            latitude: faker.location.latitude(),
+            longitude: faker.location.longitude(),
+          },
+        },
+        activityDateTime: timestamp,
+        detectedDateTime: timestamp,
+        lastUpdatedDateTime: timestamp,
+        userId: employee.entraIdUserId,
+        userDisplayName: displayName,
+        userPrincipalName: employee.email,
+        additionalInfo: JSON.stringify([
+          { Key: 'userAgent', Value: faker.internet.userAgent() },
+        ]),
+        tokenIssuerType: 'AzureAD',
+        userType: 'member',
+      },
+    };
+
     return {
       '@timestamp': timestamp,
-      azure: {
-        correlation_id: correlationId,
-        identityprotection: {
-          category: 'UserRiskEvents',
-          operation_name: 'User Risk Detection',
-          operation_version: '1.0',
-          properties: {
-            activity: 'signin',
-            activity_datetime: timestamp,
-            additional_info: [
-              {
-                Key: 'userAgent',
-                Value: faker.internet.userAgent(),
-              },
-            ],
-            correlation_id: faker.string.uuid(),
-            detected_datetime: timestamp,
-            detection_timing_type: faker.helpers.arrayElement(['realtime', 'offline']),
-            id: detectionId,
-            ip_address: sourceIp,
-            last_updated_datetime: timestamp,
-            location: {
-              city: faker.location.city(),
-              countryOrRegion: faker.location.countryCode(),
-              geoCoordinates: {
-                latitude: faker.location.latitude(),
-                longitude: faker.location.longitude(),
-              },
-              state: faker.location.state(),
-            },
-            request_id: faker.string.uuid(),
-            risk_detail: 'none',
-            risk_event_type: riskEventType,
-            risk_level: riskLevel,
-            risk_state: 'atRisk',
-            risk_type: riskEventType,
-            source: 'IdentityProtection',
-            token_issuer_type: 'AzureAD',
-            user_display_name: displayName,
-            user_id: employee.entraIdUserId,
-            user_principal_name: employee.email,
-            user_type: 'member',
-          },
-          result_signature: 'None',
-        },
-        resource: {
-          id: `/tenants/${tenantId}/providers/microsoft.aadiam`,
-          provider: 'microsoft.aadiam',
-        },
-        tenant_id: tenantId,
-      },
-      cloud: { provider: 'azure' },
-      event: {
-        action: 'User Risk Detection',
-        kind: 'event',
-      },
-      source: { ip: sourceIp },
-      related: {
-        user: [employee.entraIdUserId, employee.email, displayName],
-      },
-      user: {
-        email: employee.email,
-        full_name: displayName,
-        id: employee.entraIdUserId,
-        name: employee.email,
-      },
+      message: JSON.stringify(rawAzureJson),
       data_stream: {
         dataset: 'azure.identity_protection',
         namespace: 'default',
         type: 'logs',
       },
-      tags: ['forwarded', 'azure-identity-protection'],
     } as IntegrationDocument;
   }
 
@@ -808,95 +756,85 @@ export class AzureIntegration extends BaseIntegration {
     const correlationId = faker.string.uuid();
     const durationMs = faker.number.int({ min: 200, max: 5000 });
 
+    const rawAzureJson = {
+      time: timestamp,
+      resourceId: `/tenants/${tenantId}/providers/Microsoft.aadiam`,
+      operationName: 'Provisioning activity',
+      operationVersion: '1.0',
+      category: 'ProvisioningLogs',
+      tenantId,
+      resultSignature: 'None',
+      durationMs,
+      identity: faker.string.uuid(),
+      Level: 4,
+      properties: {
+        action,
+        activityDateTime: timestamp,
+        changeId: correlationId,
+        cycleId: faker.string.uuid(),
+        durationInMilliseconds: durationMs,
+        id: faker.string.uuid(),
+        initiatedBy: {
+          Id: '',
+          Name: 'Azure AD Provisioning Service',
+          Type: 'system',
+        },
+        jobId: `${targetApp.name.replace(/\s+/g, '')}SCIMOutDelta.${tenantId.replace(/-/g, '')}.${faker.string.uuid()}`,
+        provisioningAction: action.toLowerCase(),
+        provisioningStatusInfo: { Status: status },
+        provisioningSteps: [
+          {
+            description: `Received User '${employee.email}' change of type (${action}) from Azure Active Directory`,
+            name: `EntryImport${action}`,
+            provisioningStepType: 0,
+            status: 0,
+          },
+          {
+            description: 'Determine if User in scope by evaluating against each scoping filter',
+            name: 'EntrySynchronizationScoping',
+            provisioningStepType: 1,
+            status: 0,
+          },
+        ],
+        servicePrincipal: { Id: targetApp.id, Name: targetApp.name },
+        sourceIdentity: {
+          details: {
+            DisplayName: `${employee.firstName} ${employee.lastName}`,
+            UserPrincipalName: employee.email,
+            odatatype: 'User',
+          },
+          Id: employee.entraIdUserId,
+          identityType: 'User',
+          Name: employee.firstName,
+        },
+        sourceSystem: {
+          details: {},
+          Id: faker.string.uuid(),
+          Name: 'Azure Active Directory',
+        },
+        targetIdentity: {
+          details: {},
+          Id: status === 'success' ? faker.string.uuid() : '',
+          identityType: 'urn:ietf:params:scim:schemas:core:2.0:User',
+          Name: status === 'success' ? employee.email : '',
+        },
+        targetSystem: {
+          details: {
+            ApplicationId: faker.string.uuid(),
+            ServicePrincipalId: targetApp.id,
+          },
+          Id: faker.string.uuid(),
+          Name: targetApp.name,
+        },
+        tenantId,
+      },
+      resultType: status === 'success' ? 'Success' : status === 'skipped' ? 'Skipped' : 'Failure',
+    };
+
     return {
       '@timestamp': timestamp,
-      azure: {
-        correlation_id: correlationId,
-        provisioning: {
-          category: 'ProvisioningLogs',
-          identity: faker.string.uuid(),
-          level: 4,
-          operation_name: 'Provisioning activity',
-          operation_version: '1.0',
-          properties: {
-            action,
-            activity_datetime: timestamp,
-            change_id: correlationId,
-            cycle_id: faker.string.uuid(),
-            duration_ms: durationMs,
-            id: faker.string.uuid(),
-            initiated_by: {
-              id: '',
-              name: 'Azure AD Provisioning Service',
-              type: 'system',
-            },
-            job_id: `${targetApp.name.replace(/\s+/g, '')}SCIMOutDelta.${tenantId.replace(/-/g, '')}.${faker.string.uuid()}`,
-            provisioning_action: action.toLowerCase(),
-            provisioning_status_info: { status },
-            provisioning_steps: [
-              {
-                description: `Received User '${employee.email}' change of type (${action}) from Azure Active Directory`,
-                name: `EntryImport${action}`,
-                provisioning_step_type: 0,
-                status: 0,
-              },
-              {
-                description: 'Determine if User in scope by evaluating against each scoping filter',
-                name: 'EntrySynchronizationScoping',
-                provisioning_step_type: 1,
-                status: 0,
-              },
-            ],
-            service_principal: { id: targetApp.id, name: targetApp.name },
-            source_identity: {
-              details: {
-                display_name: `${employee.firstName} ${employee.lastName}`,
-                id: employee.entraIdUserId,
-                odatatype: 'User',
-                user_principal_name: employee.email,
-              },
-              id: employee.entraIdUserId,
-              identity_type: 'User',
-              name: employee.firstName,
-            },
-            source_system: {
-              details: {},
-              id: faker.string.uuid(),
-              name: 'Azure Active Directory',
-            },
-            target_identity: {
-              details: {},
-              id: status === 'success' ? faker.string.uuid() : '',
-              identity_type: 'urn:ietf:params:scim:schemas:core:2.0:User',
-              name: status === 'success' ? employee.email : '',
-            },
-            target_system: {
-              details: {
-                application_id: faker.string.uuid(),
-                service_principal_id: targetApp.id,
-              },
-              id: faker.string.uuid(),
-              name: targetApp.name,
-            },
-            tenant_id: tenantId,
-          },
-          result_type:
-            status === 'success' ? 'Success' : status === 'skipped' ? 'Skipped' : 'Failure',
-        },
-        resource: {
-          id: `/tenants/${tenantId}/providers/Microsoft.aadiam`,
-          provider: 'Microsoft.aadiam',
-        },
-        tenant_id: tenantId,
-      },
-      cloud: { provider: 'azure' },
-      event: {
-        action: 'Provisioning activity',
-        duration: durationMs * 1_000_000,
-        kind: 'event',
-      },
+      message: JSON.stringify(rawAzureJson),
       data_stream: { dataset: 'azure.provisioning', namespace: 'default', type: 'logs' },
-      tags: ['forwarded', 'azure-provisioning'],
     } as IntegrationDocument;
   }
 
@@ -1041,49 +979,35 @@ export class AzureIntegration extends BaseIntegration {
       transport === 'icmp'
         ? undefined
         : faker.helpers.arrayElement([22, 80, 443, 3389, 8080, 8443, 9200, 5601]);
+    const sourcePort = faker.number.int({ min: 1024, max: 65535 });
+    const resourceId = `/SUBSCRIPTIONS/${subscriptionId}/RESOURCEGROUPS/${resourceGroup}/PROVIDERS/MICROSOFT.NETWORK/AZUREFIREWALLS/${firewallName}`;
+
+    let msg: string;
+    if (transport === 'icmp') {
+      msg = `${transport.toUpperCase()} Type=8 request from ${sourceIp} to ${destIp}. Action: ${action}. `;
+    } else {
+      msg = `${transport} request from ${sourceIp}:${sourcePort} to ${destIp}:${destPort ?? 443}. Action: ${action}. `;
+    }
+
+    const rawAzureJson = {
+      category: ruleCategory.category,
+      operationName: ruleCategory.operationName,
+      resourceId,
+      time: timestamp,
+      properties: {
+        msg,
+        SourceIp: sourceIp,
+        DestinationIp: destIp,
+        Protocol: transport.toUpperCase(),
+        Action: action,
+        ...(destPort !== undefined ? { SourcePort: sourcePort, DestinationPort: destPort } : {}),
+      },
+    };
 
     return {
       '@timestamp': timestamp,
-      azure: {
-        firewall: {
-          action,
-          category: ruleCategory.category,
-          operation_name: ruleCategory.operationName,
-          ...(transport === 'icmp' ? { icmp: { request: { code: '8' } } } : {}),
-        },
-        resource: {
-          group: resourceGroup,
-          id: `/SUBSCRIPTIONS/${subscriptionId}/RESOURCEGROUPS/${resourceGroup}/PROVIDERS/MICROSOFT.NETWORK/AZUREFIREWALLS/${firewallName}`,
-          name: firewallName,
-          provider: 'MICROSOFT.NETWORK/AZUREFIREWALLS',
-        },
-        subscription_id: subscriptionId,
-      },
-      cloud: {
-        account: { id: subscriptionId },
-        provider: 'azure',
-      },
-      destination: {
-        address: destIp,
-        ip: destIp,
-        ...(destPort !== undefined ? { port: destPort } : {}),
-      },
-      event: {
-        category: ['network'],
-        kind: 'event',
-        type: action === 'Allow' ? ['connection', 'allowed'] : ['connection', 'denied'],
-      },
-      network: { transport },
-      observer: {
-        name: firewallName,
-        product: 'Network Firewall',
-        type: 'firewall',
-        vendor: 'Azure',
-      },
-      related: { ip: [sourceIp, destIp] },
-      source: { address: sourceIp, ip: sourceIp },
+      message: JSON.stringify(rawAzureJson),
       data_stream: { dataset: 'azure.firewall_logs', namespace: 'default', type: 'logs' },
-      tags: ['forwarded', 'azure-firewall-logs', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 
@@ -1107,41 +1031,30 @@ export class AzureIntegration extends BaseIntegration {
     const operation = faker.helpers.arrayElement(service.operations);
     const region = faker.helpers.arrayElement(AZURE_REGIONS);
     const activityId = faker.string.uuid();
+    const resourceId = `/SUBSCRIPTIONS/${subscriptionId}/RESOURCEGROUPS/${resourceGroup}/PROVIDERS/${service.provider}/${service.resourceName}`;
+
+    const rawAzureJson = {
+      time: timestamp,
+      resourceId,
+      category: 'OperationalLogs',
+      EventName: operation,
+      ActivityId: activityId,
+      Caller: faker.helpers.arrayElement(['Portal', 'ARM', 'ServiceFabric', 'Scheduler']),
+      Environment: 'PROD',
+      EventTimeString: new Date(timestamp).toUTCString(),
+      ScaleUnit: `PROD-${faker.helpers.arrayElement(['AM3', 'CY4', 'DB3', 'HK1'])}-AZ${faker.number.int({ min: 100, max: 999 })}`,
+      properties: {
+        Namespace: service.resourceName.toLowerCase(),
+        SubscriptionId: subscriptionId,
+        TrackingId: `${activityId}_${faker.string.alphanumeric(4).toUpperCase()}`,
+        Via: `https://${service.resourceName.toLowerCase()}.servicebus.windows.net/$Resources/eventhubs?api-version=2017-04&$skip=0&$top=100`,
+      },
+    };
 
     return {
       '@timestamp': timestamp,
-      azure: {
-        platformlogs: {
-          ActivityId: activityId,
-          Caller: faker.helpers.arrayElement(['Portal', 'ARM', 'ServiceFabric', 'Scheduler']),
-          Environment: 'PROD',
-          EventTimeString: new Date(timestamp).toUTCString(),
-          ScaleUnit: `PROD-${faker.helpers.arrayElement(['AM3', 'CY4', 'DB3', 'HK1'])}-AZ${faker.number.int({ min: 100, max: 999 })}`,
-          category: 'OperationalLogs',
-          event_category: 'Administrative',
-          properties: {
-            Namespace: service.resourceName.toLowerCase(),
-            SubscriptionId: subscriptionId,
-            TrackingId: `${activityId}_${faker.string.alphanumeric(4).toUpperCase()}`,
-          },
-        },
-        resource: {
-          group: resourceGroup,
-          id: `/SUBSCRIPTIONS/${subscriptionId}/RESOURCEGROUPS/${resourceGroup}/PROVIDERS/${service.provider}/${service.resourceName}`,
-          name: service.resourceName,
-          provider: service.provider,
-        },
-        subscription_id: subscriptionId,
-      },
-      cloud: { provider: 'azure', region },
+      message: JSON.stringify(rawAzureJson),
       data_stream: { dataset: 'azure.platformlogs', namespace: 'default', type: 'logs' },
-      event: {
-        action: operation,
-        dataset: 'azure.platformlogs',
-        kind: 'event',
-        outcome: 'success',
-      },
-      tags: ['forwarded', 'azure-platformlogs'],
     } as IntegrationDocument;
   }
 
@@ -1196,71 +1109,41 @@ export class AzureIntegration extends BaseIntegration {
     ]);
     const receivedBytes = faker.number.int({ min: 50, max: 5000 });
     const sentBytes = faker.number.int({ min: 100, max: 50000 });
+    const timeTaken = faker.number.int({ min: 50, max: 500 });
+    const resourceId = `/SUBSCRIPTIONS/${subscriptionId}/RESOURCEGROUPS/${resourceGroup}/PROVIDERS/MICROSOFT.NETWORK/APPLICATIONGATEWAYS/${gatewayName}`;
+
+    const rawAzureJson = {
+      resourceId,
+      operationName: 'ApplicationGatewayAccess',
+      timestamp: timestamp,
+      category: 'ApplicationGatewayAccessLog',
+      properties: {
+        instanceId: `ApplicationGatewayRole_IN_${faker.number.int({ min: 0, max: 3 })}`,
+        clientIP: sourceIp,
+        clientPort: sourcePort,
+        httpMethod,
+        requestUri: path,
+        requestQuery: `X-AzureApplicationGateway-CACHE-HIT=0&SERVER-ROUTED=10.4.0.4&X-AzureApplicationGateway-LOG-ID=${faker.string.uuid()}&SERVER-STATUS=${statusCode}`,
+        userAgent: '-',
+        httpStatus: statusCode,
+        httpVersion: 'HTTP/1.0',
+        receivedBytes,
+        sentBytes,
+        timeTaken,
+        sslEnabled: 'off',
+        host,
+        originalHost: host,
+      },
+    };
 
     return {
       '@timestamp': timestamp,
-      azure: {
-        application_gateway: {
-          instance_id: `ApplicationGatewayRole_IN_${faker.number.int({ min: 0, max: 3 })}`,
-          operation_name: 'ApplicationGatewayAccess',
-        },
-        resource: {
-          group: resourceGroup,
-          id: `/SUBSCRIPTIONS/${subscriptionId}/RESOURCEGROUPS/${resourceGroup}/PROVIDERS/MICROSOFT.NETWORK/APPLICATIONGATEWAYS/${gatewayName}`,
-          name: gatewayName,
-          provider: 'MICROSOFT.NETWORK/APPLICATIONGATEWAYS',
-        },
-        subscription_id: subscriptionId,
-      },
-      cloud: {
-        account: { id: subscriptionId },
-        provider: 'azure',
-      },
-      destination: {
-        address: host,
-        bytes: sentBytes,
-        domain: host,
-      },
-      event: {
-        category: ['network'],
-        kind: 'event',
-        type: ['connection'],
-      },
-      http: {
-        request: { method: httpMethod },
-        response: { status_code: statusCode },
-        version: '1.1',
-      },
-      network: {
-        bytes: receivedBytes + sentBytes,
-        protocol: 'http',
-      },
-      observer: {
-        name: gatewayName,
-        product: 'Web Application Firewall',
-        type: 'firewall',
-        vendor: 'Azure',
-      },
-      related: {
-        hosts: [host],
-        ip: [sourceIp],
-      },
-      source: {
-        address: sourceIp,
-        bytes: receivedBytes,
-        ip: sourceIp,
-        port: sourcePort,
-      },
-      url: {
-        domain: host,
-        path,
-      },
+      message: JSON.stringify(rawAzureJson),
       data_stream: {
         dataset: 'azure.application_gateway',
         namespace: 'default',
         type: 'logs',
       },
-      tags: ['forwarded', 'azure-application-gateway', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 
@@ -1285,52 +1168,44 @@ export class AzureIntegration extends BaseIntegration {
     const timestamp = this.getRandomTimestamp(72);
     const appName = faker.helpers.arrayElement(SPRING_CLOUD_APPS);
     const instanceName = `${appName}-default-${faker.number.int({ min: 1, max: 8 })}-${faker.string.alphanumeric(10).toLowerCase()}`;
-    const message = faker.helpers.arrayElement(SPRING_CLOUD_LOG_MESSAGES);
+    const logMessage = faker.helpers.arrayElement(SPRING_CLOUD_LOG_MESSAGES);
     const logLevel = faker.helpers.weightedArrayElement([
       { value: 'Informational', weight: 80 },
       { value: 'Warning', weight: 15 },
       { value: 'Error', weight: 5 },
     ]);
+    const logLevelShort = logLevel === 'Error' ? 'ERROR' : logLevel === 'Warning' ? 'WARN' : 'INFO';
+    const timestampStr = timestamp.replace('T', ' ').replace('Z', '');
+    const threadName = faker.helpers.arrayElement(['main', 'trap-executor-0', 'http-nio-8080-exec-1']);
+    const loggerName = `${faker.string.alpha(1).toLowerCase()}.${faker.string.alpha(1).toLowerCase()}.${faker.string.alpha(1).toLowerCase()}.${faker.string.alpha({ length: { min: 5, max: 15 } })}`;
+    const logLine = `${timestampStr}  ${logLevelShort} [${appName},,,] 1 --- [${threadName}] ${loggerName}      : ${logMessage}`;
+    const resourceId = `/SUBSCRIPTIONS/${subscriptionId}/RESOURCEGROUPS/${resourceGroup}/PROVIDERS/MICROSOFT.APPPLATFORM/SPRING/${serviceName.toUpperCase()}`;
+
+    const rawAzureJson = {
+      time: timestamp,
+      resourceId,
+      category: 'ApplicationConsole',
+      operationName: 'Microsoft.AppPlatform/Spring/logs',
+      LogFormat: 'RAW',
+      logtag: 'F',
+      properties: {
+        AppName: appName,
+        InstanceName: instanceName,
+        ServiceId: faker.string.hexadecimal({ length: 32, prefix: '' }),
+        ServiceName: serviceName,
+        Stream: 'stdout',
+        Log: logLine,
+      },
+    };
 
     return {
       '@timestamp': timestamp,
-      azure: {
-        resource: {
-          group: resourceGroup,
-          id: `/SUBSCRIPTIONS/${subscriptionId}/RESOURCEGROUPS/${resourceGroup}/PROVIDERS/MICROSOFT.APPPLATFORM/SPRING/${serviceName.toUpperCase()}`,
-          name: serviceName.toUpperCase(),
-          provider: 'MICROSOFT.APPPLATFORM/SPRING',
-        },
-        springcloudlogs: {
-          category: 'ApplicationConsole',
-          event_category: 'Administrative',
-          log_format: 'RAW',
-          logtag: 'F',
-          operation_name: 'Microsoft.AppPlatform/Spring/logs',
-          properties: {
-            app_name: appName,
-            instance_name: instanceName,
-            service_id: faker.string.hexadecimal({ length: 32, prefix: '' }),
-            service_name: serviceName,
-            stream: 'stdout',
-          },
-        },
-        subscription_id: subscriptionId,
-      },
-      cloud: { provider: 'azure' },
+      message: JSON.stringify(rawAzureJson),
       data_stream: {
         dataset: 'azure.springcloudlogs',
         namespace: 'default',
         type: 'logs',
       },
-      event: {
-        action: 'Microsoft.AppPlatform/Spring/logs',
-        dataset: 'azure.springcloudlogs',
-        kind: 'event',
-      },
-      log: { level: logLevel },
-      message: `${timestamp.replace('T', ' ').replace('Z', '')}  ${logLevel === 'Error' ? 'ERROR' : logLevel === 'Warning' ? 'WARN' : 'INFO'} [${appName},,,] 1 --- [main] ${faker.string.alpha(1).toLowerCase()}.${faker.string.alpha(1).toLowerCase()}.${faker.string.alpha(1).toLowerCase()}.${faker.string.alpha({ length: { min: 5, max: 15 } })}      : ${message}`,
-      tags: ['forwarded', 'azure-springcloudlogs'],
     } as IntegrationDocument;
   }
 

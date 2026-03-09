@@ -217,7 +217,7 @@ export class AtlassianJiraIntegration extends BaseIntegration {
       author: {
         id: faker.string.numeric(4),
         name: employee.userName,
-        type: 'NORMAL',
+        type: 'user',
       },
       changedValues: this.buildChangedValues(action.value),
       extraAttributes: [],
@@ -230,42 +230,7 @@ export class AtlassianJiraIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
-      event: {
-        action: action.actionI18nKey,
-        category: action.eventCategory,
-        kind: 'event',
-        type: action.eventType,
-        dataset: 'atlassian_jira.audit',
-      },
-      jira: {
-        audit: {
-          type: {
-            action: action.value,
-            actionI18nKey: action.actionI18nKey,
-            area: action.area,
-            category: action.category,
-            categoryI18nKey: action.categoryI18nKey,
-            level: action.level,
-          },
-          method: 'Browser',
-          affected_objects: affectedObjects,
-          extra_attributes: [],
-          changed_values: rawEvent.changedValues,
-        },
-      },
-      user: {
-        id: String(rawEvent.author && (rawEvent.author as Record<string, unknown>).id),
-        name: employee.userName,
-      },
-      source: { ip: sourceIp, address: sourceIp },
-      related: {
-        hosts: [`jira.${org.domain}`],
-        ip: [sourceIp],
-        user: [employee.userName],
-      },
-      service: { address: `http://jira.${org.domain}:8088` },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'atlassian_jira.audit' },
-      tags: ['forwarded', 'jira-audit', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 

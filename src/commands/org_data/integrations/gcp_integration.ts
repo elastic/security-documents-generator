@@ -2,6 +2,10 @@
  * GCP Integration
  * Generates audit and firewall log documents for Google Cloud Platform
  * Based on the Elastic gcp integration package
+ *
+ * Documents use raw GCP LogEntry format in message field (JSON.stringify)
+ * matching what the ingest pipeline expects: message -> event.original -> json parse.
+ * Audit pipeline drops unless json.protoPayload.@type == "type.googleapis.com/google.cloud.audit.AuditLog"
  */
 
 import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
@@ -198,6 +202,7 @@ export class GcpIntegration extends BaseIntegration {
     );
     const methodName = faker.helpers.arrayElement(service.methods);
     const timestamp = this.getRandomTimestamp(72);
+    const receiveTimestamp = new Date(new Date(timestamp).getTime() + 1000).toISOString();
     const sourceIp = faker.internet.ipv4();
     const region = faker.helpers.arrayElement(GCP_REGIONS);
     const isGranted = faker.helpers.weightedArrayElement([
@@ -215,62 +220,46 @@ export class GcpIntegration extends BaseIntegration {
     const resourceName = `projects/${projectId}/${this.getResourcePath(service.serviceName)}`;
     const permission = this.getPermission(service.serviceName, methodName);
 
+    // Raw GCP LogEntry format (camelCase) - pipeline parses message -> event.original -> json
+    const rawGcpLogEntry = {
+      insertId: faker.string.alphanumeric(12).toLowerCase(),
+      logName: `projects/${projectId}/logs/cloudaudit.googleapis.com%2Factivity`,
+      protoPayload: {
+        '@type': 'type.googleapis.com/google.cloud.audit.AuditLog',
+        serviceName: service.serviceName,
+        methodName,
+        resourceName,
+        authenticationInfo: {
+          principalEmail: employee.email,
+          principalSubject: `user:${employee.email}`,
+        },
+        authorizationInfo: [
+          {
+            permission,
+            granted: isGranted,
+            resourceAttributes: { service: service.serviceName },
+          },
+        ],
+        requestMetadata: {
+          callerIp: sourceIp,
+          callerSuppliedUserAgent: userAgent,
+        },
+        status: isGranted ? { code: 0 } : { code: 7, message: 'PERMISSION_DENIED' },
+        resourceLocation: { currentLocations: [region] },
+      },
+      resource: {
+        type: 'gce_instance',
+        labels: { project_id: projectId },
+      },
+      timestamp,
+      severity: 'NOTICE',
+      receiveTimestamp,
+    };
+
     return {
       '@timestamp': timestamp,
-      event: {
-        action: methodName,
-        category: ['network'],
-        type: ['access'],
-        outcome: isGranted ? 'success' : 'failure',
-        dataset: 'gcp.audit',
-      },
-      gcp: {
-        audit: {
-          authentication_info: {
-            principal_email: employee.email,
-          },
-          authorization_info: [
-            {
-              permission,
-              granted: isGranted,
-              resource: resourceName,
-              resource_attributes: {
-                service: service.serviceName,
-              },
-            },
-          ],
-          method_name: methodName,
-          resource_name: resourceName,
-          resource_location: { current_locations: [region] },
-          service_name: service.serviceName,
-          request_metadata: {
-            caller_ip: sourceIp,
-            caller_supplied_user_agent: userAgent,
-          },
-          status: isGranted ? { code: 0 } : { code: 7, message: 'PERMISSION_DENIED' },
-        },
-      },
-      cloud: {
-        provider: 'gcp',
-        project: { id: projectId, name: projectId },
-        region,
-      },
-      user: {
-        name: employee.userName,
-        email: employee.email,
-      },
-      source: {
-        ip: sourceIp,
-      },
-      user_agent: {
-        original: userAgent,
-      },
-      related: {
-        ip: [sourceIp],
-        user: [employee.email],
-      },
+      message: JSON.stringify(rawGcpLogEntry),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'gcp.audit' },
-      tags: ['forwarded', 'gcp-audit'],
     } as IntegrationDocument;
   }
 
@@ -285,70 +274,68 @@ export class GcpIntegration extends BaseIntegration {
     const region = faker.helpers.arrayElement(GCP_REGIONS);
     const zone = `${region}-${faker.helpers.arrayElement(['a', 'b', 'c'])}`;
     const vpcName = faker.helpers.arrayElement(['default', 'prod-vpc', 'dev-vpc']);
+    const subnetworkName = rule.direction === 'INGRESS' ? `${vpcName}-${region}` : vpcName;
+    const receiveTimestamp = new Date(new Date(timestamp).getTime() + 2000).toISOString();
+
+    // disposition: GCP uses "ALLOWED"/"DENIED" not "ALLOW"/"DENY"
+    const disposition = rule.action === 'ALLOW' ? 'ALLOWED' : 'DENIED';
+
+    // Raw GCP firewall LogEntry format - pipeline parses message -> event.original -> json
+    const rawGcpFirewallEntry = {
+      insertId: faker.string.alphanumeric(12).toLowerCase(),
+      logName: `projects/${projectId}/logs/compute.googleapis.com%2Ffirewall`,
+      timestamp,
+      receiveTimestamp,
+      resource: {
+        type: 'gce_subnetwork',
+        labels: {
+          project_id: projectId,
+          subnetwork_name: subnetworkName,
+          subnetwork_id: String(faker.number.int({ min: 1e15, max: 9e15 })),
+          location: zone,
+        },
+      },
+      jsonPayload: {
+        connection: {
+          src_ip: sourceIp,
+          src_port: sourcePort,
+          dest_ip: destIp,
+          dest_port: destPort,
+          protocol,
+        },
+        disposition,
+        rule_details: {
+          action: rule.action,
+          direction: rule.direction,
+          priority: rule.priority,
+          reference: `network:${vpcName}/firewall:${rule.name}`,
+          source_range: rule.sourceRange ? [rule.sourceRange] : [],
+          target_tag: rule.targetTag ? [rule.targetTag] : [],
+          ip_port_info: [
+            {
+              ip_protocol: protocol === 6 ? 'TCP' : 'UDP',
+              port_range: [String(destPort)],
+            },
+          ],
+        },
+        vpc: {
+          project_id: projectId,
+          vpc_name: vpcName,
+          subnetwork_name: subnetworkName,
+        },
+        instance: {
+          project_id: projectId,
+          region,
+          zone,
+          vm_name: faker.string.alphanumeric(8).toLowerCase(),
+        },
+      },
+    };
 
     return {
       '@timestamp': timestamp,
-      event: {
-        action: 'firewall-rule',
-        category: ['network'],
-        type: rule.action === 'ALLOW' ? ['allowed', 'connection'] : ['denied', 'connection'],
-        dataset: 'gcp.firewall',
-      },
-      gcp: {
-        destination: {
-          instance: {
-            project_id: projectId,
-            region,
-            zone,
-          },
-          vpc: {
-            project_id: projectId,
-            vpc_name: vpcName,
-            subnetwork_name: `${vpcName}-${region}`,
-          },
-        },
-        firewall: {
-          rule_details: {
-            action: rule.action,
-            direction: rule.direction,
-            priority: rule.priority,
-            source_range: rule.sourceRange ? [rule.sourceRange] : [],
-            target_tag: rule.targetTag ? [rule.targetTag] : [],
-            reference: `network:${vpcName}/firewall:${rule.name}`,
-          },
-        },
-        source: {
-          instance: {},
-          vpc: {},
-        },
-      },
-      cloud: {
-        provider: 'gcp',
-        project: { id: projectId, name: projectId },
-        region,
-        availability_zone: zone,
-      },
-      source: {
-        ip: sourceIp,
-        port: sourcePort,
-      },
-      destination: {
-        ip: destIp,
-        port: destPort,
-      },
-      network: {
-        direction: rule.direction === 'INGRESS' ? 'inbound' : 'outbound',
-        iana_number: String(protocol),
-        transport: protocol === 6 ? 'tcp' : 'udp',
-      },
-      rule: {
-        name: `${vpcName}/${rule.name}`,
-      },
-      related: {
-        ip: [sourceIp, destIp],
-      },
+      message: JSON.stringify(rawGcpFirewallEntry),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'gcp.firewall' },
-      tags: ['forwarded', 'gcp-firewall'],
     } as IntegrationDocument;
   }
 

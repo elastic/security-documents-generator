@@ -37,6 +37,32 @@ const VAULT_AUTH_METHODS = ['token', 'ldap', 'oidc', 'userpass', 'approle'] as c
 
 const VAULT_NAMESPACES = ['root', 'admin/', 'engineering/', 'operations/'] as const;
 
+/** Raw Vault audit log format (pre-pipeline). Pipeline parses message → event.original → hashicorp_vault.audit */
+interface RawVaultAuditEvent {
+  time: string;
+  type: 'request' | 'response';
+  auth: {
+    client_token: string;
+    accessor: string;
+    display_name: string;
+    policies: string[];
+    token_type: string;
+    metadata: { email?: string; account_id?: string };
+  };
+  request: {
+    id: string;
+    operation: string;
+    path: string;
+    remote_address: string;
+    remote_port: number;
+    namespace: { id: string; path?: string };
+    mount_accessor?: string;
+    mount_type?: string;
+  };
+  response: { data?: Record<string, unknown> };
+  error: string;
+}
+
 const LOG_MESSAGES: Array<{
   message: string;
   level: string;
@@ -102,7 +128,6 @@ export class HashiCorpVaultIntegration extends BaseIntegration {
     );
     const timestamp = this.getRandomTimestamp(72);
     const sourceIp = faker.internet.ipv4();
-    const entityId = faker.string.uuid();
     const accessor = faker.string.alphanumeric(22);
     const clientToken = faker.string.alphanumeric(26);
     const authMethod = faker.helpers.arrayElement(VAULT_AUTH_METHODS);
@@ -119,67 +144,41 @@ export class HashiCorpVaultIntegration extends BaseIntegration {
     ]);
     const errorMsg = isError ? 'permission denied' : undefined;
 
-    return {
-      '@timestamp': timestamp,
-      event: {
-        action: op.operation,
-        category: ['authentication', 'database'],
-        type: ['access'],
-        outcome: isError ? 'failure' : 'success',
-        dataset: 'hashicorp_vault.audit',
-      },
-      hashicorp_vault: {
-        audit: {
-          type: 'request',
-          auth: {
-            accessor,
-            client_token: clientToken,
-            display_name: `${authMethod}-${employee.userName}`,
-            entity_id: entityId,
-            external_namespace_policies: {},
-            identity_policies: ['default'],
-            metadata: {
-              username: employee.userName,
-              role: faker.helpers.arrayElement(['admin', 'reader', 'writer']),
-            },
-            policies,
-            policy_results: {
-              allowed: !isError,
-            },
-            token_policies: policies,
-            token_type: tokenType,
-            token_ttl: 3600,
-            remaining_uses: 0,
-          },
-          request: {
-            id: requestId,
-            operation: op.operation,
-            path: op.path,
-            namespace: {
-              id: namespace === 'root' ? 'root' : faker.string.alphanumeric(5),
-              path: namespace,
-            },
-            remote_address: sourceIp,
-            remote_port: faker.number.int({ min: 30000, max: 65535 }),
-            mount_accessor: mountAccessor,
-            mount_type: mountType,
-          },
-          response: isError ? { data: { error: errorMsg } } : { data: {} },
+    const rawVaultAuditEvent: RawVaultAuditEvent = {
+      time: timestamp,
+      type: 'request',
+      auth: {
+        client_token: clientToken,
+        accessor,
+        display_name: `${authMethod}-${employee.userName}`,
+        policies,
+        token_type: tokenType,
+        metadata: {
+          email: employee.email,
+          account_id: employee.employeeNumber,
         },
       },
-      user: {
-        name: employee.userName,
-        email: employee.email,
+      request: {
+        id: requestId,
+        operation: op.operation,
+        path: op.path,
+        remote_address: sourceIp,
+        remote_port: faker.number.int({ min: 30000, max: 65535 }),
+        namespace: {
+          id: namespace === 'root' ? 'root' : faker.string.alphanumeric(5),
+          path: namespace,
+        },
+        mount_accessor: mountAccessor,
+        mount_type: mountType,
       },
-      source: {
-        ip: sourceIp,
-      },
-      related: {
-        ip: [sourceIp],
-        user: [employee.userName, employee.email],
-      },
+      response: isError ? { data: { error: errorMsg } } : { data: {} },
+      error: errorMsg ?? '',
+    };
+
+    return {
+      '@timestamp': timestamp,
+      message: JSON.stringify(rawVaultAuditEvent),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'hashicorp_vault.audit' },
-      tags: ['forwarded', 'hashicorp_vault-audit'],
     } as IntegrationDocument;
   }
 
@@ -191,22 +190,8 @@ export class HashiCorpVaultIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
-      event: {
-        dataset: 'hashicorp_vault.log',
-        kind: 'event',
-      },
       message: logEvt.message,
-      log: {
-        level: logEvt.level,
-        logger: `vault.${faker.helpers.arrayElement(['core', 'storage', 'expiration', 'identity', 'audit', 'rollback'])}`,
-      },
-      hashicorp_vault: {
-        log: {
-          auth: {},
-        },
-      },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'hashicorp_vault.log' },
-      tags: ['forwarded', 'hashicorp_vault-log'],
     } as IntegrationDocument;
   }
 

@@ -84,14 +84,15 @@ export class MattermostIntegration extends BaseIntegration {
     const clusterId = faker.string.alphanumeric(26);
     const channelName = faker.helpers.arrayElement(CHANNEL_NAMES);
 
-    const eventCategory = this.mapCategory(action.category);
-    const eventType = this.mapEventType(action.value);
     const outcome = OUTCOME_MAP[action.value] ?? 'success';
-
     const apiPath = this.getApiPath(action.value);
+    const client = faker.internet.userAgent();
+
+    // Timestamp format: yyyy-MM-dd HH:mm:ss.SSS 'Z' (space before Z)
+    const rawTimestamp = timestamp.replace('T', ' ').replace('Z', ' Z');
 
     const rawEvent: Record<string, unknown> = {
-      timestamp: `${timestamp.replace('T', ' ').replace('Z', '')} Z`,
+      timestamp: rawTimestamp,
       event: action.value,
       status: outcome,
       user_id: userId,
@@ -99,75 +100,26 @@ export class MattermostIntegration extends BaseIntegration {
       ip_address: sourceIp,
       api_path: apiPath,
       cluster_id: clusterId,
-      client: faker.internet.userAgent(),
+      client,
+      user: {
+        id: userId,
+        name: employee.userName,
+        roles: 'system_admin system_user',
+      },
     };
 
-    const doc: Record<string, unknown> = {
-      '@timestamp': timestamp,
-      event: {
-        action: action.value,
-        category: [eventCategory],
-        type: [eventType],
-        outcome,
-        kind: 'event',
-        dataset: 'mattermost.audit',
-      },
-      mattermost: {
-        audit: {
-          api_path: apiPath,
-          cluster: { id: clusterId },
-          session: { id: sessionId },
-          ...(action.value.includes('Channel')
-            ? { channel: { name: channelName, type: 'O' } }
-            : {}),
-          ...(action.value.includes('Team')
-            ? { team: { name: `${org.name.toLowerCase().replace(/\s+/g, '-')}` } }
-            : {}),
-        },
-      },
-      user: { id: userId },
-      source: { address: sourceIp, ip: sourceIp },
-      url: { original: apiPath, path: apiPath },
-      related: { ip: [sourceIp], user: [userId] },
-      user_agent: {
-        original: (rawEvent.client as string) ?? '',
-      },
-      message: JSON.stringify(rawEvent),
-      tags: ['mattermost-audit', 'preserve_original_event'],
-      data_stream: { namespace: 'default', type: 'logs', dataset: 'mattermost.audit' },
-    };
-
-    return doc as IntegrationDocument;
-  }
-
-  private mapCategory(category: string): string {
-    switch (category) {
-      case 'authentication':
-        return 'authentication';
-      case 'iam':
-        return 'iam';
-      case 'file':
-        return 'file';
-      default:
-        return 'configuration';
+    if (action.value.includes('Channel')) {
+      rawEvent.channel = { name: channelName, type: 'O' };
     }
-  }
+    if (action.value.includes('Team')) {
+      rawEvent.team = { name: org.name.toLowerCase().replace(/\s+/g, '-') };
+    }
 
-  private mapEventType(action: string): string {
-    if (action.startsWith('create') || action.startsWith('upload') || action === 'joinTeam')
-      return 'creation';
-    if (action.startsWith('update') || action.startsWith('add') || action === 'updateRoles')
-      return 'change';
-    if (
-      action.startsWith('delete') ||
-      action.startsWith('remove') ||
-      action === 'deactivateUser' ||
-      action === 'revokeSession'
-    )
-      return 'deletion';
-    if (action === 'login') return 'start';
-    if (action === 'logout') return 'end';
-    return 'info';
+    return {
+      '@timestamp': timestamp,
+      message: JSON.stringify(rawEvent),
+      data_stream: { namespace: 'default', type: 'logs', dataset: 'mattermost.audit' },
+    } as IntegrationDocument;
   }
 
   private getApiPath(action: string): string {

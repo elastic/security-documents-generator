@@ -102,38 +102,24 @@ export class MongoDbAtlasIntegration extends BaseIntegration {
     const dbName = faker.helpers.arrayElement(['admin', 'app_db', 'analytics', 'config']);
     const role = faker.helpers.arrayElement(DB_ROLES);
 
-    const eventCategories =
-      action.value === 'authenticate' ? ['network', 'authentication'] : ['database'];
-    const eventTypes = action.value === 'authenticate' ? ['access', 'info'] : ['info', 'change'];
+    // Raw MongoDB audit JSON - pipeline parses message into event.original -> json
+    const resultCode = result.value === 'Success' ? '0' : '18';
+    const rawAudit: Record<string, unknown> = {
+      ts: { $date: timestamp },
+      atype: action.value,
+      local: { ip: localIp, port: localPort },
+      remote: { ip: remoteIp, port: remotePort },
+      users: [{ db: dbName, user: employee.userName }],
+      roles: [{ db: dbName, role }],
+      param: {},
+      result: resultCode,
+      uuid: { $binary: faker.string.uuid(), $type: '04' },
+    };
 
     return {
       '@timestamp': timestamp,
-      event: {
-        action: action.value,
-        category: eventCategories,
-        type: eventTypes,
-        kind: 'event',
-        module: 'mongodb_atlas',
-        dataset: 'mongodb_atlas.mongod_audit',
-      },
-      mongodb_atlas: {
-        mongod_audit: {
-          hostname,
-          local: { ip: localIp, port: localPort },
-          remote: { ip: remoteIp, port: remotePort },
-          result: result.value,
-          user: {
-            names: [{ db: dbName, user: employee.userName }],
-            roles: [{ db: dbName, role }],
-          },
-          uuid: {
-            binary: faker.string.uuid(),
-            type: '04',
-          },
-        },
-      },
-      related: { ip: [localIp, remoteIp] },
-      tags: ['mongodb_atlas-mongod_audit'],
+      message: JSON.stringify(rawAudit),
+      host_name: hostname,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'mongodb_atlas.mongod_audit' },
     } as IntegrationDocument;
   }
@@ -150,52 +136,46 @@ export class MongoDbAtlasIntegration extends BaseIntegration {
     const clusterName = faker.helpers.arrayElement(CLUSTER_NAMES);
     const groupId = faker.string.hexadecimal({ length: 24, prefix: '' });
     const clientIp = faker.internet.ipv4();
+    const clusterId = faker.string.hexadecimal({ length: 24, prefix: '' });
+    const eventId = faker.string.hexadecimal({ length: 24, prefix: '' });
+    const userId = faker.string.hexadecimal({ length: 8, prefix: '' });
 
     const targetEmployee = faker.helpers.arrayElement(org.employees);
 
+    // Pipeline expects top-level response object (NOT in message)
+    const response: Record<string, unknown> = {
+      created: timestamp,
+      id: eventId,
+      remoteAddress: clientIp,
+      groupId,
+      orgId,
+      userId,
+      username: employee.email,
+      eventTypeName: eventType.value,
+      clusterId,
+      clusterName,
+      targetUsername: targetEmployee.email,
+      opType: 'update',
+      publicKey: faker.string.alphanumeric(8),
+      teamId: faker.string.hexadecimal({ length: 8, prefix: '' }),
+      hostname: `atlas-${faker.string.alphanumeric(6)}-shard-00-00.mongodb.net`,
+      raw: {
+        _t: 'RESOURCE_AUDIT',
+        cid: groupId,
+        cre: timestamp,
+        description: `Action ${eventType.value} performed`,
+        gn: `${org.name.toLowerCase().replace(/\s+/g, '_')}_project`,
+        orgName: org.name,
+        severity: 'INFO',
+        source: 'USER',
+        un: employee.email,
+        ut: 'LOCAL',
+      },
+    };
+
     return {
       '@timestamp': timestamp,
-      event: {
-        category: ['configuration', 'database'],
-        type: ['info', 'access', 'change'],
-        kind: 'event',
-        module: 'mongodb_atlas',
-        dataset: 'mongodb_atlas.organization',
-        id: faker.string.hexadecimal({ length: 24, prefix: '' }),
-      },
-      client: { ip: clientIp },
-      group: { id: groupId },
-      organization: { id: orgId },
-      mongodb_atlas: {
-        organization: {
-          event_type: { name: eventType.value },
-          is_global_admin: false,
-          cluster: { id: faker.string.hexadecimal({ length: 24, prefix: '' }), name: clusterName },
-          additional_info: {
-            _t: 'RESOURCE_AUDIT',
-            cid: groupId,
-            cre: timestamp,
-            description: `Action ${eventType.value} performed`,
-            gn: `${org.name.toLowerCase().replace(/\s+/g, '_')}_project`,
-            org_name: org.name,
-            severity: 'INFO',
-            source: 'USER',
-            un: employee.email,
-            ut: 'LOCAL',
-          },
-          target: { username: targetEmployee.email },
-          operation: { type: 'update' },
-          public_key: faker.string.alphanumeric(8),
-          team: { id: faker.string.hexadecimal({ length: 8, prefix: '' }) },
-        },
-      },
-      user: { id: faker.string.hexadecimal({ length: 8, prefix: '' }), name: employee.email },
-      related: {
-        hosts: [`atlas-${faker.string.alphanumeric(6)}-shard-00-00.mongodb.net`],
-        ip: [clientIp],
-        user: [employee.email, targetEmployee.email],
-      },
-      tags: ['mongodb_atlas-organization'],
+      response,
       data_stream: {
         namespace: 'default',
         type: 'logs',

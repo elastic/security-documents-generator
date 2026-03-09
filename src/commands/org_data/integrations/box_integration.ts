@@ -1,6 +1,6 @@
 /**
  * Box Events Integration
- * Generates file sharing and security audit documents
+ * Generates raw Box API format documents for the ingest pipeline to parse.
  * Based on the Elastic box_events integration package
  */
 
@@ -58,6 +58,87 @@ const SHIELD_RULE_CATEGORIES = [
   'Malicious Content',
 ];
 
+/** Raw Box API event format - matches what the ingest pipeline expects in message */
+interface RawBoxEvent {
+  event_id: string;
+  event_type: string;
+  created_at: string;
+  recorded_at: string;
+  created_by: {
+    id: string;
+    name: string;
+    login: string;
+    type: string;
+  };
+  source: RawBoxSource | null;
+  session_id: string | null;
+  type: 'event';
+  ip_address?: string;
+  accessible_by?: RawBoxAccessibleBy;
+  action_by?: unknown;
+  additional_details?: RawBoxAdditionalDetails;
+}
+
+interface RawBoxSource {
+  id?: string;
+  name?: string;
+  type?: 'file' | 'folder' | 'collaboration';
+  parent?: { id: string; name: string; type: string };
+  item_status?: string;
+  path_collection?: { total_count: number; entries: Array<{ id: string; name: string; type: string }> };
+  created_at?: string;
+  content_created_at?: string;
+  content_modified_at?: string;
+  modified_at?: string;
+  size?: number;
+  file_version?: { id: string; sha1: string; type: string };
+  // Collaboration source format
+  folder_id?: string;
+  folder_name?: string;
+  user_id?: string;
+  user_name?: string;
+  owned_by?: { id: string; login: string; name: string; type: string };
+}
+
+interface RawBoxAccessibleBy {
+  id: string;
+  login: string;
+  name: string;
+  type: string;
+}
+
+interface RawBoxAdditionalDetails {
+  shield_alert?: RawBoxShieldAlert;
+  collab_id?: string;
+  role?: string;
+  is_performed_by_admin?: boolean;
+}
+
+interface RawBoxShieldAlert {
+  alert_id: number;
+  rule_category: string;
+  rule_id: number;
+  rule_name: string;
+  risk_score: number;
+  alert_summary: {
+    description: string;
+    anomaly_period?: {
+      date_range: { start_date: string; end_date: string };
+      download_size: string;
+      downloaded_files_count: number;
+    };
+    download_delta_percent?: number;
+    download_delta_size?: string;
+    historical_period?: {
+      date_range: { start_date: string; end_date: string };
+      download_size: string;
+      downloaded_files_count: number;
+    };
+    download_ips?: Array<{ ip: string }>;
+  };
+  user?: { id: number; name: string; email: string };
+}
+
 export class BoxIntegration extends BaseIntegration {
   readonly packageName = 'box_events';
   readonly displayName = 'Box Events';
@@ -76,7 +157,7 @@ export class BoxIntegration extends BaseIntegration {
     for (const employee of org.employees) {
       const eventCount = faker.number.int({ min: 2, max: 5 });
       for (let i = 0; i < eventCount; i++) {
-        documents.push(this.createEventDocument(employee));
+        documents.push(this.createEventDocument(org, employee));
       }
     }
 
@@ -84,39 +165,68 @@ export class BoxIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private createEventDocument(employee: Employee): IntegrationDocument {
+  private createEventDocument(org: Organization, employee: Employee): IntegrationDocument {
     const action = faker.helpers.weightedArrayElement(
       EVENT_ACTIONS.map((a) => ({ value: a, weight: a.weight }))
     );
     const timestamp = this.getRandomTimestamp(72);
     const clientIp = faker.internet.ipv4();
-    const userId = faker.string.numeric(6);
     const isShieldAlert = action.value === 'SHIELD_ALERT';
-    const isFailedLogin = action.value === 'FAILED_LOGIN';
+    const isCollaboration = action.value.startsWith('COLLABORATION');
 
     const fileName = `${faker.word.adjective()}-${faker.word.noun()}.${faker.helpers.arrayElement(FILE_EXTENSIONS)}`;
     const folderName = faker.helpers.arrayElement(FOLDER_NAMES);
     const fileId = faker.string.numeric(12);
     const folderId = faker.string.numeric(10);
 
-    const doc: Record<string, unknown> = {
-      '@timestamp': timestamp,
-      box: {
-        created_at: timestamp,
-        created_by: {
-          id: userId,
-          name: `${employee.firstName} ${employee.lastName}`,
-          type: 'user',
-        },
-        source: {
+    // Build raw Box API event - pipeline will parse message and derive ECS from this
+    const rawBoxEvent: RawBoxEvent = {
+      event_id: faker.string.uuid(),
+      event_type: action.value,
+      created_at: timestamp,
+      recorded_at: timestamp,
+      created_by: {
+        id: employee.id,
+        name: `${employee.firstName} ${employee.lastName}`,
+        login: employee.email,
+        type: 'user',
+      },
+      source: null,
+      session_id: isCollaboration ? null : faker.string.alphanumeric(16),
+      type: 'event',
+    };
+
+    // ip_address - pipeline maps to client.ip
+    if (clientIp) {
+      rawBoxEvent.ip_address = clientIp;
+    }
+
+    // Source object for file/folder events (pipeline expects source for file.*, uses recorded_at for @timestamp)
+    if (!isShieldAlert) {
+      if (isCollaboration) {
+        const targetEmployee =
+          org.employees.length > 1
+            ? faker.helpers.arrayElement(org.employees.filter((e) => e.id !== employee.id))
+            : employee;
+        rawBoxEvent.source = {
+          folder_id: folderId,
+          folder_name: folderName,
+          user_id: targetEmployee.id,
+          user_name: `${targetEmployee.firstName} ${targetEmployee.lastName}`,
+          parent: { id: faker.string.numeric(10), name: `Parent of ${folderName}`, type: 'folder' },
+          owned_by: {
+            id: employee.id,
+            login: employee.email,
+            name: `${employee.firstName} ${employee.lastName}`,
+            type: 'user',
+          },
+        };
+      } else {
+        rawBoxEvent.source = {
           id: fileId,
           name: fileName,
-          type: action.value.includes('COLLABORATION') ? 'collaboration' : 'file',
-          parent: {
-            id: folderId,
-            name: folderName,
-            type: 'folder',
-          },
+          type: 'file',
+          parent: { id: folderId, name: folderName, type: 'folder' },
           item_status: 'active',
           path_collection: {
             total_count: 2,
@@ -125,78 +235,96 @@ export class BoxIntegration extends BaseIntegration {
               { id: folderId, name: folderName, type: 'folder' },
             ],
           },
+          created_at: timestamp,
+          modified_at: timestamp,
+        };
+      }
+    }
+
+    // accessible_by for collaboration events
+    if (isCollaboration && org.employees.length > 1) {
+      const otherEmployee = faker.helpers.arrayElement(
+        org.employees.filter((e) => e.id !== employee.id)
+      );
+      rawBoxEvent.accessible_by = {
+        id: otherEmployee.id,
+        login: otherEmployee.email,
+        name: `${otherEmployee.firstName} ${otherEmployee.lastName}`,
+        type: 'user',
+      };
+    } else if (isCollaboration && org.employees.length === 1) {
+      // Single employee org: use self as accessible_by (invite to self)
+      rawBoxEvent.accessible_by = {
+        id: employee.id,
+        login: employee.email,
+        name: `${employee.firstName} ${employee.lastName}`,
+        type: 'user',
+      };
+    }
+
+    // additional_details for collaboration events
+    if (isCollaboration) {
+      rawBoxEvent.additional_details = {
+        collab_id: faker.string.numeric(10),
+        role: faker.helpers.arrayElement(['Editor', 'Viewer', 'Previewer']),
+        is_performed_by_admin: false,
+      };
+    }
+
+    // additional_details.shield_alert for SHIELD_ALERT
+    if (isShieldAlert) {
+      const ruleCategory = faker.helpers.arrayElement(SHIELD_RULE_CATEGORIES);
+      const alertIps = [faker.internet.ipv4(), faker.internet.ipv4()];
+      const startDate = this.getRandomTimestamp(168);
+      rawBoxEvent.additional_details = {
+        shield_alert: {
+          alert_id: faker.number.int({ min: 100, max: 999 }),
+          rule_category: ruleCategory,
+          rule_id: faker.number.int({ min: 100, max: 999 }),
+          rule_name: `${ruleCategory} Rule`,
+          risk_score: faker.number.int({ min: 50, max: 99 }),
+          user: {
+            id: parseInt(employee.employeeNumber, 10) || faker.number.int({ min: 1000, max: 99999 }),
+            name: `${employee.firstName} ${employee.lastName}`,
+            email: employee.email,
+          },
+          alert_summary: {
+            description: `Significant increase in download content: ${ruleCategory}`,
+            anomaly_period: {
+              date_range: {
+                start_date: startDate,
+                end_date: timestamp,
+              },
+              download_size: `${faker.number.int({ min: 1, max: 100 })} Mb`,
+              downloaded_files_count: faker.number.int({ min: 1, max: 50 }),
+            },
+            download_delta_percent: faker.number.int({ min: 100, max: 10000 }),
+            download_delta_size: `${faker.number.int({ min: 1, max: 100 })} Mb`,
+            historical_period: {
+              date_range: {
+                start_date: this.getRandomTimestamp(336),
+                end_date: startDate,
+              },
+              download_size: '0 Mb',
+              downloaded_files_count: 1,
+            },
+            download_ips: alertIps.map((ip) => ({ ip })),
+          },
         },
-        session: { id: faker.string.alphanumeric(24) },
-        type: 'event',
-      },
-      client: { ip: clientIp },
+      };
+    }
+
+    // Output: raw format with message = JSON.stringify(rawBoxEvent)
+    const doc: IntegrationDocument = {
+      '@timestamp': timestamp,
+      message: JSON.stringify(rawBoxEvent),
       data_stream: {
         dataset: 'box_events.events',
         namespace: 'default',
         type: 'logs',
       },
-      event: {
-        action: action.value,
-        dataset: 'box_events.events',
-        id: faker.string.uuid(),
-        kind: action.kind,
-        category: action.categories,
-        type: isFailedLogin ? ['start'] : ['access'],
-        outcome: isFailedLogin ? 'failure' : 'success',
-      },
-      user: {
-        effective: {
-          email: employee.email,
-          id: userId,
-          name: `${employee.firstName} ${employee.lastName}`,
-        },
-        full_name: `${employee.firstName} ${employee.lastName}`,
-      },
-      related: {
-        ip: [clientIp],
-        user: [`${employee.firstName} ${employee.lastName}`, employee.email, userId],
-      },
-      tags: ['forwarded', 'box_events-events'],
     };
 
-    if (isShieldAlert) {
-      const ruleCategory = faker.helpers.arrayElement(SHIELD_RULE_CATEGORIES);
-      const alertIps = [faker.internet.ipv4(), faker.internet.ipv4()];
-      doc.box = {
-        ...(doc.box as Record<string, unknown>),
-        additional_details: {
-          shield_alert: {
-            alert_id: faker.number.int({ min: 100, max: 999 }),
-            alert_summary: {
-              anomaly_period: {
-                date_range: {
-                  start_date: this.getRandomTimestamp(168),
-                  end_date: timestamp,
-                },
-                download_size: `${faker.number.int({ min: 1, max: 100 })} Mb`,
-                downloaded_files_count: faker.number.int({ min: 1, max: 50 }),
-              },
-              description: `Significant increase in download content: ${ruleCategory}`,
-              download_delta_percent: faker.number.int({ min: 100, max: 10000 }),
-              download_delta_size: `${faker.number.int({ min: 1, max: 100 })} Mb`,
-              download_ips: alertIps.map((ip) => ({ ip })),
-            },
-          },
-        },
-      };
-      doc.event = {
-        ...(doc.event as Record<string, unknown>),
-        risk_score: faker.number.int({ min: 50, max: 99 }),
-        type: ['indicator', 'access'],
-      };
-      doc.rule = {
-        category: ruleCategory,
-        id: String(faker.number.int({ min: 100, max: 999 })),
-        name: `${ruleCategory} Rule`,
-      };
-      (doc.related as Record<string, unknown[]>).ip = [clientIp, ...alertIps];
-    }
-
-    return doc as IntegrationDocument;
+    return doc;
   }
 }

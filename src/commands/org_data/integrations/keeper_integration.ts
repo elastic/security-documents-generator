@@ -162,53 +162,36 @@ export class KeeperIntegration extends BaseIntegration {
     const clientVersion = faker.helpers.arrayElement(CLIENT_VERSIONS);
     const outcome = eventDef.outcome ?? 'success';
 
-    return {
-      '@timestamp': timestamp,
+    const rawEvent = {
       audit_event: eventDef.event,
       category: eventDef.category,
       client_version: clientVersion,
       enterprise_id: enterpriseId,
       username: employee.email,
       remote_address: sourceIp,
-      event: {
-        action: eventDef.event,
-        category: eventDef.eventCategory,
-        dataset: 'keeper.audit',
-        kind: 'event',
-        module: 'keeper',
-        outcome,
-        type: eventDef.eventType,
-      },
-      organization: {
-        id: String(enterpriseId),
-      },
-      source: {
-        geo: {
-          city_name: faker.location.city(),
-          continent_name: faker.helpers.arrayElement([
-            'North America',
-            'Europe',
-            'Asia',
-            'Oceania',
-          ]),
-          country_iso_code: employee.countryCode,
-          country_name: employee.country,
-        },
-        ip: sourceIp,
-      },
-      user: {
-        email: employee.email,
-        name: employee.email,
-      },
-      user_agent: {
-        original: `Keeper/${clientVersion}`,
-      },
-      related: {
-        ip: [sourceIp],
-        user: [employee.email],
-      },
+      timestamp,
+      outcome,
+      event_type: eventDef.event,
+      event_category: eventDef.eventCategory,
+      event_types: eventDef.eventType,
+      organization_id: String(enterpriseId),
+      source_ip: sourceIp,
+      city_name: faker.location.city(),
+      continent_name: faker.helpers.arrayElement([
+        'North America',
+        'Europe',
+        'Asia',
+        'Oceania',
+      ]),
+      country_iso_code: employee.countryCode,
+      country_name: employee.country,
+      user_agent: `Keeper/${clientVersion}`,
+    };
+
+    return {
+      '@timestamp': timestamp,
+      message: JSON.stringify(rawEvent),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'keeper.audit' },
-      tags: ['forwarded', 'keeper-audit'],
     } as IntegrationDocument;
   }
 }

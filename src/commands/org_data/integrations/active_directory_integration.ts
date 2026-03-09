@@ -165,12 +165,17 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
       dSCorePropagationData: whenCreated,
     };
 
-    // Add groups as structured array
+    // Add groups as structured array (pipeline expects name and objectSid for privileged detection)
     const groups = memberOf.map((dn) => {
       const cnMatch = dn.match(/^CN=([^,]+)/);
+      const cn = cnMatch ? cnMatch[1] : dn;
+      // Generate SID for group; use well-known RID for Domain Users (513)
+      const groupSid = `S-1-5-21-${faker.string.numeric(10)}-${faker.string.numeric(10)}-${faker.string.numeric(10)}-513`;
       return {
         distinguishedName: dn,
-        cn: cnMatch ? cnMatch[1] : dn,
+        cn,
+        name: cn,
+        objectSid: this.sidToBase64(groupSid),
       };
     });
 
@@ -183,9 +188,6 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
       },
       event: {
         action: 'user-discovered',
-        kind: 'asset',
-        category: ['iam'],
-        type: ['user', 'info'],
       },
       user: {
         id: employee.windowsSid,
@@ -259,9 +261,6 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
       },
       event: {
         action: 'device-discovered',
-        kind: 'asset',
-        category: ['host'],
-        type: ['info'],
       },
       device: {
         id: computerDn,

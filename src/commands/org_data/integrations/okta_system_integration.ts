@@ -297,15 +297,11 @@ export class OktaSystemIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
-      host: {
-        name: `${org.domain.replace('.com', '')}.okta.com`,
-      },
       data_stream: {
         namespace: 'default',
         type: 'logs',
         dataset: 'okta.system',
       },
-      tags: ['session', 'okta-system', 'forwarded', 'preserve_original_event'],
     } as unknown as OktaSystemLogDocument;
   }
 
@@ -381,15 +377,11 @@ export class OktaSystemIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
-      host: {
-        name: `${org.domain.replace('.com', '')}.okta.com`,
-      },
       data_stream: {
         namespace: 'default',
         type: 'logs',
         dataset: 'okta.system',
       },
-      tags: ['authentication', 'okta-system', 'forwarded', 'preserve_original_event'],
     } as unknown as OktaSystemLogDocument;
   }
 
@@ -459,15 +451,11 @@ export class OktaSystemIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
-      host: {
-        name: `${org.domain.replace('.com', '')}.okta.com`,
-      },
       data_stream: {
         namespace: 'default',
         type: 'logs',
         dataset: 'okta.system',
       },
-      tags: ['authentication', 'mfa', 'okta-system', 'forwarded', 'preserve_original_event'],
     } as unknown as OktaSystemLogDocument;
   }
 
@@ -546,15 +534,11 @@ export class OktaSystemIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
-      host: {
-        name: `${org.domain.replace('.com', '')}.okta.com`,
-      },
       data_stream: {
         namespace: 'default',
         type: 'logs',
         dataset: 'okta.system',
       },
-      tags: ['policy', 'okta-system', 'forwarded', 'preserve_original_event'],
     } as unknown as OktaSystemLogDocument;
   }
 
@@ -625,15 +609,11 @@ export class OktaSystemIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
-      host: {
-        name: `${org.domain.replace('.com', '')}.okta.com`,
-      },
       data_stream: {
         namespace: 'default',
         type: 'logs',
         dataset: 'okta.system',
       },
-      tags: ['iam', 'group', 'okta-system', 'forwarded', 'preserve_original_event'],
     } as unknown as OktaSystemLogDocument;
   }
 

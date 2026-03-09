@@ -1,7 +1,8 @@
 /**
  * CyberArk PAS Integration
- * Generates privileged access security audit documents
- * Based on the Elastic cyberarkpas Beats module
+ * Generates privileged access security audit documents in raw/pre-pipeline format.
+ * Pipeline expects message with JSON: {"format":"elastic","version":"1.0","syslog":{"audit_record":{...}}}
+ * Audit record fields use CamelCase; pipeline converts to snake_case.
  */
 
 import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
@@ -144,6 +145,34 @@ const POLICY_IDS = [
   'CLOUD-AWS',
 ];
 
+/** CamelCase audit record as expected by the ingest pipeline (JSON-only format). */
+interface AuditRecord {
+  IsoTimestamp: string;
+  Timestamp?: string;
+  Station: string;
+  GatewayStation: string;
+  Safe: string;
+  Message: string;
+  MessageID: string;
+  Severity: string;
+  Issuer: string;
+  Action: string;
+  Desc: string;
+  SourceUser: string;
+  TargetUser: string;
+  File: string;
+  Location: string;
+  Category: string;
+  RequestId: string;
+  Reason: string;
+  ExtraDetails: string;
+  Vendor: string;
+  Product: string;
+  Version: string;
+  Rfc5424: string;
+  CAProperties?: { CAProperty: Array<{ Name: string; Value: string }> };
+}
+
 export class CyberArkPasIntegration extends BaseIntegration {
   readonly packageName = 'cyberarkpas';
   readonly displayName = 'CyberArk PAS';
@@ -191,84 +220,93 @@ export class CyberArkPasIntegration extends BaseIntegration {
       action.value === 'PSMDisconnect' ||
       action.value === 'Window Title';
 
-    const eventAction =
-      action.outcome === 'success' && action.value === 'Logon'
-        ? 'authentication_success'
-        : action.outcome === 'failure'
-          ? 'authentication_failure'
-          : action.value.toLowerCase().replace(/\s+/g, '_');
+    const needsFileAndCaProps =
+      isPsmAction || action.value === 'Retrieve Password';
 
-    const doc: Record<string, unknown> = {
+    const timestampLegacy = this.toLegacyTimestamp(timestamp);
+
+    const auditRecord: AuditRecord = {
+      IsoTimestamp: timestamp.replace(/\.\d{3}Z$/, 'Z'),
+      Timestamp: timestampLegacy,
+      Station: stationIp,
+      GatewayStation: gatewayIp,
+      Safe: safe,
+      Message: action.value,
+      MessageID: action.code,
+      Severity: severity,
+      Issuer: employee.userName,
+      Action: action.value,
+      Desc: action.value,
+      SourceUser: '',
+      TargetUser: '',
+      File: '',
+      Location: '',
+      Category: '',
+      RequestId: '',
+      Reason: '',
+      ExtraDetails: '',
+      Vendor: 'Cyber-Ark',
+      Product: 'Vault',
+      Version: '11.7.0000',
+      Rfc5424: 'no',
+    };
+
+    if (needsFileAndCaProps) {
+      const deviceType = faker.helpers.arrayElement(DEVICE_TYPES);
+      auditRecord.File = `Root\\${deviceType}-${policyId}-${managedHost}-${managedAccount}`;
+      auditRecord.CAProperties = {
+        CAProperty: [
+          { Name: 'PolicyID', Value: policyId },
+          { Name: 'UserName', Value: managedAccount },
+          { Name: 'Address', Value: managedHost },
+          { Name: 'DeviceType', Value: deviceType },
+          { Name: 'LogonDomain', Value: managedHost.split('.')[0] },
+        ],
+      };
+
+      if (action.value === 'Window Title') {
+        auditRecord.ExtraDetails = JSON.stringify({
+          dst_host: managedHost,
+          src_host: stationIp,
+          protocol: faker.helpers.arrayElement(PROTOCOLS),
+          session_id: faker.string.uuid(),
+          process_id: String(faker.number.int({ min: 1000, max: 9999 })),
+          process_name: faker.helpers.arrayElement([
+            'mstsc.exe',
+            'putty.exe',
+            'cmd.exe',
+            'powershell.exe',
+            'shutdown.exe',
+          ]),
+        });
+      }
+    }
+
+    const payload = {
+      format: 'elastic',
+      version: '1.0',
+      syslog: { audit_record: auditRecord },
+    };
+    const message = JSON.stringify(payload);
+
+    const doc: IntegrationDocument = {
       '@timestamp': timestamp,
-      cyberarkpas: {
-        audit: {
-          action: action.value,
-          desc: action.value,
-          gateway_station: gatewayIp,
-          iso_timestamp: timestamp,
-          issuer: employee.userName,
-          message: action.value,
-          rfc5424: false,
-          severity,
-          station: stationIp,
-          safe,
-          message_id: action.code,
-          ...(isPsmAction && {
-            file: `Root\\${faker.helpers.arrayElement(DEVICE_TYPES)}-${policyId}-${managedHost}-${managedAccount}`,
-            extra_details: {
-              command:
-                isPsmAction && action.value === 'Window Title'
-                  ? `${faker.system.fileName()}, ${faker.lorem.words(2)}`
-                  : undefined,
-              dst_host: managedHost,
-              src_host: stationIp,
-              protocol: faker.helpers.arrayElement(PROTOCOLS),
-              session_id: faker.string.uuid(),
-              ...(action.value === 'Window Title' && {
-                process_id: String(faker.number.int({ min: 1000, max: 9999 })),
-                process_name: faker.helpers.arrayElement([
-                  'mstsc.exe',
-                  'putty.exe',
-                  'cmd.exe',
-                  'powershell.exe',
-                  'shutdown.exe',
-                ]),
-              }),
-            },
-            ca_properties: {
-              address: managedHost,
-              user_name: managedAccount,
-              device_type: faker.helpers.arrayElement(DEVICE_TYPES),
-              logon_domain: managedHost.split('.')[0],
-              policy_id: policyId,
-            },
-          }),
-        },
-      },
+      message,
       data_stream: {
         dataset: 'cyberarkpas.audit',
         namespace: 'default',
         type: 'logs',
       },
-      event: {
-        action: eventAction,
-        code: action.code,
-        dataset: 'cyberarkpas.audit',
-        kind: 'event',
-        category: action.categories,
-        type: action.eventType,
-        outcome: action.outcome,
-      },
-      source: { ip: stationIp },
-      destination: { ip: gatewayIp },
-      user: { name: employee.userName },
-      related: {
-        ip: [stationIp, gatewayIp],
-        user: [employee.userName],
-      },
-      tags: ['forwarded', 'cyberarkpas-audit'],
     };
 
-    return doc as IntegrationDocument;
+    return doc;
+  }
+
+  /** Converts ISO timestamp to legacy syslog format "Mar 05 14:32:00" */
+  private toLegacyTimestamp(iso: string): string {
+    const d = new Date(iso);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${months[d.getUTCMonth()]} ${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
   }
 }
