@@ -16,8 +16,10 @@ export const ENTITY_STORE_OPTIONS = {
   apiEnrichment: 'apiEnrichment',
 } as const;
 
-export const ENTITY_STORE_V2_INDEX = '.entities.v2.latest.security_default';
+export const getEntityStoreV2Index = (space: string = 'default') =>
+  `.entities.v2.latest.security_${space}`;
 
+export const ENTITY_STORE_V2_INDEX = getEntityStoreV2Index();
 export const ENTITY_MAINTAINERS_OPTIONS = {
   riskScore: 'riskScore',
   assetCriticality: 'assetCriticality',
@@ -27,7 +29,8 @@ export const ENTITY_MAINTAINERS_OPTIONS = {
   snapshot: 'snapshot',
 } as const;
 
-export type EntityMaintainerOption = keyof typeof ENTITY_MAINTAINERS_OPTIONS;
+export type EntityMaintainerOption =
+  (typeof ENTITY_MAINTAINERS_OPTIONS)[keyof typeof ENTITY_MAINTAINERS_OPTIONS];
 
 export const PRIVILEGED_USER_MONITORING_OPTIONS = {
   anomalyData: 'anomalyData',
