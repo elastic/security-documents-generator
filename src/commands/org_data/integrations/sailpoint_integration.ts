@@ -233,7 +233,6 @@ export class SailPointIntegration extends BaseIntegration {
         type: 'logs',
         dataset: 'sailpoint_identity_sc.events',
       },
-      tags: ['forwarded', 'sailpoint_identity_sc.events', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 

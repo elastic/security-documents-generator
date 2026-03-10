@@ -152,7 +152,6 @@ export class CiscoDuoIntegration extends BaseIntegration {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'cisco_duo.auth' },
-      tags: ['forwarded', 'cisco_duo-auth', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 

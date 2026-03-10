@@ -80,14 +80,17 @@ export class TiAbusechIntegration extends BaseIntegration {
       reporter: family.reporter,
       tags: family.tags,
       confidence_level: confidence,
-      virustotal: `${faker.number.int({ min: 10, max: 60 })} / 70`,
+      virustotal: {
+        percent: faker.number.int({ min: 10, max: 95 }),
+        link: `https://www.virustotal.com/gui/file/${sha256}/detection`,
+      },
     };
 
     return {
       '@timestamp': lastSeen,
       message: JSON.stringify(rawEvent),
+      _conf: { ioc_expiration_duration: '90d' },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'ti_abusech.malware' },
-      tags: ['forwarded', 'ti_abusech-malware', 'threatintel', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 
@@ -133,11 +136,8 @@ export class TiAbusechIntegration extends BaseIntegration {
     return {
       '@timestamp': lastSeen,
       message: JSON.stringify(rawEvent),
-      _conf: {
-        interval: '1h',
-      },
+      _conf: { interval: '24h' },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'ti_abusech.url' },
-      tags: ['forwarded', 'ti_abusech-url', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 

@@ -155,7 +155,6 @@ export class OnePasswordIntegration extends BaseIntegration {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
       data_stream: { namespace: 'default', type: 'logs', dataset: '1password.signin_attempts' },
-      tags: ['forwarded', '1password-signin_attempts', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 
@@ -207,7 +206,6 @@ export class OnePasswordIntegration extends BaseIntegration {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
       data_stream: { namespace: 'default', type: 'logs', dataset: '1password.item_usages' },
-      tags: ['forwarded', '1password-item_usages', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 

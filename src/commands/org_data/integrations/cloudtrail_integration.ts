@@ -300,12 +300,11 @@ export class CloudTrailIntegration extends BaseIntegration {
     const eventId = faker.string.uuid();
     const sourceIp = faker.internet.ipv4();
 
-    const rawEvent = {
+    const rawEvent: Record<string, unknown> = {
       eventVersion: '1.08',
       userIdentity: {
         type: 'SAMLUser',
         principalId: `${employee.email}:${employee.oktaUserId}`,
-        arn: '',
         accountId: account.id,
       },
       eventTime: timestamp,
@@ -342,9 +341,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
-      event: { dataset: 'aws.cloudtrail' },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
-      user: { entity: { id: assumedRoleArn } },
     } as IntegrationDocument;
   }
 
@@ -403,9 +400,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
-      event: { dataset: 'aws.cloudtrail' },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
-      user: { entity: { id: assumedRoleArn } },
     } as IntegrationDocument;
   }
 
@@ -485,9 +480,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
-      event: { dataset: 'aws.cloudtrail' },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
-      user: { entity: { id: assumedRoleArn } },
     } as IntegrationDocument;
   }
 
@@ -540,13 +533,12 @@ export class CloudTrailIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
-      event: { dataset: 'aws.cloudtrail' },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
     } as IntegrationDocument;
   }
 
   /**
-   * Create console login event
+   * Create API event for service account (IAMUser type)
    */
   private createConsoleLoginEvent(
     iamUser: CloudIamUser,
@@ -608,9 +600,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
-      event: { dataset: 'aws.cloudtrail' },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
-      user: { entity: { id: assumedRoleArn } },
     } as IntegrationDocument;
   }
 

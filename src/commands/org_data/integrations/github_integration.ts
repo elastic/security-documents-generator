@@ -63,31 +63,30 @@ export class GitHubIntegration extends BaseIntegration {
     const sourceIp = faker.internet.ipv4();
     const timestamp = this.getRandomTimestamp(72);
     const category = action.split('.')[0]; // e.g., 'git', 'repo', 'org', 'team'
+    const createdAtMs = new Date(timestamp).getTime();
 
-    const rawEvent = {
-      '@timestamp': new Date(timestamp).getTime(),
+    const actionFields = this.getActionSpecificFields(action, employee, repo, org);
+
+    const rawEvent: Record<string, unknown> = {
       _document_id: faker.string.alphanumeric(22),
       action,
       actor: employee.githubUsername,
-      actor_id: faker.string.numeric(8),
-      created_at: new Date(timestamp).getTime(),
+      actor_id: String(employee.employeeNumber),
+      actor_ip: sourceIp,
+      created_at: createdAtMs,
       org: org.githubOrg.name,
       org_id: faker.string.numeric(8),
       repo: repo.fullName,
       repo_id: repo.id,
       visibility: repo.visibility,
       category,
-      user_login: employee.githubUsername,
-      user_id: faker.string.numeric(8),
-      actor_ip: sourceIp,
-      ...this.getActionSpecificFields(action, employee, repo, org),
+      ...actionFields,
     };
 
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'github.audit' },
-      tags: ['forwarded', 'github-audit', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 
@@ -117,9 +116,9 @@ export class GitHubIntegration extends BaseIntegration {
 
   private getActionSpecificFields(
     action: string,
-    _employee: Employee,
+    employee: Employee,
     repo: GitHubRepo,
-    _org: Organization
+    org: Organization
   ): Record<string, unknown> {
     switch (action) {
       case 'git.clone':
@@ -147,17 +146,23 @@ export class GitHubIntegration extends BaseIntegration {
           target_branch: 'main',
         };
       case 'org.add_member':
-      case 'org.remove_member':
+      case 'org.remove_member': {
+        const targetEmployee = this.pickTargetEmployee(employee, org);
         return {
-          user_id: faker.string.numeric(8),
+          user: targetEmployee?.githubUsername ?? 'unknown-user',
+          user_id: targetEmployee ? String(targetEmployee.employeeNumber) : faker.string.numeric(8),
           new_role: 'member',
         };
+      }
       case 'team.add_member':
-      case 'team.remove_member':
+      case 'team.remove_member': {
+        const targetEmployee = this.pickTargetEmployee(employee, org);
         return {
           team: faker.helpers.arrayElement(['backend', 'frontend', 'platform', 'devops']),
-          user_id: faker.string.numeric(8),
+          user: targetEmployee?.githubUsername ?? 'unknown-user',
+          user_id: targetEmployee ? String(targetEmployee.employeeNumber) : faker.string.numeric(8),
         };
+      }
       case 'protected_branch.update':
       case 'protected_branch.create':
         return {
@@ -171,6 +176,14 @@ export class GitHubIntegration extends BaseIntegration {
       default:
         return {};
     }
+  }
+
+  /**
+   * Pick another employee with GitHub access (for target user in org/team member actions)
+   */
+  private pickTargetEmployee(actor: Employee, org: Organization): Employee | undefined {
+    const candidates = org.employees.filter((e) => e.githubUsername && e.id !== actor.id);
+    return candidates.length > 0 ? faker.helpers.arrayElement(candidates) : undefined;
   }
 
   private getEventsPerEmployee(size: string): { min: number; max: number } {
