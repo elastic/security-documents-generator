@@ -1,9 +1,11 @@
 import { faker } from '@faker-js/faker';
+import { chunk } from 'lodash-es';
 import { getEsClient } from '../utils/indices';
 import { bulkIngest, bulkUpsert } from '../shared/elasticsearch';
 import {
   ENTITY_STORE_V2_INDEX,
   ENTITY_MAINTAINERS_OPTIONS,
+  DEFAULT_CHUNK_SIZE,
   type EntityMaintainerOption,
 } from '../../constants';
 import { getAlertIndex } from '../../utils';
@@ -423,7 +425,7 @@ const generateSnapshotBulkOps = (
   const src = deepMerge(entity._source, entityUpdates) as EntityHitSource;
 
   // Risk score setup
-  const hasRisk = !!src?.entity?.risk?.calculated_score_norm;
+  const hasRisk = src?.entity?.risk?.calculated_score_norm != null;
   const currentNorm = src?.entity?.risk?.calculated_score_norm ?? 50;
   const trajectory: RiskTrajectory = faker.helpers.arrayElement([
     'stable',
@@ -431,8 +433,6 @@ const generateSnapshotBulkOps = (
     'decreasing',
     'volatile',
   ] as const);
-  const riskOnset = hasRisk ? SNAPSHOT_DAYS : null;
-
   // Onset days for array-based fields (null = entity doesn't have the field)
   const watchlistOnset = src?.entity?.attributes?.watchlists?.length ? pickOnsetDay() : null;
   const behaviorsOnset = src?.entity?.behaviors?.anomaly_job_ids?.length ? pickOnsetDay() : null;
@@ -455,26 +455,19 @@ const generateSnapshotBulkOps = (
     const doc: Record<string, unknown> = { ...src, '@timestamp': date.toISOString() };
 
     // --- Risk score ---
-    if (hasRisk && riskOnset !== null) {
-      if (daysAgo > riskOnset) {
-        // Field not yet present in history
-        const entityCopy = { ...(doc.entity as Record<string, unknown>) };
-        delete entityCopy.risk;
-        doc.entity = entityCopy;
-      } else {
-        const scoreNorm =
-          Math.round(interpolateRiskNorm(trajectory, currentNorm, dayIndex, SNAPSHOT_DAYS) * 100) /
-          100;
-        const rawScore = Math.round(scoreNorm * faker.number.float({ min: 1, max: 3 }) * 100) / 100;
-        doc.entity = {
-          ...(doc.entity as Record<string, unknown>),
-          risk: {
-            calculated_score_norm: scoreNorm,
-            calculated_score: rawScore,
-            calculated_level: scoreNormToLevel(scoreNorm),
-          },
-        };
-      }
+    if (hasRisk) {
+      const scoreNorm =
+        Math.round(interpolateRiskNorm(trajectory, currentNorm, dayIndex, SNAPSHOT_DAYS) * 100) /
+        100;
+      const rawScore = Math.round(scoreNorm * faker.number.float({ min: 1, max: 3 }) * 100) / 100;
+      doc.entity = {
+        ...(doc.entity as Record<string, unknown>),
+        risk: {
+          calculated_score_norm: scoreNorm,
+          calculated_score: rawScore,
+          calculated_level: scoreNormToLevel(scoreNorm),
+        },
+      };
     }
 
     // --- Watchlist ---
@@ -548,6 +541,12 @@ const deepMerge = (
   return result;
 };
 
+const chunkedBulkUpsert = async (ops: unknown[], refresh = true): Promise<void> => {
+  for (const batch of chunk(ops, DEFAULT_CHUNK_SIZE * 2)) {
+    await bulkUpsert({ documents: batch, refresh });
+  }
+};
+
 export const generateEntityMaintainersData = async (opts: {
   count: number;
   maintainers: EntityMaintainerOption[];
@@ -583,7 +582,6 @@ export const generateEntityMaintainersData = async (opts: {
   const bulkOps: unknown[] = [];
   const riskScoreBulkOps: object[] = [];
   const alertBulkOps: unknown[] = [];
-  const snapshotBulkOps: unknown[] = [];
 
   for (const entity of entities) {
     let updateDoc: Record<string, unknown> = {};
@@ -632,7 +630,8 @@ export const generateEntityMaintainersData = async (opts: {
 
     if (maintainers.includes(ENTITY_MAINTAINERS_OPTIONS.snapshot as EntityMaintainerOption)) {
       console.log(`  Snapshot          -> ${entityName}`);
-      snapshotBulkOps.push(...generateSnapshotBulkOps(entity.entity, updateDoc, space));
+      const entitySnapshotOps = generateSnapshotBulkOps(entity.entity, updateDoc, space);
+      await bulkUpsert({ documents: entitySnapshotOps, refresh: false });
     }
 
     if (Object.keys(updateDoc).length > 0) {
@@ -647,7 +646,7 @@ export const generateEntityMaintainersData = async (opts: {
   }
 
   console.log(`\nUpdating ${entities.length} entities...`);
-  await bulkUpsert({ documents: bulkOps, refresh: true });
+  await chunkedBulkUpsert(bulkOps);
   console.log(`Successfully updated ${entities.length} entities with maintainer data.`);
 
   if (riskScoreBulkOps.length > 0) {
@@ -664,14 +663,7 @@ export const generateEntityMaintainersData = async (opts: {
 
     const alertCount = alertBulkOps.length / 2;
     console.log(`\nIndexing ${alertCount} alerts into ${alertIndex}...`);
-    await bulkUpsert({ documents: alertBulkOps, refresh: true });
+    await chunkedBulkUpsert(alertBulkOps);
     console.log(`Successfully indexed ${alertCount} alerts.`);
-  }
-
-  if (snapshotBulkOps.length > 0) {
-    const snapshotDocCount = snapshotBulkOps.length / 2;
-    console.log(`\nIndexing ${snapshotDocCount} snapshot documents across 30 days...`);
-    await bulkUpsert({ documents: snapshotBulkOps, refresh: true });
-    console.log(`Successfully indexed ${snapshotDocCount} snapshot documents.`);
   }
 };
