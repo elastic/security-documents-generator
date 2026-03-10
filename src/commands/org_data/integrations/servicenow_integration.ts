@@ -55,7 +55,7 @@ const SHORT_DESCRIPTIONS = [
 ];
 
 /** Assignment groups */
-const ASSIGNMENT_GROUPS = [
+const _ASSIGNMENT_GROUPS = [
   'IT Service Desk',
   'Network Operations',
   'Database Administration',

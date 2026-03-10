@@ -263,7 +263,7 @@ export class SystemIntegration extends BaseIntegration {
   /**
    * Create a failed SSH login document (brute force attempt) - raw pre-pipeline format
    */
-  private createFailedSshLoginDocument(host: Host, ctx: HostContext): IntegrationDocument {
+  private createFailedSshLoginDocument(host: Host, _ctx: HostContext): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(48);
     const attackerIp = faker.helpers.arrayElement(ATTACKER_IPS);
     const bruteForceUser = faker.helpers.arrayElement(BRUTE_FORCE_USERNAMES);

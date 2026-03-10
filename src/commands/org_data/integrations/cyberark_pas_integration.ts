@@ -220,8 +220,7 @@ export class CyberArkPasIntegration extends BaseIntegration {
       action.value === 'PSMDisconnect' ||
       action.value === 'Window Title';
 
-    const needsFileAndCaProps =
-      isPsmAction || action.value === 'Retrieve Password';
+    const needsFileAndCaProps = isPsmAction || action.value === 'Retrieve Password';
 
     const timestampLegacy = this.toLegacyTimestamp(timestamp);
 
@@ -305,7 +304,20 @@ export class CyberArkPasIntegration extends BaseIntegration {
   /** Converts ISO timestamp to legacy syslog format "Mar 05 14:32:00" */
   private toLegacyTimestamp(iso: string): string {
     const d = new Date(iso);
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     const pad = (n: number) => String(n).padStart(2, '0');
     return `${months[d.getUTCMonth()]} ${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
   }

@@ -208,11 +208,16 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
       { value: 'logout', weight: 2 },
     ]);
     const params: RawActivityEvent['parameters'] = [
-      param('login_type', faker.helpers.arrayElement(['exchange', 'google_password', 'saml', 'reauth'])),
+      param(
+        'login_type',
+        faker.helpers.arrayElement(['exchange', 'google_password', 'saml', 'reauth'])
+      ),
       paramInt('login_timestamp', Date.now() * 1000),
     ];
     if (eventType === 'login_challenge') {
-      params.push(param('login_challenge_method', faker.helpers.arrayElement(cfg.challengeMethods)));
+      params.push(
+        param('login_challenge_method', faker.helpers.arrayElement(cfg.challengeMethods))
+      );
     }
     if (eventType === 'login_failure') {
       if (faker.datatype.boolean(0.1)) params.push(paramBool('is_suspicious', true));
@@ -246,7 +251,10 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
     const visibility = faker.helpers.arrayElement(cfg.visibilities);
     const params: Array<{ name: string; value?: string; boolValue?: boolean }> = [
       param('doc_id', faker.string.alphanumeric(44)),
-      param('doc_title', `${faker.word.adjective()}-${faker.word.noun()}.${this.fileTypeToExt(fileType)}`),
+      param(
+        'doc_title',
+        `${faker.word.adjective()}-${faker.word.noun()}.${this.fileTypeToExt(fileType)}`
+      ),
       param('doc_type', fileType),
       param('owner', employee.email),
       paramBool('owner_is_shared_drive', false),
@@ -269,7 +277,12 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
     }
     return this.rawActivityDoc('drive', 'drive', employee, org, {
       name: eventAction,
-      type: eventAction.includes('view') || eventAction.includes('download') || eventAction.includes('preview') ? 'access' : 'change',
+      type:
+        eventAction.includes('view') ||
+        eventAction.includes('download') ||
+        eventAction.includes('preview')
+          ? 'access'
+          : 'change',
       parameters: params,
     });
   }
@@ -301,7 +314,10 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
       name: action,
       type: 'token',
       parameters: [
-        param('client_id', `${faker.string.numeric(12)}-${faker.string.alphanumeric(32)}.apps.googleusercontent.com`),
+        param(
+          'client_id',
+          `${faker.string.numeric(12)}-${faker.string.alphanumeric(32)}.apps.googleusercontent.com`
+        ),
         param('app_name', appName),
         param('api_name', 'token'),
         param('method_name', 'oauth'),
@@ -318,10 +334,7 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
     return this.rawActivityDoc('access_transparency', 'device', employee, org, {
       name: 'APPLICATION_EVENT',
       type: 'device_applications',
-      parameters: [
-        param('gsuite_product_name', product),
-        param('on_behalf_of', employee.email),
-      ],
+      parameters: [param('gsuite_product_name', product), param('on_behalf_of', employee.email)],
     });
   }
 
@@ -423,7 +436,10 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
       parameters: [
         param('acl_permission', faker.helpers.arrayElement(cfg.aclPermissions)),
         param('email', `${groupName}@${org.domain}`),
-        param('new_value', faker.helpers.arrayElements(cfg.memberRoles, { min: 1, max: 2 }).join(',')),
+        param(
+          'new_value',
+          faker.helpers.arrayElements(cfg.memberRoles, { min: 1, max: 2 }).join(',')
+        ),
         param('old_value', faker.helpers.arrayElement(cfg.memberRoles)),
       ],
     });
@@ -445,7 +461,14 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
         param('new_value', faker.word.sample()),
         param('old_value', faker.word.sample()),
         param('security_setting_state', faker.helpers.arrayElement(['enabled', 'disabled'])),
-        param('security_setting_value', faker.helpers.arrayElement(['ALLOW_EXTERNAL_MEMBERS', 'COLLABORATIVE_INBOX', 'WHO_CAN_JOIN'])),
+        param(
+          'security_setting_value',
+          faker.helpers.arrayElement([
+            'ALLOW_EXTERNAL_MEMBERS',
+            'COLLABORATIVE_INBOX',
+            'WHO_CAN_JOIN',
+          ])
+        ),
       ],
     });
   }
@@ -461,7 +484,10 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
         param('compliance', faker.helpers.arrayElement(cfg.complianceStates)),
         param('compromised_state', faker.helpers.arrayElement(cfg.compromisedStates)),
         param('device_id', faker.string.alphanumeric(12)),
-        param('device_model', faker.helpers.arrayElement(['Pixel 8', 'iPhone 15', 'Galaxy S24', 'Surface Pro'])),
+        param(
+          'device_model',
+          faker.helpers.arrayElement(['Pixel 8', 'iPhone 15', 'Galaxy S24', 'Surface Pro'])
+        ),
         param('ownership', faker.helpers.arrayElement(cfg.ownerships)),
         param('serial_number', faker.string.alphanumeric(12).toUpperCase()),
         param('device_type', faker.helpers.arrayElement(cfg.deviceTypes)),
@@ -545,11 +571,7 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
           bv(elapsedUsec),
           bv(true),
           bv(mailEventType),
-          bRecord([
-            bRecord([
-              bv(employee.email),
-            ]),
-          ]),
+          bRecord([bRecord([bv(employee.email)])]),
         ]),
         bRecord([
           bRecord([
@@ -568,9 +590,7 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
             bv(250),
             bv('1'),
             bv('1'),
-            bv([
-              bRecord([bv(org.domain), bv('2')]),
-            ]),
+            bv([bRecord([bv(org.domain), bv('2')])]),
           ]),
           bv(subject),
           bv(messageId),
@@ -581,9 +601,7 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
           bv('250 2.0.0 OK'),
           bv(actionType),
           bv(`gmail-ui::${recipient.email}`),
-          bv([
-            bRecord([bv(recipient.email), bv('1'), bv('gmail-ui')]),
-          ]),
+          bv([bRecord([bv(recipient.email), bv('1'), bv('gmail-ui')])]),
         ]),
       ],
     };
@@ -597,26 +615,34 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
         { name: 'ip_address', type: 'STRING' },
         { name: 'time_usec', type: 'INTEGER' },
         {
-          name: 'event_info', type: 'RECORD', fields: [
+          name: 'event_info',
+          type: 'RECORD',
+          fields: [
             { name: 'timestamp_usec', type: 'INTEGER' },
             { name: 'elapsed_time_usec', type: 'INTEGER' },
             { name: 'success', type: 'BOOLEAN' },
             { name: 'mail_event_type', type: 'STRING' },
             {
-              name: 'client_context', type: 'RECORD', fields: [
+              name: 'client_context',
+              type: 'RECORD',
+              fields: [
                 {
-                  name: 'session_context', type: 'RECORD', fields: [
-                    { name: 'delegate_user_email', type: 'STRING' },
-                  ],
+                  name: 'session_context',
+                  type: 'RECORD',
+                  fields: [{ name: 'delegate_user_email', type: 'STRING' }],
                 },
               ],
             },
           ],
         },
         {
-          name: 'message_info', type: 'RECORD', fields: [
+          name: 'message_info',
+          type: 'RECORD',
+          fields: [
             {
-              name: 'source', type: 'RECORD', fields: [
+              name: 'source',
+              type: 'RECORD',
+              fields: [
                 { name: 'address', type: 'STRING' },
                 { name: 'from_header_address', type: 'STRING' },
                 { name: 'from_header_displayname', type: 'STRING' },
@@ -624,7 +650,9 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
               ],
             },
             {
-              name: 'connection_info', type: 'RECORD', fields: [
+              name: 'connection_info',
+              type: 'RECORD',
+              fields: [
                 { name: 'dkim_pass', type: 'BOOLEAN' },
                 { name: 'spf_pass', type: 'BOOLEAN' },
                 { name: 'is_internal', type: 'BOOLEAN' },
@@ -635,7 +663,10 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
                 { name: 'smtp_tls_state', type: 'STRING' },
                 { name: 'smtp_response_reason', type: 'STRING' },
                 {
-                  name: 'authenticated_domain', type: 'RECORD', mode: 'REPEATED', fields: [
+                  name: 'authenticated_domain',
+                  type: 'RECORD',
+                  mode: 'REPEATED',
+                  fields: [
                     { name: 'name', type: 'STRING' },
                     { name: 'type', type: 'STRING' },
                   ],
@@ -652,7 +683,10 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
             { name: 'action_type', type: 'STRING' },
             { name: 'flattened_destinations', type: 'STRING' },
             {
-              name: 'destination', type: 'RECORD', mode: 'REPEATED', fields: [
+              name: 'destination',
+              type: 'RECORD',
+              mode: 'REPEATED',
+              fields: [
                 { name: 'address', type: 'STRING' },
                 { name: 'selector', type: 'STRING' },
                 { name: 'service', type: 'STRING' },
@@ -677,9 +711,7 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
     return this.rawActivityDoc('calendar', 'calendar', employee, org, {
       name: action.replace(/_/g, '-'),
       type: faker.helpers.arrayElement(cfg.eventTypes),
-      parameters: [
-        param('api_kind', faker.helpers.arrayElement(cfg.apiKinds)),
-      ],
+      parameters: [param('api_kind', faker.helpers.arrayElement(cfg.apiKinds))],
     });
   }
 
@@ -732,7 +764,12 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
       param('type', 'user_action'),
     ];
     if (action.includes('attachment')) {
-      params.push(param('attachment_name', `https://keep.googleapis.com/v1/notes/${noteId}/attachments/${faker.string.alphanumeric(8)}`));
+      params.push(
+        param(
+          'attachment_name',
+          `https://keep.googleapis.com/v1/notes/${noteId}/attachments/${faker.string.alphanumeric(8)}`
+        )
+      );
     }
     return this.rawActivityDoc('keep', 'keep', employee, org, {
       name: action,
@@ -772,7 +809,15 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
       type: 'user_action',
       parameters: [
         param('matter_id', faker.string.uuid()),
-        param('matter_name', faker.helpers.arrayElement(['Legal Review 2025', 'HR Investigation', 'Compliance Audit', 'eDiscovery Case'])),
+        param(
+          'matter_name',
+          faker.helpers.arrayElement([
+            'Legal Review 2025',
+            'HR Investigation',
+            'Compliance Audit',
+            'eDiscovery Case',
+          ])
+        ),
       ],
     });
   }

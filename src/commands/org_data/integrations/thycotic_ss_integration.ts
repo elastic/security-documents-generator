@@ -146,14 +146,14 @@ export class ThycoticSsIntegration extends BaseIntegration {
     const timestamp = this.getRandomTimestamp(72);
     const secretName = faker.helpers.arrayElement(SECRET_NAMES);
     const secretId = String(faker.number.int({ min: 1000, max: 9999 }));
-    const folderName = faker.helpers.arrayElement(FOLDER_NAMES);
+    const _folderName = faker.helpers.arrayElement(FOLDER_NAMES);
     const containerId = String(faker.number.int({ min: 100, max: 9999 }));
-    const userId = String(faker.number.int({ min: 100, max: 9999 }));
-    const sourceIp = faker.internet.ipv4();
-    const serverHostname = 'THYCOTICSS01';
-    const serverIp = '172.24.0.3';
+    const _userId = String(faker.number.int({ min: 100, max: 9999 }));
+    const _sourceIp = faker.internet.ipv4();
+    const _serverHostname = 'THYCOTICSS01';
+    const _serverIp = '172.24.0.3';
     const isFailure = eventDef.action === 'login_failed';
-    const outcome = isFailure ? 'failure' : 'success';
+    const _outcome = isFailure ? 'failure' : 'success';
 
     const fullName = `${employee.firstName} ${employee.lastName}`;
     const userDomain = org.domain.split('.')[0];

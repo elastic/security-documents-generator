@@ -12,7 +12,7 @@ import { faker } from '@faker-js/faker';
 /** Stable LastPass user ID from employee (numeric string for API) */
 function getStableLastPassUserId(employee: Employee): string {
   const hash = employee.id.replace(/-/g, '').slice(0, 6);
-  return String(parseInt(hash, 16) % 90000 + 10000);
+  return String((parseInt(hash, 16) % 90000) + 10000);
 }
 
 const EVENT_ACTIONS: Array<{
@@ -273,9 +273,8 @@ export class LastPassIntegration extends BaseIntegration {
             readonly: faker.datatype.boolean(0.3),
             give: faker.datatype.boolean(0.5),
             can_administer: faker.datatype.boolean(0.2),
-            sites: Array.from(
-              { length: faker.number.int({ min: 1, max: 5 }) },
-              () => faker.internet.domainName()
+            sites: Array.from({ length: faker.number.int({ min: 1, max: 5 }) }, () =>
+              faker.internet.domainName()
             ),
           },
         };

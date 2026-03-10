@@ -274,7 +274,7 @@ export class BitwardenIntegration extends BaseIntegration {
       'API Keys',
     ];
 
-    return collectionNames.map((name) => {
+    return collectionNames.map((_name) => {
       const collectionId = faker.string.uuid();
       const timestamp = this.getRandomTimestamp(168);
 

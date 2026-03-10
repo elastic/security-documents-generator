@@ -186,8 +186,7 @@ export class BeyondInsightIntegration extends BaseIntegration {
       StartTime: startTime,
       Status: faker.helpers.arrayElement(SESSION_STATUS_CODES),
       Token: `token_${faker.string.alphanumeric(12)}`,
-      UserID:
-        parseInt(employee.employeeNumber, 10) || faker.number.int({ min: 100, max: 999 }),
+      UserID: parseInt(employee.employeeNumber, 10) || faker.number.int({ min: 100, max: 999 }),
     };
 
     return {

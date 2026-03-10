@@ -51,10 +51,7 @@ const FOLDER_NAMES = [
   'Product',
 ];
 
-const SHIELD_RULE_CATEGORIES = [
-  'Anomalous Download',
-  'Malicious Content',
-];
+const SHIELD_RULE_CATEGORIES = ['Anomalous Download', 'Malicious Content'];
 
 /** Raw Box API event format - matches what the ingest pipeline expects in message */
 interface RawBoxEvent {
@@ -83,7 +80,10 @@ interface RawBoxSource {
   type?: 'file' | 'folder' | 'collaboration';
   parent?: { id: string; name: string; type: string };
   item_status?: string;
-  path_collection?: { total_count: number; entries: Array<{ id: string; name: string; type: string }> };
+  path_collection?: {
+    total_count: number;
+    entries: Array<{ id: string; name: string; type: string }>;
+  };
   created_at?: string;
   content_created_at?: string;
   content_modified_at?: string;
@@ -282,7 +282,8 @@ export class BoxIntegration extends BaseIntegration {
           rule_name: `${ruleCategory} Rule`,
           risk_score: faker.number.int({ min: 50, max: 99 }),
           user: {
-            id: parseInt(employee.employeeNumber, 10) || faker.number.int({ min: 1000, max: 99999 }),
+            id:
+              parseInt(employee.employeeNumber, 10) || faker.number.int({ min: 1000, max: 99999 }),
             name: `${employee.firstName} ${employee.lastName}`,
             email: employee.email,
           },

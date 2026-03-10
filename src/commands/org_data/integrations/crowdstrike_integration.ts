@@ -481,7 +481,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
     device: Device,
     offset: number
   ): IntegrationDocument {
-    const mitre = faker.helpers.arrayElement(MITRE_ATTACKS);
+    const _mitre = faker.helpers.arrayElement(MITRE_ATTACKS);
     const proc = faker.helpers.arrayElement(SUSPICIOUS_PROCESSES);
     const cmdline = faker.helpers.arrayElement(CMDLINES);
     const sha256 = faker.helpers.arrayElement(MALWARE_HASHES);
@@ -667,7 +667,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
     const hostname = `${employee.userName}-${device.platform}`;
     const timestamp = this.getRandomTimestamp(48);
     const fineScore = faker.number.int({ min: 10, max: 100 });
-    const severity = fineScore >= 75 ? 5 : fineScore >= 50 ? 4 : fineScore >= 25 ? 3 : 2;
+    const _severity = fineScore >= 75 ? 5 : fineScore >= 50 ? 4 : fineScore >= 25 ? 3 : 2;
 
     const timestampMs = new Date(timestamp).getTime();
     const rawEvent: Record<string, unknown> = {

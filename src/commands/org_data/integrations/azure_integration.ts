@@ -597,11 +597,7 @@ export class AzureIntegration extends BaseIntegration {
         appDisplayName: app.name,
         appId: app.id,
         clientAppUsed: clientApp,
-        conditionalAccessStatus: faker.helpers.arrayElement([
-          'notApplied',
-          'success',
-          'failure',
-        ]),
+        conditionalAccessStatus: faker.helpers.arrayElement(['notApplied', 'success', 'failure']),
         correlationId,
         createdDateTime: timestamp,
         deviceDetail: { browser, deviceId: '', operatingSystem: os },
@@ -700,9 +696,7 @@ export class AzureIntegration extends BaseIntegration {
         userId: employee.entraIdUserId,
         userDisplayName: displayName,
         userPrincipalName: employee.email,
-        additionalInfo: JSON.stringify([
-          { Key: 'userAgent', Value: faker.internet.userAgent() },
-        ]),
+        additionalInfo: JSON.stringify([{ Key: 'userAgent', Value: faker.internet.userAgent() }]),
         tokenIssuerType: 'AzureAD',
         userType: 'member',
       },
@@ -1029,7 +1023,7 @@ export class AzureIntegration extends BaseIntegration {
     const timestamp = this.getRandomTimestamp(72);
     const service = faker.helpers.arrayElement(AZURE_PLATFORM_SERVICES);
     const operation = faker.helpers.arrayElement(service.operations);
-    const region = faker.helpers.arrayElement(AZURE_REGIONS);
+    const _region = faker.helpers.arrayElement(AZURE_REGIONS);
     const activityId = faker.string.uuid();
     const resourceId = `/SUBSCRIPTIONS/${subscriptionId}/RESOURCEGROUPS/${resourceGroup}/PROVIDERS/${service.provider}/${service.resourceName}`;
 
@@ -1176,7 +1170,11 @@ export class AzureIntegration extends BaseIntegration {
     ]);
     const logLevelShort = logLevel === 'Error' ? 'ERROR' : logLevel === 'Warning' ? 'WARN' : 'INFO';
     const timestampStr = timestamp.replace('T', ' ').replace('Z', '');
-    const threadName = faker.helpers.arrayElement(['main', 'trap-executor-0', 'http-nio-8080-exec-1']);
+    const threadName = faker.helpers.arrayElement([
+      'main',
+      'trap-executor-0',
+      'http-nio-8080-exec-1',
+    ]);
     const loggerName = `${faker.string.alpha(1).toLowerCase()}.${faker.string.alpha(1).toLowerCase()}.${faker.string.alpha(1).toLowerCase()}.${faker.string.alpha({ length: { min: 5, max: 15 } })}`;
     const logLine = `${timestampStr}  ${logLevelShort} [${appName},,,] 1 --- [${threadName}] ${loggerName}      : ${logMessage}`;
     const resourceId = `/SUBSCRIPTIONS/${subscriptionId}/RESOURCEGROUPS/${resourceGroup}/PROVIDERS/MICROSOFT.APPPLATFORM/SPRING/${serviceName.toUpperCase()}`;

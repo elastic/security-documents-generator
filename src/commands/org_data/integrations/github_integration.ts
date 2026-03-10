@@ -182,9 +182,7 @@ export class GitHubIntegration extends BaseIntegration {
    * Pick another employee with GitHub access (for target user in org/team member actions)
    */
   private pickTargetEmployee(actor: Employee, org: Organization): Employee | undefined {
-    const candidates = org.employees.filter(
-      (e) => e.githubUsername && e.id !== actor.id
-    );
+    const candidates = org.employees.filter((e) => e.githubUsername && e.id !== actor.id);
     return candidates.length > 0 ? faker.helpers.arrayElement(candidates) : undefined;
   }
 

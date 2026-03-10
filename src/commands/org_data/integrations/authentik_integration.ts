@@ -18,7 +18,11 @@ const EVENT_ACTIONS: Array<{
   { action: 'login_failed', app: 'authentik.events.signals', weight: 5 },
   { action: 'logout', app: 'authentik.events.signals', weight: 10 },
   { action: 'user_write', app: 'authentik.events.signals', weight: 8 },
-  { action: 'authorize_application', app: 'authentik.providers.oauth2.views.authorize', weight: 15 },
+  {
+    action: 'authorize_application',
+    app: 'authentik.providers.oauth2.views.authorize',
+    weight: 15,
+  },
   { action: 'token_view', app: 'authentik.providers.oauth2.views.token', weight: 12 },
   { action: 'model_created', app: 'authentik.events.signals', weight: 5 },
   { action: 'model_updated', app: 'authentik.events.signals', weight: 8 },
@@ -120,10 +124,7 @@ export class AuthentikIntegration extends BaseIntegration {
     return String(stableHash(employee.userName) % 100000);
   }
 
-  private createUserDocument(
-    employee: Employee,
-    groupPks: string[]
-  ): IntegrationDocument {
+  private createUserDocument(employee: Employee, groupPks: string[]): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(24);
     const pk = this.getStableUserPk(employee);
     const uid = faker.string.hexadecimal({ length: 64, prefix: '' });
@@ -136,8 +137,7 @@ export class AuthentikIntegration extends BaseIntegration {
       email: employee.email,
       groups: groupPks,
       is_active: true,
-      is_superuser:
-        employee.department === 'Operations' && employee.role.includes('Admin'),
+      is_superuser: employee.department === 'Operations' && employee.role.includes('Admin'),
       last_login: this.getRandomTimestamp(48),
       date_joined: this.getRandomTimestamp(365 * 24),
       path: 'users',
@@ -156,11 +156,7 @@ export class AuthentikIntegration extends BaseIntegration {
     } as IntegrationDocument;
   }
 
-  private createGroupDocument(
-    name: string,
-    members: Employee[],
-    pk: string
-  ): IntegrationDocument {
+  private createGroupDocument(name: string, members: Employee[], pk: string): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(24);
     const numPk = faker.number.int({ min: 50000, max: 59999 });
 
@@ -193,9 +189,7 @@ export class AuthentikIntegration extends BaseIntegration {
     const clientIp = faker.internet.ipv4();
     const pk = faker.string.uuid();
     const created = timestamp;
-    const expires = new Date(
-      new Date(timestamp).getTime() + 24 * 60 * 60 * 1000
-    ).toISOString();
+    const expires = new Date(new Date(timestamp).getTime() + 24 * 60 * 60 * 1000).toISOString();
 
     const context = this.buildEventContext(eventType.action, employee, org);
     const userPk = this.getStableUserPk(employee);
@@ -283,11 +277,7 @@ export class AuthentikIntegration extends BaseIntegration {
         return {
           http_request: {
             method: faker.helpers.arrayElement(['GET', 'POST']),
-            path: faker.helpers.arrayElement([
-              '/api/v3/admin/',
-              '/api/v3/core/users/',
-              '/.env',
-            ]),
+            path: faker.helpers.arrayElement(['/api/v3/admin/', '/api/v3/core/users/', '/.env']),
           },
           reason: 'Suspicious path access',
         };

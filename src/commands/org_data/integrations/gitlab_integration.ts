@@ -200,8 +200,7 @@ export class GitLabIntegration extends BaseIntegration {
 
     const auditFrom = evt.change === 'name' ? `${project}-old` : evt.from;
     const auditTo = evt.change === 'name' ? project : evt.to;
-    const targetDetails =
-      evt.targetType === 'User' ? employee.userName : `${group}/${project}`;
+    const targetDetails = evt.targetType === 'User' ? employee.userName : `${group}/${project}`;
 
     const raw: Record<string, unknown> = {
       severity: 'INFO',

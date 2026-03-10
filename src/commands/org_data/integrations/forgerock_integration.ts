@@ -105,7 +105,7 @@ export class ForgeRockIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private createAmAuthDocument(employee: Employee, org: Organization): IntegrationDocument {
+  private createAmAuthDocument(employee: Employee, _org: Organization): IntegrationDocument {
     const evt = faker.helpers.weightedArrayElement(
       AM_AUTH_EVENTS.map((e) => ({ value: e, weight: e.weight }))
     );
@@ -158,7 +158,7 @@ export class ForgeRockIntegration extends BaseIntegration {
       { value: 'ACTION' as const, weight: 15 },
     ]);
     const protocol = faker.helpers.arrayElement(AM_ACCESS_PROTOCOLS);
-    const tenantHost = `${org.name.toLowerCase().replace(/\s+/g, '-')}.forgeblocks.com`;
+    const _tenantHost = `${org.name.toLowerCase().replace(/\s+/g, '-')}.forgeblocks.com`;
     const trackingId = faker.string.uuid();
     const transactionId = faker.string.uuid();
     const elapsedTime = faker.number.int({ min: 1, max: 500 });

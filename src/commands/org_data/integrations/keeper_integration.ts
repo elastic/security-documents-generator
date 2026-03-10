@@ -177,12 +177,7 @@ export class KeeperIntegration extends BaseIntegration {
       organization_id: String(enterpriseId),
       source_ip: sourceIp,
       city_name: faker.location.city(),
-      continent_name: faker.helpers.arrayElement([
-        'North America',
-        'Europe',
-        'Asia',
-        'Oceania',
-      ]),
+      continent_name: faker.helpers.arrayElement(['North America', 'Europe', 'Asia', 'Oceania']),
       country_iso_code: employee.countryCode,
       country_name: employee.country,
       user_agent: `Keeper/${clientVersion}`,
