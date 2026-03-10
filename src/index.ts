@@ -13,6 +13,7 @@ import { miscCommands } from './commands/misc';
 import { baselineMetricsCommands } from './commands/baseline_metrics';
 import { cloudSecurityPostureCommands } from './commands/generate_cloud_security_posture';
 import { orgDataCommands } from './commands/org_data/index';
+import { entityMaintainersCommands } from './commands/entity_maintainers/index';
 import { parseIntBase10 } from './commands/utils/cli_utils';
 
 await createConfigFileOnFirstRun();
@@ -31,6 +32,7 @@ const commands = [
   baselineMetricsCommands,
   cloudSecurityPostureCommands,
   orgDataCommands,
+  entityMaintainersCommands,
 ];
 
 commands.forEach((cmd) => cmd.register(program));

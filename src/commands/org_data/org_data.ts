@@ -91,11 +91,11 @@ const promptForProductivitySuite = async (): Promise<ProductivitySuite> => {
 export const runOrgData = async (options: OrganizationOptions): Promise<void> => {
   console.log('\n=== Correlated Organization Data Generator ===\n');
 
-  // Prompt for organization size
-  const size = await promptForSize();
+  // Prompt for size if not defined
+  const size = options.size ?? (await promptForSize());
 
-  // Prompt for productivity suite
-  const productivitySuite = await promptForProductivitySuite();
+  // Prompt for productivity suite if integrations are not defined
+  const productivitySuite = options.integrations ? undefined : await promptForProductivitySuite();
 
   // Prompt for detection rules if not set via CLI flag
   const includeDetectionRules =
@@ -580,9 +580,10 @@ const displaySummary = (
  */
 export const runOrgDataQuick = async (space: string = 'default'): Promise<void> => {
   await runOrgData({
-    size: 'medium', // Will be overridden by interactive prompt
+    size: 'medium',
     name: 'Acme CRM',
     space,
+    detectionRules: false,
     integrations:
       'active_directory,okta,okta_system,entra_id,jamf_pro,workday,ping_directory,sailpoint,github,slack,google_workspace,servicenow',
   });
