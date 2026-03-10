@@ -29,7 +29,8 @@ export const ENTITY_MAINTAINERS_OPTIONS = {
   snapshot: 'snapshot',
 } as const;
 
-export type EntityMaintainerOption = keyof typeof ENTITY_MAINTAINERS_OPTIONS;
+export type EntityMaintainerOption =
+  (typeof ENTITY_MAINTAINERS_OPTIONS)[keyof typeof ENTITY_MAINTAINERS_OPTIONS];
 
 export const PRIVILEGED_USER_MONITORING_OPTIONS = {
   anomalyData: 'anomalyData',
