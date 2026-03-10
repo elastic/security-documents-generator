@@ -3,7 +3,7 @@ import { chunk } from 'lodash-es';
 import { getEsClient } from '../utils/indices';
 import { bulkIngest, bulkUpsert } from '../shared/elasticsearch';
 import {
-  ENTITY_STORE_V2_INDEX,
+  getEntityStoreV2Index,
   ENTITY_MAINTAINERS_OPTIONS,
   DEFAULT_CHUNK_SIZE,
   type EntityMaintainerOption,
@@ -104,11 +104,15 @@ interface EntityHit {
   _source: EntityHitSource;
 }
 
-const fetchEntities = async (count: number, type = 'Identity'): Promise<EntityHit[]> => {
+const fetchEntities = async (
+  count: number,
+  space?: string,
+  type = 'Identity'
+): Promise<EntityHit[]> => {
   const client = getEsClient();
 
   const response = await client.search({
-    index: ENTITY_STORE_V2_INDEX,
+    index: getEntityStoreV2Index(space),
     size: count,
     sort: [{ '@timestamp': 'desc' }],
     query: {
@@ -556,9 +560,9 @@ export const generateEntityMaintainersData = async (opts: {
   const alertIndex = getAlertIndex(space);
   const riskScoreIndex = `risk-score.risk-score-${space}`;
 
-  console.log(`\nFetching Identity entities from ${ENTITY_STORE_V2_INDEX}...`);
-  const userEntities = await fetchEntities(count, 'Identity');
-  const hostEntities = await fetchEntities(count, 'Host');
+  console.log(`\nFetching Identity entities from Entity store V2 index...`);
+  const userEntities = await fetchEntities(count, space, 'Identity');
+  const hostEntities = await fetchEntities(count, space, 'Host');
 
   const entities = [
     ...userEntities.map((entity) => ({ type: 'user', entity })),
