@@ -275,7 +275,7 @@ export default function createWizMisconfiguration({
 function generateProviderId(
   provider: CloudProvider,
   nativeType: string,
-  accountId: string
+  accountId: string,
 ): string {
   switch (provider) {
     case 'aws':
@@ -346,7 +346,7 @@ function getRegionForProvider(provider: CloudProvider): string {
 function generateCloudConfigLink(
   provider: CloudProvider,
   region: string,
-  resourceId: string
+  resourceId: string,
 ): string {
   switch (provider) {
     case 'aws':

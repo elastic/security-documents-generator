@@ -304,7 +304,7 @@ export class AzureIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const tenantId = faker.string.uuid();
@@ -314,43 +314,43 @@ export class AzureIntegration extends BaseIntegration {
 
     documentsMap.set(
       'logs-azure.activitylogs-default',
-      this.generateActivityLogs(cloudEmployees, org, tenantId, subscriptionId, resourceGroup)
+      this.generateActivityLogs(cloudEmployees, org, tenantId, subscriptionId, resourceGroup),
     );
     documentsMap.set(
       'logs-azure.auditlogs-default',
-      this.generateAuditLogs(org.employees, org, tenantId)
+      this.generateAuditLogs(org.employees, org, tenantId),
     );
     documentsMap.set(
       'logs-azure.signinlogs-default',
-      this.generateSignInLogs(org.employees, tenantId)
+      this.generateSignInLogs(org.employees, tenantId),
     );
     documentsMap.set(
       'logs-azure.identity_protection-default',
-      this.generateIdentityProtectionLogs(org.employees, tenantId)
+      this.generateIdentityProtectionLogs(org.employees, tenantId),
     );
     documentsMap.set(
       'logs-azure.provisioning-default',
-      this.generateProvisioningLogs(org.employees, org, tenantId)
+      this.generateProvisioningLogs(org.employees, org, tenantId),
     );
     documentsMap.set(
       'logs-azure.graphactivitylogs-default',
-      this.generateGraphActivityLogs(tenantId)
+      this.generateGraphActivityLogs(tenantId),
     );
     documentsMap.set(
       'logs-azure.firewall_logs-default',
-      this.generateFirewallLogs(org, subscriptionId, resourceGroup)
+      this.generateFirewallLogs(org, subscriptionId, resourceGroup),
     );
     documentsMap.set(
       'logs-azure.platformlogs-default',
-      this.generatePlatformLogs(subscriptionId, resourceGroup)
+      this.generatePlatformLogs(subscriptionId, resourceGroup),
     );
     documentsMap.set(
       'logs-azure.application_gateway-default',
-      this.generateApplicationGatewayLogs(subscriptionId, resourceGroup)
+      this.generateApplicationGatewayLogs(subscriptionId, resourceGroup),
     );
     documentsMap.set(
       'logs-azure.springcloudlogs-default',
-      this.generateSpringCloudLogs(subscriptionId)
+      this.generateSpringCloudLogs(subscriptionId),
     );
 
     return documentsMap;
@@ -361,7 +361,7 @@ export class AzureIntegration extends BaseIntegration {
     _org: Organization,
     tenantId: string,
     subscriptionId: string,
-    resourceGroup: string
+    resourceGroup: string,
   ): IntegrationDocument[] {
     const docs: IntegrationDocument[] = [];
 
@@ -379,11 +379,11 @@ export class AzureIntegration extends BaseIntegration {
     employee: Employee,
     tenantId: string,
     subscriptionId: string,
-    resourceGroup: string
+    resourceGroup: string,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const resourceDef = faker.helpers.weightedArrayElement(
-      AZURE_RESOURCE_OPERATIONS.map((r) => ({ value: r, weight: r.weight }))
+      AZURE_RESOURCE_OPERATIONS.map((r) => ({ value: r, weight: r.weight })),
     );
     const operation = faker.helpers.arrayElement(resourceDef.operations);
     const isSuccess = faker.helpers.weightedArrayElement([
@@ -440,7 +440,7 @@ export class AzureIntegration extends BaseIntegration {
   private generateAuditLogs(
     employees: Employee[],
     _org: Organization,
-    tenantId: string
+    tenantId: string,
   ): IntegrationDocument[] {
     const docs: IntegrationDocument[] = [];
     const auditCount = Math.max(5, Math.ceil(employees.length * 0.3));
@@ -456,7 +456,7 @@ export class AzureIntegration extends BaseIntegration {
   private createAuditLogDoc(employee: Employee, tenantId: string): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const activity = faker.helpers.weightedArrayElement(
-      AUDIT_LOG_ACTIVITIES.map((a) => ({ value: a, weight: a.weight }))
+      AUDIT_LOG_ACTIVITIES.map((a) => ({ value: a, weight: a.weight })),
     );
     const correlationId = faker.string.uuid();
     const targetId = faker.string.uuid();
@@ -627,7 +627,7 @@ export class AzureIntegration extends BaseIntegration {
 
   private generateIdentityProtectionLogs(
     employees: Employee[],
-    tenantId: string
+    tenantId: string,
   ): IntegrationDocument[] {
     const docs: IntegrationDocument[] = [];
     const riskyCount = Math.max(2, Math.ceil(employees.length * 0.1));
@@ -716,7 +716,7 @@ export class AzureIntegration extends BaseIntegration {
   private generateProvisioningLogs(
     employees: Employee[],
     org: Organization,
-    tenantId: string
+    tenantId: string,
   ): IntegrationDocument[] {
     const docs: IntegrationDocument[] = [];
     const provisionCount = Math.max(3, Math.ceil(employees.length * 0.15));
@@ -732,7 +732,7 @@ export class AzureIntegration extends BaseIntegration {
   private createProvisioningDoc(
     employee: Employee,
     _org: Organization,
-    tenantId: string
+    tenantId: string,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const targetApp = faker.helpers.arrayElement(PROVISIONING_TARGET_APPS);
@@ -883,7 +883,7 @@ export class AzureIntegration extends BaseIntegration {
                 'Organization.Read.All',
                 'RoleManagement.Read.Directory',
               ],
-              { min: 2, max: 5 }
+              { min: 2, max: 5 },
             ),
             service_principal_id: servicePrincipalId,
             sign_in_activity_id: faker.string.uuid(),
@@ -940,7 +940,7 @@ export class AzureIntegration extends BaseIntegration {
   private generateFirewallLogs(
     org: Organization,
     subscriptionId: string,
-    resourceGroup: string
+    resourceGroup: string,
   ): IntegrationDocument[] {
     const docs: IntegrationDocument[] = [];
     const count = Math.max(5, Math.ceil(org.employees.length * 0.5));
@@ -958,7 +958,7 @@ export class AzureIntegration extends BaseIntegration {
     subscriptionId: string,
     resourceGroup: string,
     firewallName: string,
-    device: Device | null
+    device: Device | null,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const ruleCategory = faker.helpers.arrayElement(FIREWALL_RULE_CATEGORIES);
@@ -1007,7 +1007,7 @@ export class AzureIntegration extends BaseIntegration {
 
   private generatePlatformLogs(
     subscriptionId: string,
-    resourceGroup: string
+    resourceGroup: string,
   ): IntegrationDocument[] {
     const docs: IntegrationDocument[] = [];
     const count = faker.number.int({ min: 5, max: 12 });
@@ -1054,7 +1054,7 @@ export class AzureIntegration extends BaseIntegration {
 
   private generateApplicationGatewayLogs(
     subscriptionId: string,
-    resourceGroup: string
+    resourceGroup: string,
   ): IntegrationDocument[] {
     const docs: IntegrationDocument[] = [];
     const count = faker.number.int({ min: 5, max: 15 });
@@ -1070,7 +1070,7 @@ export class AzureIntegration extends BaseIntegration {
   private createApplicationGatewayLogDoc(
     subscriptionId: string,
     resourceGroup: string,
-    gatewayName: string
+    gatewayName: string,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const sourceIp = faker.internet.ipv4();
@@ -1157,7 +1157,7 @@ export class AzureIntegration extends BaseIntegration {
   private createSpringCloudLogDoc(
     subscriptionId: string,
     resourceGroup: string,
-    serviceName: string
+    serviceName: string,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const appName = faker.helpers.arrayElement(SPRING_CLOUD_APPS);

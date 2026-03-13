@@ -68,7 +68,7 @@ export class ForgeRockIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const amAuthDocs: IntegrationDocument[] = [];
@@ -107,7 +107,7 @@ export class ForgeRockIntegration extends BaseIntegration {
 
   private createAmAuthDocument(employee: Employee, _org: Organization): IntegrationDocument {
     const evt = faker.helpers.weightedArrayElement(
-      AM_AUTH_EVENTS.map((e) => ({ value: e, weight: e.weight }))
+      AM_AUTH_EVENTS.map((e) => ({ value: e, weight: e.weight })),
     );
     const timestamp = this.getRandomTimestamp(72);
     const sourceIp = faker.internet.ipv4();

@@ -14,7 +14,7 @@ const createEntityTypeData = (): EntityTypeData => ({
 
 const createPerEntityTypeData = (): Record<EntityType, EntityTypeData> =>
   Object.fromEntries(
-    ENTITY_TYPES.map((entityType) => [entityType, createEntityTypeData()])
+    ENTITY_TYPES.map((entityType) => [entityType, createEntityTypeData()]),
   ) as Record<EntityType, EntityTypeData>;
 
 /**
@@ -68,7 +68,7 @@ export const parseTransformStats = (logPath: string): TransformStatsData => {
   for (const line of lines) {
     try {
       const match = line.match(
-        /^(\d{4}-\d{2}-\d{2}T[\d:.-]+Z)\s+-\s+Transform\s+(.+?)\s+stats:\s+(.+)$/
+        /^(\d{4}-\d{2}-\d{2}T[\d:.-]+Z)\s+-\s+Transform\s+(.+?)\s+stats:\s+(.+)$/,
       );
       if (match) {
         const timestamp = new Date(match[1]).getTime();
@@ -115,7 +115,7 @@ export const parseTransformStats = (logPath: string): TransformStatsData => {
   for (const line of lines) {
     try {
       const match = line.match(
-        /^(\d{4}-\d{2}-\d{2}T[\d:.-]+Z)\s+-\s+Transform\s+(.+?)\s+stats:\s+(.+)$/
+        /^(\d{4}-\d{2}-\d{2}T[\d:.-]+Z)\s+-\s+Transform\s+(.+?)\s+stats:\s+(.+)$/,
       );
       if (!match) continue;
 

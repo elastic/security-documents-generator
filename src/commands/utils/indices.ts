@@ -31,6 +31,9 @@ export const getEsClient = () => {
   esClient = new Client({
     node: config.elastic.node,
     auth: getClientAuth(config),
+    ...(config.allowSelfSignedCerts && {
+      tls: { rejectUnauthorized: false },
+    }),
   });
 
   return esClient;
@@ -47,7 +50,7 @@ export const getFileLineCount = async (filePath: string): Promise<number> => {
 
       if (isNaN(count)) {
         console.log(
-          `Failed to parse line count, line count: "${stdout}", split result: "${stdout.split(' ')}"`
+          `Failed to parse line count, line count: "${stdout}", split result: "${stdout.split(' ')}"`,
         );
         reject();
       }
@@ -84,7 +87,7 @@ export const indexCheck = async (index: string, body?: Omit<IndicesCreateRequest
 export const ingest = async (
   index: string,
   documents: Array<object>,
-  { noMeta, pipeline }: { noMeta?: boolean; pipeline?: string } = {}
+  { noMeta, pipeline }: { noMeta?: boolean; pipeline?: string } = {},
 ) => {
   await bulkIngest({
     index,

@@ -19,7 +19,7 @@ export class O365Integration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
 
@@ -94,7 +94,7 @@ export class O365Integration extends BaseIntegration {
     workload: string,
     operation: string,
     employee: Employee,
-    org: Organization
+    org: Organization,
   ): Record<string, unknown> {
     switch (workload) {
       case 'SharePoint':

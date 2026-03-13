@@ -24,6 +24,7 @@ const Config = t.type({
   serverless: t.union([t.boolean, t.undefined]),
   eventIndex: t.union([t.string, t.undefined]),
   eventDateOffsetHours: t.union([t.number, t.undefined]),
+  allowSelfSignedCerts: t.union([t.boolean, t.undefined]),
 });
 
 export type ConfigType = t.TypeOf<typeof Config>;
@@ -45,6 +46,7 @@ export const configPath = resolve(directoryName, `../${CONFIG_FILE_NAME}`);
  * - SERVERLESS (true/false)
  * - EVENT_INDEX
  * - EVENT_DATE_OFFSET_HOURS (number)
+ * - ALLOW_SELF_SIGNED_CERTS (true/false)
  */
 const getConfigFromEnv = (): Partial<ConfigType> | null => {
   const envConfig: Partial<ConfigType> = {};
@@ -106,9 +108,14 @@ const getConfigFromEnv = (): Partial<ConfigType> | null => {
       envConfig.eventDateOffsetHours = offsetHours;
     } else {
       console.warn(
-        `Warning: EVENT_DATE_OFFSET_HOURS environment variable contains an invalid number ("${process.env.EVENT_DATE_OFFSET_HOURS}"). Ignoring this value.`
+        `Warning: EVENT_DATE_OFFSET_HOURS environment variable contains an invalid number ("${process.env.EVENT_DATE_OFFSET_HOURS}"). Ignoring this value.`,
       );
     }
+  }
+
+  if (process.env.ALLOW_SELF_SIGNED_CERTS !== undefined) {
+    envConfig.allowSelfSignedCerts =
+      process.env.ALLOW_SELF_SIGNED_CERTS === 'true' || process.env.ALLOW_SELF_SIGNED_CERTS === '1';
   }
 
   // Return null if no env vars were set (to indicate we should use file config)
@@ -117,7 +124,8 @@ const getConfigFromEnv = (): Partial<ConfigType> | null => {
     envConfig.kibana ||
     envConfig.serverless !== undefined ||
     envConfig.eventIndex !== undefined ||
-    envConfig.eventDateOffsetHours !== undefined;
+    envConfig.eventDateOffsetHours !== undefined ||
+    envConfig.allowSelfSignedCerts !== undefined;
 
   return hasAnyEnvConfig ? envConfig : null;
 };
@@ -128,7 +136,7 @@ const getConfigFromEnv = (): Partial<ConfigType> | null => {
  */
 const mergeConfigs = (
   fileConfig: Partial<ConfigType>,
-  envConfig: Partial<ConfigType>
+  envConfig: Partial<ConfigType>,
 ): Partial<ConfigType> => {
   const { elastic, kibana, ...envConfigWithoutNodes } = envConfig;
   return {
@@ -146,7 +154,7 @@ const mergeConfigs = (
  * @param throwOnReadError - If true, throws on file read errors. If false, returns empty config.
  */
 const loadAndMergeConfig = (
-  throwOnReadError: boolean = false
+  throwOnReadError: boolean = false,
 ): {
   mergedConfig: Partial<ConfigType>;
   validationResult: t.Validation<ConfigType>;
@@ -202,7 +210,7 @@ export const getConfig = (): ConfigType => {
 
   if (validationResult._tag === 'Left') {
     console.error(
-      `There was a config validation error. Fix issues below in your ${envConfig ? 'environment variables or ' : ''}${CONFIG_FILE_NAME} file, and try again.`
+      `There was a config validation error. Fix issues below in your ${envConfig ? 'environment variables or ' : ''}${CONFIG_FILE_NAME} file, and try again.`,
     );
     console.log(PathReporter.report(validationResult));
     process.exit(1);

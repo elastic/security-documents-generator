@@ -70,7 +70,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -93,7 +93,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
   ],
@@ -120,7 +120,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             cloud: { provider: 'aws', region: 'us-east-1' },
             user: { name: faker.internet.username() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -150,7 +150,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             cloud: { provider: 'aws', region: 'us-east-1' },
             user: { name: faker.internet.username() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
   ],
@@ -176,7 +176,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             host: { name: faker.internet.domainWord(), os: { family: 'windows' } },
             process: { name: faker.system.fileName() },
-          })
+          }),
         ),
     },
     {
@@ -199,7 +199,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             host: { name: faker.internet.domainWord(), os: { family: 'windows' } },
             file: { hash: { sha256: faker.string.hexadecimal({ length: 64, prefix: '' }) } },
-          })
+          }),
         ),
     },
     {
@@ -228,7 +228,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             host: { name: faker.internet.domainWord() },
             process: { name: 'powershell.exe' },
-          })
+          }),
         ),
     },
     {
@@ -255,7 +255,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             host: { name: faker.internet.domainWord() },
             user: { email: faker.internet.email() },
-          })
+          }),
         ),
     },
     {
@@ -284,7 +284,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             host: { name: faker.internet.domainWord() },
             source: { ip: faker.internet.ipv4(), port: faker.internet.port() },
             destination: { ip: faker.internet.ipv4(), port: 443 },
-          })
+          }),
         ),
     },
   ],
@@ -311,7 +311,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -336,7 +336,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
   ],
@@ -361,7 +361,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               kind: 'event',
             },
             user: { name: faker.internet.username() },
-          })
+          }),
         ),
     },
     {
@@ -382,7 +382,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               kind: 'event',
             },
             user: { name: faker.internet.username() },
-          })
+          }),
         ),
     },
   ],
@@ -407,7 +407,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -429,7 +429,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
   ],
@@ -454,7 +454,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
   ],
@@ -480,7 +480,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -504,7 +504,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             google_workspace: { login: { is_suspicious: true } },
             user: { name: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -537,7 +537,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -562,7 +562,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -589,7 +589,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               },
             },
             user: { name: faker.internet.email() },
-          })
+          }),
         ),
     },
     {
@@ -617,7 +617,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               },
             },
             user: { name: faker.internet.email() },
-          })
+          }),
         ),
     },
   ],
@@ -642,7 +642,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             source: { ip: faker.internet.ipv4() },
             url: { domain: faker.internet.domainName() },
-          })
+          }),
         ),
     },
   ],
@@ -668,7 +668,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             user: { name: faker.internet.username() },
             url: { domain: faker.internet.domainName(), full: faker.internet.url() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -696,7 +696,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               ip: faker.internet.ipv4(),
               port: faker.helpers.arrayElement([80, 443, 8080]),
             },
-          })
+          }),
         ),
     },
   ],
@@ -724,7 +724,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
                 file: { hash: { sha256: faker.string.hexadecimal({ length: 64, prefix: '' }) } },
               },
             },
-          })
+          }),
         ),
     },
   ],
@@ -748,7 +748,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               kind: 'event',
             },
             host: { name: faker.internet.domainWord() },
-          })
+          }),
         ),
     },
   ],
@@ -781,7 +781,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               },
             },
             user: { name: faker.internet.username() },
-          })
+          }),
         ),
     },
   ],
@@ -806,7 +806,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -827,7 +827,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               kind: 'event',
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
-          })
+          }),
         ),
     },
   ],
@@ -853,7 +853,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
   ],
@@ -879,7 +879,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -902,7 +902,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
   ],
@@ -939,7 +939,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             host: { name: faker.internet.domainWord(), os: { family: 'windows' } },
             user: { name: faker.internet.username() },
-          })
+          }),
         ),
     },
     {
@@ -1013,7 +1013,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               port: faker.number.int({ min: 49152, max: 65535 }),
             },
             host: { name: faker.internet.domainWord(), os: { family: 'windows' } },
-          })
+          }),
         ),
     },
     {
@@ -1049,7 +1049,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               name: faker.helpers.arrayElement(['cmd.exe', 'powershell.exe', 'python3', 'nc']),
             },
             host: { name: faker.internet.domainWord(), os: { family: 'windows' } },
-          })
+          }),
         ),
     },
     {
@@ -1083,7 +1083,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             process: { name: 'reg.exe', executable: 'C:\\Windows\\System32\\reg.exe' },
             host: { name: faker.internet.domainWord(), os: { family: 'windows' } },
             user: { name: faker.internet.username() },
-          })
+          }),
         ),
     },
   ],
@@ -1107,7 +1107,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               kind: 'event',
             },
             user: { name: faker.internet.username() },
-          })
+          }),
         ),
     },
     {
@@ -1128,7 +1128,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               kind: 'event',
             },
             user: { name: faker.internet.username() },
-          })
+          }),
         ),
     },
   ],
@@ -1152,7 +1152,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               kind: 'event',
             },
             user: { name: faker.internet.username() },
-          })
+          }),
         ),
     },
     {
@@ -1173,7 +1173,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               kind: 'event',
             },
             user: { name: faker.internet.username() },
-          })
+          }),
         ),
     },
   ],
@@ -1197,7 +1197,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               kind: 'event',
             },
             user: { name: faker.internet.username() },
-          })
+          }),
         ),
     },
     {
@@ -1224,7 +1224,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
                 'project-managers',
               ]),
             },
-          })
+          }),
         ),
     },
   ],
@@ -1249,7 +1249,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -1271,7 +1271,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -1291,7 +1291,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               kind: 'event',
             },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
   ],
@@ -1314,7 +1314,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -1333,7 +1333,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               kind: 'event',
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
-          })
+          }),
         ),
     },
     {
@@ -1352,7 +1352,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               kind: 'event',
             },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
   ],
@@ -1386,7 +1386,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             source: { ip: faker.internet.ipv4() },
             host: { hostname: faker.internet.domainWord() },
-          })
+          }),
         ),
     },
   ],
@@ -1417,7 +1417,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -1446,7 +1446,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             network: { protocol: 'rdp' },
             user: { name: faker.internet.username() },
-          })
+          }),
         ),
     },
     {
@@ -1474,7 +1474,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
   ],
@@ -1507,7 +1507,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -1537,7 +1537,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -1567,7 +1567,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
   ],
@@ -1603,7 +1603,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { full_name: faker.person.fullName() },
             client: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -1628,7 +1628,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               effective: { email: faker.internet.email() },
             },
             client: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -1656,7 +1656,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { full_name: faker.person.fullName() },
             client: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
   ],
@@ -1685,7 +1685,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               },
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
-          })
+          }),
         ),
     },
     {
@@ -1711,7 +1711,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               },
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
-          })
+          }),
         ),
     },
     {
@@ -1737,7 +1737,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               },
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
-          })
+          }),
         ),
     },
   ],
@@ -1770,7 +1770,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -1802,7 +1802,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -1845,7 +1845,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             user: { name: faker.internet.username() },
             source: { ip: faker.internet.ipv4() },
             destination: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
   ],
@@ -1875,7 +1875,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -1902,7 +1902,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               topic: 'access',
             },
             user: { id: faker.internet.username() },
-          })
+          }),
         ),
     },
     {
@@ -1929,7 +1929,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               topic: 'authentication',
             },
             user: { name: faker.internet.username() },
-          })
+          }),
         ),
     },
   ],
@@ -1961,7 +1961,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               },
             },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -1989,7 +1989,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               },
             },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
   ],
@@ -2019,7 +2019,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -2047,7 +2047,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               },
             },
             user: { name: faker.internet.username() },
-          })
+          }),
         ),
     },
     {
@@ -2076,7 +2076,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             http: { response: { status_code: 403 } },
             user: { name: faker.internet.username() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
   ],
@@ -2117,7 +2117,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -2155,7 +2155,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { name: faker.internet.username() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
   ],
@@ -2196,7 +2196,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             source: { ip: faker.internet.ipv4() },
             cloud: { provider: 'azure' },
-          })
+          }),
         ),
     },
     {
@@ -2231,7 +2231,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             source: { ip: faker.internet.ipv4() },
             cloud: { provider: 'azure' },
-          })
+          }),
         ),
     },
     {
@@ -2260,7 +2260,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             destination: { ip: faker.internet.ipv4() },
             network: { transport: 'tcp' },
             cloud: { provider: 'azure' },
-          })
+          }),
         ),
     },
     {
@@ -2288,7 +2288,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               },
             },
             cloud: { provider: 'azure' },
-          })
+          }),
         ),
     },
   ],
@@ -2316,7 +2316,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               },
             },
             user: { email: faker.internet.email() },
-          })
+          }),
         ),
     },
     {
@@ -2340,7 +2340,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               },
             },
             user: { email: faker.internet.email() },
-          })
+          }),
         ),
     },
     {
@@ -2368,7 +2368,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               },
             },
             user: { email: faker.internet.email() },
-          })
+          }),
         ),
     },
   ],
@@ -2402,7 +2402,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               },
             },
             source: { user: { email: faker.internet.email() } },
-          })
+          }),
         ),
     },
     {
@@ -2433,7 +2433,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               },
             },
             source: { user: { email: faker.internet.email() } },
-          })
+          }),
         ),
     },
     {
@@ -2463,7 +2463,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
                 initiated_by: { email: faker.internet.email(), type: 'user' },
               },
             },
-          })
+          }),
         ),
     },
   ],
@@ -2492,7 +2492,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             username: faker.internet.email(),
             user: { email: faker.internet.email(), name: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -2518,7 +2518,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             username: faker.internet.email(),
             user: { email: faker.internet.email(), name: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -2544,7 +2544,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             username: faker.internet.email(),
             user: { email: faker.internet.email(), name: faker.internet.email() },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
   ],
@@ -2569,7 +2569,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             log: { level: 'WARN', logger: 'org.keycloak.events' },
             message:
               'type=LOGIN_ERROR, realmId=corp, clientId=account-console, error=invalid_credentials',
-          })
+          }),
         ),
     },
     {
@@ -2590,7 +2590,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             log: { level: 'WARN', logger: 'org.keycloak.events' },
             message: 'type=IMPERSONATE, realmId=master, clientId=admin-cli',
-          })
+          }),
         ),
     },
     {
@@ -2617,7 +2617,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             log: { level: 'WARN', logger: 'org.keycloak.events.admin' },
             message: 'type=DELETE, realmId=corp, operationType=DELETE, resourceType=User',
-          })
+          }),
         ),
     },
   ],
@@ -2643,7 +2643,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               },
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
-          })
+          }),
         ),
     },
     {
@@ -2666,7 +2666,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               },
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
-          })
+          }),
         ),
     },
   ],
@@ -2692,7 +2692,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { id: faker.string.alphanumeric(26) },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -2714,7 +2714,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { id: faker.string.alphanumeric(26) },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
   ],
@@ -2743,7 +2743,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
                 user: { names: [{ db: 'admin', user: faker.internet.username() }] },
               },
             },
-          })
+          }),
         ),
     },
     {
@@ -2768,7 +2768,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
                 user: { names: [{ db: 'admin', user: faker.internet.username() }] },
               },
             },
-          })
+          }),
         ),
     },
     {
@@ -2794,7 +2794,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               },
             },
             user: { name: faker.internet.email() },
-          })
+          }),
         ),
     },
   ],
@@ -2820,7 +2820,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               kind: 'event',
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
-          })
+          }),
         ),
     },
     {
@@ -2847,7 +2847,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               login: faker.internet.username(),
             }),
             user: { name: faker.internet.username(), email: faker.internet.email() },
-          })
+          }),
         ),
     },
     {
@@ -2867,7 +2867,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
               kind: 'event',
             },
             user: { name: faker.internet.username(), email: faker.internet.email() },
-          })
+          }),
         ),
     },
   ],
@@ -2893,7 +2893,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { full_name: faker.person.fullName(), domain: 'CORP' },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -2923,7 +2923,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { full_name: faker.person.fullName(), domain: 'CORP' },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -2957,7 +2957,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { full_name: faker.person.fullName(), domain: 'CORP' },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
   ],
@@ -2981,7 +2981,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { email: faker.internet.email(), id: faker.string.alphanumeric(22) },
             zoom: { operator: faker.internet.email() },
-          })
+          }),
         ),
     },
     {
@@ -3002,7 +3002,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { email: faker.internet.email(), id: faker.string.alphanumeric(22) },
             zoom: { operator: faker.internet.email(), account: { account_name: 'Corp' } },
-          })
+          }),
         ),
     },
     {
@@ -3023,7 +3023,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { email: faker.internet.email(), id: faker.string.alphanumeric(22) },
             zoom: { operator: faker.internet.email() },
-          })
+          }),
         ),
     },
   ],
@@ -3056,7 +3056,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { email: [faker.internet.email()] },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -3086,7 +3086,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { email: [faker.internet.email()] },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
     {
@@ -3116,7 +3116,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
             },
             user: { email: [faker.internet.email()] },
             source: { ip: faker.internet.ipv4() },
-          })
+          }),
         ),
     },
   ],
@@ -3125,13 +3125,13 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
 function getApplicableIntegrations(enabledIntegrations: IntegrationName[]): IntegrationName[] {
   return enabledIntegrations.filter(
     (name) =>
-      !EXCLUDED_INTEGRATIONS.includes(name) && INTEGRATION_DETECTION_RULES[name] !== undefined
+      !EXCLUDED_INTEGRATIONS.includes(name) && INTEGRATION_DETECTION_RULES[name] !== undefined,
   );
 }
 
 export async function createIntegrationDetectionRules(
   enabledIntegrations: IntegrationName[],
-  space: string
+  space: string,
 ): Promise<DetectionRuleResult[]> {
   const applicable = getApplicableIntegrations(enabledIntegrations);
   if (applicable.length === 0) {
@@ -3182,7 +3182,7 @@ export async function createIntegrationDetectionRules(
 }
 
 export async function generateAndIndexMatchingEvents(
-  enabledIntegrations: IntegrationName[]
+  enabledIntegrations: IntegrationName[],
 ): Promise<number> {
   const applicable = getApplicableIntegrations(enabledIntegrations);
   if (applicable.length === 0) return 0;

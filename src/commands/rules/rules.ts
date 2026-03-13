@@ -117,7 +117,7 @@ const generateNonOverlappingGapEvents = (
   ruleId: string,
   ruleName: string,
   fromHours: number,
-  gapCount: number
+  gapCount: number,
 ): GapEvent[] => {
   const totalMinutes = fromHours * 60;
   // Calculate maximum duration for each gap including spacing
@@ -127,13 +127,13 @@ const generateNonOverlappingGapEvents = (
   const minGapDuration = Math.max(1, Math.min(5, Math.floor(maxTimePerGap * 0.6))); // 60% of available time
   const maxGapDuration = Math.max(
     minGapDuration + 1,
-    Math.min(30, Math.floor(maxTimePerGap * 0.8))
+    Math.min(30, Math.floor(maxTimePerGap * 0.8)),
   ); // 80% of available time
   const maxSpaceBetweenGaps = Math.max(1, Math.floor(maxTimePerGap * 0.2)); // 20% of available time
 
   if (maxTimePerGap < 2) {
     console.warn(
-      `Warning: Time window too small for ${gapCount} gaps. Each gap will be very short (${maxTimePerGap} minutes or less)`
+      `Warning: Time window too small for ${gapCount} gaps. Each gap will be very short (${maxTimePerGap} minutes or less)`,
     );
   }
 
@@ -270,7 +270,7 @@ const deleteGapEvents = async () => {
 export const generateRulesAndAlerts = async (
   ruleCount: number,
   eventCount: number,
-  options: RuleGenerationOptions
+  options: RuleGenerationOptions,
 ) => {
   // Create rules through Kibana API
   const ruleResults = await Promise.all(
@@ -291,7 +291,7 @@ export const generateRulesAndAlerts = async (
         from: `now-${options.from}h`,
         interval: options.interval,
       });
-    })
+    }),
   );
 
   // Generate events that rules can match against
@@ -305,7 +305,7 @@ export const generateRulesAndAlerts = async (
         rule.id,
         rule.name || 'Unknown Rule',
         options.from,
-        options.gapsPerRule
+        options.gapsPerRule,
       );
     });
   }

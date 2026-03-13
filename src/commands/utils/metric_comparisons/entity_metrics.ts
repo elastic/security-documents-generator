@@ -26,7 +26,7 @@ const getMinSamplesForEntity = (entityType: string): number => {
 export const compareEntityMetrics = (
   baseline: BaselineMetrics,
   current: BaselineMetrics,
-  thresholds: ComparisonThresholds
+  thresholds: ComparisonThresholds,
 ): ComparisonResult[] => {
   const results: ComparisonResult[] = [];
 
@@ -46,8 +46,8 @@ export const compareEntityMetrics = (
           baselineEntity.searchLatency.avg,
           currentEntity.searchLatency.avg,
           true,
-          thresholds
-        )
+          thresholds,
+        ),
       );
       results.push(
         createResult(
@@ -55,8 +55,8 @@ export const compareEntityMetrics = (
           baselineEntity.searchLatency.p95,
           currentEntity.searchLatency.p95,
           true,
-          thresholds
-        )
+          thresholds,
+        ),
       );
     } else {
       // Mark as insufficient_data if insufficient samples (to avoid false positives)
@@ -99,8 +99,8 @@ export const compareEntityMetrics = (
           baselineEntity.intakeLatency.avg,
           currentEntity.intakeLatency.avg,
           true,
-          thresholds
-        )
+          thresholds,
+        ),
       );
       results.push(
         createResult(
@@ -108,8 +108,8 @@ export const compareEntityMetrics = (
           baselineEntity.intakeLatency.p95,
           currentEntity.intakeLatency.p95,
           true,
-          thresholds
-        )
+          thresholds,
+        ),
       );
     } else {
       // Mark as insufficient_data if insufficient samples
@@ -155,8 +155,8 @@ export const compareEntityMetrics = (
           baselineEntity.processingLatency.avg,
           currentEntity.processingLatency.avg,
           true,
-          thresholds
-        )
+          thresholds,
+        ),
       );
       results.push(
         createResult(
@@ -164,8 +164,8 @@ export const compareEntityMetrics = (
           baselineEntity.processingLatency.p95,
           currentEntity.processingLatency.p95,
           true,
-          thresholds
-        )
+          thresholds,
+        ),
       );
     } else {
       // Mark as insufficient_data if insufficient samples
@@ -205,8 +205,8 @@ export const compareEntityMetrics = (
         baselineEntity.documentsProcessed,
         currentEntity.documentsProcessed,
         false,
-        thresholds
-      )
+        thresholds,
+      ),
     );
     results.push(
       createResult(
@@ -214,8 +214,8 @@ export const compareEntityMetrics = (
         baselineEntity.documentsIndexed,
         currentEntity.documentsIndexed,
         false,
-        thresholds
-      )
+        thresholds,
+      ),
     );
     results.push(
       createResult(
@@ -223,8 +223,8 @@ export const compareEntityMetrics = (
         baselineEntity.pagesProcessed,
         currentEntity.pagesProcessed,
         false,
-        thresholds
-      )
+        thresholds,
+      ),
     );
     results.push(
       createResult(
@@ -232,8 +232,8 @@ export const compareEntityMetrics = (
         baselineEntity.triggerCount,
         currentEntity.triggerCount,
         false,
-        thresholds
-      )
+        thresholds,
+      ),
     );
   }
 

@@ -9,13 +9,13 @@ import { ComparisonThresholds } from '../metrics_comparison';
 export const compareSystemMetrics = (
   baseline: BaselineMetrics,
   current: BaselineMetrics,
-  thresholds: ComparisonThresholds
+  thresholds: ComparisonThresholds,
 ): ComparisonResult[] => {
   const results: ComparisonResult[] = [];
 
   // CPU metrics
   results.push(
-    createResult('CPU (avg)', baseline.metrics.cpu.avg, current.metrics.cpu.avg, false, thresholds)
+    createResult('CPU (avg)', baseline.metrics.cpu.avg, current.metrics.cpu.avg, false, thresholds),
   );
   results.push(
     createResult(
@@ -23,8 +23,8 @@ export const compareSystemMetrics = (
       baseline.metrics.cpu.peak,
       current.metrics.cpu.peak,
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
 
   // Memory metrics
@@ -34,8 +34,8 @@ export const compareSystemMetrics = (
       baseline.metrics.memory.avgHeapPercent,
       current.metrics.memory.avgHeapPercent,
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -43,8 +43,8 @@ export const compareSystemMetrics = (
       baseline.metrics.memory.peakHeapPercent,
       current.metrics.memory.peakHeapPercent,
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
 
   // Throughput metrics (higher is better, so lowerIsBetter = false)
@@ -54,8 +54,8 @@ export const compareSystemMetrics = (
       baseline.metrics.throughput.avgDocumentsPerSecond,
       current.metrics.throughput.avgDocumentsPerSecond,
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -63,8 +63,8 @@ export const compareSystemMetrics = (
       baseline.metrics.throughput.peakDocumentsPerSecond,
       current.metrics.throughput.peakDocumentsPerSecond,
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
 
   // Index Efficiency metrics
@@ -74,8 +74,8 @@ export const compareSystemMetrics = (
       baseline.metrics.indexEfficiency.avgRatio,
       current.metrics.indexEfficiency.avgRatio,
       false, // Higher ratio means better efficiency
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -83,8 +83,8 @@ export const compareSystemMetrics = (
       baseline.metrics.indexEfficiency.totalDocumentsIndexed,
       current.metrics.indexEfficiency.totalDocumentsIndexed,
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -92,8 +92,8 @@ export const compareSystemMetrics = (
       baseline.metrics.indexEfficiency.totalDocumentsProcessed,
       current.metrics.indexEfficiency.totalDocumentsProcessed,
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
 
   // Pages Processed metrics
@@ -103,8 +103,8 @@ export const compareSystemMetrics = (
       baseline.metrics.pagesProcessed.total,
       current.metrics.pagesProcessed.total,
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -112,8 +112,8 @@ export const compareSystemMetrics = (
       baseline.metrics.pagesProcessed.avgPerSample,
       current.metrics.pagesProcessed.avgPerSample,
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
 
   // Trigger Count metrics
@@ -123,8 +123,8 @@ export const compareSystemMetrics = (
       baseline.metrics.triggerCount.total,
       current.metrics.triggerCount.total,
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -132,8 +132,8 @@ export const compareSystemMetrics = (
       baseline.metrics.triggerCount.avgPerTransform,
       current.metrics.triggerCount.avgPerTransform,
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
 
   // Exponential Averages metrics
@@ -143,8 +143,8 @@ export const compareSystemMetrics = (
       baseline.metrics.exponentialAverages.checkpointDuration,
       current.metrics.exponentialAverages.checkpointDuration,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -152,8 +152,8 @@ export const compareSystemMetrics = (
       baseline.metrics.exponentialAverages.documentsIndexed,
       current.metrics.exponentialAverages.documentsIndexed,
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -161,8 +161,8 @@ export const compareSystemMetrics = (
       baseline.metrics.exponentialAverages.documentsProcessed,
       current.metrics.exponentialAverages.documentsProcessed,
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
 
   // Transform States metrics
@@ -172,8 +172,8 @@ export const compareSystemMetrics = (
       baseline.metrics.transformStates.indexing,
       current.metrics.transformStates.indexing,
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -181,8 +181,8 @@ export const compareSystemMetrics = (
       baseline.metrics.transformStates.started,
       current.metrics.transformStates.started,
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
 
   return results;

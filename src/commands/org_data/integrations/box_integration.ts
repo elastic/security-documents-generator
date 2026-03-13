@@ -147,7 +147,7 @@ export class BoxIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
@@ -165,7 +165,7 @@ export class BoxIntegration extends BaseIntegration {
 
   private createEventDocument(org: Organization, employee: Employee): IntegrationDocument {
     const action = faker.helpers.weightedArrayElement(
-      EVENT_ACTIONS.map((a) => ({ value: a, weight: a.weight }))
+      EVENT_ACTIONS.map((a) => ({ value: a, weight: a.weight })),
     );
     const timestamp = this.getRandomTimestamp(72);
     const clientIp = faker.internet.ipv4();
@@ -242,7 +242,7 @@ export class BoxIntegration extends BaseIntegration {
     // accessible_by for collaboration events
     if (isCollaboration && org.employees.length > 1) {
       const otherEmployee = faker.helpers.arrayElement(
-        org.employees.filter((e) => e.id !== employee.id)
+        org.employees.filter((e) => e.id !== employee.id),
       );
       rawBoxEvent.accessible_by = {
         id: otherEmployee.id,

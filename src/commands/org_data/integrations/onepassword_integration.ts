@@ -97,7 +97,7 @@ export class OnePasswordIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const signinDocs: IntegrationDocument[] = [];
@@ -162,7 +162,7 @@ export class OnePasswordIntegration extends BaseIntegration {
     const items =
       ITEM_CATEGORIES_BY_DEPT[employee.department] || ITEM_CATEGORIES_BY_DEPT['Operations'];
     const item = faker.helpers.weightedArrayElement(
-      items.map((i) => ({ value: i, weight: i.weight }))
+      items.map((i) => ({ value: i, weight: i.weight })),
     );
     const vault = this.pickVault(employee, org);
     const sourceIp = faker.internet.ipv4();

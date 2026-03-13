@@ -46,7 +46,7 @@ const DEFAULT_THRESHOLDS: ComparisonThresholds = {
 export const compareMetrics = (
   baseline: BaselineMetrics,
   current: BaselineMetrics,
-  thresholds: ComparisonThresholds = DEFAULT_THRESHOLDS
+  thresholds: ComparisonThresholds = DEFAULT_THRESHOLDS,
 ): ComparisonReport => {
   const results: ComparisonResult[] = [
     ...compareLatencyMetrics(baseline, current, thresholds),

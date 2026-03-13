@@ -471,7 +471,7 @@ export interface KSPMCluster {
 
 export function generateCSPMAccounts(
   providers: CloudProvider[],
-  accountsPerProvider: number = 1
+  accountsPerProvider: number = 1,
 ): CSPMAccount[] {
   const accounts: CSPMAccount[] = [];
 
@@ -490,7 +490,7 @@ export function generateCSPMAccounts(
 
 export function generateKSPMClusters(
   distributions: KSPMDistribution[],
-  clustersPerDistribution: number = 1
+  clustersPerDistribution: number = 1,
 ): KSPMCluster[] {
   const clusters: KSPMCluster[] = [];
 
@@ -567,7 +567,7 @@ export function getRandomResourceType(provider: CloudProvider | 'k8s'): string {
 export function generateResourceId(
   provider: CloudProvider | 'k8s',
   resourceType?: string,
-  accountId?: string
+  accountId?: string,
 ): string {
   const acctId = accountId || faker.string.numeric(12);
 
@@ -622,7 +622,7 @@ function azureProviderFromResourceType(resourceType: string): string {
 // Map resource type to cloud.service.name for consistent metadata
 export function cloudServiceFromResourceType(
   provider: CloudProvider,
-  resourceType: string
+  resourceType: string,
 ): string {
   switch (provider) {
     case 'aws': {

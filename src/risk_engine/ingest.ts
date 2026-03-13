@@ -28,7 +28,7 @@ export const ingestData = async (params: {
       `Ingesting batch, approx. ${alertsPerBatch} alerts (~${(
         (alertsPerBatch * bytesPerAlert) /
         (1024 * 1024)
-      ).toFixed(2)}MB), ${runs} batches remaining...`
+      ).toFixed(2)}MB), ${runs} batches remaining...`,
     );
     runs--;
     await streamingBulkIngest({
@@ -104,7 +104,7 @@ export const getCmd = (root: Command) => {
 
         await deleteAllAlerts();
         console.log(
-          `Ingesting data for ${entityCount} entities, ${alertsPerEntity} alerts each, in batches of ~${batchMBytesSize}MB every ${intervalMs}ms into space "${space}"...`
+          `Ingesting data for ${entityCount} entities, ${alertsPerEntity} alerts each, in batches of ~${batchMBytesSize}MB every ${intervalMs}ms into space "${space}"...`,
         );
 
         await ingestData({
@@ -113,6 +113,6 @@ export const getCmd = (root: Command) => {
           entityCount,
           alertsPerEntity,
         });
-      })
+      }),
     );
 };

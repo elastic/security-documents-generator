@@ -209,7 +209,7 @@ export const createIntegrationRegistry = (): IntegrationRegistry => {
  */
 export const getIntegration = (
   registry: IntegrationRegistry,
-  name: IntegrationName
+  name: IntegrationName,
 ): BaseIntegration | undefined => {
   return registry.get(name);
 };

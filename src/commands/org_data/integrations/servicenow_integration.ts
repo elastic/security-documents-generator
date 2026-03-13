@@ -82,7 +82,7 @@ export class ServiceNowIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
@@ -91,7 +91,7 @@ export class ServiceNowIntegration extends BaseIntegration {
     const incidentCount = Math.max(
       5,
       Math.floor(org.employees.length / 5) +
-        faker.number.int({ min: 0, max: Math.ceil(org.employees.length / 10) })
+        faker.number.int({ min: 0, max: Math.ceil(org.employees.length / 10) }),
     );
 
     const opsEmployees = org.employees.filter((e) => e.department === 'Operations');
@@ -128,12 +128,12 @@ export class ServiceNowIntegration extends BaseIntegration {
     opener: Employee,
     assignee: Employee,
     org: Organization,
-    seq: number
+    seq: number,
   ): IntegrationDocument {
     const category = faker.helpers.arrayElement(INCIDENT_CATEGORIES);
     const subcategory = faker.helpers.arrayElement(INCIDENT_SUBCATEGORIES[category]);
     const state = faker.helpers.weightedArrayElement(
-      INCIDENT_STATES.map((s) => ({ value: s, weight: s.weight }))
+      INCIDENT_STATES.map((s) => ({ value: s, weight: s.weight })),
     );
     const priority = faker.helpers.weightedArrayElement([
       { value: '1', weight: 5 },
@@ -207,7 +207,7 @@ export class ServiceNowIntegration extends BaseIntegration {
   private createChangeRequestDocument(
     requester: Employee,
     org: Organization,
-    seq: number
+    seq: number,
   ): IntegrationDocument {
     const sysId = faker.string.uuid().replace(/-/g, '');
     const number = `CHG${String(seq).padStart(7, '0')}`;

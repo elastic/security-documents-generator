@@ -56,6 +56,26 @@ You can authenticate with either:
 }
 ```
 
+### Example `config.json` (local development with self-signed certificates)
+
+```json
+{
+  "elastic": {
+    "node": "https://localhost:9200",
+    "apiKey": "your-elastic-api-key"
+  },
+  "kibana": {
+    "node": "https://localhost:5601",
+    "apiKey": "your-kibana-api-key"
+  },
+  "serverless": false,
+  "eventIndex": "logs-testlogs-default",
+  "allowSelfSignedCerts": true
+}
+```
+
+> **Security note**: Only enable `allowSelfSignedCerts` for local development or testing environments. This option disables TLS certificate verification, which should never be used in production.
+
 ### Example `config.json` (basic auth)
 
 ```json
@@ -84,6 +104,7 @@ Environment variables override `config.json` values:
 - `SERVERLESS`
 - `EVENT_INDEX`
 - `EVENT_DATE_OFFSET_HOURS`
+- `ALLOW_SELF_SIGNED_CERTS` - Set to `true` or `1` to disable TLS certificate verification (for local development only)
 
 ## CLI help
 
@@ -123,42 +144,42 @@ yarn start csp --data-sources all --findings-count 50
 
 Detailed command documentation is colocated with command code under `src/commands`.
 
-| Command | Summary | Details |
-| --- | --- | --- |
-| `generate-alerts` | Generate synthetic detection alerts | `src/commands/documents/README.md` |
-| `generate-events` | Generate synthetic events in `eventIndex` | `src/commands/documents/README.md` |
-| `generate-graph` | Generate fake graph data | `src/commands/documents/README.md` |
-| `delete-alerts` | Delete all generated alerts | `src/commands/documents/README.md` |
-| `delete-events` | Delete all generated events | `src/commands/documents/README.md` |
-| `entity-resolution-demo` | Load entity resolution demo dataset | `src/commands/entity_store/README.md` |
-| `entity-store` | Interactive Entity Store generation flow | `src/commands/entity_store/README.md` |
-| `quick-entity-store` | Quick non-interactive Entity Store setup | `src/commands/entity_store/README.md` |
-| `clean-entity-store` | Clean Entity Store data | `src/commands/entity_store/README.md` |
-| `test-risk-score` | Run risk score API test call | `src/commands/misc/README.md` |
-| `generate-entity-ai-insights` | Generate vulnerabilities, misconfigurations and anomalous behavior for entities. | `src/commands/misc/README.md` |
-| `generate-asset-criticality` | Generate asset criticality assignments | `src/commands/misc/README.md` |
-| `generate-legacy-risk-score` | Install and generate legacy risk score data | `src/commands/misc/README.md` |
-| `single-entity` | Create one entity with optional setup flows | `src/commands/misc/README.md` |
-| `privileged-user-monitoring` | Interactive privileged user monitoring dataset generation | `src/commands/privileged_user_monitoring/README.md` |
-| `privmon-quick` | Fast privileged user monitoring generation | `src/commands/privileged_user_monitoring/README.md` |
-| `rules` | Generate detection rules and events | `src/commands/rules/README.md` |
-| `delete-rules` | Delete detection rules | `src/commands/rules/README.md` |
-| `risk-engine ingest` | Generate and ingest risk-engine data in batches | `src/commands/risk_engine/README.md` |
-| `esql-stress-test` | Stress test ESQL queries | `src/commands/risk_engine/README.md` |
-| `painless-stress-test` | Stress test scripted metric risk scoring | `src/commands/risk_engine/README.md` |
-| `create-risk-engine-data` | Build risk engine perf data file | `src/commands/risk_engine/README.md` |
-| `create-risk-engine-dataset` | Build named risk engine perf datasets | `src/commands/risk_engine/README.md` |
-| `upload-risk-engine-dataset` | Upload all files from a perf dataset directory | `src/commands/risk_engine/README.md` |
-| `upload-risk-engine-data-interval` | Repeatedly upload risk engine data file | `src/commands/risk_engine/README.md` |
-| `create-perf-data` | Create Entity Store perf JSONL data file | `src/commands/entity_store_perf/README.md` |
-| `upload-perf-data` | Upload perf data once | `src/commands/entity_store_perf/README.md` |
-| `upload-perf-data-interval` | Upload perf data repeatedly at intervals | `src/commands/entity_store_perf/README.md` |
-| `create-baseline` | Extract and save baseline metrics from logs | `src/commands/baseline_metrics/README.md` |
-| `list-baselines` | List saved baseline metric files | `src/commands/baseline_metrics/README.md` |
-| `compare-metrics` | Compare a run against baseline metrics | `src/commands/baseline_metrics/README.md` |
-| `generate-cloud-security-posture` (`csp`) | Generate CSP findings across sources | `src/commands/generate_cloud_security_posture/README.md` |
-| `generate-correlated-organization-data` (`org-data`) | Generate correlated organization security integration data | `src/commands/org_data/` |
-| `generate-correlated-organization-data-quick` (`org-data-quick`) | Quick correlated organization data generation with defaults | `src/commands/org_data/` |
+| Command                                                          | Summary                                                                          | Details                                                  |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `generate-alerts`                                                | Generate synthetic detection alerts                                              | `src/commands/documents/README.md`                       |
+| `generate-events`                                                | Generate synthetic events in `eventIndex`                                        | `src/commands/documents/README.md`                       |
+| `generate-graph`                                                 | Generate fake graph data                                                         | `src/commands/documents/README.md`                       |
+| `delete-alerts`                                                  | Delete all generated alerts                                                      | `src/commands/documents/README.md`                       |
+| `delete-events`                                                  | Delete all generated events                                                      | `src/commands/documents/README.md`                       |
+| `entity-resolution-demo`                                         | Load entity resolution demo dataset                                              | `src/commands/entity_store/README.md`                    |
+| `entity-store`                                                   | Interactive Entity Store generation flow                                         | `src/commands/entity_store/README.md`                    |
+| `quick-entity-store`                                             | Quick non-interactive Entity Store setup                                         | `src/commands/entity_store/README.md`                    |
+| `clean-entity-store`                                             | Clean Entity Store data                                                          | `src/commands/entity_store/README.md`                    |
+| `test-risk-score`                                                | Run risk score API test call                                                     | `src/commands/misc/README.md`                            |
+| `generate-entity-ai-insights`                                    | Generate vulnerabilities, misconfigurations and anomalous behavior for entities. | `src/commands/misc/README.md`                            |
+| `generate-asset-criticality`                                     | Generate asset criticality assignments                                           | `src/commands/misc/README.md`                            |
+| `generate-legacy-risk-score`                                     | Install and generate legacy risk score data                                      | `src/commands/misc/README.md`                            |
+| `single-entity`                                                  | Create one entity with optional setup flows                                      | `src/commands/misc/README.md`                            |
+| `privileged-user-monitoring`                                     | Interactive privileged user monitoring dataset generation                        | `src/commands/privileged_user_monitoring/README.md`      |
+| `privmon-quick`                                                  | Fast privileged user monitoring generation                                       | `src/commands/privileged_user_monitoring/README.md`      |
+| `rules`                                                          | Generate detection rules and events                                              | `src/commands/rules/README.md`                           |
+| `delete-rules`                                                   | Delete detection rules                                                           | `src/commands/rules/README.md`                           |
+| `risk-engine ingest`                                             | Generate and ingest risk-engine data in batches                                  | `src/commands/risk_engine/README.md`                     |
+| `esql-stress-test`                                               | Stress test ESQL queries                                                         | `src/commands/risk_engine/README.md`                     |
+| `painless-stress-test`                                           | Stress test scripted metric risk scoring                                         | `src/commands/risk_engine/README.md`                     |
+| `create-risk-engine-data`                                        | Build risk engine perf data file                                                 | `src/commands/risk_engine/README.md`                     |
+| `create-risk-engine-dataset`                                     | Build named risk engine perf datasets                                            | `src/commands/risk_engine/README.md`                     |
+| `upload-risk-engine-dataset`                                     | Upload all files from a perf dataset directory                                   | `src/commands/risk_engine/README.md`                     |
+| `upload-risk-engine-data-interval`                               | Repeatedly upload risk engine data file                                          | `src/commands/risk_engine/README.md`                     |
+| `create-perf-data`                                               | Create Entity Store perf JSONL data file                                         | `src/commands/entity_store_perf/README.md`               |
+| `upload-perf-data`                                               | Upload perf data once                                                            | `src/commands/entity_store_perf/README.md`               |
+| `upload-perf-data-interval`                                      | Upload perf data repeatedly at intervals                                         | `src/commands/entity_store_perf/README.md`               |
+| `create-baseline`                                                | Extract and save baseline metrics from logs                                      | `src/commands/baseline_metrics/README.md`                |
+| `list-baselines`                                                 | List saved baseline metric files                                                 | `src/commands/baseline_metrics/README.md`                |
+| `compare-metrics`                                                | Compare a run against baseline metrics                                           | `src/commands/baseline_metrics/README.md`                |
+| `generate-cloud-security-posture` (`csp`)                        | Generate CSP findings across sources                                             | `src/commands/generate_cloud_security_posture/README.md` |
+| `generate-correlated-organization-data` (`org-data`)             | Generate correlated organization security integration data                       | `src/commands/org_data/`                                 |
+| `generate-correlated-organization-data-quick` (`org-data-quick`) | Quick correlated organization data generation with defaults                      | `src/commands/org_data/`                                 |
 
 ### Quick command list
 

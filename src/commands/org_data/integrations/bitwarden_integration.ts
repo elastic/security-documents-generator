@@ -99,7 +99,7 @@ export class BitwardenIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
 
@@ -129,7 +129,7 @@ export class BitwardenIntegration extends BaseIntegration {
 
   private createEventDocument(employee: Employee): IntegrationDocument {
     const eventType = faker.helpers.weightedArrayElement(
-      EVENT_TYPES.map((e) => ({ value: e, weight: e.weight }))
+      EVENT_TYPES.map((e) => ({ value: e, weight: e.weight })),
     );
     const device = faker.helpers.arrayElement(DEVICE_TYPES);
     const timestamp = this.getRandomTimestamp(72);

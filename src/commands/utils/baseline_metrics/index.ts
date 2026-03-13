@@ -40,7 +40,7 @@ export const extractBaselineMetrics = async (
     logsPerEntity: number;
     uploadCount?: number;
     intervalMs?: number;
-  }
+  },
 ): Promise<BaselineMetrics> => {
   const logsDir = path.join(process.cwd(), 'logs');
 
@@ -57,11 +57,11 @@ export const extractBaselineMetrics = async (
     throwWithContext('read logs directory', logsDir, error);
   }
   const clusterHealthLog = files.find(
-    (f) => f.startsWith(logPrefix) && f.includes('cluster-health')
+    (f) => f.startsWith(logPrefix) && f.includes('cluster-health'),
   );
   const nodeStatsLog = files.find((f) => f.startsWith(logPrefix) && f.includes('node-stats'));
   const transformStatsLog = files.find(
-    (f) => f.startsWith(logPrefix) && f.includes('transform-stats')
+    (f) => f.startsWith(logPrefix) && f.includes('transform-stats'),
   );
   const kibanaStatsLog = files.find((f) => f.startsWith(logPrefix) && f.includes('kibana-stats'));
 
@@ -69,7 +69,7 @@ export const extractBaselineMetrics = async (
   // transform-stats and kibana-stats are optional
   if (!clusterHealthLog || !nodeStatsLog) {
     throw new Error(
-      `Could not find required log files with prefix "${logPrefix}". Found: ${JSON.stringify({ clusterHealthLog, nodeStatsLog, transformStatsLog, kibanaStatsLog })}`
+      `Could not find required log files with prefix "${logPrefix}". Found: ${JSON.stringify({ clusterHealthLog, nodeStatsLog, transformStatsLog, kibanaStatsLog })}`,
     );
   }
 

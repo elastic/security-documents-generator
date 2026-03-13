@@ -9,7 +9,7 @@ import { ComparisonThresholds } from '../metrics_comparison';
 export const compareLatencyMetrics = (
   baseline: BaselineMetrics,
   current: BaselineMetrics,
-  thresholds: ComparisonThresholds
+  thresholds: ComparisonThresholds,
 ): ComparisonResult[] => {
   const results: ComparisonResult[] = [];
 
@@ -20,8 +20,8 @@ export const compareLatencyMetrics = (
       baseline.metrics.searchLatency.avg,
       current.metrics.searchLatency.avg,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -29,8 +29,8 @@ export const compareLatencyMetrics = (
       baseline.metrics.searchLatency.p50,
       current.metrics.searchLatency.p50,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -38,22 +38,22 @@ export const compareLatencyMetrics = (
       baseline.metrics.searchLatency.p95,
       current.metrics.searchLatency.p95,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createInfoResult(
       'Search Latency (p99)',
       baseline.metrics.searchLatency.p99,
-      current.metrics.searchLatency.p99
-    )
+      current.metrics.searchLatency.p99,
+    ),
   );
   results.push(
     createInfoResult(
       'Search Latency (max)',
       baseline.metrics.searchLatency.max,
-      current.metrics.searchLatency.max
-    )
+      current.metrics.searchLatency.max,
+    ),
   );
 
   // Intake Latency metrics
@@ -63,8 +63,8 @@ export const compareLatencyMetrics = (
       baseline.metrics.intakeLatency.avg,
       current.metrics.intakeLatency.avg,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -72,8 +72,8 @@ export const compareLatencyMetrics = (
       baseline.metrics.intakeLatency.p50,
       current.metrics.intakeLatency.p50,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -81,22 +81,22 @@ export const compareLatencyMetrics = (
       baseline.metrics.intakeLatency.p95,
       current.metrics.intakeLatency.p95,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createInfoResult(
       'Intake Latency (p99)',
       baseline.metrics.intakeLatency.p99,
-      current.metrics.intakeLatency.p99
-    )
+      current.metrics.intakeLatency.p99,
+    ),
   );
   results.push(
     createInfoResult(
       'Intake Latency (max)',
       baseline.metrics.intakeLatency.max,
-      current.metrics.intakeLatency.max
-    )
+      current.metrics.intakeLatency.max,
+    ),
   );
 
   // Processing Latency metrics
@@ -106,8 +106,8 @@ export const compareLatencyMetrics = (
       baseline.metrics.processingLatency.avg,
       current.metrics.processingLatency.avg,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -115,8 +115,8 @@ export const compareLatencyMetrics = (
       baseline.metrics.processingLatency.p50,
       current.metrics.processingLatency.p50,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -124,22 +124,22 @@ export const compareLatencyMetrics = (
       baseline.metrics.processingLatency.p95,
       current.metrics.processingLatency.p95,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createInfoResult(
       'Processing Latency (p99)',
       baseline.metrics.processingLatency.p99,
-      current.metrics.processingLatency.p99
-    )
+      current.metrics.processingLatency.p99,
+    ),
   );
   results.push(
     createInfoResult(
       'Processing Latency (max)',
       baseline.metrics.processingLatency.max,
-      current.metrics.processingLatency.max
-    )
+      current.metrics.processingLatency.max,
+    ),
   );
 
   return results;

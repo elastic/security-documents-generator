@@ -20,7 +20,7 @@ export const riskEngineCommands: CommandModule = {
           const parallel = options.p || 1;
           await stressTest(parallel, { pageSize: 3500 });
           console.log(`Completed stress test with ${parallel} parallel runs`);
-        })
+        }),
       );
 
     program
@@ -32,7 +32,7 @@ export const riskEngineCommands: CommandModule = {
           const runs = options.r || 1;
           await Pain.stressTest(runs, { pageSize: 3500 });
           console.log(`Completed stress test with ${runs} runs`);
-        })
+        }),
       );
 
     RiskEngineIngest.getCmd(program);
@@ -75,7 +75,7 @@ export const riskEngineCommands: CommandModule = {
           const name = `${entityMagnitude || 'medium'}_${cardinality || 'mid'}Cardinality`;
           await RiskEngine.createPerfDataFile({ name, entityCount, alertsPerEntity });
           console.log(`Finished ${name} dataset`);
-        })
+        }),
       );
 
     program
@@ -109,7 +109,7 @@ export const riskEngineCommands: CommandModule = {
             }
           }
           console.log(`Finished uploading dataset ${dataset}`);
-        })
+        }),
       );
 
     program

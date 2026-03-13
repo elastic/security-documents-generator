@@ -94,7 +94,7 @@ export class WorkdayIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
@@ -122,7 +122,7 @@ export class WorkdayIntegration extends BaseIntegration {
   private createPersonDocument(
     employee: Employee,
     manager: Employee | undefined,
-    org: Organization
+    org: Organization,
   ): IntegrationDocument {
     const workdayId = faker.string.hexadecimal({ length: 32, prefix: '' }).toLowerCase();
     const hireDate = faker.date

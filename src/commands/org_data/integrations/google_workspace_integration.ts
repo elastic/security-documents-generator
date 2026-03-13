@@ -92,7 +92,7 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const docs = new Map<string, IntegrationDocument[]>();
 
@@ -126,7 +126,7 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
       this.repeat(0, 1, () => buckets.data_studio.push(this.dataStudioDoc(emp, org)));
       this.repeat(0, 2, () => buckets.chrome.push(this.chromeDoc(emp, org)));
       this.repeat(0, 1, () =>
-        buckets.context_aware_access.push(this.contextAwareAccessDoc(emp, org))
+        buckets.context_aware_access.push(this.contextAwareAccessDoc(emp, org)),
       );
       this.repeat(0, 1, () => buckets.user_accounts.push(this.userAccountsDoc(emp, org)));
     }
@@ -139,7 +139,7 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
       this.repeat(0, 2, () => buckets.rules.push(this.rulesDoc(admin, org)));
       this.repeat(0, 1, () => buckets.alert.push(this.alertDoc(admin, org)));
       this.repeat(0, 1, () =>
-        buckets.access_transparency.push(this.accessTransparencyDoc(admin, org))
+        buckets.access_transparency.push(this.accessTransparencyDoc(admin, org)),
       );
       this.repeat(0, 1, () => buckets.vault.push(this.vaultDoc(admin, org)));
       this.repeat(0, 1, () => buckets.gcp.push(this.gcpDoc(admin, org)));
@@ -158,7 +158,7 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
 
   private resolveAdmins(org: Organization): Employee[] {
     const adminEmps = org.employees.filter(
-      (e) => e.department === 'Operations' && (e.role.includes('IT') || e.role.includes('Admin'))
+      (e) => e.department === 'Operations' && (e.role.includes('IT') || e.role.includes('Admin')),
     );
     return adminEmps.length > 0
       ? adminEmps
@@ -170,7 +170,7 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
     applicationName: string,
     employee: Employee,
     org: Organization,
-    events: RawActivityEvent
+    events: RawActivityEvent,
   ): IntegrationDocument {
     const sourceIp = faker.internet.ipv4();
     const ts = this.getRandomTimestamp(72);
@@ -210,13 +210,13 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
     const params: RawActivityEvent['parameters'] = [
       param(
         'login_type',
-        faker.helpers.arrayElement(['exchange', 'google_password', 'saml', 'reauth'])
+        faker.helpers.arrayElement(['exchange', 'google_password', 'saml', 'reauth']),
       ),
       paramInt('login_timestamp', Date.now() * 1000),
     ];
     if (eventType === 'login_challenge') {
       params.push(
-        param('login_challenge_method', faker.helpers.arrayElement(cfg.challengeMethods))
+        param('login_challenge_method', faker.helpers.arrayElement(cfg.challengeMethods)),
       );
     }
     if (eventType === 'login_failure') {
@@ -253,7 +253,7 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
       param('doc_id', faker.string.alphanumeric(44)),
       param(
         'doc_title',
-        `${faker.word.adjective()}-${faker.word.noun()}.${this.fileTypeToExt(fileType)}`
+        `${faker.word.adjective()}-${faker.word.noun()}.${this.fileTypeToExt(fileType)}`,
       ),
       param('doc_type', fileType),
       param('owner', employee.email),
@@ -268,8 +268,8 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
       params.push(
         param(
           'destination_folder_title',
-          faker.helpers.arrayElement(['Projects', 'Shared', 'Archive', 'Templates'])
-        )
+          faker.helpers.arrayElement(['Projects', 'Shared', 'Archive', 'Templates']),
+        ),
       );
     }
     if (eventAction.includes('change_acl') || eventAction.includes('shared')) {
@@ -316,7 +316,7 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
       parameters: [
         param(
           'client_id',
-          `${faker.string.numeric(12)}-${faker.string.alphanumeric(32)}.apps.googleusercontent.com`
+          `${faker.string.numeric(12)}-${faker.string.alphanumeric(32)}.apps.googleusercontent.com`,
         ),
         param('app_name', appName),
         param('api_name', 'token'),
@@ -438,7 +438,7 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
         param('email', `${groupName}@${org.domain}`),
         param(
           'new_value',
-          faker.helpers.arrayElements(cfg.memberRoles, { min: 1, max: 2 }).join(',')
+          faker.helpers.arrayElements(cfg.memberRoles, { min: 1, max: 2 }).join(','),
         ),
         param('old_value', faker.helpers.arrayElement(cfg.memberRoles)),
       ],
@@ -467,7 +467,7 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
             'ALLOW_EXTERNAL_MEMBERS',
             'COLLABORATIVE_INBOX',
             'WHO_CAN_JOIN',
-          ])
+          ]),
         ),
       ],
     });
@@ -486,7 +486,7 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
         param('device_id', faker.string.alphanumeric(12)),
         param(
           'device_model',
-          faker.helpers.arrayElement(['Pixel 8', 'iPhone 15', 'Galaxy S24', 'Surface Pro'])
+          faker.helpers.arrayElement(['Pixel 8', 'iPhone 15', 'Galaxy S24', 'Surface Pro']),
         ),
         param('ownership', faker.helpers.arrayElement(cfg.ownerships)),
         param('serial_number', faker.string.alphanumeric(12).toUpperCase()),
@@ -767,8 +767,8 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
       params.push(
         param(
           'attachment_name',
-          `https://keep.googleapis.com/v1/notes/${noteId}/attachments/${faker.string.alphanumeric(8)}`
-        )
+          `https://keep.googleapis.com/v1/notes/${noteId}/attachments/${faker.string.alphanumeric(8)}`,
+        ),
       );
     }
     return this.rawActivityDoc('keep', 'keep', employee, org, {
@@ -816,7 +816,7 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
             'HR Investigation',
             'Compliance Audit',
             'eDiscovery Case',
-          ])
+          ]),
         ),
       ],
     });

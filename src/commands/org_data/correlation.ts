@@ -115,7 +115,7 @@ export const getAwsAccessGroup = (org: Organization): OktaGroup | undefined => {
  */
 export const verifyCorrelationIntegrity = (
   org: Organization,
-  correlationMap: CorrelationMap
+  correlationMap: CorrelationMap,
 ): CorrelationVerificationResult => {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -137,7 +137,7 @@ export const verifyCorrelationIntegrity = (
       errors.push(`Federated IAM user ${iamUser.userName} missing oktaUserId`);
     } else if (!correlationMap.oktaUserIdToEmployee.has(iamUser.oktaUserId)) {
       errors.push(
-        `Federated IAM user ${iamUser.userName} has oktaUserId not found in employee map`
+        `Federated IAM user ${iamUser.userName} has oktaUserId not found in employee map`,
       );
     }
   }
@@ -145,7 +145,7 @@ export const verifyCorrelationIntegrity = (
   // Check employees with AWS access have corresponding IAM users
   const awsEmployees = getAwsAccessEmployees(org);
   const iamUserOktaIds = new Set(
-    org.cloudIamUsers.filter((u) => u.isFederated).map((u) => u.oktaUserId)
+    org.cloudIamUsers.filter((u) => u.isFederated).map((u) => u.oktaUserId),
   );
 
   for (const employee of awsEmployees) {
@@ -222,7 +222,7 @@ export interface CorrelationVerificationResult {
  */
 export const getCorrelationSummary = (
   org: Organization,
-  correlationMap: CorrelationMap
+  correlationMap: CorrelationMap,
 ): string => {
   const verification = verifyCorrelationIntegrity(org, correlationMap);
   const awsAccessGroup = getAwsAccessGroup(org);
