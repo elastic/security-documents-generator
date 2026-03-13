@@ -170,45 +170,45 @@ Security. Never generate random identifiers (SIDs, UIDs, MACs, IPs) per event wi
 These fields are generated once in `org_data_generator.ts` and must be reused by every
 integration that references users:
 
-| Field             | Description                                                                 | Example                                          |
-| ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------ |
-| `userName`        | Primary user identifier across all integrations                             | `reese.doyle`                                    |
-| `email`           | Corporate email address                                                     | `reese.doyle@acmecrm.com`                        |
-| `windowsSid`      | Windows SID (shared domain prefix + per-employee RID)                       | `S-1-5-21-1199716861-1301547593-1626275133-1001` |
-| `unixUid`         | Unix UID (integer, starts at 1000)                                          | `1000`                                           |
-| `oktaUserId`      | Okta user ID                                                                | `00uAbCdEfGhIjKlMn`                              |
-| `entraIdUserId`   | Microsoft Entra ID (Azure AD) user UUID                                     | `a1b2c3d4-...`                                   |
-| `duoUserId`       | Cisco Duo user ID                                                           | `DUABCDEFGHIJKLMNOPQR`                           |
-| `onePasswordUuid` | 1Password member UUID                                                       | `a1b2c3d4-...`                                   |
-| `employeeNumber`  | HR employee number                                                          | `123456`                                         |
-| `githubUsername`   | GitHub username (Engineering + Executive only)                              | `reese-doyle`                                    |
-| `gitlabUserId`    | GitLab numeric user ID (Engineering + Executive only)                       | `42518`                                          |
+| Field             | Description                                           | Example                                          |
+| ----------------- | ----------------------------------------------------- | ------------------------------------------------ |
+| `userName`        | Primary user identifier across all integrations       | `reese.doyle`                                    |
+| `email`           | Corporate email address                               | `reese.doyle@acmecrm.com`                        |
+| `windowsSid`      | Windows SID (shared domain prefix + per-employee RID) | `S-1-5-21-1199716861-1301547593-1626275133-1001` |
+| `unixUid`         | Unix UID (integer, starts at 1000)                    | `1000`                                           |
+| `oktaUserId`      | Okta user ID                                          | `00uAbCdEfGhIjKlMn`                              |
+| `entraIdUserId`   | Microsoft Entra ID (Azure AD) user UUID               | `a1b2c3d4-...`                                   |
+| `duoUserId`       | Cisco Duo user ID                                     | `DUABCDEFGHIJKLMNOPQR`                           |
+| `onePasswordUuid` | 1Password member UUID                                 | `a1b2c3d4-...`                                   |
+| `employeeNumber`  | HR employee number                                    | `123456`                                         |
+| `githubUsername`  | GitHub username (Engineering + Executive only)        | `reese-doyle`                                    |
+| `gitlabUserId`    | GitLab numeric user ID (Engineering + Executive only) | `42518`                                          |
 
 #### Stable fields on Device
 
-| Field                | Description                                   | Example                            |
-| -------------------- | --------------------------------------------- | ---------------------------------- |
-| `id`                 | Device UUID, used as `host.id`                | `276e59a0-...`                     |
-| `macAddress`         | Stable MAC address (dash-separated)           | `8a-d3-02-ed-99-a2`               |
-| `ipAddress`          | Stable IPv4 address                           | `234.22.230.186`                   |
-| `crowdstrikeAgentId` | CrowdStrike Falcon agent ID                   | `e045e02b...`                      |
-| `crowdstrikeDeviceId`| CrowdStrike device ID                         | `efb573dc...`                      |
-| `serialNumber`       | Hardware serial number                        | `A1B2C3D4E5F6`                     |
+| Field                 | Description                         | Example             |
+| --------------------- | ----------------------------------- | ------------------- |
+| `id`                  | Device UUID, used as `host.id`      | `276e59a0-...`      |
+| `macAddress`          | Stable MAC address (dash-separated) | `8a-d3-02-ed-99-a2` |
+| `ipAddress`           | Stable IPv4 address                 | `234.22.230.186`    |
+| `crowdstrikeAgentId`  | CrowdStrike Falcon agent ID         | `e045e02b...`       |
+| `crowdstrikeDeviceId` | CrowdStrike device ID               | `efb573dc...`       |
+| `serialNumber`        | Hardware serial number              | `A1B2C3D4E5F6`      |
 
 #### Correlation rules for ECS fields
 
 When generating documents, map ECS fields to the stable Employee/Device values:
 
-| ECS Field      | Rule                                                                                                                                      |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `user.id`      | Windows: `employee.windowsSid`. Mac/Linux: `String(employee.unixUid)`. **Never** generate random SIDs/UIDs per event.                     |
-| `user.name`    | Always `employee.userName`.                                                                                                               |
-| `user.email`   | Always `employee.email`.                                                                                                                  |
-| `user.domain`  | Windows user-context: derive from employee (e.g. `employee.userName.split('.')[0].toUpperCase()`). Use `'NT AUTHORITY'` only for SYSTEM.   |
-| `host.id`      | Always `device.id`.                                                                                                                       |
-| `host.name`    | `${employee.userName}-${device.platform}` for employee devices.                                                                           |
-| `host.mac`     | Always `device.macAddress`. Convert separator as needed (dash for ECS/endpoint, colon for Jamf). **Never** call `faker.internet.mac()`.    |
-| `host.ip`      | Always `device.ipAddress` as the primary IP. **Never** call `faker.internet.ipv4()` for host IPs. Random IPs are OK for `source.ip`, `destination.ip`, or `external_ip`. |
+| ECS Field     | Rule                                                                                                                                                                     |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `user.id`     | Windows: `employee.windowsSid`. Mac/Linux: `String(employee.unixUid)`. **Never** generate random SIDs/UIDs per event.                                                    |
+| `user.name`   | Always `employee.userName`.                                                                                                                                              |
+| `user.email`  | Always `employee.email`.                                                                                                                                                 |
+| `user.domain` | Windows user-context: derive from employee (e.g. `employee.userName.split('.')[0].toUpperCase()`). Use `'NT AUTHORITY'` only for SYSTEM.                                 |
+| `host.id`     | Always `device.id`.                                                                                                                                                      |
+| `host.name`   | `${employee.userName}-${device.platform}` for employee devices.                                                                                                          |
+| `host.mac`    | Always `device.macAddress`. Convert separator as needed (dash for ECS/endpoint, colon for Jamf). **Never** call `faker.internet.mac()`.                                  |
+| `host.ip`     | Always `device.ipAddress` as the primary IP. **Never** call `faker.internet.ipv4()` for host IPs. Random IPs are OK for `source.ip`, `destination.ip`, or `external_ip`. |
 
 #### When to extend the CorrelationMap
 
@@ -259,15 +259,15 @@ Before writing `generateDocuments()`, you MUST read the ingest pipeline YAML for
 
 When examining a pipeline YAML, look for these processor types:
 
-| Processor | What to look for |
-|-----------|-----------------|
-| `json` | `field` (input) and `target_field` (output). The `field` value is what your document must provide. |
-| `rename` | What raw field becomes what ECS field. If `ignore_missing: true` is NOT set, the field is required. |
-| `date` | `field` (source) and `formats` (expected format). Your raw data must use a matching format. |
-| `grok` | `field` (input) and `patterns`. Your raw data must match the grok pattern. |
-| `script` | Check `ctx.*` references for required fields. |
-| `drop` | `if` condition shows what fields must exist to avoid document drops. |
-| `pipeline` | Sub-pipeline routing. Check the `if` condition for routing fields. |
+| Processor  | What to look for                                                                                    |
+| ---------- | --------------------------------------------------------------------------------------------------- |
+| `json`     | `field` (input) and `target_field` (output). The `field` value is what your document must provide.  |
+| `rename`   | What raw field becomes what ECS field. If `ignore_missing: true` is NOT set, the field is required. |
+| `date`     | `field` (source) and `formats` (expected format). Your raw data must use a matching format.         |
+| `grok`     | `field` (input) and `patterns`. Your raw data must match the grok pattern.                          |
+| `script`   | Check `ctx.*` references for required fields.                                                       |
+| `drop`     | `if` condition shows what fields must exist to avoid document drops.                                |
+| `pipeline` | Sub-pipeline routing. Check the `if` condition for routing fields.                                  |
 
 #### Document structure template
 
@@ -347,10 +347,10 @@ Each entry is an array of `DetectionRuleDefinition` objects:
 interface DetectionRuleDefinition {
   name: string;
   description: string;
-  query: string;                                           // KQL query
+  query: string; // KQL query
   severity: 'low' | 'medium' | 'high' | 'critical';
-  riskScore: number;                                       // 0-100
-  index: string[];                                         // e.g. ['logs-<package>.<dataset>-*']
+  riskScore: number; // 0-100
+  index: string[]; // e.g. ['logs-<package>.<dataset>-*']
   generateMatchingEvents: (count: number) => IntegrationDocument[];
 }
 ```
@@ -445,4 +445,4 @@ unaffected sections.
 | Endpoint package manifest | `/Users/johndoe/repos/endpoint-package/package/endpoint/manifest.yml` |
 | Endpoint data streams     | `/Users/johndoe/repos/endpoint-package/package/endpoint/data_stream/` |
 | Endpoint example events   | `/Users/johndoe/repos/endpoint-package/schemas/examples/v1/`          |
-| Existing endpoint samples | `src/commands/privileged_user_monitoring/sample_documents.ts`          |
+| Existing endpoint samples | `src/commands/privileged_user_monitoring/sample_documents.ts`         |
