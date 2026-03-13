@@ -18,7 +18,7 @@ export const stressTest = async (runs: number, opts: { outputFile?: string; page
 
   const delays = [250, 500, 1000];
   const seqReport: Report = {};
-  for (let ms of delays) {
+  for (const ms of delays) {
     console.log('\n--------------------------------------------------------------------\n');
     console.log(`Starting sequential execution with ${ms}ms delay`);
 
