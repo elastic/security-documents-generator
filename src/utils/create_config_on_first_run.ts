@@ -72,6 +72,7 @@ export const createConfigFileOnFirstRun = async () => {
     serverless: false,
     eventIndex: '',
     eventDateOffsetHours: undefined,
+    allowSelfSignedCerts: undefined,
   };
 
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
