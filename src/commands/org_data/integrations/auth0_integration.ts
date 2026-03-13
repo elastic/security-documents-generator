@@ -143,7 +143,7 @@ export class Auth0Integration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
@@ -161,7 +161,7 @@ export class Auth0Integration extends BaseIntegration {
 
   private createLogDocument(employee: Employee, org: Organization): IntegrationDocument {
     const eventType = faker.helpers.weightedArrayElement(
-      AUTH0_EVENT_TYPES.map((e) => ({ value: e, weight: e.weight }))
+      AUTH0_EVENT_TYPES.map((e) => ({ value: e, weight: e.weight })),
     );
     const sourceIp = faker.internet.ipv4();
     const timestamp = this.getRandomTimestamp(72);

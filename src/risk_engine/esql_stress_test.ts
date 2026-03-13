@@ -29,14 +29,14 @@ export const stressTest = async (runs: number, opts: { outputFile?: string; page
           pageSize: opts.pageSize,
           afterKeys,
         },
-        seqReport
+        seqReport,
       );
       console.log(`Run ${i + 1} of ${runs} completed. Sleeping ${ms}ms...`);
       await sleep(ms);
     }
 
     console.log(
-      `Sequential execution with ${ms}ms delay completed. Sleeping 5s to allow ES to recover...`
+      `Sequential execution with ${ms}ms delay completed. Sleeping 5s to allow ES to recover...`,
     );
 
     if (Object.values(seqReport).every((r) => r.ok)) {
@@ -54,7 +54,7 @@ export const stressTest = async (runs: number, opts: { outputFile?: string; page
   const multiReport: Report = {};
   console.log('\n--------------------------------------------------------------------\n');
   console.log(
-    `Starting parallel execution with ${entityTypesNo} parallel runs, total ${batches} batches...`
+    `Starting parallel execution with ${entityTypesNo} parallel runs, total ${batches} batches...`,
   );
   for (let i = 0; i < batches; i++) {
     await Promise.all(
@@ -65,9 +65,9 @@ export const stressTest = async (runs: number, opts: { outputFile?: string; page
             pageSize: opts.pageSize,
             afterKeys,
           },
-          multiReport
-        )
-      )
+          multiReport,
+        ),
+      ),
     );
 
     console.log(`Batch ${i + 1} of ${batches} completed`);
@@ -99,7 +99,7 @@ export const run = async (
       upper?: string;
     };
   },
-  report: Report
+  report: Report,
 ) => {
   const client = getEsClient();
 

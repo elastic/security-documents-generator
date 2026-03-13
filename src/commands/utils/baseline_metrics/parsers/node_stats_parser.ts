@@ -4,7 +4,7 @@ import { readFileSafely } from '../utils';
  * Parse node stats log and extract CPU and memory metrics
  */
 export const parseNodeStats = (
-  logPath: string
+  logPath: string,
 ): {
   cpuPercentages: number[];
   heapPercentages: number[];

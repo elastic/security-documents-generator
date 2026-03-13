@@ -85,7 +85,7 @@ export class JamfProIntegration extends BaseIntegration {
    */
   generateDocuments(
     org: Organization,
-    correlationMap: CorrelationMap
+    correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const inventoryDocs: IntegrationDocument[] = [];
@@ -94,7 +94,7 @@ export class JamfProIntegration extends BaseIntegration {
     // Generate inventory + event documents for Mac laptops only
     for (const employee of org.employees) {
       const macDevices = employee.devices.filter(
-        (d) => d.type === 'laptop' && d.platform === 'mac'
+        (d) => d.type === 'laptop' && d.platform === 'mac',
       );
       for (const device of macDevices) {
         const udid = faker.string.uuid().toUpperCase();
@@ -127,7 +127,7 @@ export class JamfProIntegration extends BaseIntegration {
     employee: Employee,
     org: Organization,
     udid: string,
-    jssId: string
+    jssId: string,
   ): IntegrationDocument {
     const osInfo = faker.helpers.arrayElement(MACOS_VERSIONS);
     const lastContactTime = faker.date.recent({ days: 1 }).toISOString();
@@ -200,7 +200,7 @@ export class JamfProIntegration extends BaseIntegration {
     employee: Employee,
     org: Organization,
     udid: string,
-    jssId: string
+    jssId: string,
   ): IntegrationDocument {
     const webhookEvent = faker.helpers.arrayElement(WEBHOOK_EVENTS);
     const modelId = faker.helpers.arrayElement(MAC_MODEL_IDENTIFIERS);

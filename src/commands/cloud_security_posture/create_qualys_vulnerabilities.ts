@@ -237,7 +237,7 @@ export default function createQualysVulnerability({
           ]),
           vulnerability_detection_sources: faker.helpers.arrayElements(
             ['Cloud Agent', 'Internal Scanner'],
-            { min: 1, max: 2 }
+            { min: 1, max: 2 },
           ),
           qds: {
             score: qdsScore,

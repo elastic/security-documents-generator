@@ -72,7 +72,7 @@ export class AuthentikIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
 
@@ -183,7 +183,7 @@ export class AuthentikIntegration extends BaseIntegration {
 
   private createEventDocument(employee: Employee, org: Organization): IntegrationDocument {
     const eventType = faker.helpers.weightedArrayElement(
-      EVENT_ACTIONS.map((e) => ({ value: e, weight: e.weight }))
+      EVENT_ACTIONS.map((e) => ({ value: e, weight: e.weight })),
     );
     const timestamp = this.getRandomTimestamp(72);
     const clientIp = faker.internet.ipv4();
@@ -225,7 +225,7 @@ export class AuthentikIntegration extends BaseIntegration {
   private buildEventContext(
     action: string,
     employee: Employee,
-    org: Organization
+    org: Organization,
   ): Record<string, unknown> {
     switch (action) {
       case 'login':

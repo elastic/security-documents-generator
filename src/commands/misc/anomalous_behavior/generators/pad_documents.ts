@@ -89,6 +89,6 @@ export const generatePadRecords = (numDocs: number = 10): Array<Record<string, u
             throw new Error(`Unexpected job ID: ${jobId}`);
         }
       });
-    })
+    }),
   );
 };

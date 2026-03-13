@@ -91,7 +91,7 @@ export const makeDoc = (isAdmin: boolean) =>
   OKTA_USERS_SAMPLE_DOCUMENT(
     createOktaSampleUser(), // new user each doc
     TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow()),
-    [isAdmin ? pick(OKTA_ADMIN_USER_ROLES) : pick(OKTA_NON_ADMIN_USER_ROLES)]
+    [isAdmin ? pick(OKTA_ADMIN_USER_ROLES) : pick(OKTA_NON_ADMIN_USER_ROLES)],
   );
 
 export const makeAdUserDoc = (isAdmin: boolean, increment?: number) => {
@@ -106,7 +106,7 @@ export const makeAdUserDoc = (isAdmin: boolean, increment?: number) => {
       adSampleUser,
       timestamp,
       [isAdminGroup],
-      increment ?? 0 // fallback to 0 if not provided
+      increment ?? 0, // fallback to 0 if not provided
     );
   }
 };
@@ -166,7 +166,7 @@ export const createSampleFullSyncEvents = ({
     out.push(
       ...makeEntityFullSyncEventPair({
         baseIso: startIso,
-      })
+      }),
     );
   }
 

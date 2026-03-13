@@ -337,7 +337,7 @@ export default function createTenableVulnerability({
               ]),
               threat_sources_last28: faker.helpers.arrayElements(
                 ['Social Media', 'Dark Web', 'Exploit-DB', 'Metasploit', 'No recorded events'],
-                { min: 1, max: 3 }
+                { min: 1, max: 3 },
               ),
             },
           },

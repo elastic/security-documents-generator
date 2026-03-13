@@ -118,7 +118,7 @@ export class TeleportIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
@@ -136,7 +136,7 @@ export class TeleportIntegration extends BaseIntegration {
 
   private createAuditDocument(employee: Employee): IntegrationDocument {
     const eventDef = faker.helpers.weightedArrayElement(
-      AUDIT_EVENTS.map((e) => ({ value: e, weight: e.weight }))
+      AUDIT_EVENTS.map((e) => ({ value: e, weight: e.weight })),
     );
     const timestamp = this.getRandomTimestamp(72);
     const isFailure = eventDef.code.endsWith('W');

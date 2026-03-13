@@ -97,7 +97,7 @@ export class HashiCorpVaultIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const auditDocs: IntegrationDocument[] = [];
@@ -124,7 +124,7 @@ export class HashiCorpVaultIntegration extends BaseIntegration {
 
   private createAuditDocument(employee: Employee): IntegrationDocument {
     const op = faker.helpers.weightedArrayElement(
-      VAULT_OPERATIONS.map((o) => ({ value: o, weight: o.weight }))
+      VAULT_OPERATIONS.map((o) => ({ value: o, weight: o.weight })),
     );
     const timestamp = this.getRandomTimestamp(72);
     const sourceIp = faker.internet.ipv4();
@@ -184,7 +184,7 @@ export class HashiCorpVaultIntegration extends BaseIntegration {
 
   private createLogDocument(): IntegrationDocument {
     const logEvt = faker.helpers.weightedArrayElement(
-      LOG_MESSAGES.map((l) => ({ value: l, weight: l.weight }))
+      LOG_MESSAGES.map((l) => ({ value: l, weight: l.weight })),
     );
     const timestamp = this.getRandomTimestamp(72);
 

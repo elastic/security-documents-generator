@@ -75,7 +75,7 @@ export const kibanaFetch = async <T>(
     ignoreStatuses?: number[] | number;
     apiVersion?: string;
     space?: string;
-  } = {}
+  } = {},
 ): Promise<T> => {
   const { ignoreStatuses, apiVersion = '1', space } = opts;
   const url = buildKibanaUrl({ path, space });
@@ -108,7 +108,7 @@ export const kibanaFetch = async <T>(
     throwResponseError(
       `Failed to fetch data from ${url}, status: ${result.status}`,
       result.status,
-      data
+      data,
     );
   }
   return data as T;
@@ -121,7 +121,7 @@ export const fetchRiskScore = async (space?: string) => {
       method: 'POST',
       body: JSON.stringify({}),
     },
-    { space }
+    { space },
   );
 };
 
@@ -134,7 +134,7 @@ export const enableRiskScore = async (space?: string) => {
     },
     {
       space,
-    }
+    },
   );
 };
 
@@ -145,7 +145,7 @@ export const scheduleRiskEngineNow = async (space?: string) => {
       method: 'POST',
       body: JSON.stringify({ runNow: true }),
     },
-    { space, apiVersion: API_VERSIONS.public.v1 }
+    { space, apiVersion: API_VERSIONS.public.v1 },
   );
 };
 
@@ -155,7 +155,7 @@ export const assignAssetCriticality = async (
     id_value: string;
     criticality_level: string;
   }>,
-  space?: string
+  space?: string,
 ) => {
   return kibanaFetch(
     ASSET_CRITICALITY_BULK_URL,
@@ -163,7 +163,7 @@ export const assignAssetCriticality = async (
       method: 'POST',
       body: JSON.stringify({ records: assetCriticalityRecords }),
     },
-    { apiVersion: API_VERSIONS.public.v1, space }
+    { apiVersion: API_VERSIONS.public.v1, space },
   );
 };
 
@@ -213,7 +213,7 @@ export const createRule = ({
         max_signals: 1000,
       }),
     },
-    { apiVersion: API_VERSIONS.public.v1, space }
+    { apiVersion: API_VERSIONS.public.v1, space },
   );
 };
 
@@ -225,7 +225,7 @@ export const getRule = async (ruleId: string, space?: string) => {
       {
         method: 'GET',
       },
-      { apiVersion: API_VERSIONS.public.v1, space }
+      { apiVersion: API_VERSIONS.public.v1, space },
     );
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
@@ -240,7 +240,7 @@ export const deleteRule = async (ruleId: string, space?: string) => {
     {
       method: 'DELETE',
     },
-    { apiVersion: API_VERSIONS.public.v1, space }
+    { apiVersion: API_VERSIONS.public.v1, space },
   );
 };
 
@@ -268,7 +268,7 @@ export const createComponentTemplate = async ({
         },
       }),
     },
-    { apiVersion: API_VERSIONS.public.v1, ignoreStatuses: [409], space }
+    { apiVersion: API_VERSIONS.public.v1, ignoreStatuses: [409], space },
   );
 };
 export const installPackage = async ({
@@ -292,7 +292,7 @@ export const installPackage = async ({
     {
       method: 'POST',
     },
-    { apiVersion: API_VERSIONS.public.v1, space }
+    { apiVersion: API_VERSIONS.public.v1, space },
   );
 };
 
@@ -313,7 +313,7 @@ export const createAgentPolicy = async ({
   }>(
     `/api/fleet/agent_policies?kuery=${kuery}`,
     { method: 'GET' },
-    { apiVersion: API_VERSIONS.public.v1, space }
+    { apiVersion: API_VERSIONS.public.v1, space },
   );
   if (existing.items.length > 0) {
     return { item: existing.items[0] };
@@ -325,7 +325,7 @@ export const createAgentPolicy = async ({
       method: 'POST',
       body: JSON.stringify({ name, namespace }),
     },
-    { apiVersion: API_VERSIONS.public.v1, space }
+    { apiVersion: API_VERSIONS.public.v1, space },
   );
 };
 
@@ -339,7 +339,7 @@ export const getPackageInfo = async ({
   return kibanaFetch(
     FLEET_EPM_PACKAGES_URL(packageName),
     { method: 'GET' },
-    { apiVersion: API_VERSIONS.public.v1, space }
+    { apiVersion: API_VERSIONS.public.v1, space },
   );
 };
 
@@ -355,7 +355,7 @@ export const getPackagePolicies = async ({
   }>(
     '/api/fleet/package_policies?perPage=1000',
     { method: 'GET' },
-    { apiVersion: API_VERSIONS.public.v1, space }
+    { apiVersion: API_VERSIONS.public.v1, space },
   );
 
   return {
@@ -398,7 +398,7 @@ export const createPackagePolicy = async ({
         ...(vars && { vars }),
       }),
     },
-    { apiVersion: API_VERSIONS.public.v1, space }
+    { apiVersion: API_VERSIONS.public.v1, space },
   );
 };
 
@@ -445,7 +445,7 @@ export const createSpace = async (space: string) => {
     },
     {
       apiVersion: API_VERSIONS.public.v1,
-    }
+    },
   );
 };
 
@@ -456,7 +456,7 @@ export const doesSpaceExist = async (space: string): Promise<boolean> => {
       {
         method: 'GET',
       },
-      { apiVersion: API_VERSIONS.public.v1 }
+      { apiVersion: API_VERSIONS.public.v1 },
     );
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
@@ -472,7 +472,7 @@ const _initEngine = (engineType: string, space?: string) => {
       method: 'POST',
       body: JSON.stringify({}),
     },
-    { apiVersion: API_VERSIONS.public.v1, space }
+    { apiVersion: API_VERSIONS.public.v1, space },
   );
 };
 
@@ -482,16 +482,16 @@ const _deleteEngine = (engineType: string, space?: string) => {
     {
       method: 'DELETE',
     },
-    { apiVersion: API_VERSIONS.public.v1, space }
+    { apiVersion: API_VERSIONS.public.v1, space },
   );
 };
 
 export const deleteEngines = async (
   entityTypes: string[] = ['host', 'user', 'service', 'generic'],
-  space?: string
+  space?: string,
 ) => {
   const responses = await Promise.all(
-    entityTypes.map((entityType) => _deleteEngine(entityType, space))
+    entityTypes.map((entityType) => _deleteEngine(entityType, space)),
   );
   console.log('Delete responses:', responses);
 };
@@ -502,7 +502,7 @@ const _listEngines = (space?: string) => {
     {
       method: 'GET',
     },
-    { apiVersion: API_VERSIONS.public.v1, space }
+    { apiVersion: API_VERSIONS.public.v1, space },
   );
 
   return res as Promise<{
@@ -527,7 +527,7 @@ const allRequestedEnginesAreStarted = async (entityTypes: string[], space?: stri
   for (const entityType of entityTypes) {
     // Try to find engine by type, name, or id field
     const engine = engines.find(
-      (e) => e.type === entityType || e.name === entityType || e.id === entityType
+      (e) => e.type === entityType || e.name === entityType || e.id === entityType,
     );
     if (!engine || engine.status !== 'started') {
       return false;
@@ -541,17 +541,17 @@ const getEngineStatusDetails = async (entityTypes: string[], space?: string) => 
   const { engines } = await _listEngines(space);
   const missingEngines = entityTypes.filter(
     (entityType) =>
-      !engines.find((e) => e.type === entityType || e.name === entityType || e.id === entityType)
+      !engines.find((e) => e.type === entityType || e.name === entityType || e.id === entityType),
   );
   const errorEngines = entityTypes.filter((entityType) => {
     const engine = engines.find(
-      (e) => e.type === entityType || e.name === entityType || e.id === entityType
+      (e) => e.type === entityType || e.name === entityType || e.id === entityType,
     );
     return engine && engine.status === 'error';
   });
   const notStartedEngines = entityTypes.filter((entityType) => {
     const engine = engines.find(
-      (e) => e.type === entityType || e.name === entityType || e.id === entityType
+      (e) => e.type === entityType || e.name === entityType || e.id === entityType,
     );
     return engine && engine.status !== 'started' && engine.status !== 'error';
   });
@@ -605,7 +605,7 @@ export const updateKibanaSettings = async (settings: Record<string, unknown>) =>
       {
         // Advanced Settings API version
         apiVersion: '1',
-      }
+      },
     );
 
     console.log('Kibana settings updated successfully.');
@@ -632,7 +632,7 @@ export const enableAssetInventory = async () => {
 
 export const initEntityEngineForEntityTypes = async (
   entityTypes: string[] = ['host', 'user', 'service', 'generic'],
-  space?: string
+  space?: string,
 ) => {
   // Enable Asset Inventory if generic entities are requested
   if (entityTypes.includes('generic')) {
@@ -650,7 +650,7 @@ export const initEntityEngineForEntityTypes = async (
 
   console.log(`Initializing engines for types: ${entityTypes.join(', ')}`);
   const initResults = await Promise.allSettled(
-    entityTypes.map((entityType) => _initEngine(entityType, space))
+    entityTypes.map((entityType) => _initEngine(entityType, space)),
   );
 
   // Log any initialization failures
@@ -672,11 +672,11 @@ export const initEntityEngineForEntityTypes = async (
     const statusDetails = await getEngineStatusDetails(entityTypes, space);
     if (statusDetails.errorEngines.length > 0) {
       console.warn(
-        `Engines in error state detected: ${statusDetails.errorEngines.join(', ')}. This may indicate a configuration issue.`
+        `Engines in error state detected: ${statusDetails.errorEngines.join(', ')}. This may indicate a configuration issue.`,
       );
       if (statusDetails.errorEngines.includes('generic')) {
         console.warn(
-          'Generic engine is in error state. Ensure Asset Inventory feature is enabled in Kibana advanced settings.'
+          'Generic engine is in error state. Ensure Asset Inventory feature is enabled in Kibana advanced settings.',
         );
       }
     }
@@ -699,12 +699,12 @@ export const initEntityEngineForEntityTypes = async (
     // Log error details for engines in error state
     statusDetails.errorEngines.forEach((entityType) => {
       const engine = statusDetails.availableEngines.find(
-        (e) => e.type === entityType || e.name === entityType || e.id === entityType
+        (e) => e.type === entityType || e.name === entityType || e.id === entityType,
       );
       if (engine) {
         console.error(
           `Engine '${entityType}' error details:`,
-          engine.error || engine.message || 'No error details available'
+          engine.error || engine.message || 'No error details available',
         );
       }
     });
@@ -733,7 +733,7 @@ export const getAllRules = async (space?: string) => {
         {
           method: 'GET',
         },
-        { apiVersion: API_VERSIONS.public.v1, space }
+        { apiVersion: API_VERSIONS.public.v1, space },
       );
 
       if (!response.data || response.data.length === 0) {
@@ -767,13 +767,13 @@ export const bulkDeleteRules = async (ruleIds: string[], space?: string) => {
         ids: ruleIds,
       }),
     },
-    { apiVersion: API_VERSIONS.public.v1, space }
+    { apiVersion: API_VERSIONS.public.v1, space },
   );
 };
 
 export const uploadPrivmonCsv = async (
   csvFilePath: string,
-  space?: string
+  space?: string,
 ): Promise<{ success: boolean; message?: string }> => {
   try {
     const formData = new FormData();
@@ -816,7 +816,7 @@ export const enablePrivmon = async (space?: string) => {
         method: 'POST',
         body: JSON.stringify({}),
       },
-      { apiVersion: API_VERSIONS.public.v1, space }
+      { apiVersion: API_VERSIONS.public.v1, space },
     );
     return response;
   } catch (error) {
@@ -833,7 +833,7 @@ export const installPad = async (space?: string) => {
         method: 'POST',
         body: JSON.stringify({}),
       },
-      { apiVersion: API_VERSIONS.public.v1, space }
+      { apiVersion: API_VERSIONS.public.v1, space },
     );
     return response;
   } catch (error) {
@@ -849,7 +849,7 @@ export const getPadStatus = async (space?: string) => {
       {
         method: 'GET',
       },
-      { apiVersion: API_VERSIONS.public.v1, space }
+      { apiVersion: API_VERSIONS.public.v1, space },
     );
     const status = response as {
       package_installation_status: 'complete' | 'incomplete';
@@ -882,7 +882,7 @@ export const setupPadMlModule = async (space?: string) => {
         method: 'POST',
         body: JSON.stringify(body),
       },
-      { apiVersion: API_VERSIONS.internal.v1, space }
+      { apiVersion: API_VERSIONS.internal.v1, space },
     );
     return response as {
       datafeeds: Array<{ id: string; success: boolean; error?: string; started: boolean }>;
@@ -903,7 +903,7 @@ export const forceStartDatafeeds = async (datafeedIds: string[], space?: string)
         start: Date.now(),
       }),
     },
-    { apiVersion: API_VERSIONS.internal.v1, space }
+    { apiVersion: API_VERSIONS.internal.v1, space },
   );
 };
 
@@ -914,14 +914,14 @@ export const getMlJobsSummary = async (jobIds: string[], space?: string) => {
       method: 'POST',
       body: JSON.stringify({ jobIds }),
     },
-    { apiVersion: API_VERSIONS.internal.v1, space }
+    { apiVersion: API_VERSIONS.internal.v1, space },
   );
 };
 
 export const setupMlModule = async (
   moduleId: string,
   indexPatternName: string,
-  space?: string
+  space?: string,
 ): Promise<{ jobs?: Array<{ id: string; success: boolean; error?: { status: number } }> }> => {
   return kibanaFetch(
     `/internal/ml/modules/setup/${moduleId}`,
@@ -936,13 +936,13 @@ export const setupMlModule = async (
         applyToAllSpaces: true,
       }),
     },
-    { apiVersion: API_VERSIONS.internal.v1, space }
+    { apiVersion: API_VERSIONS.internal.v1, space },
   );
 };
 
 export const installIntegrationAndCreatePolicy = async (
   integrationName: string,
-  space?: string
+  space?: string,
 ): Promise<{ agentPolicyId: string; packagePolicyId: string }> => {
   await installPackage({ packageName: integrationName, space });
   const pkg = await getPackageInfo({ packageName: integrationName, space });
@@ -979,7 +979,7 @@ export const getDataView = async (dataViewId: string, space?: string) => {
       {
         method: 'GET',
       },
-      { apiVersion: API_VERSIONS.public.v1, space }
+      { apiVersion: API_VERSIONS.public.v1, space },
     );
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
@@ -994,7 +994,7 @@ export const createDataView = async (dataview: object, space?: string) => {
       method: 'POST',
       body: JSON.stringify({ data_view: dataview }),
     },
-    { apiVersion: API_VERSIONS.public.v1, space }
+    { apiVersion: API_VERSIONS.public.v1, space },
   );
 };
 
@@ -1005,7 +1005,7 @@ export const createAlertsIndex = async (space?: string) => {
       method: 'POST',
       body: JSON.stringify({}),
     },
-    { apiVersion: API_VERSIONS.public.v1, space }
+    { apiVersion: API_VERSIONS.public.v1, space },
   );
 };
 
@@ -1035,7 +1035,7 @@ export interface EntityEnrichment {
 export const enrichEntityViaApi = async (
   entityType: 'user' | 'host',
   enrichment: EntityEnrichment,
-  space?: string
+  space?: string,
 ) => {
   return kibanaFetch(
     ENTITY_STORE_ENTITIES_URL(entityType) + '?force=true',
@@ -1043,6 +1043,6 @@ export const enrichEntityViaApi = async (
       method: 'PUT',
       body: JSON.stringify({ entity: enrichment }),
     },
-    { apiVersion: API_VERSIONS.public.v1, space }
+    { apiVersion: API_VERSIONS.public.v1, space },
   );
 };

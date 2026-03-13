@@ -83,7 +83,7 @@ export abstract class BaseIntegration {
    */
   abstract generateDocuments(
     org: Organization,
-    correlationMap: CorrelationMap
+    correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]>;
 
   /**
@@ -91,7 +91,7 @@ export abstract class BaseIntegration {
    */
   async indexDocuments(
     documentsMap: Map<string, IntegrationDocument[]>,
-    showProgress: boolean = true
+    showProgress: boolean = true,
   ): Promise<number> {
     let totalIndexed = 0;
 
@@ -106,7 +106,7 @@ export abstract class BaseIntegration {
             clearOnComplete: true,
             format: '    [{bar}] {percentage}% | {value}/{total}',
           },
-          cliProgress.Presets.shades_classic
+          cliProgress.Presets.shades_classic,
         );
 
         const chunks = chunk(documents, 1000);
@@ -134,7 +134,7 @@ export abstract class BaseIntegration {
   async run(
     org: Organization,
     correlationMap: CorrelationMap,
-    space: string = 'default'
+    space: string = 'default',
   ): Promise<IntegrationResult> {
     console.log(`\n--- ${this.displayName} Integration ---`);
 

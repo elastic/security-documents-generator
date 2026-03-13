@@ -94,7 +94,7 @@ export class BeyondInsightIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
 
@@ -131,7 +131,7 @@ export class BeyondInsightIntegration extends BaseIntegration {
 
   private createUserAuditDocument(employee: Employee): IntegrationDocument {
     const action = faker.helpers.weightedArrayElement(
-      AUDIT_ACTION_TYPES.map((a) => ({ value: a, weight: a.weight }))
+      AUDIT_ACTION_TYPES.map((a) => ({ value: a, weight: a.weight })),
     );
     const timestamp = this.getRandomTimestamp(72);
     const sourceIp = faker.internet.ipv4();
@@ -240,7 +240,7 @@ export class BeyondInsightIntegration extends BaseIntegration {
     const upn = `${accountName.toLowerCase().replace(/\s+/g, '_')}@example.com`;
     const lastChange = this.getRandomTimestamp(168);
     const nextChange = new Date(
-      new Date(lastChange).getTime() + 30 * 24 * 60 * 60 * 1000
+      new Date(lastChange).getTime() + 30 * 24 * 60 * 60 * 1000,
     ).toISOString();
 
     const rawEvent = {

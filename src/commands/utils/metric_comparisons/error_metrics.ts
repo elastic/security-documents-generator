@@ -9,7 +9,7 @@ import { ComparisonThresholds } from '../metrics_comparison';
 export const compareErrorMetrics = (
   baseline: BaselineMetrics,
   current: BaselineMetrics,
-  thresholds: ComparisonThresholds
+  thresholds: ComparisonThresholds,
 ): ComparisonResult[] => {
   const results: ComparisonResult[] = [];
 
@@ -19,8 +19,8 @@ export const compareErrorMetrics = (
       baseline.metrics.errors.searchFailures,
       current.metrics.errors.searchFailures,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -28,8 +28,8 @@ export const compareErrorMetrics = (
       baseline.metrics.errors.indexFailures,
       current.metrics.errors.indexFailures,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -37,8 +37,8 @@ export const compareErrorMetrics = (
       baseline.metrics.errors.totalFailures,
       current.metrics.errors.totalFailures,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
 
   return results;

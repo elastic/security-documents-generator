@@ -4,7 +4,7 @@ import { readFileSafely } from '../utils';
  * Parse Kibana stats log and extract metrics
  */
 export const parseKibanaStats = (
-  logPath: string
+  logPath: string,
 ): {
   eventLoopDelays: number[];
   eventLoopDelayPercentiles: {

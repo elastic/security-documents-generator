@@ -156,7 +156,7 @@ export class LastPassIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
 
@@ -227,7 +227,7 @@ export class LastPassIntegration extends BaseIntegration {
 
   private createEventReportDocument(employee: Employee): IntegrationDocument {
     const eventDef = faker.helpers.weightedArrayElement(
-      EVENT_ACTIONS.map((e) => ({ value: e, weight: e.weight }))
+      EVENT_ACTIONS.map((e) => ({ value: e, weight: e.weight })),
     );
     const timestamp = this.getRandomTimestamp(72);
     const sourceIp = faker.internet.ipv4();
@@ -274,7 +274,7 @@ export class LastPassIntegration extends BaseIntegration {
             give: faker.datatype.boolean(0.5),
             can_administer: faker.datatype.boolean(0.2),
             sites: Array.from({ length: faker.number.int({ min: 1, max: 5 }) }, () =>
-              faker.internet.domainName()
+              faker.internet.domainName(),
             ),
           },
         };

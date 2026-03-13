@@ -40,7 +40,7 @@ export class OktaIntegration extends BaseIntegration {
    */
   generateDocuments(
     org: Organization,
-    correlationMap: CorrelationMap
+    correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
@@ -77,7 +77,7 @@ export class OktaIntegration extends BaseIntegration {
   private createUserDocument(
     employee: Employee,
     org: Organization,
-    timestamp: string
+    timestamp: string,
   ): IntegrationDocument {
     const createdDate = faker.date.past({ years: 2 }).toISOString();
     const activatedDate = new Date(new Date(createdDate).getTime() + 60000).toISOString();
@@ -179,7 +179,7 @@ export class OktaIntegration extends BaseIntegration {
     device: Device,
     employee: Employee,
     org: Organization,
-    timestamp: string
+    timestamp: string,
   ): IntegrationDocument {
     const createdDate = faker.date.past({ years: 1 }).toISOString();
     const activatedDate = new Date(new Date(createdDate).getTime() + 60000).toISOString();
@@ -259,7 +259,7 @@ export class OktaIntegration extends BaseIntegration {
    */
   private createSyncMarker(
     action: 'started' | 'completed',
-    timestamp: string
+    timestamp: string,
   ): OktaSyncMarkerDocument {
     return {
       '@timestamp': timestamp,
@@ -284,7 +284,7 @@ export class OktaIntegration extends BaseIntegration {
    */
   private createDeviceSyncMarker(
     action: 'started' | 'completed',
-    timestamp: string
+    timestamp: string,
   ): OktaSyncMarkerDocument {
     return {
       '@timestamp': timestamp,

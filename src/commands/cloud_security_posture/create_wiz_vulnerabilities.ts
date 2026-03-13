@@ -280,7 +280,7 @@ function generateProviderUniqueId(provider: CloudProvider, accountId: string): s
 function generateCloudProviderUrl(
   provider: CloudProvider,
   region: string,
-  accountId: string
+  accountId: string,
 ): string {
   switch (provider) {
     case 'aws':

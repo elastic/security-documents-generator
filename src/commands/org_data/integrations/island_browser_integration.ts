@@ -113,7 +113,7 @@ export class IslandBrowserIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const tenantId = `${org.name.toLowerCase().replace(/\s+/g, '-')}-tenant`;
@@ -133,7 +133,7 @@ export class IslandBrowserIntegration extends BaseIntegration {
       const auditCount = faker.number.int({ min: 2, max: 5 });
       for (let i = 0; i < auditCount; i++) {
         const device = faker.helpers.arrayElement(
-          employee.devices.filter((d) => d.type === 'laptop')
+          employee.devices.filter((d) => d.type === 'laptop'),
         );
         if (device) {
           auditDocs.push(this.createAuditDocument(employee, device, org, tenantId));
@@ -142,7 +142,7 @@ export class IslandBrowserIntegration extends BaseIntegration {
     }
 
     const admins = org.employees.filter(
-      (e) => e.department === 'Operations' || e.department === 'Executive'
+      (e) => e.department === 'Operations' || e.department === 'Executive',
     );
     for (const admin of admins.slice(0, 3)) {
       const actionCount = faker.number.int({ min: 1, max: 3 });
@@ -162,7 +162,7 @@ export class IslandBrowserIntegration extends BaseIntegration {
   private createUserDocument(
     employee: Employee,
     org: Organization,
-    tenantId: string
+    tenantId: string,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(24);
     const groups: string[] = [employee.department];
@@ -206,7 +206,7 @@ export class IslandBrowserIntegration extends BaseIntegration {
     employee: Employee,
     device: Device,
     org: Organization,
-    tenantId: string
+    tenantId: string,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(24);
     const browserVersion = faker.helpers.arrayElement(BROWSER_VERSIONS);
@@ -263,14 +263,14 @@ export class IslandBrowserIntegration extends BaseIntegration {
     employee: Employee,
     device: Device,
     org: Organization,
-    tenantId: string
+    tenantId: string,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const auditType = faker.helpers.weightedArrayElement(
-      AUDIT_TYPES.map((a) => ({ value: a, weight: a.weight }))
+      AUDIT_TYPES.map((a) => ({ value: a, weight: a.weight })),
     );
     const verdictInfo = faker.helpers.weightedArrayElement(
-      VERDICTS.map((v) => ({ value: v, weight: v.weight }))
+      VERDICTS.map((v) => ({ value: v, weight: v.weight })),
     );
     const saasApp = faker.helpers.arrayElement(SAAS_APPS);
     const sourceIp = device.ipAddress;

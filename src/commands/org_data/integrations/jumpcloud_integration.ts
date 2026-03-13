@@ -149,7 +149,7 @@ export class JumpCloudIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const eventDocs: IntegrationDocument[] = [];
@@ -168,7 +168,7 @@ export class JumpCloudIntegration extends BaseIntegration {
 
   private createEventDocument(employee: Employee, orgId: string): IntegrationDocument {
     const eventDef = faker.helpers.weightedArrayElement(
-      EVENT_TYPES.map((e) => ({ value: e, weight: e.weight }))
+      EVENT_TYPES.map((e) => ({ value: e, weight: e.weight })),
     );
     const timestamp = this.getRandomTimestamp(72);
     const clientIp = faker.internet.ipv4();

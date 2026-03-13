@@ -108,7 +108,7 @@ const getConfigFromEnv = (): Partial<ConfigType> | null => {
       envConfig.eventDateOffsetHours = offsetHours;
     } else {
       console.warn(
-        `Warning: EVENT_DATE_OFFSET_HOURS environment variable contains an invalid number ("${process.env.EVENT_DATE_OFFSET_HOURS}"). Ignoring this value.`
+        `Warning: EVENT_DATE_OFFSET_HOURS environment variable contains an invalid number ("${process.env.EVENT_DATE_OFFSET_HOURS}"). Ignoring this value.`,
       );
     }
   }
@@ -136,7 +136,7 @@ const getConfigFromEnv = (): Partial<ConfigType> | null => {
  */
 const mergeConfigs = (
   fileConfig: Partial<ConfigType>,
-  envConfig: Partial<ConfigType>
+  envConfig: Partial<ConfigType>,
 ): Partial<ConfigType> => {
   const { elastic, kibana, ...envConfigWithoutNodes } = envConfig;
   return {
@@ -154,7 +154,7 @@ const mergeConfigs = (
  * @param throwOnReadError - If true, throws on file read errors. If false, returns empty config.
  */
 const loadAndMergeConfig = (
-  throwOnReadError: boolean = false
+  throwOnReadError: boolean = false,
 ): {
   mergedConfig: Partial<ConfigType>;
   validationResult: t.Validation<ConfigType>;
@@ -210,7 +210,7 @@ export const getConfig = (): ConfigType => {
 
   if (validationResult._tag === 'Left') {
     console.error(
-      `There was a config validation error. Fix issues below in your ${envConfig ? 'environment variables or ' : ''}${CONFIG_FILE_NAME} file, and try again.`
+      `There was a config validation error. Fix issues below in your ${envConfig ? 'environment variables or ' : ''}${CONFIG_FILE_NAME} file, and try again.`,
     );
     console.log(PathReporter.report(validationResult));
     process.exit(1);

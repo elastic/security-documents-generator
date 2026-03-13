@@ -50,7 +50,7 @@ const waitForAlertIndexMapping = async (space: string, attempts: number = 5, wai
         // I use @timestamp to detect if the mapping is correct, if it has beem automatically created it will be long
         if (mapping['@timestamp'] && mapping['@timestamp'].type === 'date') {
           console.log(
-            `Index ${index} has the correct date field mapping: ${JSON.stringify(mapping['@timestamp'])}`
+            `Index ${index} has the correct date field mapping: ${JSON.stringify(mapping['@timestamp'])}`,
           );
           return;
         } else {
@@ -69,7 +69,7 @@ const waitForAlertIndexMapping = async (space: string, attempts: number = 5, wai
 
     if (attempt === attempts - 1) {
       throw new Error(
-        `Index ${index} does not have the correct mapping after ${attempts} attempts`
+        `Index ${index} does not have the correct mapping after ${attempts} attempts`,
       );
     }
 

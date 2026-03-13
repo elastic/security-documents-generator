@@ -113,7 +113,7 @@ export class ZoomIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
@@ -133,10 +133,10 @@ export class ZoomIntegration extends BaseIntegration {
   private createWebhookDocument(
     employee: Employee,
     org: Organization,
-    masterAccountId: string
+    masterAccountId: string,
   ): IntegrationDocument {
     const eventDef = faker.helpers.weightedArrayElement(
-      WEBHOOK_EVENTS.map((e) => ({ value: e, weight: e.weight }))
+      WEBHOOK_EVENTS.map((e) => ({ value: e, weight: e.weight })),
     );
     const timestamp = this.getRandomTimestamp(72);
     const operatorId = faker.string.alphanumeric(22);

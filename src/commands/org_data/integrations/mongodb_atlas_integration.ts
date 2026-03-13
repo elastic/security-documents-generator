@@ -63,7 +63,7 @@ export class MongoDbAtlasIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const auditDocs: IntegrationDocument[] = [];
@@ -88,10 +88,10 @@ export class MongoDbAtlasIntegration extends BaseIntegration {
 
   private createAuditDocument(employee: Employee): IntegrationDocument {
     const action = faker.helpers.weightedArrayElement(
-      AUDIT_ACTIONS.map((a) => ({ value: a, weight: a.weight }))
+      AUDIT_ACTIONS.map((a) => ({ value: a, weight: a.weight })),
     );
     const result = faker.helpers.weightedArrayElement(
-      AUDIT_RESULTS.map((r) => ({ value: r, weight: r.weight }))
+      AUDIT_RESULTS.map((r) => ({ value: r, weight: r.weight })),
     );
     const timestamp = this.getRandomTimestamp(72);
     const localIp = '127.0.0.1';
@@ -127,10 +127,10 @@ export class MongoDbAtlasIntegration extends BaseIntegration {
   private createOrgDocument(
     employee: Employee,
     org: Organization,
-    orgId: string
+    orgId: string,
   ): IntegrationDocument {
     const eventType = faker.helpers.weightedArrayElement(
-      ORG_EVENT_TYPES.map((e) => ({ value: e, weight: e.weight }))
+      ORG_EVENT_TYPES.map((e) => ({ value: e, weight: e.weight })),
     );
     const timestamp = this.getRandomTimestamp(72);
     const clusterName = faker.helpers.arrayElement(CLUSTER_NAMES);

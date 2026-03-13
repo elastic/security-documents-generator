@@ -174,7 +174,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    correlationMap: CorrelationMap
+    correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const hostDocs: IntegrationDocument[] = [];
@@ -190,11 +190,11 @@ export class CrowdStrikeIntegration extends BaseIntegration {
 
     // Generate alerts (2-5% of devices)
     const laptopEntries = [...correlationMap.crowdstrikeAgentIdToDevice.entries()].filter(
-      ([, { device }]) => device.type === 'laptop'
+      ([, { device }]) => device.type === 'laptop',
     );
     const alertCount = Math.max(
       1,
-      Math.floor(laptopEntries.length * faker.number.float({ min: 0.02, max: 0.05 }))
+      Math.floor(laptopEntries.length * faker.number.float({ min: 0.02, max: 0.05 })),
     );
     const alertDevices = faker.helpers.arrayElements(laptopEntries, alertCount);
 
@@ -426,7 +426,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
     eventType: FalconEventType,
     employee: Employee,
     device: Device,
-    offset: number
+    offset: number,
   ): IntegrationDocument {
     switch (eventType) {
       case 'DetectionSummaryEvent':
@@ -455,7 +455,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
     eventType: string,
     rawEvent: Record<string, unknown>,
     offset: number,
-    timestamp: string
+    timestamp: string,
   ): IntegrationDocument {
     const eventCreationTimeMs = new Date(timestamp).getTime();
     const rawEnvelope = {
@@ -479,7 +479,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
   private generateDetectionSummaryEvent(
     employee: Employee,
     device: Device,
-    offset: number
+    offset: number,
   ): IntegrationDocument {
     const _mitre = faker.helpers.arrayElement(MITRE_ATTACKS);
     const proc = faker.helpers.arrayElement(SUSPICIOUS_PROCESSES);
@@ -535,7 +535,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
   private generateRemoteResponseStartEvent(
     employee: Employee,
     device: Device,
-    offset: number
+    offset: number,
   ): IntegrationDocument {
     const hostname = `${employee.userName}-${device.platform}`;
     const timestamp = this.getRandomTimestamp(24);
@@ -555,7 +555,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
   private generateRemoteResponseEndEvent(
     employee: Employee,
     device: Device,
-    offset: number
+    offset: number,
   ): IntegrationDocument {
     const hostname = `${employee.userName}-${device.platform}`;
     const timestamp = this.getRandomTimestamp(24);
@@ -572,7 +572,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
       EndTimestamp: Math.floor(new Date(endTimestamp).getTime() / 1000),
       Commands: faker.helpers.arrayElements(
         ['ls', 'ps', 'netstat', 'cat /etc/hosts', 'reg query', 'get-process'],
-        { min: 1, max: 3 }
+        { min: 1, max: 3 },
       ),
     };
 
@@ -622,7 +622,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
   private generateFirewallMatchEvent(
     employee: Employee,
     device: Device,
-    offset: number
+    offset: number,
   ): IntegrationDocument {
     const hostname = `${employee.userName}-${device.platform}`;
     const timestamp = this.getRandomTimestamp(24);
@@ -662,7 +662,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
   private generateIncidentSummaryEvent(
     employee: Employee,
     device: Device,
-    offset: number
+    offset: number,
   ): IntegrationDocument {
     const hostname = `${employee.userName}-${device.platform}`;
     const timestamp = this.getRandomTimestamp(48);

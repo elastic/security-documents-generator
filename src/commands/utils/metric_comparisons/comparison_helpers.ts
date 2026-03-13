@@ -9,7 +9,7 @@ import { ComparisonResult, ComparisonThresholds } from '../metrics_comparison';
  */
 export const determineStatus = (
   effectiveDiffPercent: number,
-  thresholds: ComparisonThresholds
+  thresholds: ComparisonThresholds,
 ): ComparisonResult['status'] => {
   if (effectiveDiffPercent < -thresholds.degradationThreshold) {
     return 'degradation';
@@ -31,7 +31,7 @@ export const createResult = (
   baselineValue: number,
   currentValue: number,
   lowerIsBetter: boolean,
-  thresholds: ComparisonThresholds
+  thresholds: ComparisonThresholds,
 ): ComparisonResult => {
   const diff = currentValue - baselineValue;
 
@@ -78,7 +78,7 @@ export const createResult = (
 export const createInfoResult = (
   metric: string,
   baselineValue: number,
-  currentValue: number
+  currentValue: number,
 ): ComparisonResult => {
   const diff = currentValue - baselineValue;
   const diffPercent = baselineValue !== 0 ? (diff / baselineValue) * 100 : 0;

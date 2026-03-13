@@ -114,7 +114,7 @@ export default function createAlerts<O extends object>(
     userName?: string;
     hostName?: string;
     space?: string;
-  } = {}
+  } = {},
 ): O & BaseCreateAlertsReturnType {
   return { ...baseCreateAlerts({ userName, hostName, space }), ...override };
 }

@@ -101,7 +101,7 @@ export class PingOneIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
@@ -126,10 +126,10 @@ export class PingOneIntegration extends BaseIntegration {
   private createAuditDocument(
     employee: Employee,
     org: Organization,
-    environmentId: string
+    environmentId: string,
   ): IntegrationDocument {
     const action = faker.helpers.weightedArrayElement(
-      AUDIT_ACTIONS.map((a) => ({ value: a, weight: a.weight }))
+      AUDIT_ACTIONS.map((a) => ({ value: a, weight: a.weight })),
     );
 
     let resultStatus: 'SUCCESS' | 'FAILURE';

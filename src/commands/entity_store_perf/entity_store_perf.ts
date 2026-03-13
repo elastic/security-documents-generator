@@ -111,8 +111,8 @@ const getLogsPerEntity = (filePath: string) => {
         if (!idField) {
           reject(
             new Error(
-              'Could not determine entity type from file. Expected host, user, service, or entity fields.'
-            )
+              'Could not determine entity type from file. Expected host, user, service, or entity fields.',
+            ),
           );
         } else {
           // All documents have the same entity ID, resolve with total count
@@ -354,7 +354,7 @@ export const getEntityDistribution = (type: DistributionType = DEFAULT_DISTRIBUT
  */
 export const calculateEntityCounts = (
   totalEntityCount: number,
-  distribution = getEntityDistribution()
+  distribution = getEntityDistribution(),
 ) => {
   const userCount = Math.floor(totalEntityCount * distribution.user);
   const hostCount = Math.floor(totalEntityCount * distribution.host);
@@ -391,7 +391,7 @@ const deleteLogsIndex = async (index: string) => {
     {
       index,
     },
-    { ignore: [404] }
+    { ignore: [404] },
   );
 };
 
@@ -400,7 +400,7 @@ const deleteDataStream = async (index: string) => {
     {
       name: index,
     },
-    { ignore: [404] }
+    { ignore: [404] },
   );
 };
 
@@ -467,14 +467,14 @@ const countEntitiesUntil = async (name: string, count: number) => {
 const waitForTransformToComplete = async (
   transformId: string,
   expectedDocumentsProcessed: number,
-  timeoutMs: number = 1800000 // 30 minutes default timeout
+  timeoutMs: number = 1800000, // 30 minutes default timeout
 ): Promise<void> => {
   const esClient = getEsClient();
   const startTime = Date.now();
   const pollInterval = 5000; // Check every 5 seconds
 
   console.log(
-    `Waiting for transform ${transformId} to process ${expectedDocumentsProcessed} documents (timeout: ${timeoutMs / 1000 / 60} minutes)...`
+    `Waiting for transform ${transformId} to process ${expectedDocumentsProcessed} documents (timeout: ${timeoutMs / 1000 / 60} minutes)...`,
   );
 
   // Create progress bar similar to countEntitiesUntil
@@ -526,7 +526,7 @@ const waitForTransformToComplete = async (
           ) {
             progress.stop();
             console.log(
-              `\nTransform ${transformId} completed processing ${documentsProcessed} documents (checkpoint: ${currentCheckpoint})`
+              `\nTransform ${transformId} completed processing ${documentsProcessed} documents (checkpoint: ${currentCheckpoint})`,
             );
             return;
           }
@@ -540,7 +540,7 @@ const waitForTransformToComplete = async (
 
     progress.stop();
     throw new Error(
-      `Timeout waiting for transform ${transformId} to process ${expectedDocumentsProcessed} documents after ${timeoutMs / 1000 / 60} minutes`
+      `Timeout waiting for transform ${transformId} to process ${expectedDocumentsProcessed} documents after ${timeoutMs / 1000 / 60} minutes`,
     );
   } finally {
     // Ensure progress bar is stopped even if there's an error
@@ -765,7 +765,7 @@ const logKibanaStatsEvery = (name: string, interval: number): (() => void) => {
         },
         {
           apiVersion: '1',
-        }
+        },
       );
 
       log(JSON.stringify(stats));
@@ -804,13 +804,13 @@ export const createPerfDataFile = async ({
   const entityCounts = calculateEntityCounts(entityCount, dist);
 
   console.log(
-    `Creating performance data file ${name} with ${entityCount} entities and ${logsPerEntity} logs per entity. Starting at index ${startIndex}`
+    `Creating performance data file ${name} with ${entityCount} entities and ${logsPerEntity} logs per entity. Starting at index ${startIndex}`,
   );
   console.log(
     `Distribution (${distribution}): ${entityCounts.user} users (${(dist.user * 100).toFixed(1)}%), ` +
       `${entityCounts.host} hosts (${(dist.host * 100).toFixed(1)}%), ` +
       `${entityCounts.service} services (${(dist.service * 100).toFixed(1)}%), ` +
-      `${entityCounts.generic} generic entities (${(dist.generic * 100).toFixed(1)}%)`
+      `${entityCounts.generic} generic entities (${(dist.generic * 100).toFixed(1)}%)`,
   );
 
   if (fs.existsSync(filePath)) {
@@ -1012,7 +1012,7 @@ const getFileStats = async (filePath: string) => {
 export const uploadPerfDataFile = async (
   name: string,
   indexOverride?: string,
-  deleteEntities?: boolean
+  deleteEntities?: boolean,
 ) => {
   const index = indexOverride || `logs-perftest.${name}-default`;
 
@@ -1044,7 +1044,7 @@ export const uploadPerfDataFile = async (
 
   const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
   console.log(
-    `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`
+    `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`,
   );
   const startTime = Date.now();
 
@@ -1068,7 +1068,7 @@ export const uploadPerfDataFileInterval = async (
   transformTimeoutMs?: number,
   samplingIntervalMs?: number,
   noTransforms?: boolean,
-  indexOverride?: string
+  indexOverride?: string,
 ) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addIdPrefix = (prefix: string) => (doc: Record<string, any>) => {
@@ -1088,7 +1088,7 @@ export const uploadPerfDataFileInterval = async (
   const filePath = getFilePath(name);
 
   console.log(
-    `Uploading performance data file ${name} every ${intervalMs}ms ${uploadCount} times to index ${index}`
+    `Uploading performance data file ${name} every ${intervalMs}ms ${uploadCount} times to index ${index}`,
   );
 
   if (doDeleteEngines) {
@@ -1128,7 +1128,7 @@ export const uploadPerfDataFileInterval = async (
   const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
 
   console.log(
-    `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`
+    `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`,
   );
 
   const startTime = Date.now();
@@ -1165,7 +1165,7 @@ export const uploadPerfDataFileInterval = async (
         index,
         lineCount,
         modifyDoc: addIdPrefix(i.toString()),
-      })
+      }),
     );
     let progress: ReturnType<typeof createProgressBar> | null = null;
     for (let j = 0; j < intervalS; j++) {
@@ -1203,17 +1203,17 @@ export const uploadPerfDataFileInterval = async (
     const totalDocumentsIngested = lineCount * uploadCount;
     const timeout = transformTimeoutMs ?? 1800000; // Default 30 minutes
     console.log(
-      `Waiting for generic transform to process ${totalDocumentsIngested} documents (timeout: ${timeout / 1000 / 60} minutes)...`
+      `Waiting for generic transform to process ${totalDocumentsIngested} documents (timeout: ${timeout / 1000 / 60} minutes)...`,
     );
     try {
       await waitForTransformToComplete(
         'entities-v1-latest-security_generic_default',
         totalDocumentsIngested,
-        timeout
+        timeout,
       );
     } catch (error) {
       console.warn(
-        `Warning: ${error instanceof Error ? error.message : 'Failed to wait for transform completion'}. Continuing...`
+        `Warning: ${error instanceof Error ? error.message : 'Failed to wait for transform completion'}. Continuing...`,
       );
     }
   } else {

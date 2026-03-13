@@ -46,6 +46,6 @@ export const generatePacketbeatRecords = (numDocs: number = 10): Array<Record<st
             throw new Error(`Unexpected job ID: ${jobId}`);
         }
       });
-    })
+    }),
   );
 };

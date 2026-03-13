@@ -68,7 +68,7 @@ export class SlackIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
@@ -90,7 +90,7 @@ export class SlackIntegration extends BaseIntegration {
    */
   private createAuditDocument(employee: Employee, org: Organization): IntegrationDocument {
     const action = faker.helpers.weightedArrayElement(
-      AUDIT_ACTIONS.map((a) => ({ value: a, weight: a.weight }))
+      AUDIT_ACTIONS.map((a) => ({ value: a, weight: a.weight })),
     );
     const sourceIp = faker.internet.ipv4();
     const workspaceId = faker.string.alphanumeric(9).toUpperCase();
@@ -163,7 +163,7 @@ export class SlackIntegration extends BaseIntegration {
     action: string,
     targetEmployee: Employee,
     channelId: string,
-    channelName: string
+    channelName: string,
   ): Record<string, unknown> {
     if (action.includes('channel') || action === 'member_joined_channel') {
       return {

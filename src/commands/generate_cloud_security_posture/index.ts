@@ -15,7 +15,7 @@ export const cloudSecurityPostureCommands: CommandModule = {
           '    Elastic:   elastic_cspm_aws, elastic_cspm_gcp, elastic_cspm_azure,\n' +
           '              elastic_kspm_vanilla, elastic_kspm_eks, elastic_cnvm\n' +
           '    3rd party: wiz_misconfigs, wiz_vulnerabilities, qualys_vulnerabilities,\n' +
-          '              tenable_vulnerabilities, aws_misconfigs'
+          '              tenable_vulnerabilities, aws_misconfigs',
       )
       .option('--seed <seed>', 'Random seed for reproducibility', parseIntBase10)
       .option('--data-sources <list>', 'Comma-separated data sources (see above)', 'all')
@@ -23,7 +23,7 @@ export const cloudSecurityPostureCommands: CommandModule = {
       .option(
         '--csp-scores',
         'Generate historical CSP scores trend data (requires Kibana CSP plugin setup)',
-        false
+        false,
       )
       .action(
         wrapAction(
@@ -37,7 +37,7 @@ export const cloudSecurityPostureCommands: CommandModule = {
               options.dataSources
                 .split(',')
                 .map((s: string) => s.trim())
-                .filter(Boolean)
+                .filter(Boolean),
             );
 
             await generateCloudSecurityPosture({
@@ -46,8 +46,8 @@ export const cloudSecurityPostureCommands: CommandModule = {
               findingsCount: options.findingsCount,
               generateCspScores: options.cspScores,
             });
-          }
-        )
+          },
+        ),
       );
   },
 };

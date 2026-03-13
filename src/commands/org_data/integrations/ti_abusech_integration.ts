@@ -29,7 +29,7 @@ export class TiAbusechIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const malwareDocs: IntegrationDocument[] = [];
@@ -59,7 +59,7 @@ export class TiAbusechIntegration extends BaseIntegration {
     const md5 = faker.string.hexadecimal({ length: 32, prefix: '' }).toLowerCase();
     const sha1 = faker.string.hexadecimal({ length: 40, prefix: '' }).toLowerCase();
     const confidence = faker.helpers.weightedArrayElement(
-      TI_CONFIDENCE_LEVELS.map((c) => ({ value: c.level, weight: c.weight }))
+      TI_CONFIDENCE_LEVELS.map((c) => ({ value: c.level, weight: c.weight })),
     );
     const fileType = faker.helpers.arrayElement(ABUSECH_MALWARE_TYPES);
     const firstSeen = faker.date.past({ years: 1 }).toISOString();

@@ -33,7 +33,7 @@ export const rulesCommands: CommandModule = {
             gapsPerRule: gaps,
           });
           console.log('Successfully generated rules and events');
-        })
+        }),
       );
 
     program
@@ -43,7 +43,7 @@ export const rulesCommands: CommandModule = {
       .action(
         wrapAction(async (options) => {
           await deleteAllRules(options.space);
-        })
+        }),
       );
   },
 };

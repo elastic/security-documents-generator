@@ -270,7 +270,7 @@ export const createRandomEventForUser = (user: User, offsetHours?: number): User
 
 export const createRandomEventForService = (
   service: Service,
-  offsetHours?: number
+  offsetHours?: number,
 ): ServiceEvent => ({
   '@timestamp': moment()
     .subtract(getOffset(offsetHours), 'h')
@@ -294,7 +294,7 @@ export const createRandomEventForService = (
 
 export const createRandomEventForGenericEntity = (
   entity: GenericEntity,
-  offsetHours?: number
+  offsetHours?: number,
 ): GenericEntityEvent => {
   // Always use AWS since we're generating AWS resources
   const cloudProvider = 'aws';
@@ -343,7 +343,7 @@ const ingest = async (
   index: string,
   documents: Array<object>,
   mapping?: MappingTypeMapping,
-  skipIndexCheck = false
+  skipIndexCheck = false,
 ) => {
   if (!skipIndexCheck) {
     await indexCheck(index, { mappings: mapping });
@@ -355,7 +355,7 @@ const ingest = async (
 export const generateEvents = <E extends BaseEntity, EV = BaseEvent>(
   entities: E[],
   createEvent: (entity: E, offsetHours?: number) => EV,
-  offsetHours?: number
+  offsetHours?: number,
 ): EV[] => {
   const eventsPerEntity = 10;
   const acc: EV[] = [];
@@ -433,13 +433,13 @@ const HOST_RELATIONSHIPS = {
  */
 const generateRandomEnrichment = (
   entityName: string,
-  entityType: 'user' | 'host'
+  entityType: 'user' | 'host',
 ): EntityEnrichment => {
   const now = new Date();
   const daysAgo = faker.number.int({ min: 30, max: 365 });
   const firstSeen = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
   const lastActivity = new Date(
-    now.getTime() - faker.number.int({ min: 0, max: 24 }) * 60 * 60 * 1000
+    now.getTime() - faker.number.int({ min: 0, max: 24 }) * 60 * 60 * 1000,
   );
 
   // Generate random behaviors
@@ -453,14 +453,14 @@ const generateRandomEnrichment = (
   if (faker.datatype.boolean({ probability: 0.4 })) {
     behaviors.anomaly_job_ids = faker.helpers.arrayElements(
       ANOMALY_JOB_IDS,
-      faker.number.int({ min: 1, max: 4 })
+      faker.number.int({ min: 1, max: 4 }),
     );
   }
 
   if (faker.datatype.boolean({ probability: 0.35 })) {
     behaviors.rule_names = faker.helpers.arrayElements(
       RULE_NAMES,
-      faker.number.int({ min: 1, max: 3 })
+      faker.number.int({ min: 1, max: 3 }),
     );
   }
 
@@ -486,7 +486,7 @@ const generateRandomEnrichment = (
     if (faker.datatype.boolean({ probability: 0.5 })) {
       relationships[key] = faker.helpers.arrayElements(
         values,
-        faker.number.int({ min: 1, max: 3 })
+        faker.number.int({ min: 1, max: 3 }),
       );
     }
   }
@@ -590,12 +590,12 @@ export const generateEntityStore = async ({
     const eventsForUsers: UserEvent[] = generateEvents(
       generatedUsers,
       createRandomEventForUser,
-      offsetHours
+      offsetHours,
     );
     const eventsForHosts: HostEvent[] = generateEvents(
       generatedHosts,
       createRandomEventForHost,
-      offsetHours
+      offsetHours,
     );
 
     const generatedServices: Service[] = faker.helpers.multiple(createRandomService, {
@@ -605,13 +605,13 @@ export const generateEntityStore = async ({
     const eventsForServices: ServiceEvent[] = generateEvents(
       generatedServices,
       createRandomEventForService,
-      offsetHours
+      offsetHours,
     );
 
     const eventsForGenericEntities: GenericEntityEvent[] = generateEvents(
       generatedGenericEntities,
       createRandomEventForGenericEntity,
-      offsetHours
+      offsetHours,
     );
 
     const relational = matchUsersAndHosts(eventsForUsers, eventsForHosts);
@@ -692,7 +692,7 @@ export const cleanEntityStore = async () => {
 
 const matchUsersAndHosts = (
   users: UserEvent[],
-  hosts: HostEvent[]
+  hosts: HostEvent[],
 ): {
   users: UserEvent[];
   hosts: HostEvent[];

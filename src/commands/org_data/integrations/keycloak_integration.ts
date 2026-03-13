@@ -178,7 +178,7 @@ export class KeycloakIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const logDocs: IntegrationDocument[] = [];
@@ -196,7 +196,7 @@ export class KeycloakIntegration extends BaseIntegration {
 
   private createLogDocument(employee: Employee, org: Organization): IntegrationDocument {
     const eventDef = faker.helpers.weightedArrayElement(
-      EVENT_TYPES.map((e) => ({ value: e, weight: e.weight }))
+      EVENT_TYPES.map((e) => ({ value: e, weight: e.weight })),
     );
     const timestamp = this.getRandomTimestamp(72);
     const realm = faker.helpers.arrayElement(REALMS);
@@ -215,7 +215,7 @@ export class KeycloakIntegration extends BaseIntegration {
       userId,
       ipAddress,
       threadName,
-      org
+      org,
     );
 
     return {
@@ -241,7 +241,7 @@ export class KeycloakIntegration extends BaseIntegration {
     userId: string,
     ipAddress: string,
     threadName: string,
-    org: Organization
+    org: Organization,
   ): Record<string, unknown> {
     const base: Record<string, unknown> = {
       type: eventDef.eventType,

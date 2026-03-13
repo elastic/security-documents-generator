@@ -13,7 +13,7 @@ export const promptForSelection = <T extends string>(params: {
 }): Promise<T[]> => checkbox<T>(params);
 
 export const promptForNumericInputs = async (
-  prompts: NumericPrompt[]
+  prompts: NumericPrompt[],
 ): Promise<Record<string, number>> => {
   const values: Array<readonly [string, number]> = [];
   for (const prompt of prompts) {

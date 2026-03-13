@@ -152,7 +152,7 @@ export class GitLabIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const auditDocs: IntegrationDocument[] = [];
@@ -189,7 +189,7 @@ export class GitLabIntegration extends BaseIntegration {
 
   private createAuditDocument(employee: Employee, _org: Organization): IntegrationDocument {
     const evt = faker.helpers.weightedArrayElement(
-      AUDIT_EVENTS.map((e) => ({ value: e, weight: e.weight }))
+      AUDIT_EVENTS.map((e) => ({ value: e, weight: e.weight })),
     );
     const timestamp = this.getRandomTimestamp(72);
     const entityId = faker.number.int({ min: 1, max: 500 });
@@ -302,7 +302,7 @@ export class GitLabIntegration extends BaseIntegration {
 
   private createAuthDocument(employee: Employee, _org: Organization): IntegrationDocument {
     const evt = faker.helpers.weightedArrayElement(
-      AUTH_MESSAGES.map((e) => ({ value: e, weight: e.weight }))
+      AUTH_MESSAGES.map((e) => ({ value: e, weight: e.weight })),
     );
     const timestamp = this.getRandomTimestamp(72);
     const sourceIp = faker.internet.ipv4();

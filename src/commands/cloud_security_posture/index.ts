@@ -332,12 +332,12 @@ export const generateCloudSecurityPosture = async ({
 
   if (accounts.length > 0) {
     console.log(
-      `Generated ${accounts.length} account(s): ${accounts.map((a) => `${a.provider}:${a.id}`).join(', ')}`
+      `Generated ${accounts.length} account(s): ${accounts.map((a) => `${a.provider}:${a.id}`).join(', ')}`,
     );
   }
   if (clusters.length > 0) {
     console.log(
-      `Generated ${clusters.length} cluster(s): ${clusters.map((c) => `${c.distribution}:${c.id.slice(0, 8)}`).join(', ')}`
+      `Generated ${clusters.length} cluster(s): ${clusters.map((c) => `${c.distribution}:${c.id.slice(0, 8)}`).join(', ')}`,
     );
   }
 
@@ -373,13 +373,13 @@ export const generateCloudSecurityPosture = async ({
       for (const account of providerAccounts) {
         const docs = faker.helpers.multiple(
           () => createCSPMMisconfiguration({ provider: account.provider, account }),
-          { count: findingsCount }
+          { count: findingsCount },
         );
         cspmMisconfigs.push(...docs);
       }
 
       console.log(
-        `Generated ${providerAccounts.length * findingsCount} CSPM ${provider} misconfigurations`
+        `Generated ${providerAccounts.length * findingsCount} CSPM ${provider} misconfigurations`,
       );
     }
 
@@ -398,13 +398,13 @@ export const generateCloudSecurityPosture = async ({
       for (const cluster of distClusters) {
         const docs = faker.helpers.multiple(
           () => createKSPMMisconfiguration({ distribution: cluster.distribution, cluster }),
-          { count: findingsCount }
+          { count: findingsCount },
         );
         kspmMisconfigs.push(...docs);
       }
 
       console.log(
-        `Generated ${distClusters.length * findingsCount} KSPM ${distribution} misconfigurations`
+        `Generated ${distClusters.length * findingsCount} KSPM ${distribution} misconfigurations`,
       );
     }
 
@@ -442,7 +442,7 @@ export const generateCloudSecurityPosture = async ({
   if (dataSources.includes('wiz_misconfigs')) {
     console.log('\n--- Generating Wiz misconfigurations ---');
     const docs = generateDocs(accounts, findingsCount, (account) =>
-      createWizMisconfiguration({ account })
+      createWizMisconfiguration({ account }),
     );
     console.log(`Generated ${docs.length} Wiz misconfigurations`);
     await ingest(WIZ_MISCONFIGURATION_SOURCE_INDEX, docs, skipPipeline);
@@ -452,7 +452,7 @@ export const generateCloudSecurityPosture = async ({
   if (dataSources.includes('wiz_vulnerabilities')) {
     console.log('\n--- Generating Wiz vulnerabilities ---');
     const docs = generateDocs(accounts, findingsCount, (account) =>
-      createWizVulnerability({ account })
+      createWizVulnerability({ account }),
     );
     console.log(`Generated ${docs.length} Wiz vulnerabilities`);
     await ingest(WIZ_VULNERABILITY_SOURCE_INDEX, docs, skipPipeline);
@@ -464,7 +464,7 @@ export const generateCloudSecurityPosture = async ({
     console.log('\n--- Generating Qualys VMDR vulnerabilities ---');
     await installPackage({ packageName: 'qualys_vmdr' });
     const docs = generateDocs(accounts, findingsCount, (account) =>
-      createQualysVulnerability({ account })
+      createQualysVulnerability({ account }),
     );
     console.log(`Generated ${docs.length} Qualys vulnerabilities`);
     await ingest(QUALYS_VULNERABILITY_SOURCE_INDEX, docs, skipPipeline);
@@ -476,7 +476,7 @@ export const generateCloudSecurityPosture = async ({
     console.log('\n--- Generating Tenable.io vulnerabilities ---');
     await installPackage({ packageName: 'tenable_io' });
     const docs = generateDocs(accounts, findingsCount, (account) =>
-      createTenableVulnerability({ account })
+      createTenableVulnerability({ account }),
     );
     console.log(`Generated ${docs.length} Tenable vulnerabilities`);
     await ingest(TENABLE_VULNERABILITY_SOURCE_INDEX, docs, skipPipeline);
@@ -493,7 +493,7 @@ export const generateCloudSecurityPosture = async ({
     for (const account of awsAccounts) {
       const accountDocs = faker.helpers.multiple(
         () => createAwsSecurityHubMisconfiguration({ account }),
-        { count: findingsCount }
+        { count: findingsCount },
       );
       docs.push(...accountDocs);
     }
@@ -536,7 +536,7 @@ export const generateCloudSecurityPosture = async ({
       await ingest(CSP_SCORES_INDEX, docs, { pipeline: '_none' });
       console.log(
         `CSPM scores: ${docs.length} trend points, ` +
-          `${Math.round((misconfigStats.passedFindings / misconfigStats.totalFindings) * 100)}% passed (latest)`
+          `${Math.round((misconfigStats.passedFindings / misconfigStats.totalFindings) * 100)}% passed (latest)`,
       );
     }
 
@@ -552,7 +552,7 @@ export const generateCloudSecurityPosture = async ({
       await ingest(CSP_SCORES_INDEX, docs, { pipeline: '_none' });
       console.log(
         `KSPM scores: ${docs.length} trend points, ` +
-          `${Math.round((misconfigStats.passedFindings / misconfigStats.totalFindings) * 100)}% passed (latest)`
+          `${Math.round((misconfigStats.passedFindings / misconfigStats.totalFindings) * 100)}% passed (latest)`,
       );
     }
 
@@ -565,7 +565,7 @@ export const generateCloudSecurityPosture = async ({
       await ingest(CSP_SCORES_INDEX, docs, { pipeline: '_none' });
       const totalVulns = vulnStats.reduce(
         (sum, s) => sum + s.critical + s.high + s.medium + s.low,
-        0
+        0,
       );
       console.log(`CNVM scores: ${docs.length} trend points, ${totalVulns} total vulnerabilities`);
     }
@@ -586,7 +586,7 @@ export const generateCloudSecurityPosture = async ({
 function generateDocs(
   accounts: CSPMAccount[],
   count: number,
-  factory: (account?: CSPMAccount) => object
+  factory: (account?: CSPMAccount) => object,
 ): object[] {
   const docs: object[] = [];
 
@@ -629,13 +629,13 @@ function generateScoresTrend({
     const drift = faker.number.int({ min: -driftRange, max: driftRange });
     const passed = Math.max(
       0,
-      Math.min(misconfigStats.totalFindings, misconfigStats.passedFindings + drift)
+      Math.min(misconfigStats.totalFindings, misconfigStats.passedFindings + drift),
     );
     const failed = misconfigStats.totalFindings - passed;
 
     // Apply same drift to benchmark, account, and cluster scores
     const applyDrift = <T extends { totalFindings: number; passedFindings: number }>(
-      items: T[]
+      items: T[],
     ): T[] =>
       items.map((item) => {
         const d = faker.number.int({

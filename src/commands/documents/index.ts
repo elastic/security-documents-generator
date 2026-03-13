@@ -35,7 +35,7 @@ export const documentCommands: CommandModule = {
           const space = await ensureSpace(options.s);
 
           await generateAlerts(alertsCount, userCount, hostCount, space);
-        })
+        }),
       );
 
     program
