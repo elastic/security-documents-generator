@@ -107,7 +107,7 @@ interface EntityHit {
 const fetchEntities = async (
   count: number,
   space?: string,
-  type = 'Identity'
+  type = 'Identity',
 ): Promise<EntityHit[]> => {
   const client = getEsClient();
 
@@ -148,7 +148,7 @@ const generateRiskInputs = (alertIndex: string): RiskInput[] => {
     const contributionScore = Math.ceil(riskScore * Math.pow(0.5, i * 0.35));
     const daysAgo = faker.number.int({ min: 0, max: 3 });
     const timestamp = new Date(
-      Date.now() - daysAgo * 86400000 - faker.number.int({ min: 0, max: 3600000 })
+      Date.now() - daysAgo * 86400000 - faker.number.int({ min: 0, max: 3600000 }),
     );
 
     inputs.push({
@@ -202,7 +202,7 @@ const generateAssetCriticalityFields = () => {
 const generateAnomalyBehaviorsFields = () => {
   const selectedJobs = faker.helpers.arrayElements(
     ML_JOB_IDS,
-    faker.number.int({ min: 1, max: 3 })
+    faker.number.int({ min: 1, max: 3 }),
   );
 
   const ruleNames = selectedJobs.flatMap((jobId) => ML_JOB_TO_RULES[jobId]);
@@ -228,21 +228,21 @@ const generateRelationshipsFields = (allEntityNames: string[], currentEntityName
   if (faker.datatype.boolean({ probability: 0.7 })) {
     relationships.accesses_frequently = faker.helpers.arrayElements(
       candidateFrequent,
-      faker.number.int({ min: 1, max: 4 })
+      faker.number.int({ min: 1, max: 4 }),
     );
   }
 
   if (faker.datatype.boolean({ probability: 0.5 })) {
     relationships.accesses_infrequently = faker.helpers.arrayElements(
       candidateInfrequent,
-      faker.number.int({ min: 1, max: 3 })
+      faker.number.int({ min: 1, max: 3 }),
     );
   }
 
   if (faker.datatype.boolean({ probability: 0.4 })) {
     relationships.communicates_with = faker.helpers.arrayElements(
       [...SYNTHETIC_HOSTS, ...SYNTHETIC_SERVICES],
-      faker.number.int({ min: 1, max: 3 })
+      faker.number.int({ min: 1, max: 3 }),
     );
   }
 
@@ -253,14 +253,14 @@ const generateRelationshipsFields = (allEntityNames: string[], currentEntityName
         `desktop-${faker.string.alphanumeric(4)}`,
         `mobile-${faker.string.alphanumeric(4)}`,
       ],
-      faker.number.int({ min: 1, max: 2 })
+      faker.number.int({ min: 1, max: 2 }),
     );
   }
 
   if (faker.datatype.boolean({ probability: 0.2 })) {
     relationships.supervises = faker.helpers.arrayElements(
       otherNames.length > 0 ? otherNames : ['junior-analyst', 'intern-01'],
-      faker.number.int({ min: 1, max: 2 })
+      faker.number.int({ min: 1, max: 2 }),
     );
   }
 
@@ -291,7 +291,7 @@ interface RiskMeta {
 const buildRiskScoreDocument = (
   { entity, type }: { type: string; entity: EntityHit },
   riskMeta: RiskMeta,
-  inputs: RiskInput[]
+  inputs: RiskInput[],
 ): object => {
   const entityName =
     type === 'user'
@@ -341,7 +341,7 @@ const buildRiskScoreDocument = (
 const buildAlertDocuments = (
   inputs: RiskInput[],
   { entity, type }: { type: string; entity: EntityHit },
-  space: string
+  space: string,
 ): unknown[] => {
   const alertIndex = getAlertIndex(space);
   const entityName = (entity._source?.user?.name ??
@@ -398,7 +398,7 @@ const interpolateRiskNorm = (
   trajectory: RiskTrajectory,
   currentNorm: number,
   dayIndex: number,
-  totalDays: number
+  totalDays: number,
 ): number => {
   const clamp = (v: number) => Math.min(100, Math.max(0, v));
   const progress = totalDays > 1 ? dayIndex / (totalDays - 1) : 1;
@@ -424,7 +424,7 @@ const SNAPSHOT_DAYS = 30;
 const generateSnapshotBulkOps = (
   entity: EntityHit,
   entityUpdates: Record<string, unknown>,
-  space: string
+  space: string,
 ): unknown[] => {
   const src = deepMerge(entity._source, entityUpdates) as EntityHitSource;
 
@@ -523,7 +523,7 @@ const generateSnapshotBulkOps = (
 
 const deepMerge = (
   target: Record<string, unknown>,
-  source: Record<string, unknown>
+  source: Record<string, unknown>,
 ): Record<string, unknown> => {
   const result = { ...target };
   for (const key of Object.keys(source)) {
@@ -536,7 +536,7 @@ const deepMerge = (
     ) {
       result[key] = deepMerge(
         result[key] as Record<string, unknown>,
-        source[key] as Record<string, unknown>
+        source[key] as Record<string, unknown>,
       );
     } else {
       result[key] = source[key];
@@ -571,7 +571,7 @@ export const generateEntityMaintainersData = async (opts: {
 
   if (entities.length === 0) {
     console.log(
-      'No entities found in the entity store. Make sure the Entity Store V2 is populated.'
+      'No entities found in the entity store. Make sure the Entity Store V2 is populated.',
     );
     return;
   }
@@ -621,7 +621,7 @@ export const generateEntityMaintainersData = async (opts: {
         console.log(`  Relationships     -> ${entityName}`);
         updateDoc = deepMerge(
           updateDoc,
-          generateRelationshipsFields(allUserEntityNames, entityName ?? undefined)
+          generateRelationshipsFields(allUserEntityNames, entityName ?? undefined),
         );
       }
 
@@ -655,7 +655,7 @@ export const generateEntityMaintainersData = async (opts: {
 
   if (riskScoreBulkOps.length > 0) {
     console.log(
-      `\nIndexing ${riskScoreBulkOps.length} risk score documents into ${riskScoreIndex}...`
+      `\nIndexing ${riskScoreBulkOps.length} risk score documents into ${riskScoreIndex}...`,
     );
     await bulkIngest({
       index: riskScoreIndex,

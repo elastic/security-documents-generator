@@ -131,7 +131,7 @@ export const entityStoreCommands: CommandModule = {
     program
       .command('generate-entity-maintainers-data')
       .description(
-        'Generate maintainers and snapshot data for Entity Store V2 entities (risk score, asset criticality, anomaly behaviors, relationships, watchlists)'
+        'Generate maintainers and snapshot data for Entity Store V2 entities (risk score, asset criticality, anomaly behaviors, relationships, watchlists)',
       )
       .option('--space <space>', 'Kibana space ID', 'default')
       .option('--quick', 'Run all maintainers for 10000 entities without prompts')
@@ -199,7 +199,7 @@ export const entityStoreCommands: CommandModule = {
             maintainers: selectedMaintainers,
             space,
           });
-        })
+        }),
       );
   },
 };

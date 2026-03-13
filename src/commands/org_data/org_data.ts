@@ -88,7 +88,7 @@ const promptForProductivitySuite = async (): Promise<ProductivitySuite> => {
 const runOrgDataHelper = async (
   options: Omit<OrganizationOptions, 'detectionRules'> & {
     detectionRules: boolean;
-  }
+  },
 ): Promise<void> => {
   const { size, productivitySuite, detectionRules } = options;
 
