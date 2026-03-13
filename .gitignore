@@ -1,4 +1,8 @@
-output
+# Output and Data
+output/
+reports/
+
+# Data directory exceptions
 data/*
 !data/entity_resolution_data/
 !data/entity_resolution_data/**
@@ -10,11 +14,42 @@ data/*
 !data/baselines/**
 !data/test_log_data/
 !data/test_log_data/**
-data_analysis/
-reports/
-node_modules
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dist/
+build/
+coverage/
+
+# Configuration & Secrets
 config.json
 config.dev.json
+.env
+.env.*
+!.env.example
+
+# Logs
 logs/*.log
+*.log
+
+# OS
 *.DS_Store
-.vscode
+.DS_Store
+Thumbs.db
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# AI Tools
+.cursor/
+!.cursor/rules/
+.cursorworkspace
+.claude/
+.claude.json
