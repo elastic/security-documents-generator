@@ -33,8 +33,7 @@
     "moment": "^2.29.4",
     "p-map": "^7.0.2",
     "p-retry": "^7.1.1",
-    "url-join": "^5.0.0",
-    "uuid": "^13.0.0"
+    "url-join": "^5.0.0"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
