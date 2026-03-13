@@ -55,7 +55,7 @@ export const calculateSystemMetrics = (
     user: EntityTypeMetrics;
     service: EntityTypeMetrics;
     generic: EntityTypeMetrics;
-  }
+  },
 ): SystemMetrics => {
   // Calculate CPU metrics
   const avgCpuPerNode: Record<string, number> = {};

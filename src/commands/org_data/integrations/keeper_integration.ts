@@ -136,7 +136,7 @@ export class KeeperIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const auditDocs: IntegrationDocument[] = [];
@@ -155,7 +155,7 @@ export class KeeperIntegration extends BaseIntegration {
 
   private createAuditDocument(employee: Employee, enterpriseId: number): IntegrationDocument {
     const eventDef = faker.helpers.weightedArrayElement(
-      AUDIT_EVENTS.map((e) => ({ value: e, weight: e.weight }))
+      AUDIT_EVENTS.map((e) => ({ value: e, weight: e.weight })),
     );
     const timestamp = this.getRandomTimestamp(72);
     const sourceIp = faker.internet.ipv4();

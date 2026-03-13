@@ -80,20 +80,20 @@ export const formatComparisonReport = (report: ComparisonReport): string => {
       'Baseline'.padStart(15) +
       'Current'.padStart(15) +
       'Diff %'.padStart(12) +
-      'Status'.padStart(20)
+      'Status'.padStart(20),
   );
   lines.push('-'.repeat(100));
 
   // Group results by category
   const categories: Record<string, ComparisonResult[]> = {
     'Search Latency': report.results.filter(
-      (r) => r.metric.startsWith('Search Latency') && !r.metric.includes(' - ')
+      (r) => r.metric.startsWith('Search Latency') && !r.metric.includes(' - '),
     ),
     'Intake Latency': report.results.filter(
-      (r) => r.metric.startsWith('Intake Latency') && !r.metric.includes(' - ')
+      (r) => r.metric.startsWith('Intake Latency') && !r.metric.includes(' - '),
     ),
     'Processing Latency': report.results.filter(
-      (r) => r.metric.startsWith('Processing Latency') && !r.metric.includes(' - ')
+      (r) => r.metric.startsWith('Processing Latency') && !r.metric.includes(' - '),
     ),
     CPU: report.results.filter((r) => r.metric.startsWith('CPU')),
     Memory: report.results.filter((r) => r.metric.startsWith('Memory')),
@@ -111,15 +111,15 @@ export const formatComparisonReport = (report: ComparisonReport): string => {
       (r) =>
         r.metric.startsWith('Search Failures') ||
         r.metric.startsWith('Index Failures') ||
-        r.metric.startsWith('Total Failures')
+        r.metric.startsWith('Total Failures'),
     ),
     'Kibana Event Loop': report.results.filter((r) => r.metric.startsWith('Kibana Event Loop')),
     'Kibana ES Client': report.results.filter((r) => r.metric.startsWith('Kibana ES Client')),
     'Kibana Response Times': report.results.filter((r) =>
-      r.metric.startsWith('Kibana Response Time')
+      r.metric.startsWith('Kibana Response Time'),
     ),
     'Kibana Memory': report.results.filter(
-      (r) => r.metric.startsWith('Kibana') && r.metric.includes('Memory')
+      (r) => r.metric.startsWith('Kibana') && r.metric.includes('Memory'),
     ),
     'Kibana Requests': report.results.filter((r) => r.metric.startsWith('Kibana Request')),
     'Kibana OS Load': report.results.filter((r) => r.metric.startsWith('Kibana OS Load')),
@@ -151,11 +151,11 @@ export const formatComparisonReport = (report: ComparisonReport): string => {
       lines.push(
         `  ${result.metric}`.padEnd(45) +
           formatValue(result.baseline, result.metric, result.baseline, result.current).padStart(
-            15
+            15,
           ) +
           formatValue(result.current, result.metric, result.baseline, result.current).padStart(15) +
           diffStr.padStart(12) +
-          ` ${statusIcon} ${result.status}`.padStart(20)
+          ` ${statusIcon} ${result.status}`.padStart(20),
       );
     }
   }

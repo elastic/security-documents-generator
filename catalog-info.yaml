@@ -19,10 +19,10 @@ spec:
     kind: Pipeline
     metadata:
       name: security-documents-generator
-      description: 
+      description:
     spec:
       repository: elastic/security-documents-generator
-      pipeline_file: ".buildkite/pipeline.yml"
+      pipeline_file: '.buildkite/pipeline.yml'
       provider_settings:
         build_pull_request_forks: true
       teams:

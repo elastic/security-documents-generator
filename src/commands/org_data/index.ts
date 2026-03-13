@@ -16,7 +16,7 @@ export const orgDataCommands: CommandModule = {
       .option('--seed <seed>', 'Random seed for reproducibility', parseIntBase10)
       .option(
         '--integrations <list>',
-        `Comma-separated integrations to enable (available: ${getAvailableIntegrations().join(', ')})`
+        `Comma-separated integrations to enable (available: ${getAvailableIntegrations().join(', ')})`,
       )
       .option('--all', 'Generate all integrations regardless of company size')
       .option('--detection-rules', 'Include sample detection rules for applicable integrations')
@@ -32,7 +32,7 @@ export const orgDataCommands: CommandModule = {
             all: options.all,
             detectionRules: options.detectionRules,
           });
-        })
+        }),
       );
 
     program
@@ -40,13 +40,13 @@ export const orgDataCommands: CommandModule = {
       .alias('org-data-quick')
       .alias('organization-quick')
       .description(
-        'Quick correlated organization data generation with defaults (medium size, all integrations)'
+        'Quick correlated organization data generation with defaults (medium size, all integrations)',
       )
       .option('--space <space>', 'Kibana space', 'default')
       .action(
         wrapAction(async (options) => {
           await runOrgDataQuick(options.space);
-        })
+        }),
       );
   },
 };

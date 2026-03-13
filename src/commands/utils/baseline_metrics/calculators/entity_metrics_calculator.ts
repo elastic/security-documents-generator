@@ -27,7 +27,7 @@ const calculateEntityTypeMetrics = (entityData: EntityTypeData): EntityTypeMetri
  * Calculate per-entity-type metrics from transform stats data
  */
 export const calculateEntityMetrics = (
-  transformData: TransformStatsData
+  transformData: TransformStatsData,
 ): Record<EntityType, EntityTypeMetrics> => {
   return {
     host: calculateEntityTypeMetrics(transformData.perEntityType.host),

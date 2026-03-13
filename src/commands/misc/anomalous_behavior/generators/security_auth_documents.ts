@@ -153,7 +153,7 @@ const generateRareSourceIpForUserRecord = (ndx: number) => {
 };
 
 export const generateSecurityAuthRecords = (
-  numDocs: number = 10
+  numDocs: number = 10,
 ): Array<Record<string, unknown>> => {
   return flatMap(
     SECURITY_AUTH_JOB_IDS.map((jobId) => {
@@ -171,6 +171,6 @@ export const generateSecurityAuthRecords = (
             throw new Error(`Unexpected job ID: ${jobId}`);
         }
       });
-    })
+    }),
   );
 };

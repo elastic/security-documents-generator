@@ -132,7 +132,7 @@ function generateCloudMetadata(
   provider: CloudProvider,
   accountId: string,
   accountName: string,
-  resourceType: string
+  resourceType: string,
 ): object {
   const baseMetadata = {
     provider,
@@ -238,14 +238,14 @@ function generateRuleReferences(provider: CloudProvider, ruleId: string): string
 
 function generateRemediation(
   provider: CloudProvider,
-  cisRule: { id: string; name: string; section: string }
+  cisRule: { id: string; name: string; section: string },
 ): string {
   return `**From ${provider.toUpperCase()} Console**\n\n1. Navigate to the ${cisRule.section} section\n2. Locate the affected resource\n3. Apply the recommended configuration to ensure ${cisRule.name.toLowerCase()}\n4. Verify the change has been applied successfully\n\n**Using CLI**\n\nRefer to ${provider.toUpperCase()} documentation for CLI commands to remediate CIS rule ${cisRule.id}.`;
 }
 
 function generateAudit(
   provider: CloudProvider,
-  cisRule: { id: string; name: string; section: string }
+  cisRule: { id: string; name: string; section: string },
 ): string {
   return `**From ${provider.toUpperCase()} Console**\n\n1. Sign in to the ${provider.toUpperCase()} Console\n2. Navigate to ${cisRule.section}\n3. Review the configuration settings\n4. Verify that ${cisRule.name.toLowerCase()}\n\n**Using CLI**\n\nRefer to ${provider.toUpperCase()} documentation for CLI commands to audit CIS rule ${cisRule.id}.`;
 }

@@ -23,7 +23,7 @@ export const entityStoreCommands: CommandModule = {
       .action(
         wrapAction(async ({ mini, deleteData, keepEmails, space }) => {
           setupEntityResolutionDemo({ mini, deleteData, keepEmails, space });
-        })
+        }),
       );
 
     program
@@ -80,7 +80,7 @@ export const entityStoreCommands: CommandModule = {
           const seedAnswer = entityStoreAnswers.includes(ENTITY_STORE_OPTIONS.seed)
             ? await promptForTextInput(
                 'Enter seed to generate stable random data or <enter> to use a new seed',
-                seed
+                seed,
               )
             : seed;
 
@@ -94,7 +94,7 @@ export const entityStoreCommands: CommandModule = {
             options: entityStoreAnswers,
             offsetHours: counts.offsetHours,
           });
-        })
+        }),
       );
 
     program
@@ -118,7 +118,7 @@ export const entityStoreCommands: CommandModule = {
             ],
             offsetHours: 1,
           });
-        })
+        }),
       );
 
     program

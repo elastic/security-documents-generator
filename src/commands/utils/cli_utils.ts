@@ -11,7 +11,7 @@ export function handleCommandError(error: unknown, message?: string): never {
 }
 
 export function wrapAction<TArgs extends unknown[]>(
-  fn: (...args: TArgs) => Promise<void>
+  fn: (...args: TArgs) => Promise<void>,
 ): (...args: TArgs) => Promise<void> {
   return async (...args: TArgs) => {
     try {
@@ -29,7 +29,7 @@ export interface ProgressBarOptions {
 
 export const createProgressBar = (
   label: string,
-  options: ProgressBarOptions = {}
+  options: ProgressBarOptions = {},
 ): cliProgress.SingleBar => {
   const { format, clearOnComplete } = options;
   const defaultFormat = `Progress indexing into ${label} | {value}/{total} docs`;
@@ -38,7 +38,7 @@ export const createProgressBar = (
       format: format ?? defaultFormat,
       clearOnComplete: clearOnComplete ?? false,
     },
-    cliProgress.Presets.shades_classic
+    cliProgress.Presets.shades_classic,
   );
 };
 

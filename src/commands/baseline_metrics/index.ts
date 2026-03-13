@@ -47,10 +47,10 @@ export const baselineMetricsCommands: CommandModule = {
           console.log(`  CPU (avg): ${baseline.metrics.cpu.avg.toFixed(2)}%`);
           console.log(`  Memory Heap (avg): ${baseline.metrics.memory.avgHeapPercent.toFixed(2)}%`);
           console.log(
-            `  Throughput (avg): ${baseline.metrics.throughput.avgDocumentsPerSecond.toFixed(2)} docs/sec`
+            `  Throughput (avg): ${baseline.metrics.throughput.avgDocumentsPerSecond.toFixed(2)} docs/sec`,
           );
           console.log(`  Errors: ${baseline.metrics.errors.totalFailures}`);
-        })
+        }),
       );
 
     program
@@ -108,11 +108,11 @@ export const baselineMetricsCommands: CommandModule = {
           console.log(formatComparisonReport(report));
           if (report.summary.degradations > 0) {
             console.log(
-              `\n⚠️  Warning: ${report.summary.degradations} metric(s) show degradation.`
+              `\n⚠️  Warning: ${report.summary.degradations} metric(s) show degradation.`,
             );
             process.exit(1);
           }
-        })
+        }),
       );
   },
 };

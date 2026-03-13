@@ -64,7 +64,7 @@ export class CiscoDuoIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const authDocs: IntegrationDocument[] = [];
@@ -86,10 +86,10 @@ export class CiscoDuoIntegration extends BaseIntegration {
 
   private generateAuthDocument(employee: Employee, _org: Organization): IntegrationDocument {
     const factor = faker.helpers.weightedArrayElement(
-      DUO_FACTORS.map((f) => ({ value: f.name, weight: f.weight }))
+      DUO_FACTORS.map((f) => ({ value: f.name, weight: f.weight })),
     );
     const result = faker.helpers.weightedArrayElement(
-      DUO_RESULTS.map((r) => ({ value: r.value, weight: r.weight }))
+      DUO_RESULTS.map((r) => ({ value: r.value, weight: r.weight })),
     );
     const application = faker.helpers.arrayElement(DUO_APPLICATIONS);
     const accessIp = faker.internet.ipv4();

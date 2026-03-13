@@ -167,7 +167,7 @@ export class SystemIntegration extends BaseIntegration {
    */
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const authDocuments: IntegrationDocument[] = [];
@@ -181,7 +181,7 @@ export class SystemIntegration extends BaseIntegration {
       (e) =>
         e.department === 'Product & Engineering' ||
         e.department === 'Operations' ||
-        e.department === 'Executive'
+        e.department === 'Executive',
     );
 
     for (const host of hosts) {
@@ -196,10 +196,10 @@ export class SystemIntegration extends BaseIntegration {
 
     // Sort by timestamp
     authDocuments.sort(
-      (a, b) => new Date(a['@timestamp']).getTime() - new Date(b['@timestamp']).getTime()
+      (a, b) => new Date(a['@timestamp']).getTime() - new Date(b['@timestamp']).getTime(),
     );
     syslogDocuments.sort(
-      (a, b) => new Date(a['@timestamp']).getTime() - new Date(b['@timestamp']).getTime()
+      (a, b) => new Date(a['@timestamp']).getTime() - new Date(b['@timestamp']).getTime(),
     );
 
     documentsMap.set(this.dataStreams[0].index, authDocuments);
@@ -218,7 +218,7 @@ export class SystemIntegration extends BaseIntegration {
   private generateAuthDocuments(
     host: Host,
     hostContext: HostContext,
-    sshEmployees: Employee[]
+    sshEmployees: Employee[],
   ): IntegrationDocument[] {
     const documents: IntegrationDocument[] = [];
 
@@ -290,7 +290,7 @@ export class SystemIntegration extends BaseIntegration {
   private createSuccessfulSshLoginDocument(
     host: Host,
     _ctx: HostContext,
-    employee: Employee
+    employee: Employee,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(48);
     const sourceIp = faker.internet.ipv4();
@@ -323,7 +323,7 @@ export class SystemIntegration extends BaseIntegration {
     host: Host,
     _ctx: HostContext,
     employee: Employee,
-    action: 'opened' | 'closed'
+    action: 'opened' | 'closed',
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(48);
     const processName = faker.helpers.arrayElement(['sshd', 'systemd-logind']);
@@ -402,7 +402,7 @@ export class SystemIntegration extends BaseIntegration {
   private generateSyslogDocuments(
     host: Host,
     ctx: HostContext,
-    sshEmployees: Employee[]
+    sshEmployees: Employee[],
   ): IntegrationDocument[] {
     const documents: IntegrationDocument[] = [];
     const eventCount = faker.number.int({ min: 3, max: 8 });
@@ -413,7 +413,7 @@ export class SystemIntegration extends BaseIntegration {
         faker.helpers.arrayElement(syslogEvent.messages),
         host,
         ctx,
-        sshEmployees
+        sshEmployees,
       );
 
       documents.push(this.createSyslogDocument(host, ctx, syslogEvent.process, message));
@@ -429,7 +429,7 @@ export class SystemIntegration extends BaseIntegration {
     host: Host,
     _ctx: HostContext,
     processName: string,
-    logMessage: string
+    logMessage: string,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(48);
     const procId = faker.number.int({ min: 1, max: 9999999 });
@@ -529,7 +529,7 @@ export class SystemIntegration extends BaseIntegration {
     template: string,
     host: Host,
     ctx: HostContext,
-    sshEmployees: Employee[]
+    sshEmployees: Employee[],
   ): string {
     const employee = faker.helpers.arrayElement(sshEmployees);
     return template

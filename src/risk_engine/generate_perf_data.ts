@@ -43,7 +43,7 @@ export const createPerfDataFile = ({
       ` - Max per file: 250MB`,
       ` - Alerts per file (est.): ${alertsPerFile}`,
       ` - Files needed: ${filesNumber}`,
-    ].join('\n')
+    ].join('\n'),
   );
   if (filesNumber > 1) {
     console.log('Multiple files will be written to stay under 250MB per file.');
@@ -69,7 +69,7 @@ export const createPerfDataFile = ({
       hideCursor: true,
       format: '{label} {bar} {value}/{total}',
     },
-    cliProgress.Presets.shades_classic
+    cliProgress.Presets.shades_classic,
   );
 
   const fileBar = multiBar.create(filesNumber, 0, { label: 'files    ' });

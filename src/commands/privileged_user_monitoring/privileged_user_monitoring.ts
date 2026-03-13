@@ -56,10 +56,10 @@ const getSampleEndpointLogs = (users: User[]) => {
     () => {
       return GRANTED_RIGHTS_LINUX_SAMPLE_DOCUMENT(
         faker.helpers.arrayElement(users).userName,
-        TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow())
+        TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow()),
       );
     },
-    { count: 100 }
+    { count: 100 },
   );
 };
 
@@ -68,10 +68,10 @@ const getSampleEndpointAccountSwitchLogs = (users: User[]) => {
     () => {
       return ACCOUNT_SWITCH_LINUX_SAMPLE_DOCUMENT(
         faker.helpers.arrayElement(users).userName,
-        TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow())
+        TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow()),
       );
     },
-    { count: 100 }
+    { count: 100 },
   );
 };
 
@@ -80,10 +80,10 @@ const getSampleSystemLogs = (users: User[]) => {
     () => {
       return GRANTED_RIGHTS_WINDOWS_SAMPLE_DOCUMENT(
         faker.helpers.arrayElement(users).userName,
-        TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow())
+        TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow()),
       );
     },
-    { count: 100 }
+    { count: 100 },
   );
 };
 
@@ -92,10 +92,10 @@ const getSampleOktaLogs = (users: User[]) => {
     () => {
       return GRANTED_RIGHTS_OKTA_SAMPLE_DOCUMENT(
         faker.helpers.arrayElement(users).userName,
-        TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow())
+        TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow()),
       );
     },
-    { count: 100 }
+    { count: 100 },
   );
 };
 
@@ -104,7 +104,7 @@ const getSampleAdUsersLogs = (count: number) => {
   const adminCount = Math.round((50 / 100) * count);
   const nonAdminCount = Math.max(0, count - adminCount);
   console.log(
-    `Generating ${adminCount} admin users and ${nonAdminCount} non-admin Active Directory users (total ${count})`
+    `Generating ${adminCount} admin users and ${nonAdminCount} non-admin Active Directory users (total ${count})`,
   );
   const userDocs = Array.from({ length: nonAdminCount }, (_, i) => makeAdUserDoc(false, i));
   const adminDocs = Array.from({ length: adminCount }, () => makeAdUserDoc(true));
@@ -116,7 +116,7 @@ const getSampleOktaUsersLogs = (count: number) => {
   const adminCount = Math.round((50 / 100) * count);
   const nonAdminCount = Math.max(0, count - adminCount);
   console.log(
-    `Generating ${adminCount} admin users and ${nonAdminCount} non-admin users (total ${count})`
+    `Generating ${adminCount} admin users and ${nonAdminCount} non-admin users (total ${count})`,
   );
   const adminDocs = Array.from({ length: adminCount }, () => makeDoc(true));
   const userDocs = Array.from({ length: nonAdminCount }, () => makeDoc(false));
@@ -137,10 +137,10 @@ const getSampleOktaAuthenticationLogs = (users: User[]) => {
     () => {
       return OKTA_AUTHENTICATION(
         faker.helpers.arrayElement(users).userName,
-        TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow())
+        TimeWindows.toRandomTimestamp(TimeWindows.last30DayWindow()),
       );
     },
-    { count: 100 }
+    { count: 100 },
   );
 };
 
@@ -187,7 +187,7 @@ const generatePrivilegedUserIntegrationsSyncData = async ({
     const sampleDocuments = getSampleOktaUsersLogs(usersCount);
     const sampleEntityDocuments = getSampleOktaEntityLogs(
       syncEventsCount,
-      24 * 60 * 60 * 1000 // 1 day interval
+      24 * 60 * 60 * 1000, // 1 day interval
     );
     await reinitializeDataStream(oktaLogsUsersDataStreamName, sampleDocuments);
     await reinitializeDataStream(oktaLogsEntityDataStreamName, sampleEntityDocuments);

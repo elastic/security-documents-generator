@@ -113,7 +113,7 @@ export const runOrgData = async (options: OrganizationOptions): Promise<void> =>
   const enabledIntegrations = parseIntegrationList(integrations);
   if (enabledIntegrations.length === 0) {
     console.error(
-      `No valid integrations specified. Available: ${getAvailableIntegrations().join(', ')}`
+      `No valid integrations specified. Available: ${getAvailableIntegrations().join(', ')}`,
     );
     process.exit(1);
   }
@@ -231,7 +231,7 @@ const displaySummary = (
   results: IntegrationResult[],
   organization: ReturnType<typeof generateOrgData>,
   space: string,
-  detectionRuleResults: DetectionRuleResult[] = []
+  detectionRuleResults: DetectionRuleResult[] = [],
 ): void => {
   console.log('\n=== Generation Complete ===\n');
 
@@ -269,17 +269,17 @@ const displaySummary = (
 
     // Entity Analytics link
     console.log(
-      `  Entity Analytics: ${buildKibanaUrl({ path: '/app/security/entity_analytics', space })}`
+      `  Entity Analytics: ${buildKibanaUrl({ path: '/app/security/entity_analytics', space })}`,
     );
 
     // Discover link with Okta Entity Analytics data
     const oktaResult = results.find((r) => r.integrationName === 'entityanalytics_okta');
     if (oktaResult?.success) {
       console.log(
-        `  Okta Users: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-entityanalytics_okta.user-*')", space })}`
+        `  Okta Users: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-entityanalytics_okta.user-*')", space })}`,
       );
       console.log(
-        `  Okta Devices: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-entityanalytics_okta.device-*')", space })}`
+        `  Okta Devices: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-entityanalytics_okta.device-*')", space })}`,
       );
     }
 
@@ -287,7 +287,7 @@ const displaySummary = (
     const oktaSystemResult = results.find((r) => r.integrationName === 'okta');
     if (oktaSystemResult?.success) {
       console.log(
-        `  Okta System Logs: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-okta.system-*')", space })}`
+        `  Okta System Logs: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-okta.system-*')", space })}`,
       );
     }
 
@@ -295,7 +295,7 @@ const displaySummary = (
     const cloudResult = results.find((r) => r.integrationName === 'cloud_asset_inventory');
     if (cloudResult?.success) {
       console.log(
-        `  Cloud Assets: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-cloud_asset_inventory.asset_inventory-*')", space })}`
+        `  Cloud Assets: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-cloud_asset_inventory.asset_inventory-*')", space })}`,
       );
     }
 
@@ -303,7 +303,7 @@ const displaySummary = (
     const cloudTrailResult = results.find((r) => r.integrationName === 'aws');
     if (cloudTrailResult?.success) {
       console.log(
-        `  AWS CloudTrail: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-aws.cloudtrail-*')", space })}`
+        `  AWS CloudTrail: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-aws.cloudtrail-*')", space })}`,
       );
     }
 
@@ -311,10 +311,10 @@ const displaySummary = (
     const entraIdResult = results.find((r) => r.integrationName === 'entityanalytics_entra_id');
     if (entraIdResult?.success) {
       console.log(
-        `  Entra ID Users: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-entityanalytics_entra_id.user-*')", space })}`
+        `  Entra ID Users: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-entityanalytics_entra_id.user-*')", space })}`,
       );
       console.log(
-        `  Entra ID Devices: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-entityanalytics_entra_id.device-*')", space })}`
+        `  Entra ID Devices: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-entityanalytics_entra_id.device-*')", space })}`,
       );
     }
 
@@ -322,10 +322,10 @@ const displaySummary = (
     const crowdstrikeResult = results.find((r) => r.integrationName === 'crowdstrike');
     if (crowdstrikeResult?.success) {
       console.log(
-        `  CrowdStrike Hosts: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-crowdstrike.host-*')", space })}`
+        `  CrowdStrike Hosts: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-crowdstrike.host-*')", space })}`,
       );
       console.log(
-        `  CrowdStrike Alerts: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-crowdstrike.alert-*')", space })}`
+        `  CrowdStrike Alerts: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-crowdstrike.alert-*')", space })}`,
       );
     }
 
@@ -333,7 +333,7 @@ const displaySummary = (
     const o365Result = results.find((r) => r.integrationName === 'o365');
     if (o365Result?.success) {
       console.log(
-        `  Microsoft 365: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-o365.audit-*')", space })}`
+        `  Microsoft 365: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-o365.audit-*')", space })}`,
       );
     }
 
@@ -341,7 +341,7 @@ const displaySummary = (
     const githubResult = results.find((r) => r.integrationName === 'github');
     if (githubResult?.success) {
       console.log(
-        `  GitHub Audit: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-github.audit-*')", space })}`
+        `  GitHub Audit: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-github.audit-*')", space })}`,
       );
     }
 
@@ -349,7 +349,7 @@ const displaySummary = (
     const duoResult = results.find((r) => r.integrationName === 'cisco_duo');
     if (duoResult?.success) {
       console.log(
-        `  Cisco Duo Auth: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-cisco_duo.auth-*')", space })}`
+        `  Cisco Duo Auth: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-cisco_duo.auth-*')", space })}`,
       );
     }
 
@@ -357,7 +357,7 @@ const displaySummary = (
     const onepassResult = results.find((r) => r.integrationName === '1password');
     if (onepassResult?.success) {
       console.log(
-        `  1Password: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-1password.*-*')", space })}`
+        `  1Password: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-1password.*-*')", space })}`,
       );
     }
 
@@ -365,7 +365,7 @@ const displaySummary = (
     const gwsResult = results.find((r) => r.integrationName === 'google_workspace');
     if (gwsResult?.success) {
       console.log(
-        `  Google Workspace: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-google_workspace.*-*')", space })}`
+        `  Google Workspace: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-google_workspace.*-*')", space })}`,
       );
     }
 
@@ -373,7 +373,7 @@ const displaySummary = (
     const cfResult = results.find((r) => r.integrationName === 'cloudflare_logpush');
     if (cfResult?.success) {
       console.log(
-        `  Cloudflare: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-cloudflare_logpush.*-*')", space })}`
+        `  Cloudflare: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-cloudflare_logpush.*-*')", space })}`,
       );
     }
 
@@ -381,7 +381,7 @@ const displaySummary = (
     const zscalerResult = results.find((r) => r.integrationName === 'zscaler_zia');
     if (zscalerResult?.success) {
       console.log(
-        `  Zscaler ZIA: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-zscaler_zia.*-*')", space })}`
+        `  Zscaler ZIA: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-zscaler_zia.*-*')", space })}`,
       );
     }
 
@@ -389,7 +389,7 @@ const displaySummary = (
     const tiResult = results.find((r) => r.integrationName === 'ti_abusech');
     if (tiResult?.success) {
       console.log(
-        `  Threat Intel: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-ti_abusech.*-*')", space })}`
+        `  Threat Intel: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-ti_abusech.*-*')", space })}`,
       );
     }
 
@@ -397,10 +397,10 @@ const displaySummary = (
     const jamfResult = results.find((r) => r.integrationName === 'jamf_pro');
     if (jamfResult?.success) {
       console.log(
-        `  Jamf Pro Inventory: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-jamf_pro.inventory-*')", space })}`
+        `  Jamf Pro Inventory: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-jamf_pro.inventory-*')", space })}`,
       );
       console.log(
-        `  Jamf Pro Events: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-jamf_pro.events-*')", space })}`
+        `  Jamf Pro Events: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-jamf_pro.events-*')", space })}`,
       );
     }
 
@@ -408,7 +408,7 @@ const displaySummary = (
     const adResult = results.find((r) => r.integrationName === 'entityanalytics_ad');
     if (adResult?.success) {
       console.log(
-        `  Active Directory: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-entityanalytics_ad.*-*')", space })}`
+        `  Active Directory: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-entityanalytics_ad.*-*')", space })}`,
       );
     }
 
@@ -416,7 +416,7 @@ const displaySummary = (
     const servicenowResult = results.find((r) => r.integrationName === 'servicenow');
     if (servicenowResult?.success) {
       console.log(
-        `  ServiceNow: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-servicenow.event-*')", space })}`
+        `  ServiceNow: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-servicenow.event-*')", space })}`,
       );
     }
 
@@ -424,7 +424,7 @@ const displaySummary = (
     const slackResult = results.find((r) => r.integrationName === 'slack');
     if (slackResult?.success) {
       console.log(
-        `  Slack Audit: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-slack.audit-*')", space })}`
+        `  Slack Audit: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-slack.audit-*')", space })}`,
       );
     }
 
@@ -432,7 +432,7 @@ const displaySummary = (
     const sailpointResult = results.find((r) => r.integrationName === 'sailpoint_identity_sc');
     if (sailpointResult?.success) {
       console.log(
-        `  SailPoint: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-sailpoint_identity_sc.events-*')", space })}`
+        `  SailPoint: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-sailpoint_identity_sc.events-*')", space })}`,
       );
     }
 
@@ -440,7 +440,7 @@ const displaySummary = (
     const pingOneResult = results.find((r) => r.integrationName === 'ping_one');
     if (pingOneResult?.success) {
       console.log(
-        `  PingOne Audit: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-ping_one.audit-*')", space })}`
+        `  PingOne Audit: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-ping_one.audit-*')", space })}`,
       );
     }
 
@@ -448,7 +448,7 @@ const displaySummary = (
     const workdayResult = results.find((r) => r.integrationName === 'workday');
     if (workdayResult?.success) {
       console.log(
-        `  Workday People: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-workday.people-*')", space })}`
+        `  Workday People: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-workday.people-*')", space })}`,
       );
     }
 
@@ -456,7 +456,7 @@ const displaySummary = (
     const pingDirResult = results.find((r) => r.integrationName === 'ping_directory');
     if (pingDirResult?.success) {
       console.log(
-        `  PingDirectory Users: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-ping_directory.users-*')", space })}`
+        `  PingDirectory Users: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-ping_directory.users-*')", space })}`,
       );
     }
 
@@ -563,7 +563,7 @@ const displaySummary = (
   ];
 
   const applicableNotes = correlationNotes.filter((entry) =>
-    entry.integrations.some((name) => successfulNames.has(name))
+    entry.integrations.some((name) => successfulNames.has(name)),
   );
 
   if (applicableNotes.length > 0) {

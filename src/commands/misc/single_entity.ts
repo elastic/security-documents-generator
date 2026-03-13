@@ -53,7 +53,7 @@ const getDefaultEntityName = (entityType: 'user' | 'host' | 'service' | 'generic
 
 const createEntityWithName = (
   entityType: 'user' | 'host' | 'service' | 'generic',
-  name: string
+  name: string,
 ) => {
   switch (entityType) {
     case 'user': {
@@ -92,29 +92,29 @@ const createAndIngestEntity = async (
   entityType: 'user' | 'host' | 'service' | 'generic',
   entityName: string,
   eventsPerEntity: number,
-  offsetHours: number
+  offsetHours: number,
 ) => {
   const entity = createEntityWithName(entityType, entityName);
   let events: unknown[] = [];
 
   if (entityType === 'user') {
     events = Array.from({ length: eventsPerEntity }, () =>
-      createRandomEventForUser(entity as ReturnType<typeof createRandomUser>, offsetHours)
+      createRandomEventForUser(entity as ReturnType<typeof createRandomUser>, offsetHours),
     );
   } else if (entityType === 'host') {
     events = Array.from({ length: eventsPerEntity }, () =>
-      createRandomEventForHost(entity as ReturnType<typeof createRandomHost>, offsetHours)
+      createRandomEventForHost(entity as ReturnType<typeof createRandomHost>, offsetHours),
     );
   } else if (entityType === 'service') {
     events = Array.from({ length: eventsPerEntity }, () =>
-      createRandomEventForService(entity as ReturnType<typeof createRandomService>, offsetHours)
+      createRandomEventForService(entity as ReturnType<typeof createRandomService>, offsetHours),
     );
   } else if (entityType === 'generic') {
     events = Array.from({ length: eventsPerEntity }, () =>
       createRandomEventForGenericEntity(
         entity as ReturnType<typeof createRandomGenericEntity>,
-        offsetHours
-      )
+        offsetHours,
+      ),
     );
   }
 
@@ -145,7 +145,7 @@ export const singleEntityCommand = async (options: SingleEntityCommandOptions = 
       entityType,
       entityName,
       eventsPerEntity,
-      offsetHours
+      offsetHours,
     );
     console.log(`✅ Created ${entityType} entity "${entityName}" with ${eventsPerEntity} events`);
 
@@ -165,7 +165,7 @@ export const singleEntityCommand = async (options: SingleEntityCommandOptions = 
         } else {
           return createRandomEventForGenericEntity(
             entity as ReturnType<typeof createRandomGenericEntity>,
-            1
+            1,
           );
         }
       });
@@ -288,7 +288,7 @@ export const singleEntityCommand = async (options: SingleEntityCommandOptions = 
             criticality_level: criticality,
           },
         ],
-        space
+        space,
       );
       assetCriticalitySet = criticality as AssetCriticality;
       console.log(`✅ Set asset criticality to ${criticality} for ${entityName}`);
@@ -343,7 +343,7 @@ export const singleEntityCommand = async (options: SingleEntityCommandOptions = 
         } else {
           return createRandomEventForGenericEntity(
             entity as ReturnType<typeof createRandomGenericEntity>,
-            1
+            1,
           );
         }
       });

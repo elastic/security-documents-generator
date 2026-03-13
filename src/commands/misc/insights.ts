@@ -52,11 +52,11 @@ export const generateAiInsights = async ({
 
   await ingest(
     MISCONFIGURATION_INDEX_NAME,
-    generateDocs(usersData, space, createMisconfigurations)
+    generateDocs(usersData, space, createMisconfigurations),
   );
   await ingest(
     MISCONFIGURATION_INDEX_NAME,
-    generateDocs(hostsData, space, createMisconfigurations)
+    generateDocs(hostsData, space, createMisconfigurations),
   );
 
   if (generateAnomalies) {
@@ -64,7 +64,7 @@ export const generateAiInsights = async ({
     await generateAnomalousBehaviorDataWithMlJobs(space, records, generateAnomalyData);
   } else {
     console.log(
-      'Skipping anomalous behavior ML job and data generation due to --no-anomalies flag'
+      'Skipping anomalous behavior ML job and data generation due to --no-anomalies flag',
     );
   }
 };
@@ -77,7 +77,7 @@ interface EntityData {
 export const generateDocs = (
   entityData: EntityData[],
   space: string,
-  createDocs: (param: CreateVulnerabilitiesParams | CreateMisconfigurationsParams) => object
+  createDocs: (param: CreateVulnerabilitiesParams | CreateMisconfigurationsParams) => object,
 ) => {
   const eventsPerEntity = 2;
   const acc: object[] = [];

@@ -50,7 +50,7 @@ export class LyveCloudIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
@@ -68,10 +68,10 @@ export class LyveCloudIntegration extends BaseIntegration {
 
   private createAuditDocument(employee: Employee, _org: Organization): IntegrationDocument {
     const api = faker.helpers.weightedArrayElement(
-      S3_API_ACTIONS.map((a) => ({ value: a, weight: a.weight }))
+      S3_API_ACTIONS.map((a) => ({ value: a, weight: a.weight })),
     );
     const statusEntry = faker.helpers.weightedArrayElement(
-      S3_STATUS_CODES.map((s) => ({ value: s, weight: s.weight }))
+      S3_STATUS_CODES.map((s) => ({ value: s, weight: s.weight })),
     );
     const bucket = faker.helpers.arrayElement(BUCKET_NAMES);
     const serviceAccountName = `${employee.userName}-terraform`;

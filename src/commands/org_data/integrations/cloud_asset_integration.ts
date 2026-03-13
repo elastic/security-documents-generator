@@ -33,7 +33,7 @@ export class CloudAssetIntegration extends BaseIntegration {
    */
   generateDocuments(
     org: Organization,
-    correlationMap: CorrelationMap
+    correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
@@ -72,7 +72,7 @@ export class CloudAssetIntegration extends BaseIntegration {
    */
   private createCloudResourceDocument(
     resource: CloudResource,
-    _org: Organization
+    _org: Organization,
   ): CloudAssetDocument {
     const timestamp = this.getRandomTimestamp(48);
 
@@ -118,7 +118,7 @@ export class CloudAssetIntegration extends BaseIntegration {
   private createIamUserDocument(
     iamUser: CloudIamUser,
     org: Organization,
-    correlatedEmail?: string
+    correlatedEmail?: string,
   ): CloudAssetDocument {
     const timestamp = this.getTimestamp();
     const account = org.cloudAccounts.find((a) => a.id === iamUser.accountId);
@@ -201,7 +201,7 @@ export class CloudAssetIntegration extends BaseIntegration {
     };
 
     const machineType = faker.helpers.arrayElement(
-      instanceTypeByProvider[host.cloudProvider] || ['unknown']
+      instanceTypeByProvider[host.cloudProvider] || ['unknown'],
     );
 
     return {
@@ -264,7 +264,7 @@ export class CloudAssetIntegration extends BaseIntegration {
    * Get provider-specific cloud fields
    */
   private getProviderSpecificCloudFields(
-    resource: CloudResource
+    resource: CloudResource,
   ): Partial<CloudAssetDocument['cloud']> {
     const fields: Partial<CloudAssetDocument['cloud']> = {};
 

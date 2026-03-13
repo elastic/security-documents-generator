@@ -176,7 +176,7 @@ function calculateSeverityBreakdown(vulnerabilityStats?: VulnerabilityStats[]): 
       medium: acc.medium + stat.medium,
       low: acc.low + stat.low,
     }),
-    { critical: 0, high: 0, medium: 0, low: 0 }
+    { critical: 0, high: 0, medium: 0, low: 0 },
   );
 }
 
@@ -188,7 +188,7 @@ export function aggregateMisconfigurationStats(
     orchestrator?: { cluster?: { id?: string; name?: string } };
     rule?: { benchmark?: { id?: string; name?: string; version?: string } };
   }>,
-  policyTemplate: PostureType
+  policyTemplate: PostureType,
 ): {
   totalFindings: number;
   passedFindings: number;
@@ -303,7 +303,7 @@ export function aggregateVulnerabilityStats(
   vulnerabilities: Array<{
     cloud?: { account?: { id?: string; name?: string } };
     vulnerability?: { severity?: string };
-  }>
+  }>,
 ): VulnerabilityStats[] {
   const accountMap = new Map<string, VulnerabilityStats>();
 
@@ -363,7 +363,7 @@ export function createVulnMgmtScores({
       medium: acc.medium + s.medium,
       low: acc.low + s.low,
     }),
-    { critical: 0, high: 0, medium: 0, low: 0 }
+    { critical: 0, high: 0, medium: 0, low: 0 },
   );
 
   const vulnerabilitiesStatsByCloudAccount: Record<string, object> = {};

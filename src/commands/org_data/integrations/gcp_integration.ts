@@ -166,7 +166,7 @@ export class GcpIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const auditDocs: IntegrationDocument[] = [];
@@ -195,10 +195,10 @@ export class GcpIntegration extends BaseIntegration {
   private createAuditDocument(
     employee: Employee,
     org: Organization,
-    projectId: string
+    projectId: string,
   ): IntegrationDocument {
     const service = faker.helpers.weightedArrayElement(
-      GCP_SERVICES.map((s) => ({ value: s, weight: s.weight }))
+      GCP_SERVICES.map((s) => ({ value: s, weight: s.weight })),
     );
     const methodName = faker.helpers.arrayElement(service.methods);
     const timestamp = this.getRandomTimestamp(72);

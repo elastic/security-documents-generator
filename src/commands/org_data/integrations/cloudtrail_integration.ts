@@ -97,7 +97,7 @@ export class CloudTrailIntegration extends BaseIntegration {
    */
   generateDocuments(
     org: Organization,
-    correlationMap: CorrelationMap
+    correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
@@ -124,7 +124,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     const federatedUsers = awsIamUsers.filter((u) => u.isFederated);
     const consoleUsers = faker.helpers.arrayElements(
       federatedUsers,
-      Math.ceil(federatedUsers.length * 0.3)
+      Math.ceil(federatedUsers.length * 0.3),
     );
     for (const iamUser of consoleUsers) {
       const employee = iamUser.oktaUserId
@@ -152,7 +152,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     iamUser: CloudIamUser,
     employee: Employee,
     org: Organization,
-    resources: CloudResource[]
+    resources: CloudResource[],
   ): IntegrationDocument[] {
     const events: IntegrationDocument[] = [];
     const account = org.cloudAccounts.find((a) => a.id === iamUser.accountId);
@@ -176,13 +176,13 @@ export class CloudTrailIntegration extends BaseIntegration {
           roleArn,
           assumedRoleArn,
           sessionStart,
-          accessKeyId
-        )
+          accessKeyId,
+        ),
       );
 
       // GetCallerIdentity after assume role
       const callerIdentityTime = new Date(
-        new Date(sessionStart).getTime() + faker.number.int({ min: 1, max: 5 }) * 1000
+        new Date(sessionStart).getTime() + faker.number.int({ min: 1, max: 5 }) * 1000,
       ).toISOString();
       events.push(
         this.createGetCallerIdentityEvent(
@@ -192,8 +192,8 @@ export class CloudTrailIntegration extends BaseIntegration {
           assumedRoleArn,
           callerIdentityTime,
           accessKeyId,
-          sessionId
-        )
+          sessionId,
+        ),
       );
 
       // Generate API calls within the session
@@ -203,7 +203,7 @@ export class CloudTrailIntegration extends BaseIntegration {
       for (let i = 0; i < apiCallCount; i++) {
         const service = faker.helpers.arrayElement(availableServices);
         const apiTime = new Date(
-          new Date(sessionStart).getTime() + faker.number.int({ min: 10, max: 300 }) * 1000
+          new Date(sessionStart).getTime() + faker.number.int({ min: 10, max: 300 }) * 1000,
         ).toISOString();
         const region = faker.helpers.arrayElement(AWS_REGIONS);
 
@@ -218,8 +218,8 @@ export class CloudTrailIntegration extends BaseIntegration {
             accessKeyId,
             sessionId,
             region,
-            accountResources
-          )
+            accountResources,
+          ),
         );
       }
     }
@@ -233,7 +233,7 @@ export class CloudTrailIntegration extends BaseIntegration {
   private generateServiceAccountEvents(
     iamUser: CloudIamUser,
     org: Organization,
-    resources: CloudResource[]
+    resources: CloudResource[],
   ): IntegrationDocument[] {
     const events: IntegrationDocument[] = [];
     const account = org.cloudAccounts.find((a) => a.id === iamUser.accountId);
@@ -254,8 +254,8 @@ export class CloudTrailIntegration extends BaseIntegration {
           timestamp,
           accessKeyId,
           region,
-          accountResources
-        )
+          accountResources,
+        ),
       );
     }
 
@@ -268,7 +268,7 @@ export class CloudTrailIntegration extends BaseIntegration {
   private generateConsoleLoginEvents(
     iamUser: CloudIamUser,
     employee: Employee,
-    org: Organization
+    org: Organization,
   ): IntegrationDocument[] {
     const events: IntegrationDocument[] = [];
     const account = org.cloudAccounts.find((a) => a.id === iamUser.accountId);
@@ -295,7 +295,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     roleArn: string,
     assumedRoleArn: string,
     timestamp: string,
-    accessKeyId: string
+    accessKeyId: string,
   ): IntegrationDocument {
     const eventId = faker.string.uuid();
     const sourceIp = faker.internet.ipv4();
@@ -355,7 +355,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     assumedRoleArn: string,
     timestamp: string,
     accessKeyId: string,
-    _sessionId: string
+    _sessionId: string,
   ): IntegrationDocument {
     const eventId = faker.string.uuid();
     const sourceIp = faker.internet.ipv4();
@@ -417,7 +417,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     accessKeyId: string,
     sessionId: string,
     region: string,
-    resources: CloudResource[]
+    resources: CloudResource[],
   ): IntegrationDocument {
     const eventId = faker.string.uuid();
     const sourceIp = faker.internet.ipv4();
@@ -494,7 +494,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     timestamp: string,
     accessKeyId: string,
     region: string,
-    _resources: CloudResource[]
+    _resources: CloudResource[],
   ): IntegrationDocument {
     const eventId = faker.string.uuid();
     const sourceIp = faker.internet.ipv4();
@@ -545,7 +545,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     employee: Employee,
     account: CloudAccount,
     timestamp: string,
-    isFailure: boolean
+    isFailure: boolean,
   ): IntegrationDocument {
     const eventId = faker.string.uuid();
     const sourceIp = faker.internet.ipv4();

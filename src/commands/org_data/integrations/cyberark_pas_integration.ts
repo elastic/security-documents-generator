@@ -183,7 +183,7 @@ export class CyberArkPasIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
@@ -201,7 +201,7 @@ export class CyberArkPasIntegration extends BaseIntegration {
 
   private createAuditDocument(employee: Employee): IntegrationDocument {
     const action = faker.helpers.weightedArrayElement(
-      AUDIT_ACTIONS.map((a) => ({ value: a, weight: a.weight }))
+      AUDIT_ACTIONS.map((a) => ({ value: a, weight: a.weight })),
     );
     const timestamp = this.getRandomTimestamp(72);
     const stationIp = faker.internet.ipv4();

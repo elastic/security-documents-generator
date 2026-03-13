@@ -26,7 +26,7 @@ export class GitHubIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const auditDocs: IntegrationDocument[] = [];
@@ -118,7 +118,7 @@ export class GitHubIntegration extends BaseIntegration {
     action: string,
     employee: Employee,
     repo: GitHubRepo,
-    org: Organization
+    org: Organization,
   ): Record<string, unknown> {
     switch (action) {
       case 'git.clone':
