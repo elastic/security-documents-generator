@@ -5,14 +5,6 @@ import { getConfig } from '../get_config';
 import { faker } from '@faker-js/faker';
 import fs from 'fs';
 import FormData from 'form-data';
-
-const getHttpsAgent = () => {
-  const config = getConfig();
-  if (config.allowSelfSignedCerts) {
-    return new https.Agent({ rejectUnauthorized: false });
-  }
-  return undefined;
-};
 import {
   RISK_SCORE_SCORES_URL,
   RISK_SCORE_ENGINE_INIT_URL,
@@ -34,6 +26,19 @@ import {
   KIBANA_SETTINGS_INTERNAL_URL,
   ENTITY_STORE_ENTITIES_URL,
 } from '../constants';
+
+let httpsAgent: https.Agent | undefined;
+
+const getHttpsAgent = () => {
+  const config = getConfig();
+  if (config.allowSelfSignedCerts) {
+    if (!httpsAgent) {
+      httpsAgent = new https.Agent({ rejectUnauthorized: false });
+    }
+    return httpsAgent;
+  }
+  return undefined;
+};
 
 export const buildKibanaUrl = (opts: { path: string; space?: string }) => {
   const config = getConfig();
