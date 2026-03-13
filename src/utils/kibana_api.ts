@@ -1,4 +1,3 @@
-import urlJoin from 'url-join';
 import { Agent } from 'undici';
 import { getConfig } from '../get_config.ts';
 import { faker } from '@faker-js/faker';
@@ -40,11 +39,14 @@ const getDispatcher = () => {
   return undefined;
 };
 
+const joinUrl = (...parts: string[]) =>
+  parts.map((p, i) => (i === 0 ? p.replace(/\/+$/, '') : p.replace(/^\/+/, ''))).join('/');
+
 export const buildKibanaUrl = (opts: { path: string; space?: string }) => {
   const config = getConfig();
   const { path, space } = opts;
-  const pathWithSpace = space ? urlJoin(`/s/${space}`, path) : path;
-  return urlJoin(config.kibana.node, pathWithSpace);
+  const pathWithSpace = space ? joinUrl(`/s/${space}`, path) : path;
+  return joinUrl(config.kibana.node, pathWithSpace);
 };
 
 type ResponseError = Error & { statusCode: number; responseData: unknown };

@@ -32,8 +32,7 @@
     "lodash-es": "^4.17.21",
     "moment": "^2.29.4",
     "p-map": "^7.0.2",
-    "p-retry": "^7.1.1",
-    "url-join": "^5.0.0"
+    "p-retry": "^7.1.1"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
