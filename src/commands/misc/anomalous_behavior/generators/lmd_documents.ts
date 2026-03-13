@@ -1,7 +1,7 @@
 import { flatMap, range } from 'lodash-es';
-import { LMD_JOB_IDS } from '../ml_modules_setup';
+import { LMD_JOB_IDS } from '../ml_modules_setup.ts';
 import { faker } from '@faker-js/faker';
-import { generateCommonFields, getRandomValues } from './utils';
+import { generateCommonFields, getRandomValues } from './utils.ts';
 
 const processNames = ['scp', 'ftp', 'smbclient', 'rsync'];
 

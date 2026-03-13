@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { BaselineMetrics } from './types';
-import { BASELINES_DIR, readFileSafely, throwWithContext } from './utils';
+import { type BaselineMetrics } from './types.ts';
+import { BASELINES_DIR, readFileSafely, throwWithContext } from './utils.ts';
 
 /**
  * Save baseline to file

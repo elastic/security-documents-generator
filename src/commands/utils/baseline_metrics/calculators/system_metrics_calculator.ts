@@ -1,5 +1,5 @@
-import { TransformStatsData, EntityTypeMetrics } from '../types';
-import { avg, max, safeDivide, last } from '../utils';
+import { type TransformStatsData, type EntityTypeMetrics } from '../types.ts';
+import { avg, max, safeDivide, last } from '../utils.ts';
 
 export interface SystemMetrics {
   cpu: {

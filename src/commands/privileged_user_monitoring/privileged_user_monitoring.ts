@@ -1,15 +1,15 @@
 import { faker } from '@faker-js/faker';
-import { ingestIntoSourceIndex } from '../privileged_access_detection_ml/index_management';
-import { getEsClient } from '../utils/indices';
+import { ingestIntoSourceIndex } from '../privileged_access_detection_ml/index_management.ts';
+import { getEsClient } from '../utils/indices.ts';
 import {
   ACCOUNT_SWITCH_LINUX_SAMPLE_DOCUMENT,
   GRANTED_RIGHTS_LINUX_SAMPLE_DOCUMENT,
   GRANTED_RIGHTS_OKTA_SAMPLE_DOCUMENT,
   GRANTED_RIGHTS_WINDOWS_SAMPLE_DOCUMENT,
   OKTA_AUTHENTICATION,
-} from './sample_documents';
-import { TimeWindows } from '../utils/time_windows';
-import { User, UserGenerator } from '../privileged_access_detection_ml/event_generator';
+} from './sample_documents.ts';
+import { TimeWindows } from '../utils/time_windows.ts';
+import { type User, UserGenerator } from '../privileged_access_detection_ml/event_generator.ts';
 import {
   assignAssetCriticality,
   createRule,
@@ -20,24 +20,24 @@ import {
   installPad,
   scheduleRiskEngineNow,
   setupPadMlModule,
-} from '../../utils/kibana_api';
+} from '../../utils/kibana_api.ts';
 import {
   createSampleFullSyncEvents,
   makeAdUserDoc,
   makeDoc,
-} from '../utils/integrations_sync_utils';
+} from '../utils/integrations_sync_utils.ts';
 import {
   ASSET_CRITICALITY,
-  AssetCriticality,
+  type AssetCriticality,
   PRIVILEGED_USER_MONITORING_OPTIONS,
-  PrivilegedUserMonitoringOption,
-} from '../../constants';
-import { generatePrivilegedAccessDetectionData } from '../privileged_access_detection_ml/privileged_access_detection_ml';
-import { generateCSVFile } from './generate_csv_file';
+  type PrivilegedUserMonitoringOption,
+} from '../../constants.ts';
+import { generatePrivilegedAccessDetectionData } from '../privileged_access_detection_ml/privileged_access_detection_ml.ts';
+import { generateCSVFile } from './generate_csv_file.ts';
 import { chunk } from 'lodash-es';
-import { ensureSpace } from '../../utils';
-import { getMetadataKQL } from '../../utils/doc_metadata';
-import { deleteDataStreamSafe } from '../shared/elasticsearch';
+import { ensureSpace } from '../../utils/index.ts';
+import { getMetadataKQL } from '../../utils/doc_metadata.ts';
+import { deleteDataStreamSafe } from '../shared/elasticsearch.ts';
 
 //end point logs
 const endpointLogsDataStreamName = 'logs-endpoint.events.process-default';

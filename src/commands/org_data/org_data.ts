@@ -4,27 +4,27 @@
  */
 
 import { select, confirm } from '@inquirer/prompts';
-import { generateNewSeed } from '../../constants';
-import { buildKibanaUrl } from '../../utils/kibana_api';
+import { generateNewSeed } from '../../constants.ts';
+import { buildKibanaUrl } from '../../utils/kibana_api.ts';
 import {
-  OrganizationOptions,
-  OrganizationSize,
-  OrganizationConfig,
-  ProductivitySuite,
-} from './types';
-import { generateOrgData, getOrgDataSummary } from './org_data_generator';
-import { buildCorrelationMap, verifyCorrelationIntegrity } from './correlation';
+  type OrganizationOptions,
+  type OrganizationSize,
+  type OrganizationConfig,
+  type ProductivitySuite,
+} from './types.ts';
+import { generateOrgData, getOrgDataSummary } from './org_data_generator.ts';
+import { buildCorrelationMap, verifyCorrelationIntegrity } from './correlation.ts';
 import {
   createIntegrationRegistry,
   parseIntegrationList,
   getAvailableIntegrations,
-  IntegrationResult,
-} from './integrations';
+  type IntegrationResult,
+} from './integrations/index.ts';
 import {
   createIntegrationDetectionRules,
   generateAndIndexMatchingEvents,
-  DetectionRuleResult,
-} from './detection_rules';
+  type DetectionRuleResult,
+} from './detection_rules.ts';
 
 /**
  * Valid organization sizes with descriptions

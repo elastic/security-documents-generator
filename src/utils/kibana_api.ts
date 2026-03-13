@@ -1,7 +1,7 @@
 import urlJoin from 'url-join';
 import fetch, { Headers } from 'node-fetch';
 import https from 'https';
-import { getConfig } from '../get_config';
+import { getConfig } from '../get_config.ts';
 import { faker } from '@faker-js/faker';
 import fs from 'fs';
 import FormData from 'form-data';
@@ -26,7 +26,7 @@ import {
   KIBANA_SETTINGS_INTERNAL_URL,
   ENTITY_STORE_ENTITIES_URL,
   ML_GROUP_ID,
-} from '../constants';
+} from '../constants.ts';
 
 let httpsAgent: https.Agent | undefined;
 

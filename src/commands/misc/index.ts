@@ -1,13 +1,13 @@
-import { Command } from 'commander';
-import { CommandModule } from '../types';
-import { kibanaApi } from '../../utils';
-import { generateAssetCriticality } from './asset_criticality';
-import { generateAiInsights } from './insights';
-import { generateLegacyRiskScore } from './legacy_risk_score';
-import { singleEntityCommand } from './single_entity';
-import { ensureSpace } from '../../utils';
-import { parseOptionInt, wrapAction } from '../utils/cli_utils';
-import { ENTITY_TYPES, EntityType } from '../../types/entities';
+import { type Command } from 'commander';
+import { type CommandModule } from '../types.ts';
+import { kibanaApi } from '../../utils/index.ts';
+import { generateAssetCriticality } from './asset_criticality.ts';
+import { generateAiInsights } from './insights.ts';
+import { generateLegacyRiskScore } from './legacy_risk_score.ts';
+import { singleEntityCommand } from './single_entity.ts';
+import { ensureSpace } from '../../utils/index.ts';
+import { parseOptionInt, wrapAction } from '../utils/cli_utils.ts';
+import { ENTITY_TYPES, type EntityType } from '../../types/entities.ts';
 
 export const miscCommands: CommandModule = {
   register(program: Command) {

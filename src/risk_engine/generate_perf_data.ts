@@ -1,11 +1,11 @@
 import { faker } from '@faker-js/faker';
 import fs from 'fs';
 import cliProgress from 'cli-progress';
-import createAlerts from '../generators/create_alerts';
-import { uploadFile } from '../commands/entity_store_perf/entity_store_perf';
-import { getAlertIndex } from '../utils';
-import { getFileLineCount } from '../commands/utils/indices';
-import { getRiskEnginePerfDataDir } from '../utils/data_paths';
+import createAlerts from '../generators/create_alerts.ts';
+import { uploadFile } from '../commands/entity_store_perf/entity_store_perf.ts';
+import { getAlertIndex } from '../utils/index.ts';
+import { getFileLineCount } from '../commands/utils/indices.ts';
+import { getRiskEnginePerfDataDir } from '../utils/data_paths.ts';
 
 export const createPerfDataFile = ({
   entityCount,

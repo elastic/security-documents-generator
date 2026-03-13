@@ -6,17 +6,21 @@
  * rerouting to the user/device data streams (matching real Filebeat behavior).
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
 import {
-  Organization,
-  Employee,
-  Device,
-  EntraIdGroup,
-  EntraIdUserDocument,
-  EntraIdDeviceDocument,
-  EntraIdSyncMarkerDocument,
-  CorrelationMap,
-} from '../types';
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import {
+  type Organization,
+  type Employee,
+  type Device,
+  type EntraIdGroup,
+  type EntraIdUserDocument,
+  type EntraIdDeviceDocument,
+  type EntraIdSyncMarkerDocument,
+  type CorrelationMap,
+} from '../types.ts';
 import { faker } from '@faker-js/faker';
 
 const IDENTITY_SOURCE = 'entra_id-saas-organization';

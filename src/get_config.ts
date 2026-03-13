@@ -3,7 +3,7 @@ import * as t from 'io-ts';
 // get config relative to the file
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
-import { PathReporter } from 'io-ts/lib/PathReporter';
+import { PathReporter } from 'io-ts/lib/PathReporter.js';
 
 const NodeWithCredentials = t.type({
   node: t.string,

@@ -1,14 +1,14 @@
-import { Command } from 'commander';
-import { CommandModule } from '../types';
-import { parseIntBase10, promptForFileSelection, wrapAction } from '../utils/cli_utils';
+import { type Command } from 'commander';
+import { type CommandModule } from '../types.ts';
+import { parseIntBase10, promptForFileSelection, wrapAction } from '../utils/cli_utils.ts';
 import {
   createPerfDataFile,
   listPerfDataFiles,
   uploadPerfDataFile,
   uploadPerfDataFileInterval,
   ENTITY_DISTRIBUTIONS,
-  DistributionType,
-} from './entity_store_perf';
+  type DistributionType,
+} from './entity_store_perf.ts';
 
 export const entityStorePerfCommands: CommandModule = {
   register(program: Command) {

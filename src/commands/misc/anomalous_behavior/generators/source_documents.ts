@@ -1,5 +1,5 @@
 import { range } from 'lodash-es';
-import { getRandomValues } from './utils';
+import { getRandomValues } from './utils.ts';
 
 const osNames = [
   'Windows Server 2019',

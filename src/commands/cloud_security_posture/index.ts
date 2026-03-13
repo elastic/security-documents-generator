@@ -1,18 +1,18 @@
 import { faker } from '@faker-js/faker';
 import moment from 'moment';
-import { ingest, getEsClient } from '../utils/indices';
+import { ingest, getEsClient } from '../utils/indices.ts';
 import {
   installPackage,
   getPackageInfo,
   createAgentPolicy,
   getPackagePolicies,
   createPackagePolicy,
-} from '../../utils/kibana_api';
-import { generateNewSeed } from '../../constants';
+} from '../../utils/kibana_api.ts';
+import { generateNewSeed } from '../../constants.ts';
 import {
   generateCSPMAccounts,
   generateKSPMClusters,
-  CSPMAccount,
+  type CSPMAccount,
   MISCONFIGURATION_SOURCE_INDEX,
   VULNERABILITY_INDEX,
   CSP_SCORES_INDEX,
@@ -21,21 +21,21 @@ import {
   QUALYS_VULNERABILITY_SOURCE_INDEX,
   TENABLE_VULNERABILITY_SOURCE_INDEX,
   AWS_MISCONFIGURATION_SOURCE_INDEX,
-} from './csp_utils';
-import createCSPMMisconfiguration from './create_cspm_misconfigurations';
-import createKSPMMisconfiguration from './create_kspm_misconfigurations';
-import createCNVMVulnerability from './create_cnvm_vulnerabilities';
+} from './csp_utils.ts';
+import createCSPMMisconfiguration from './create_cspm_misconfigurations.ts';
+import createKSPMMisconfiguration from './create_kspm_misconfigurations.ts';
+import createCNVMVulnerability from './create_cnvm_vulnerabilities.ts';
 import createCSPScores, {
   aggregateMisconfigurationStats,
   aggregateVulnerabilityStats,
   createVulnMgmtScores,
-  VulnerabilityStats,
-} from './create_csp_scores';
-import createWizMisconfiguration from './create_wiz_misconfigurations';
-import createWizVulnerability from './create_wiz_vulnerabilities';
-import createQualysVulnerability from './create_qualys_vulnerabilities';
-import createTenableVulnerability from './create_tenable_vulnerabilities';
-import createAwsSecurityHubMisconfiguration from './create_aws_securityhub_misconfigurations';
+  type VulnerabilityStats,
+} from './create_csp_scores.ts';
+import createWizMisconfiguration from './create_wiz_misconfigurations.ts';
+import createWizVulnerability from './create_wiz_vulnerabilities.ts';
+import createQualysVulnerability from './create_qualys_vulnerabilities.ts';
+import createTenableVulnerability from './create_tenable_vulnerabilities.ts';
+import createAwsSecurityHubMisconfiguration from './create_aws_securityhub_misconfigurations.ts';
 
 // Individual data sources
 export const ALL_DATA_SOURCES = [

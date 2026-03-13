@@ -1,6 +1,6 @@
-import { EntityTypeMetrics, EntityTypeData, TransformStatsData } from '../types';
-import { computePercentileMetrics, max } from '../utils';
-import { EntityType } from '../../../../types/entities';
+import { type EntityTypeMetrics, type EntityTypeData, type TransformStatsData } from '../types.ts';
+import { computePercentileMetrics, max } from '../utils.ts';
+import { type EntityType } from '../../../../types/entities.ts';
 
 /**
  * Calculate entity type metrics from entity data

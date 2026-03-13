@@ -3,10 +3,19 @@
  * Generates web proxy and firewall session log documents
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
-import { Organization, CorrelationMap, Employee, DepartmentName } from '../types';
+import {
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import {
+  type Organization,
+  type CorrelationMap,
+  type Employee,
+  type DepartmentName,
+} from '../types.ts';
 import { faker } from '@faker-js/faker';
-import { ZSCALER_URL_CATEGORIES, BLOCKED_URLS, WEB_USER_AGENTS } from '../data/network_data';
+import { ZSCALER_URL_CATEGORIES, BLOCKED_URLS, WEB_USER_AGENTS } from '../data/network_data.ts';
 
 /**
  * Zscaler ZIA Integration

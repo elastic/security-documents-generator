@@ -1,13 +1,13 @@
 import { faker } from '@faker-js/faker';
-import createAlerts from '../generators/create_alerts';
+import createAlerts from '../generators/create_alerts.ts';
 
-import { ensureSpace, getAlertIndex } from '../utils';
-import { sleep } from '../utils/sleep';
-import { streamingBulkIngest } from '../commands/shared/elasticsearch';
+import { ensureSpace, getAlertIndex } from '../utils/index.ts';
+import { sleep } from '../utils/sleep.ts';
+import { streamingBulkIngest } from '../commands/shared/elasticsearch.ts';
 
-import { Command } from 'commander';
-import { parseIntBase10, wrapAction } from '../commands/utils/cli_utils';
-import { deleteAllAlerts } from '../commands/documents';
+import { type Command } from 'commander';
+import { parseIntBase10, wrapAction } from '../commands/utils/cli_utils.ts';
+import { deleteAllAlerts } from '../commands/documents/index.ts';
 
 export const ingestData = async (params: {
   batchMBytesSize: number;

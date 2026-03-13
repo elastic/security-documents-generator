@@ -1,7 +1,7 @@
 import { faker } from '@faker-js/faker';
 import moment from 'moment';
 import {
-  CloudProvider,
+  type CloudProvider,
   CSP_AGENT_VERSION,
   CSPM_PROVIDERS,
   getRandomCisRule,
@@ -9,9 +9,9 @@ import {
   generateResourceId,
   cloudServiceFromResourceType,
   pickEvaluation,
-  CSPMAccount,
-} from './csp_utils';
-import type { BaseDocumentParams } from '../../types/document_params';
+  type CSPMAccount,
+} from './csp_utils.ts';
+import type { BaseDocumentParams } from '../../types/document_params.ts';
 
 export interface CreateCSPMMisconfigurationParams extends BaseDocumentParams {
   provider: CloudProvider;

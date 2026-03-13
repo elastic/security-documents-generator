@@ -3,8 +3,12 @@
  * Generates HTTP request and firewall event documents
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
-import { Organization, CorrelationMap, CloudflareZone } from '../types';
+import {
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import { type Organization, type CorrelationMap, type CloudflareZone } from '../types.ts';
 import { faker } from '@faker-js/faker';
 import {
   CLOUDFLARE_COLOS,
@@ -15,7 +19,7 @@ import {
   ATTACKER_IPS,
   ATTACKER_COUNTRIES,
   WEB_USER_AGENTS,
-} from '../data/network_data';
+} from '../data/network_data.ts';
 
 /**
  * Cloudflare Logpush Integration
