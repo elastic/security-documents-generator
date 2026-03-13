@@ -85,25 +85,12 @@ const promptForProductivitySuite = async (): Promise<ProductivitySuite> => {
   });
 };
 
-/**
- * Main command function for generating correlated organization data
- */
-export const runOrgData = async (options: OrganizationOptions): Promise<void> => {
-  console.log('\n=== Correlated Organization Data Generator ===\n');
-
-  // Prompt for organization size
-  const size = await promptForSize();
-
-  // Prompt for productivity suite
-  const productivitySuite = await promptForProductivitySuite();
-
-  // Prompt for detection rules if not set via CLI flag
-  const includeDetectionRules =
-    options.detectionRules ??
-    (await confirm({
-      message: 'Include sample detection rules for applicable integrations?',
-      default: false,
-    }));
+const runOrgDataHelper = async (
+  options: Omit<OrganizationOptions, 'detectionRules'> & {
+    detectionRules: boolean;
+  },
+): Promise<void> => {
+  const { size, productivitySuite, detectionRules } = options;
 
   // Validate and fill in other options
   const validatedOptions = await validateOptions({ ...options, size, productivitySuite });
@@ -174,13 +161,41 @@ export const runOrgData = async (options: OrganizationOptions): Promise<void> =>
 
   // Create detection rules and matching events if requested
   let detectionRuleResults: DetectionRuleResult[] = [];
-  if (includeDetectionRules) {
+  if (detectionRules) {
     detectionRuleResults = await createIntegrationDetectionRules(enabledIntegrations, space);
     await generateAndIndexMatchingEvents(enabledIntegrations);
   }
 
   // Display summary
   displaySummary(results, organization, space, detectionRuleResults);
+};
+
+/**
+ * Main command function for generating correlated organization data
+ */
+export const runOrgData = async (options: OrganizationOptions): Promise<void> => {
+  console.log('\n=== Correlated Organization Data Generator ===\n');
+
+  // Prompt for organization size
+  const size = await promptForSize();
+
+  // Prompt for productivity suite
+  const productivitySuite = await promptForProductivitySuite();
+
+  // Prompt for detection rules if not set via CLI flag
+  const includeDetectionRules =
+    options.detectionRules ??
+    (await confirm({
+      message: 'Include sample detection rules for applicable integrations?',
+      default: false,
+    }));
+
+  await runOrgDataHelper({
+    ...options,
+    size,
+    productivitySuite,
+    detectionRules: includeDetectionRules,
+  });
 };
 
 /**
@@ -579,10 +594,11 @@ const displaySummary = (
  * Quick generation with defaults (for quick setup, still prompts for size)
  */
 export const runOrgDataQuick = async (space: string = 'default'): Promise<void> => {
-  await runOrgData({
-    size: 'medium', // Will be overridden by interactive prompt
+  await runOrgDataHelper({
+    size: 'medium',
     name: 'Acme CRM',
     space,
+    detectionRules: false,
     integrations:
       'active_directory,okta,okta_system,entra_id,jamf_pro,workday,ping_directory,sailpoint,github,slack,google_workspace,servicenow',
   });
