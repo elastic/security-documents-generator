@@ -1,4 +1,4 @@
-import moment from 'moment/moment';
+import moment from 'moment';
 import { faker } from '@faker-js/faker';
 
 export interface TimeWindow {

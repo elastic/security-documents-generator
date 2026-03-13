@@ -1,12 +1,12 @@
-import { Command } from 'commander';
-import { CommandModule } from '../types';
+import { type Command } from 'commander';
+import { type CommandModule } from '../types.ts';
 import {
   PRIVILEGED_USER_MONITORING_OPTIONS,
-  PrivilegedUserMonitoringOption,
-} from '../../constants';
-import { privmonCommand } from './privileged_user_monitoring';
-import { promptForSelection, promptForTextInput } from '../utils/interactive_prompts';
-import { parseIntBase10, wrapAction } from '../utils/cli_utils';
+  type PrivilegedUserMonitoringOption,
+} from '../../constants.ts';
+import { privmonCommand } from './privileged_user_monitoring.ts';
+import { promptForSelection, promptForTextInput } from '../utils/interactive_prompts.ts';
+import { parseIntBase10, wrapAction } from '../utils/cli_utils.ts';
 
 export const privilegedUserMonitoringCommands: CommandModule = {
   register(program: Command) {

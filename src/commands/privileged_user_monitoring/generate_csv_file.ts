@@ -1,8 +1,8 @@
 import fs from 'fs/promises';
 import { resolve } from 'path';
-import { User } from '../privileged_access_detection_ml/event_generator';
-import { srcDirectory } from '../../index';
-import { enablePrivmon, uploadPrivmonCsv } from '../../utils/kibana_api';
+import { type User } from '../privileged_access_detection_ml/event_generator.ts';
+import { srcDirectory } from '../../index.ts';
+import { enablePrivmon, uploadPrivmonCsv } from '../../utils/kibana_api.ts';
 
 const CSV_FILE_NAME = 'privileged_users.csv';
 

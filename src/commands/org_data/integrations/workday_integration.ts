@@ -9,8 +9,12 @@
  * API reference: https://community.workday.com/sites/default/files/file-hosting/restapi/index.html#person/v4/people
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
-import { Organization, Employee, CorrelationMap } from '../types';
+import {
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import { type Organization, type Employee, type CorrelationMap } from '../types.ts';
 import { faker } from '@faker-js/faker';
 
 /** Cost center codes mapped by department */

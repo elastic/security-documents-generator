@@ -4,7 +4,7 @@ import {
   installIntegrationAndCreatePolicy,
   forceStartDatafeeds,
   getMlJobsSummary,
-} from '../../../utils/kibana_api';
+} from '../../../utils/kibana_api.ts';
 export const SECURITY_AUTH_MODULE = 'security_auth';
 export const SECURITY_AUTH_JOB_IDS = [
   'auth_rare_source_ip_for_a_user',

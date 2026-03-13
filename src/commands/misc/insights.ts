@@ -1,14 +1,14 @@
-import { generateNewSeed } from '../../constants';
+import { generateNewSeed } from '../../constants.ts';
 import { faker } from '@faker-js/faker';
-import { ingest } from '../utils/indices';
+import { ingest } from '../utils/indices.ts';
 import createVulnerabilities, {
-  CreateVulnerabilitiesParams,
-} from '../../generators/create_vulnerability';
+  type CreateVulnerabilitiesParams,
+} from '../../generators/create_vulnerability.ts';
 import createMisconfigurations, {
-  CreateMisconfigurationsParams,
-} from '../../generators/create_misconfigurations';
-import { installPackage } from '../../utils/kibana_api';
-import { generateAnomalousBehaviorDataWithMlJobs } from './anomalous_behavior';
+  type CreateMisconfigurationsParams,
+} from '../../generators/create_misconfigurations.ts';
+import { installPackage } from '../../utils/kibana_api.ts';
+import { generateAnomalousBehaviorDataWithMlJobs } from './anomalous_behavior/index.ts';
 
 const VULNERABILITY_INDEX_NAME = 'logs-cloud_security_posture.vulnerabilities_latest-default';
 

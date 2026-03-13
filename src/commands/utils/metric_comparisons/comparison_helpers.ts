@@ -1,4 +1,4 @@
-import { ComparisonResult, ComparisonThresholds } from '../metrics_comparison';
+import { type ComparisonResult, type ComparisonThresholds } from '../metrics_comparison.ts';
 
 /**
  * Determine status based on effective difference percentage.

@@ -1,7 +1,7 @@
-import { BaselineMetrics } from '../baseline_metrics';
-import { ComparisonResult } from '../metrics_comparison';
-import { createResult, createInfoResult } from './comparison_helpers';
-import { ComparisonThresholds } from '../metrics_comparison';
+import { type BaselineMetrics } from '../baseline_metrics/index.ts';
+import { type ComparisonResult } from '../metrics_comparison.ts';
+import { createResult, createInfoResult } from './comparison_helpers.ts';
+import { type ComparisonThresholds } from '../metrics_comparison.ts';
 
 /**
  * Compare latency metrics (Search, Intake, Processing) between baseline and current

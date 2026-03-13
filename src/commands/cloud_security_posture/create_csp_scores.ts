@@ -1,6 +1,6 @@
 import { faker } from '@faker-js/faker';
 import moment from 'moment';
-import { PostureType } from './csp_utils';
+import { type PostureType } from './csp_utils.ts';
 
 export interface BenchmarkScore {
   benchmarkId: string;

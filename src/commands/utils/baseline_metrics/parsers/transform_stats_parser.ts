@@ -1,6 +1,6 @@
-import { EntityTypeData, TransformStatsData } from '../types';
-import { readFileSafely, MAX_REASONABLE_SAMPLING_INTERVAL_MS } from '../utils';
-import { ENTITY_TYPES, EntityType } from '../../../../types/entities';
+import { type EntityTypeData, type TransformStatsData } from '../types.ts';
+import { readFileSafely, MAX_REASONABLE_SAMPLING_INTERVAL_MS } from '../utils.ts';
+import { ENTITY_TYPES, type EntityType } from '../../../../types/entities.ts';
 
 const createEntityTypeData = (): EntityTypeData => ({
   searchLatencies: [],

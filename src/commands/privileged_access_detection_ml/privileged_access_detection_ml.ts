@@ -2,8 +2,8 @@ import {
   createPrivilegedAccessDetectionSourceIndex,
   deleteSourceIndex,
   ingestIntoSourceIndex,
-} from './index_management';
-import { User, UserEventGenerator } from './event_generator';
+} from './index_management.ts';
+import { type User, UserEventGenerator } from './event_generator.ts';
 
 const LOGS_LINUX_INDEX = 'logs-linux';
 

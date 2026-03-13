@@ -1,17 +1,21 @@
-import { Command } from 'commander';
-import { CommandModule } from '../types';
-import { wrapAction } from '../utils/cli_utils';
-import { ENTITY_STORE_OPTIONS, ENTITY_MAINTAINERS_OPTIONS, generateNewSeed } from '../../constants';
-import type { EntityMaintainerOption } from '../../constants';
-import { cleanEntityStore, generateEntityStore } from './entity_store';
-import { setupEntityResolutionDemo } from './entity_resolution';
-import { generateEntityMaintainersData } from './entity_maintainers';
+import { type Command } from 'commander';
+import { type CommandModule } from '../types.ts';
+import { wrapAction } from '../utils/cli_utils.ts';
+import {
+  ENTITY_STORE_OPTIONS,
+  ENTITY_MAINTAINERS_OPTIONS,
+  generateNewSeed,
+} from '../../constants.ts';
+import type { EntityMaintainerOption } from '../../constants.ts';
+import { cleanEntityStore, generateEntityStore } from './entity_store.ts';
+import { setupEntityResolutionDemo } from './entity_resolution.ts';
+import { generateEntityMaintainersData } from './entity_maintainers.ts';
 import {
   promptForNumericInputs,
   promptForSelection,
   promptForTextInput,
-} from '../utils/interactive_prompts';
-import { ensureSpace } from '../../utils';
+} from '../utils/interactive_prompts.ts';
+import { ensureSpace } from '../../utils/index.ts';
 
 export const entityStoreCommands: CommandModule = {
   register(program: Command) {

@@ -2,14 +2,14 @@ import { faker } from '@faker-js/faker';
 import moment from 'moment';
 import {
   CSP_AGENT_VERSION,
-  KSPMDistribution,
+  type KSPMDistribution,
   KSPM_DISTRIBUTIONS,
   getRandomCisRule,
   getRandomResourceType,
   pickEvaluation,
-  KSPMCluster,
-} from './csp_utils';
-import type { BaseDocumentParams } from '../../types/document_params';
+  type KSPMCluster,
+} from './csp_utils.ts';
+import type { BaseDocumentParams } from '../../types/document_params.ts';
 
 export interface CreateKSPMMisconfigurationParams extends BaseDocumentParams {
   distribution: KSPMDistribution;

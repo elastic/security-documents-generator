@@ -1,5 +1,5 @@
-import { installLegacyRiskScore } from '../../utils/kibana_api';
-import { bulkUpsert } from '../shared/elasticsearch';
+import { installLegacyRiskScore } from '../../utils/kibana_api.ts';
+import { bulkUpsert } from '../shared/elasticsearch.ts';
 
 /**
  * Install legacy risk score and generate data

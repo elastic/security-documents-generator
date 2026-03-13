@@ -1,6 +1,6 @@
 import { faker } from '@faker-js/faker';
 import moment from 'moment';
-import { getRandomCve, pickSeverity, CSPMAccount, CloudProvider } from './csp_utils';
+import { getRandomCve, pickSeverity, type CSPMAccount, type CloudProvider } from './csp_utils.ts';
 
 export interface CreateWizVulnerabilityParams {
   account?: CSPMAccount;

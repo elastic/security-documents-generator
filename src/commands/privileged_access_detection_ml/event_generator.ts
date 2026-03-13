@@ -1,4 +1,4 @@
-import { TimeWindow, TimeWindows } from '../utils/time_windows';
+import { type TimeWindow, TimeWindows } from '../utils/time_windows.ts';
 import { faker } from '@faker-js/faker';
 
 const BASELINE_NUMBER_OF_EVENTS_PER_USER = 1000;
@@ -37,11 +37,15 @@ const createPrivilegedLinuxEvent = (timeWindow: TimeWindow, userName: string) =>
   }) as Event;
 
 export class User {
-  constructor(
-    readonly userName: string,
-    readonly numberOfAnomalousDays: number,
-    readonly maxNumberOfAnomalousEvents: number,
-  ) {}
+  readonly userName: string;
+  readonly numberOfAnomalousDays: number;
+  readonly maxNumberOfAnomalousEvents: number;
+
+  constructor(userName: string, numberOfAnomalousDays: number, maxNumberOfAnomalousEvents: number) {
+    this.userName = userName;
+    this.numberOfAnomalousDays = numberOfAnomalousDays;
+    this.maxNumberOfAnomalousEvents = maxNumberOfAnomalousEvents;
+  }
 }
 
 interface UserNameByNumber {

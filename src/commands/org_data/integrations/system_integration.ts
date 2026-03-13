@@ -3,9 +3,13 @@
  * Generates authentication, session, process, and syslog documents for Linux hosts
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
-import { Organization, Host, Employee, CorrelationMap } from '../types';
-import { ATTACKER_IPS } from '../data/network_data';
+import {
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import { type Organization, type Host, type Employee, type CorrelationMap } from '../types.ts';
+import { ATTACKER_IPS } from '../data/network_data.ts';
 import { faker } from '@faker-js/faker';
 
 /** Common brute-force usernames used in failed SSH attempts */

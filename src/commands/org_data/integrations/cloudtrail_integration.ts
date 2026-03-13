@@ -3,15 +3,19 @@
  * Generates API call log documents for aws.cloudtrail data stream
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
 import {
-  Organization,
-  CloudIamUser,
-  CloudResource,
-  CorrelationMap,
-  CloudAccount,
-  Employee,
-} from '../types';
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import {
+  type Organization,
+  type CloudIamUser,
+  type CloudResource,
+  type CorrelationMap,
+  type CloudAccount,
+  type Employee,
+} from '../types.ts';
 import { faker } from '@faker-js/faker';
 
 /**

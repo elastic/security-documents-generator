@@ -1,4 +1,4 @@
-import { getEsClient, indexCheck, ingest } from '../utils/indices';
+import { getEsClient, indexCheck, ingest } from '../utils/indices.ts';
 
 export const createPrivilegedAccessDetectionSourceIndex = async (index: string) => {
   try {

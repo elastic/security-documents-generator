@@ -1,10 +1,10 @@
 import { faker } from '@faker-js/faker';
-import { getEsClient } from '../utils/indices';
+import { getEsClient } from '../utils/indices.ts';
 import moment from 'moment';
 import { chunk } from 'lodash-es';
-import { createRule, getAllRules, bulkDeleteRules } from '../../utils/kibana_api';
-import { bulkIngest } from '../shared/elasticsearch';
-import { EVENTS_INDEX, SMALL_CHUNK_SIZE } from '../../constants';
+import { createRule, getAllRules, bulkDeleteRules } from '../../utils/kibana_api.ts';
+import { bulkIngest } from '../shared/elasticsearch.ts';
+import { EVENTS_INDEX, SMALL_CHUNK_SIZE } from '../../constants.ts';
 
 interface Event {
   '@timestamp': string;

@@ -1,7 +1,7 @@
-import { kibanaApi } from '.';
-import { getAlertIndex } from '.';
-import { getEsClient } from '../commands/utils/indices';
-import { ensureSecurityDefaultDataView } from './security_default_data_view';
+import { kibanaApi } from './index.ts';
+import { getAlertIndex } from './index.ts';
+import { getEsClient } from '../commands/utils/indices.ts';
+import { ensureSecurityDefaultDataView } from './security_default_data_view.ts';
 const DUMMY_RULE_ID = 'dummy-rule';
 
 export const initializeSpace = async (space: string) => {

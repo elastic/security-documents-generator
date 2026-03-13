@@ -1,4 +1,4 @@
-import { percentile, avg, max, safeDivide } from '../utils';
+import { percentile, avg, max, safeDivide } from '../utils.ts';
 
 interface KibanaStatsData {
   eventLoopDelays: number[];

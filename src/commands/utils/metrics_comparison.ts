@@ -1,9 +1,9 @@
-import { BaselineMetrics } from './baseline_metrics';
-import { compareKibanaMetrics } from './metric_comparisons/kibana_metrics';
-import { compareLatencyMetrics } from './metric_comparisons/latency_metrics';
-import { compareSystemMetrics } from './metric_comparisons/system_metrics';
-import { compareEntityMetrics } from './metric_comparisons/entity_metrics';
-import { compareErrorMetrics } from './metric_comparisons/error_metrics';
+import { type BaselineMetrics } from './baseline_metrics/index.ts';
+import { compareKibanaMetrics } from './metric_comparisons/kibana_metrics.ts';
+import { compareLatencyMetrics } from './metric_comparisons/latency_metrics.ts';
+import { compareSystemMetrics } from './metric_comparisons/system_metrics.ts';
+import { compareEntityMetrics } from './metric_comparisons/entity_metrics.ts';
+import { compareErrorMetrics } from './metric_comparisons/error_metrics.ts';
 
 export interface ComparisonResult {
   metric: string;
@@ -76,7 +76,7 @@ export const compareMetrics = (
 };
 
 // Re-export formatComparisonReport from report_formatter
-export { formatComparisonReport } from './metric_comparisons/report_formatter';
+export { formatComparisonReport } from './metric_comparisons/report_formatter.ts';
 
 /**
  * Build comparison thresholds from options

@@ -1,14 +1,14 @@
 import {
-  BulkResponse,
-  BulkOperationContainer,
-  BulkCreateOperation,
-  DeleteByQueryResponse,
+  type BulkResponse,
+  type BulkOperationContainer,
+  type BulkCreateOperation,
+  type DeleteByQueryResponse,
 } from '@elastic/elasticsearch/lib/api/types';
 import { chunk } from 'lodash-es';
-import { getEsClient } from '../utils/indices';
-import { addMetadataToDoc } from '../../utils/doc_metadata';
-import { createProgressBar } from '../utils/cli_utils';
-import { DEFAULT_CHUNK_SIZE } from '../../constants';
+import { getEsClient } from '../utils/indices.ts';
+import { addMetadataToDoc } from '../../utils/doc_metadata.ts';
+import { createProgressBar } from '../utils/cli_utils.ts';
+import { DEFAULT_CHUNK_SIZE } from '../../constants.ts';
 
 export type BulkOperationTuple = [BulkOperationContainer, object];
 

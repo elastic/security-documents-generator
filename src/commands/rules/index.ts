@@ -1,7 +1,7 @@
-import { Command } from 'commander';
-import { CommandModule } from '../types';
-import { parseIntBase10, wrapAction } from '../utils/cli_utils';
-import { deleteAllRules, generateRulesAndAlerts } from './rules';
+import { type Command } from 'commander';
+import { type CommandModule } from '../types.ts';
+import { parseIntBase10, wrapAction } from '../utils/cli_utils.ts';
+import { deleteAllRules, generateRulesAndAlerts } from './rules.ts';
 
 export const rulesCommands: CommandModule = {
   register(program: Command) {

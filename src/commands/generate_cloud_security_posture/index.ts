@@ -1,7 +1,10 @@
 import type { Command } from 'commander';
-import { generateCloudSecurityPosture, resolveDataSources } from '../cloud_security_posture';
-import { parseIntBase10, wrapAction } from '../utils/cli_utils';
-import { CommandModule } from '../types';
+import {
+  generateCloudSecurityPosture,
+  resolveDataSources,
+} from '../cloud_security_posture/index.ts';
+import { parseIntBase10, wrapAction } from '../utils/cli_utils.ts';
+import { type CommandModule } from '../types.ts';
 
 export const cloudSecurityPostureCommands: CommandModule = {
   register(program: Command): void {

@@ -3,9 +3,9 @@
  * Abstract class defining the interface for all security integrations
  */
 
-import { Organization, CorrelationMap } from '../types';
-import { installPackage } from '../../../utils/kibana_api';
-import { ingest } from '../../utils/indices';
+import { type Organization, type CorrelationMap } from '../types.ts';
+import { installPackage } from '../../../utils/kibana_api.ts';
+import { ingest } from '../../utils/indices.ts';
 import cliProgress from 'cli-progress';
 import { chunk } from 'lodash-es';
 

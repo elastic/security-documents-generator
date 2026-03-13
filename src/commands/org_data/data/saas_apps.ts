@@ -2,7 +2,7 @@
  * SaaS application definitions for realistic integration data
  */
 
-import { DepartmentName } from '../types';
+import { type DepartmentName } from '../types.ts';
 
 /**
  * SaaS application used by the organization

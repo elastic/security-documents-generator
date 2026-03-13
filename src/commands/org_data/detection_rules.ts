@@ -4,10 +4,10 @@
  */
 
 import { faker } from '@faker-js/faker';
-import { createRule } from '../../utils/kibana_api';
-import { ingest } from '../utils/indices';
-import { IntegrationName } from './types';
-import { IntegrationDocument } from './integrations/base_integration';
+import { createRule } from '../../utils/kibana_api.ts';
+import { ingest } from '../utils/indices.ts';
+import { type IntegrationName } from './types.ts';
+import { type IntegrationDocument } from './integrations/base_integration.ts';
 
 interface DetectionRuleDefinition {
   name: string;

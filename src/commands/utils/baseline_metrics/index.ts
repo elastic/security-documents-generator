@@ -1,25 +1,25 @@
 import fs from 'fs';
 import path from 'path';
-import { BaselineMetrics } from './types';
-import { parseTransformStats, createEmptyTransformData } from './parsers/transform_stats_parser';
-import { parseNodeStats } from './parsers/node_stats_parser';
-import { parseClusterHealth } from './parsers/cluster_health_parser';
-import { parseKibanaStats } from './parsers/kibana_stats_parser';
-import { calculateLatencyMetrics } from './calculators/latency_calculator';
-import { calculateSystemMetrics } from './calculators/system_metrics_calculator';
-import { calculateEntityMetrics } from './calculators/entity_metrics_calculator';
-import { calculateKibanaMetrics } from './calculators/kibana_metrics_calculator';
-import { throwWithContext } from './utils';
+import { type BaselineMetrics } from './types.ts';
+import { parseTransformStats, createEmptyTransformData } from './parsers/transform_stats_parser.ts';
+import { parseNodeStats } from './parsers/node_stats_parser.ts';
+import { parseClusterHealth } from './parsers/cluster_health_parser.ts';
+import { parseKibanaStats } from './parsers/kibana_stats_parser.ts';
+import { calculateLatencyMetrics } from './calculators/latency_calculator.ts';
+import { calculateSystemMetrics } from './calculators/system_metrics_calculator.ts';
+import { calculateEntityMetrics } from './calculators/entity_metrics_calculator.ts';
+import { calculateKibanaMetrics } from './calculators/kibana_metrics_calculator.ts';
+import { throwWithContext } from './utils.ts';
 import {
   saveBaseline,
   loadBaseline,
   listBaselines,
   findBaselineByPattern,
   loadBaselineWithPattern,
-} from './storage';
+} from './storage.ts';
 
 // Re-export types
-export type { BaselineMetrics } from './types';
+export type { BaselineMetrics } from './types.ts';
 
 // Re-export storage functions
 export {
