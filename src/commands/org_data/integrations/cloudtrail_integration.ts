@@ -146,7 +146,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     if (awsHosts.length > 0) {
       const ssmUsers = faker.helpers.arrayElements(
         federatedUsers,
-        Math.ceil(federatedUsers.length * 0.4)
+        Math.ceil(federatedUsers.length * 0.4),
       );
       for (const iamUser of ssmUsers) {
         const employee = iamUser.oktaUserId
@@ -314,7 +314,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     iamUser: CloudIamUser,
     employee: Employee,
     org: Organization,
-    awsHosts: Host[]
+    awsHosts: Host[],
   ): IntegrationDocument[] {
     const events: IntegrationDocument[] = [];
     const account = org.cloudAccounts.find((a) => a.id === iamUser.accountId);
@@ -333,8 +333,8 @@ export class CloudTrailIntegration extends BaseIntegration {
           host,
           assumedRoleArn,
           timestamp,
-          accessKeyId
-        )
+          accessKeyId,
+        ),
       );
     }
 
@@ -350,7 +350,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     host: Host,
     assumedRoleArn: string,
     timestamp: string,
-    accessKeyId: string
+    accessKeyId: string,
   ): IntegrationDocument {
     const eventId = faker.string.uuid();
     const sourceIp = faker.internet.ipv4();
