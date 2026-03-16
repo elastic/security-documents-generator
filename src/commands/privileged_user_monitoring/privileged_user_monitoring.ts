@@ -151,10 +151,7 @@ const quickEnableRiskEngineAndRule = async (space: string) => {
     await createRule({ space, query: getMetadataKQL() });
     await enableRiskScore(space);
   } catch (e) {
-    log.error(
-      'Failed to enable risk engine and rule',
-      e instanceof Error ? e.stack : e,
-    );
+    log.error('Failed to enable risk engine and rule', e instanceof Error ? e.stack : e);
   }
 };
 
