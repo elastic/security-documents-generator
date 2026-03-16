@@ -25,20 +25,22 @@ export interface ConfigType {
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object';
-const checkType = (obj: Record<string, unknown>, key: string, type: string, prefix = '') =>
+const checkOptionalType = (obj: Record<string, unknown>, key: string, type: string, prefix = '') =>
   obj[key] !== undefined && typeof obj[key] !== type ? `${prefix}${key}: must be a ${type}` : null;
+const checkRequired = (obj: Record<string, unknown>, key: string, type: string, prefix = '') =>
+  typeof obj[key] !== type ? `${prefix}${key}: must be a ${type}` : null;
 
 const validateNodeConfig = (value: unknown, name: string): string[] => {
   if (!isObject(value)) return [`${name}: must be an object`];
   if (typeof value.node !== 'string') return [`${name}.node: must be a string`];
 
   if ('apiKey' in value) {
-    return [checkType(value, 'apiKey', 'string', `${name}.`)].filter(Boolean) as string[];
+    return [checkRequired(value, 'apiKey', 'string', `${name}.`)].filter(Boolean) as string[];
   }
   if ('username' in value || 'password' in value) {
     return [
-      checkType(value, 'username', 'string', `${name}.`),
-      checkType(value, 'password', 'string', `${name}.`),
+      checkRequired(value, 'username', 'string', `${name}.`),
+      checkRequired(value, 'password', 'string', `${name}.`),
     ].filter(Boolean) as string[];
   }
   return [`${name}: must have either (username + password) or apiKey`];
@@ -56,7 +58,7 @@ const validateConfig = (value: unknown): string[] => {
   return [
     ...validateNodeConfig(value.elastic, 'elastic'),
     ...validateNodeConfig(value.kibana, 'kibana'),
-    ...OPTIONAL_FIELDS.map(([key, type]) => checkType(value, key, type)).filter(Boolean),
+    ...OPTIONAL_FIELDS.map(([key, type]) => checkOptionalType(value, key, type)).filter(Boolean),
   ] as string[];
 };
 
