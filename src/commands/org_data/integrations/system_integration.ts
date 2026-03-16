@@ -1,6 +1,7 @@
 /**
- * System Integration (system.auth + system.syslog)
+ * System Integration (system.auth + system.syslog + system.security)
  * Generates authentication, session, process, and syslog documents for Linux hosts
+ * and Windows Security event log documents for Windows hosts/devices
  */
 
 import {
@@ -126,6 +127,85 @@ const SYSLOG_EVENTS: Array<{ process: string; messages: string[] }> = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Windows Security event log constants
+// ---------------------------------------------------------------------------
+
+const WINDOWS_BRUTE_FORCE_USERNAMES = [
+  'Administrator',
+  'ADMINISTRATOR',
+  'ADMIN',
+  'admin',
+  'USER',
+  'user',
+  'administrator',
+  'Administrateur',
+  'administrador',
+  'HP',
+  'PC',
+  'TEST',
+  'ADMIN1',
+  'guest',
+  'LOGMEINREMOTEUSER',
+  'Elastic2',
+];
+
+const WINDOWS_FAILURE_REASONS = [
+  { reason: 'Unknown user name or bad password.', status: '0xc000006d', subStatus: '0xc0000064' },
+  { reason: 'Unknown user name or bad password.', status: '0xc000006d', subStatus: '0xc000006a' },
+  { reason: 'Account locked out.', status: '0xc0000234', subStatus: '0x0' },
+];
+
+const WINDOWS_LOGON_FAILURE_STATUS_DESCRIPTIONS: Record<string, string> = {
+  '0xc000006d': 'This is either due to a bad username or authentication information',
+  '0xc0000234': 'User logon with account locked',
+};
+
+const WINDOWS_LOGON_FAILURE_SUBSTATUS_DESCRIPTIONS: Record<string, string> = {
+  '0xc0000064': 'User logon with misspelled or bad user account',
+  '0xc000006a': 'User logon with misspelled or bad password',
+  '0x0': 'Status OK.',
+};
+
+const WINDOWS_AUTH_PACKAGES = ['NTLM', 'Negotiate', 'Kerberos'];
+
+const WINDOWS_LOGON_PROCESSES = ['NtLmSsp ', 'Advapi  ', 'Kerberos'];
+
+const WINDOWS_OS_VARIANTS = [
+  {
+    name: 'Windows Server 2022 Datacenter',
+    version: '10.0',
+    build: '20348.4052',
+    kernel: '10.0.20348.4050 (WinBuild.160101.0800)',
+  },
+  {
+    name: 'Windows Server 2019 Standard',
+    version: '10.0',
+    build: '17763.5329',
+    kernel: '10.0.17763.5329 (WinBuild.160101.0800)',
+  },
+];
+
+const WINDOWS_SYSTEM_PROCESSES: Array<{ executable: string; name: string }> = [
+  { executable: String.raw`C:\Windows\System32\services.exe`, name: 'services.exe' },
+  { executable: String.raw`C:\Windows\System32\lsass.exe`, name: 'lsass.exe' },
+  { executable: String.raw`C:\Windows\System32\svchost.exe`, name: 'svchost.exe' },
+];
+
+const WINDOWS_LOGON_TYPES: Record<string, string> = {
+  '2': 'Interactive',
+  '3': 'Network',
+  '5': 'Service',
+  '7': 'Unlock',
+  '10': 'RemoteInteractive',
+};
+
+const WINDOWS_SERVICE_USERS = [
+  { name: 'SYSTEM', domain: 'NT AUTHORITY', sid: 'S-1-5-18' },
+  { name: 'NETWORK SERVICE', domain: 'NT AUTHORITY', sid: 'S-1-5-20' },
+  { name: 'LOCAL SERVICE', domain: 'NT AUTHORITY', sid: 'S-1-5-19' },
+];
+
 /** Cloud service names by provider */
 const CLOUD_SERVICES: Record<string, string> = {
   aws: 'EC2',
@@ -164,6 +244,10 @@ export class SystemIntegration extends BaseIntegration {
       name: 'syslog',
       index: 'logs-system.syslog-default',
     },
+    {
+      name: 'security',
+      index: 'logs-system.security-default',
+    },
   ];
 
   /**
@@ -176,6 +260,7 @@ export class SystemIntegration extends BaseIntegration {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const authDocuments: IntegrationDocument[] = [];
     const syslogDocuments: IntegrationDocument[] = [];
+    const securityDocuments: IntegrationDocument[] = [];
 
     // Use all hosts (they are all Linux-based)
     const hosts = org.hosts;
@@ -198,16 +283,32 @@ export class SystemIntegration extends BaseIntegration {
       syslogDocuments.push(...this.generateSyslogDocuments(host, hostContext, sshEmployees));
     }
 
-    // Sort by timestamp
-    authDocuments.sort(
-      (a, b) => new Date(a['@timestamp']).getTime() - new Date(b['@timestamp']).getTime(),
-    );
-    syslogDocuments.sort(
-      (a, b) => new Date(a['@timestamp']).getTime() - new Date(b['@timestamp']).getTime(),
-    );
+    // Generate Windows security events from employee Windows devices
+    const windowsDevices: Array<{ employee: Employee; device: Device }> = [];
+    for (const employee of org.employees) {
+      for (const device of employee.devices) {
+        if (device.type === 'laptop' && device.platform === 'windows') {
+          windowsDevices.push({ employee, device });
+        }
+      }
+    }
+
+    for (const { employee, device } of windowsDevices) {
+      securityDocuments.push(
+        ...this.generateWindowsSecurityDocuments(employee, device, org),
+      );
+    }
+
+    const sortByTimestamp = (a: IntegrationDocument, b: IntegrationDocument) =>
+      new Date(a['@timestamp']).getTime() - new Date(b['@timestamp']).getTime();
+
+    authDocuments.sort(sortByTimestamp);
+    syslogDocuments.sort(sortByTimestamp);
+    securityDocuments.sort(sortByTimestamp);
 
     documentsMap.set(this.dataStreams[0].index, authDocuments);
     documentsMap.set(this.dataStreams[1].index, syslogDocuments);
+    documentsMap.set(this.dataStreams[2].index, securityDocuments);
 
     return documentsMap;
   }
@@ -397,6 +498,606 @@ export class SystemIntegration extends BaseIntegration {
   }
 
   // ---------------------------------------------------------------------------
+  // Windows Security event log generation (system.security)
+  // ---------------------------------------------------------------------------
+
+  private generateWindowsSecurityDocuments(
+    employee: Employee,
+    device: Device,
+    org: Organization,
+  ): IntegrationDocument[] {
+    const documents: IntegrationDocument[] = [];
+    const windowsHost = this.buildWindowsHostContext(employee, device, org);
+
+    // Successful service logons (SYSTEM, NETWORK SERVICE, LOCAL SERVICE) — 4624
+    const serviceLogonCount = faker.number.int({ min: 2, max: 5 });
+    for (let i = 0; i < serviceLogonCount; i++) {
+      documents.push(this.createWindowsSuccessLogonDocument(windowsHost, 'service'));
+    }
+
+    // Successful interactive / RDP logons from the employee — 4624
+    const interactiveLogonCount = faker.number.int({ min: 1, max: 3 });
+    for (let i = 0; i < interactiveLogonCount; i++) {
+      documents.push(
+        this.createWindowsSuccessLogonDocument(windowsHost, 'employee', employee),
+      );
+    }
+
+    // Failed network logons (brute-force from external IPs) — 4625
+    const failedLogonCount = faker.number.int({ min: 3, max: 12 });
+    for (let i = 0; i < failedLogonCount; i++) {
+      documents.push(this.createWindowsFailedLogonDocument(windowsHost));
+    }
+
+    // Logoff events — 4634
+    const logoffCount = faker.number.int({ min: 1, max: 3 });
+    for (let i = 0; i < logoffCount; i++) {
+      documents.push(this.createWindowsLogoffDocument(windowsHost, employee));
+    }
+
+    // Explicit credential logons (RunAs / network share) — 4648
+    if (faker.number.float() < 0.4) {
+      const explicitCount = faker.number.int({ min: 1, max: 2 });
+      for (let i = 0; i < explicitCount; i++) {
+        documents.push(this.createWindowsExplicitLogonDocument(windowsHost, employee));
+      }
+    }
+
+    // Credential validation (NTLM authentication at DC) — 4776
+    const credValidateCount = faker.number.int({ min: 1, max: 3 });
+    for (let i = 0; i < credValidateCount; i++) {
+      documents.push(this.createWindowsCredentialValidatedDocument(windowsHost, employee));
+    }
+
+    return documents;
+  }
+
+  private createWindowsSuccessLogonDocument(
+    ctx: WindowsHostContext,
+    type: 'service' | 'employee',
+    employee?: Employee,
+  ): IntegrationDocument {
+    const timestamp = this.getRandomTimestamp(48);
+    const created = new Date(
+      new Date(timestamp).getTime() + faker.number.int({ min: 1000, max: 3000 }),
+    ).toISOString();
+
+    let user: { name: string; domain: string; sid: string };
+    let logonTypeKey: string;
+    let subjectUser: { name: string; domain: string; sid: string };
+
+    if (type === 'service') {
+      user = faker.helpers.arrayElement(WINDOWS_SERVICE_USERS);
+      logonTypeKey = '5';
+      subjectUser = {
+        name: `${ctx.hostname.toUpperCase()}$`,
+        domain: 'WORKGROUP',
+        sid: 'S-1-5-18',
+      };
+    } else {
+      const logonType = faker.helpers.arrayElement(['2', '10']);
+      logonTypeKey = logonType;
+      user = {
+        name: employee!.userName,
+        domain: employee!.userName.split('.')[0].toUpperCase(),
+        sid: employee!.windowsSid,
+      };
+      subjectUser = {
+        name: `${ctx.hostname.toUpperCase()}$`,
+        domain: 'WORKGROUP',
+        sid: 'S-1-5-18',
+      };
+    }
+
+    const logonType = WINDOWS_LOGON_TYPES[logonTypeKey] || 'Service';
+    const proc = faker.helpers.arrayElement(WINDOWS_SYSTEM_PROCESSES);
+    const authPackage = faker.helpers.arrayElement(WINDOWS_AUTH_PACKAGES);
+    const logonProcess = faker.helpers.arrayElement(WINDOWS_LOGON_PROCESSES);
+    const logonId = `0x${faker.string.hexadecimal({ length: 5, casing: 'lower', prefix: '' })}`;
+
+    const message =
+      `An account was successfully logged on.\n\nSubject:\n\tSecurity ID:\t\t${subjectUser.sid}\n\t` +
+      `Account Name:\t\t${subjectUser.name}\n\tAccount Domain:\t\t${subjectUser.domain}\n\tLogon ID:\t\t0x3e7\n\n` +
+      `Logon Information:\n\tLogon Type:\t\t${logonTypeKey}\n\t` +
+      `New Logon:\n\tSecurity ID:\t\t${user.sid}\n\tAccount Name:\t\t${user.name}\n\t` +
+      `Account Domain:\t\t${user.domain}\n\tLogon ID:\t\t${logonId}`;
+
+    const relatedUsers = Array.from(new Set([user.name, subjectUser.name]));
+
+    return {
+      '@timestamp': timestamp,
+      agent: {
+        ephemeral_id: faker.string.uuid(),
+        id: ctx.agentId,
+        name: ctx.hostname,
+        type: 'filebeat',
+        version: ctx.agentVersion,
+      },
+      cloud: ctx.cloud,
+      data_stream: { dataset: 'system.security', namespace: 'default', type: 'logs' },
+      ecs: { version: '8.11.0' },
+      elastic_agent: { id: ctx.agentId, snapshot: false, version: ctx.agentVersion },
+      event: {
+        action: 'logged-in',
+        agent_id_status: 'verified',
+        category: ['authentication'],
+        code: '4624',
+        created,
+        dataset: 'system.security',
+        ingested: new Date().toISOString(),
+        kind: 'event',
+        module: 'system',
+        outcome: 'success',
+        provider: 'Microsoft-Windows-Security-Auditing',
+        type: ['start'],
+      },
+      host: ctx.host,
+      input: { type: 'winlog' },
+      log: { level: 'information' },
+      message,
+      process: { executable: proc.executable, name: proc.name, pid: faker.number.int({ min: 400, max: 8000 }) },
+      related: { user: relatedUsers },
+      user: { domain: user.domain, id: user.sid, name: user.name },
+      winlog: {
+        activity_id: `{${faker.string.uuid().toUpperCase()}}`,
+        channel: 'Security',
+        computer_name: ctx.hostname,
+        event_data: {
+          AuthenticationPackageName: authPackage,
+          ElevatedToken: faker.helpers.arrayElement(['Yes', 'No']),
+          ImpersonationLevel: 'Impersonation',
+          KeyLength: '0',
+          LogonProcessName: logonProcess,
+          LogonType: logonTypeKey,
+          SubjectDomainName: subjectUser.domain,
+          SubjectLogonId: '0x3e7',
+          SubjectUserName: subjectUser.name,
+          SubjectUserSid: subjectUser.sid,
+          TargetDomainName: user.domain,
+          TargetLinkedLogonId: '0x0',
+          TargetLogonId: logonId,
+          TargetUserName: user.name,
+          TargetUserSid: user.sid,
+          VirtualAccount: 'No',
+        },
+        event_id: '4624',
+        keywords: ['Audit Success'],
+        logon: { id: logonId, type: logonType },
+        opcode: 'Info',
+        process: {
+          pid: faker.number.int({ min: 600, max: 900 }),
+          thread: { id: faker.number.int({ min: 1000, max: 9999 }) },
+        },
+        provider_guid: '{54849625-5478-4994-A5BA-3E3B0328C30D}',
+        provider_name: 'Microsoft-Windows-Security-Auditing',
+        record_id: faker.string.numeric(7),
+        task: 'Logon',
+        version: 2,
+      },
+    } as IntegrationDocument;
+  }
+
+  private createWindowsFailedLogonDocument(ctx: WindowsHostContext): IntegrationDocument {
+    const timestamp = this.getRandomTimestamp(48);
+    const created = new Date(
+      new Date(timestamp).getTime() + faker.number.int({ min: 1000, max: 3000 }),
+    ).toISOString();
+
+    const attackerIp = faker.helpers.arrayElement(ATTACKER_IPS);
+    const bruteForceUser = faker.helpers.arrayElement(WINDOWS_BRUTE_FORCE_USERNAMES);
+    const failureInfo = faker.helpers.arrayElement(WINDOWS_FAILURE_REASONS);
+    const sourcePort = faker.number.int({ min: 30000, max: 65535 });
+
+    const message =
+      `An account failed to log on.\n\nSubject:\n\tSecurity ID:\t\tS-1-0-0\n\t` +
+      `Account Name:\t\t-\n\tAccount Domain:\t\t-\n\tLogon ID:\t\t0x0\n\n` +
+      `Logon Type:\t\t\t3\n\n` +
+      `Account For Which Logon Failed:\n\tSecurity ID:\t\tS-1-0-0\n\t` +
+      `Account Name:\t\t${bruteForceUser}\n\tAccount Domain:\t\t\n\n` +
+      `Failure Information:\n\tFailure Reason:\t\t${failureInfo.reason}\n\t` +
+      `Status:\t\t\t${failureInfo.status}\n\tSub Status:\t\t${failureInfo.subStatus}`;
+
+    return {
+      '@timestamp': timestamp,
+      agent: {
+        ephemeral_id: faker.string.uuid(),
+        id: ctx.agentId,
+        name: ctx.hostname,
+        type: 'filebeat',
+        version: ctx.agentVersion,
+      },
+      cloud: ctx.cloud,
+      data_stream: { dataset: 'system.security', namespace: 'default', type: 'logs' },
+      ecs: { version: '8.11.0' },
+      elastic_agent: { id: ctx.agentId, snapshot: false, version: ctx.agentVersion },
+      event: {
+        action: 'logon-failed',
+        agent_id_status: 'verified',
+        category: ['authentication'],
+        code: '4625',
+        created,
+        dataset: 'system.security',
+        ingested: new Date().toISOString(),
+        kind: 'event',
+        module: 'system',
+        outcome: 'failure',
+        provider: 'Microsoft-Windows-Security-Auditing',
+        type: ['start'],
+      },
+      host: ctx.host,
+      input: { type: 'winlog' },
+      log: { level: 'information' },
+      message,
+      process: { pid: 0 },
+      related: { ip: [attackerIp], user: [bruteForceUser] },
+      source: { ip: attackerIp, port: sourcePort },
+      user: { id: 'S-1-0-0', name: bruteForceUser },
+      winlog: {
+        activity_id: `{${faker.string.uuid().toUpperCase()}}`,
+        channel: 'Security',
+        computer_name: ctx.hostname,
+        event_data: {
+          AuthenticationPackageName: 'NTLM',
+          FailureReason: failureInfo.reason,
+          KeyLength: '0',
+          LogonProcessName: 'NtLmSsp ',
+          LogonType: '3',
+          Status: failureInfo.status,
+          SubStatus: failureInfo.subStatus,
+          SubjectLogonId: '0x0',
+          SubjectUserSid: 'S-1-0-0',
+          TargetUserName: bruteForceUser,
+          TargetUserSid: 'S-1-0-0',
+        },
+        event_id: '4625',
+        keywords: ['Audit Failure'],
+        logon: {
+          failure: {
+            reason: failureInfo.reason,
+            status: WINDOWS_LOGON_FAILURE_STATUS_DESCRIPTIONS[failureInfo.status] || failureInfo.reason,
+            sub_status: WINDOWS_LOGON_FAILURE_SUBSTATUS_DESCRIPTIONS[failureInfo.subStatus] || failureInfo.subStatus,
+          },
+          id: '0x0',
+          type: 'Network',
+        },
+        opcode: 'Info',
+        process: {
+          pid: faker.number.int({ min: 600, max: 900 }),
+          thread: { id: faker.number.int({ min: 1000, max: 9999 }) },
+        },
+        provider_guid: '{54849625-5478-4994-A5BA-3E3B0328C30D}',
+        provider_name: 'Microsoft-Windows-Security-Auditing',
+        record_id: faker.string.numeric(7),
+        task: 'Logon',
+      },
+    } as IntegrationDocument;
+  }
+
+  private createWindowsLogoffDocument(
+    ctx: WindowsHostContext,
+    employee: Employee,
+  ): IntegrationDocument {
+    const timestamp = this.getRandomTimestamp(48);
+    const created = new Date(
+      new Date(timestamp).getTime() + faker.number.int({ min: 1000, max: 3000 }),
+    ).toISOString();
+
+    const isServiceLogoff = faker.number.float() < 0.5;
+    const user = isServiceLogoff
+      ? faker.helpers.arrayElement(WINDOWS_SERVICE_USERS)
+      : { name: employee.userName, domain: employee.userName.split('.')[0].toUpperCase(), sid: employee.windowsSid };
+    const logonTypeKey = isServiceLogoff ? '5' : faker.helpers.arrayElement(['2', '3', '10']);
+    const logonType = WINDOWS_LOGON_TYPES[logonTypeKey] || 'Interactive';
+    const logonId = `0x${faker.string.hexadecimal({ length: 5, casing: 'lower', prefix: '' })}`;
+
+    const message =
+      `An account was logged off.\n\nSubject:\n\tSecurity ID:\t\t${user.sid}\n\t` +
+      `Account Name:\t\t${user.name}\n\tAccount Domain:\t\t${user.domain}\n\t` +
+      `Logon ID:\t\t${logonId}\n\nLogon Type:\t\t\t${logonTypeKey}`;
+
+    return {
+      '@timestamp': timestamp,
+      agent: {
+        ephemeral_id: faker.string.uuid(),
+        id: ctx.agentId,
+        name: ctx.hostname,
+        type: 'filebeat',
+        version: ctx.agentVersion,
+      },
+      cloud: ctx.cloud,
+      data_stream: { dataset: 'system.security', namespace: 'default', type: 'logs' },
+      ecs: { version: '8.11.0' },
+      elastic_agent: { id: ctx.agentId, snapshot: false, version: ctx.agentVersion },
+      event: {
+        action: 'logged-out',
+        agent_id_status: 'verified',
+        category: ['authentication'],
+        code: '4634',
+        created,
+        dataset: 'system.security',
+        ingested: new Date().toISOString(),
+        kind: 'event',
+        module: 'system',
+        outcome: 'success',
+        provider: 'Microsoft-Windows-Security-Auditing',
+        type: ['end'],
+      },
+      host: ctx.host,
+      input: { type: 'winlog' },
+      log: { level: 'information' },
+      message,
+      process: { pid: faker.number.int({ min: 400, max: 8000 }) },
+      related: { user: [user.name] },
+      user: { domain: user.domain, id: user.sid, name: user.name },
+      winlog: {
+        activity_id: `{${faker.string.uuid().toUpperCase()}}`,
+        channel: 'Security',
+        computer_name: ctx.hostname,
+        event_data: {
+          LogonType: logonTypeKey,
+          TargetDomainName: user.domain,
+          TargetLogonId: logonId,
+          TargetUserName: user.name,
+          TargetUserSid: user.sid,
+        },
+        event_id: '4634',
+        keywords: ['Audit Success'],
+        logon: { id: logonId, type: logonType },
+        opcode: 'Info',
+        process: {
+          pid: faker.number.int({ min: 600, max: 900 }),
+          thread: { id: faker.number.int({ min: 1000, max: 9999 }) },
+        },
+        provider_guid: '{54849625-5478-4994-A5BA-3E3B0328C30D}',
+        provider_name: 'Microsoft-Windows-Security-Auditing',
+        record_id: faker.string.numeric(7),
+        task: 'Logoff',
+        version: 0,
+      },
+    } as IntegrationDocument;
+  }
+
+  private createWindowsExplicitLogonDocument(
+    ctx: WindowsHostContext,
+    employee: Employee,
+  ): IntegrationDocument {
+    const timestamp = this.getRandomTimestamp(48);
+    const created = new Date(
+      new Date(timestamp).getTime() + faker.number.int({ min: 1000, max: 3000 }),
+    ).toISOString();
+
+    const subjectUser = {
+      name: employee.userName,
+      domain: employee.userName.split('.')[0].toUpperCase(),
+      sid: employee.windowsSid,
+    };
+    const targetUser = faker.helpers.weightedArrayElement([
+      { value: { name: 'Administrator', domain: ctx.hostname.toUpperCase(), sid: 'S-1-5-21-0-0-0-500' }, weight: 3 },
+      { value: faker.helpers.arrayElement(WINDOWS_SERVICE_USERS), weight: 2 },
+    ]);
+    const subjectLogonId = `0x${faker.string.hexadecimal({ length: 5, casing: 'lower', prefix: '' })}`;
+    const targetServer = faker.helpers.arrayElement([ctx.hostname, 'localhost', faker.internet.domainWord()]);
+    const proc = faker.helpers.arrayElement(WINDOWS_SYSTEM_PROCESSES);
+
+    const message =
+      `A logon was attempted using explicit credentials.\n\nSubject:\n\tSecurity ID:\t\t${subjectUser.sid}\n\t` +
+      `Account Name:\t\t${subjectUser.name}\n\tAccount Domain:\t\t${subjectUser.domain}\n\t` +
+      `Logon ID:\t\t${subjectLogonId}\n\n` +
+      `Account Whose Credentials Were Used:\n\tAccount Name:\t\t${targetUser.name}\n\t` +
+      `Account Domain:\t\t${targetUser.domain}\n\n` +
+      `Target Server:\n\tTarget Server Name:\t${targetServer}`;
+
+    const relatedUsers = Array.from(new Set([subjectUser.name, targetUser.name]));
+
+    return {
+      '@timestamp': timestamp,
+      agent: {
+        ephemeral_id: faker.string.uuid(),
+        id: ctx.agentId,
+        name: ctx.hostname,
+        type: 'filebeat',
+        version: ctx.agentVersion,
+      },
+      cloud: ctx.cloud,
+      data_stream: { dataset: 'system.security', namespace: 'default', type: 'logs' },
+      ecs: { version: '8.11.0' },
+      elastic_agent: { id: ctx.agentId, snapshot: false, version: ctx.agentVersion },
+      event: {
+        action: 'logged-in-explicit',
+        agent_id_status: 'verified',
+        category: ['authentication'],
+        code: '4648',
+        created,
+        dataset: 'system.security',
+        ingested: new Date().toISOString(),
+        kind: 'event',
+        module: 'system',
+        outcome: 'success',
+        provider: 'Microsoft-Windows-Security-Auditing',
+        type: ['start'],
+      },
+      host: ctx.host,
+      input: { type: 'winlog' },
+      log: { level: 'information' },
+      message,
+      process: { executable: proc.executable, name: proc.name, pid: faker.number.int({ min: 400, max: 8000 }) },
+      related: { user: relatedUsers },
+      user: {
+        domain: subjectUser.domain,
+        id: subjectUser.sid,
+        name: subjectUser.name,
+        target: { domain: targetUser.domain, id: targetUser.sid, name: targetUser.name },
+      },
+      winlog: {
+        activity_id: `{${faker.string.uuid().toUpperCase()}}`,
+        channel: 'Security',
+        computer_name: ctx.hostname,
+        event_data: {
+          LogonGuid: `{${faker.string.uuid().toUpperCase()}}`,
+          ProcessName: proc.executable,
+          SubjectDomainName: subjectUser.domain,
+          SubjectLogonId: subjectLogonId,
+          SubjectUserName: subjectUser.name,
+          SubjectUserSid: subjectUser.sid,
+          TargetDomainName: targetUser.domain,
+          TargetServerName: targetServer,
+          TargetUserName: targetUser.name,
+        },
+        event_id: '4648',
+        keywords: ['Audit Success'],
+        opcode: 'Info',
+        process: {
+          pid: faker.number.int({ min: 600, max: 900 }),
+          thread: { id: faker.number.int({ min: 1000, max: 9999 }) },
+        },
+        provider_guid: '{54849625-5478-4994-A5BA-3E3B0328C30D}',
+        provider_name: 'Microsoft-Windows-Security-Auditing',
+        record_id: faker.string.numeric(7),
+        task: 'Logon',
+        version: 0,
+      },
+    } as IntegrationDocument;
+  }
+
+  private createWindowsCredentialValidatedDocument(
+    ctx: WindowsHostContext,
+    employee: Employee,
+  ): IntegrationDocument {
+    const timestamp = this.getRandomTimestamp(48);
+    const created = new Date(
+      new Date(timestamp).getTime() + faker.number.int({ min: 1000, max: 3000 }),
+    ).toISOString();
+
+    const isFailure = faker.number.float() < 0.15;
+    const isAttacker = isFailure && faker.number.float() < 0.7;
+
+    const userName = isAttacker
+      ? faker.helpers.arrayElement(WINDOWS_BRUTE_FORCE_USERNAMES)
+      : employee.userName;
+    const errorCode = isFailure ? '0xC0000064' : '0x0';
+    const outcome = isFailure ? 'failure' : 'success';
+
+    const message = isFailure
+      ? `The domain controller failed to validate the credentials for an account.\n\n` +
+        `Authentication Package:\tMICROSOFT_AUTHENTICATION_PACKAGE_V1_0\n` +
+        `Logon Account:\t${userName}\n` +
+        `Source Workstation:\t${ctx.hostname}\n` +
+        `Error Code:\t${errorCode}`
+      : `The domain controller attempted to validate the credentials for an account.\n\n` +
+        `Authentication Package:\tMICROSOFT_AUTHENTICATION_PACKAGE_V1_0\n` +
+        `Logon Account:\t${userName}\n` +
+        `Source Workstation:\t${ctx.hostname}\n` +
+        `Error Code:\t${errorCode}`;
+
+    return {
+      '@timestamp': timestamp,
+      agent: {
+        ephemeral_id: faker.string.uuid(),
+        id: ctx.agentId,
+        name: ctx.hostname,
+        type: 'filebeat',
+        version: ctx.agentVersion,
+      },
+      cloud: ctx.cloud,
+      data_stream: { dataset: 'system.security', namespace: 'default', type: 'logs' },
+      ecs: { version: '8.11.0' },
+      elastic_agent: { id: ctx.agentId, snapshot: false, version: ctx.agentVersion },
+      event: {
+        action: 'credential-validated',
+        agent_id_status: 'verified',
+        category: ['authentication'],
+        code: '4776',
+        created,
+        dataset: 'system.security',
+        ingested: new Date().toISOString(),
+        kind: 'event',
+        module: 'system',
+        outcome,
+        provider: 'Microsoft-Windows-Security-Auditing',
+        type: ['info'],
+      },
+      host: ctx.host,
+      input: { type: 'winlog' },
+      log: { level: 'information' },
+      message,
+      related: { user: [userName] },
+      user: { name: userName },
+      winlog: {
+        activity_id: `{${faker.string.uuid().toUpperCase()}}`,
+        channel: 'Security',
+        computer_name: ctx.hostname,
+        event_data: {
+          PackageName: 'MICROSOFT_AUTHENTICATION_PACKAGE_V1_0',
+          Status: errorCode,
+          TargetUserName: userName,
+          Workstation: ctx.hostname,
+        },
+        event_id: '4776',
+        keywords: [isFailure ? 'Audit Failure' : 'Audit Success'],
+        opcode: 'Info',
+        process: {
+          pid: faker.number.int({ min: 600, max: 900 }),
+          thread: { id: faker.number.int({ min: 1000, max: 9999 }) },
+        },
+        provider_guid: '{54849625-5478-4994-A5BA-3E3B0328C30D}',
+        provider_name: 'Microsoft-Windows-Security-Auditing',
+        record_id: faker.string.numeric(7),
+        task: 'Credential Validation',
+        version: 0,
+      },
+    } as IntegrationDocument;
+  }
+
+  private buildWindowsHostContext(
+    employee: Employee,
+    device: Device,
+    org: Organization,
+  ): WindowsHostContext {
+    const agentId = faker.string.uuid();
+    const hostname = `${employee.userName}-windows`;
+    const os = faker.helpers.arrayElement(WINDOWS_OS_VARIANTS);
+    const hostIp = device.ipAddress;
+    const hostIpv6 = `fe80::${faker.string.hexadecimal({ length: 4, prefix: '' })}:${faker.string.hexadecimal({ length: 4, prefix: '' })}:${faker.string.hexadecimal({ length: 4, prefix: '' })}:${faker.string.hexadecimal({ length: 4, prefix: '' })}`;
+
+    const cloudAccount = org.cloudAccounts[0];
+    const accountId = cloudAccount?.id || faker.string.uuid();
+    const provider = cloudAccount?.provider || 'gcp';
+
+    return {
+      agentId,
+      agentVersion: '9.0.3',
+      hostname,
+      host: {
+        architecture: 'x86_64',
+        hostname,
+        id: device.id,
+        ip: [hostIp, hostIpv6],
+        mac: [device.macAddress],
+        name: hostname,
+        os: {
+          build: os.build,
+          family: 'windows',
+          kernel: os.kernel,
+          name: os.name,
+          platform: 'windows',
+          type: 'windows',
+          version: os.version,
+        },
+      },
+      cloud: {
+        account: { id: accountId },
+        availability_zone: `us-central1-${faker.helpers.arrayElement(['a', 'b', 'c', 'f'])}`,
+        instance: { id: faker.string.numeric(19), name: hostname },
+        machine: { type: faker.helpers.arrayElement(['e2-standard-4', 'n1-standard-2']) },
+        project: { id: accountId },
+        provider,
+        region: 'us-central1',
+        service: { name: CLOUD_SERVICES[provider] || 'Compute' },
+      },
+    };
+  }
+
+  // ---------------------------------------------------------------------------
   // Syslog document generation
   // ---------------------------------------------------------------------------
 
@@ -576,6 +1277,17 @@ export class SystemIntegration extends BaseIntegration {
 interface HostContext {
   agentId: string;
   hostIp: string;
+  host: Record<string, unknown>;
+  cloud: Record<string, unknown>;
+}
+
+/**
+ * Windows host context built once per employee Windows device
+ */
+interface WindowsHostContext {
+  agentId: string;
+  agentVersion: string;
+  hostname: string;
   host: Record<string, unknown>;
   cloud: Record<string, unknown>;
 }
