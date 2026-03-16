@@ -26,9 +26,7 @@ export interface ConfigType {
 
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object';
 const checkType = (obj: Record<string, unknown>, key: string, type: string, prefix = '') =>
-  obj[key] !== undefined && typeof obj[key] !== type
-    ? `${prefix}${key}: must be a ${type}`
-    : null;
+  obj[key] !== undefined && typeof obj[key] !== type ? `${prefix}${key}: must be a ${type}` : null;
 
 const validateNodeConfig = (value: unknown, name: string): string[] => {
   if (!isObject(value)) return [`${name}: must be an object`];
