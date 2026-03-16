@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { type BaselineMetrics } from './types.ts';
 import { BASELINES_DIR, readFileSafely, throwWithContext } from './utils.ts';
+import { log } from '../../../utils/logger.ts';
 
 /**
  * Save baseline to file
@@ -11,7 +12,7 @@ export const saveBaseline = (baseline: BaselineMetrics): string => {
   const filepath = path.join(BASELINES_DIR, filename);
 
   fs.writeFileSync(filepath, JSON.stringify(baseline, null, 2));
-  console.log(`Baseline saved to: ${filepath}`);
+  log.info(`Baseline saved to: ${filepath}`);
 
   return filepath;
 };
@@ -129,27 +130,27 @@ export const loadBaselineWithPattern = (
       if (fs.existsSync(baselinePattern)) {
         baselinePath = baselinePattern;
         baseline = loadBaseline(baselinePath);
-        console.log(`Using baseline: ${baselinePath}`);
+        log.info(`Using baseline: ${baselinePath}`);
       } else {
-        console.error(`❌ Baseline not found: ${baselinePattern}`);
-        console.error(`   Tried pattern matching and direct path, but no matches found.`);
+        log.error(`❌ Baseline not found: ${baselinePattern}`);
+        log.error(`   Tried pattern matching and direct path, but no matches found.`);
         process.exit(1);
       }
     } else {
       baselinePath = matchedPath;
       baseline = loadBaseline(baselinePath);
-      console.log(`Using baseline: ${baselinePath} (matched pattern: ${baselinePattern})`);
+      log.info(`Using baseline: ${baselinePath} (matched pattern: ${baselinePattern})`);
     }
   } else {
     // Use latest baseline
     const baselines = listBaselines();
     if (baselines.length === 0) {
-      console.error('❌ No baselines found. Create one first with create-baseline command.');
+      log.error('❌ No baselines found. Create one first with create-baseline command.');
       process.exit(1);
     }
     baselinePath = baselines[0];
     baseline = loadBaseline(baselinePath);
-    console.log(`Using latest baseline: ${baselinePath}`);
+    log.info(`Using latest baseline: ${baselinePath}`);
   }
 
   return { baseline, path: baselinePath };

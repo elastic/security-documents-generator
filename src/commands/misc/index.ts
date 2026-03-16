@@ -1,5 +1,6 @@
 import { type Command } from 'commander';
 import { type CommandModule } from '../types.ts';
+import { log } from '../../utils/logger.ts';
 import { kibanaApi } from '../../utils/index.ts';
 import { generateAssetCriticality } from './asset_criticality.ts';
 import { generateAiInsights } from './insights.ts';
@@ -98,9 +99,7 @@ Examples:
         wrapAction(async (options) => {
           const entityType = options.type as EntityType | undefined;
           if (entityType && !ENTITY_TYPES.includes(entityType)) {
-            console.error(
-              `Invalid --type: ${entityType}. Must be one of: ${ENTITY_TYPES.join(', ')}`,
-            );
+            log.error(`Invalid --type: ${entityType}. Must be one of: ${ENTITY_TYPES.join(', ')}`);
             process.exit(1);
           }
           await singleEntityCommand({

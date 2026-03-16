@@ -1,6 +1,7 @@
 import { input, select } from '@inquirer/prompts';
 import fs from 'fs';
 import { configPath, type ConfigType, hasValidConfig } from '../get_config.ts';
+import { log } from './logger.ts';
 
 export const createConfigFileOnFirstRun = async () => {
   // Check if we have a valid config from env vars or config.json
@@ -8,7 +9,7 @@ export const createConfigFileOnFirstRun = async () => {
     return;
   }
 
-  console.log(`
+  log.info(`
     Hi there! Looks like this is your first run 👋
 
     First we need to create a config file for you.
@@ -77,7 +78,7 @@ export const createConfigFileOnFirstRun = async () => {
 
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 
-  console.log(`
+  log.info(`
     
     Config file created at ${configPath} 🎉
 

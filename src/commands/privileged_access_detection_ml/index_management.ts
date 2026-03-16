@@ -1,4 +1,5 @@
 import { getEsClient, indexCheck, ingest } from '../utils/indices.ts';
+import { log } from '../../utils/logger.ts';
 
 export const createPrivilegedAccessDetectionSourceIndex = async (index: string) => {
   try {
@@ -88,7 +89,7 @@ export const createPrivilegedAccessDetectionSourceIndex = async (index: string) 
       },
     });
   } catch (error) {
-    console.log(
+    log.info(
       'There was an error creating the source data index. This is likely a field mapping issue: ',
       error,
     );
@@ -102,9 +103,9 @@ export const deleteSourceIndex = async (index: string) => {
       index: [index],
       ignore_unavailable: true,
     });
-    console.log('Index deleted');
+    log.info('Index deleted');
   } catch (error) {
-    console.log(
+    log.info(
       'There was an error deleting the source index. Will continue, and attempt to recreate the index: ',
       error,
     );

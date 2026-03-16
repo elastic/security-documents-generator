@@ -1,5 +1,6 @@
 import { faker } from '@faker-js/faker';
 import dayjs from 'dayjs';
+import { log } from '../../utils/logger.ts';
 import { ingest, getEsClient } from '../utils/indices.ts';
 import {
   installPackage,
@@ -111,13 +112,13 @@ async function installCspIntegration(): Promise<void> {
   if (policies.length > 0) {
     // Policy exists but index doesn't — may need a Kibana restart.
     // Wait briefly for the initialization to complete (it may be in progress).
-    console.log('CSP package policy exists, waiting for plugin initialization...');
+    log.info('CSP package policy exists, waiting for plugin initialization...');
     await waitForScoresIndex(esClient);
     return;
   }
 
   // No package policy — create one to trigger the CSP plugin's initialize()
-  console.log('Creating CSP package policy to trigger plugin initialization...');
+  log.info('Creating CSP package policy to trigger plugin initialization...');
 
   const { item: pkgInfo } = await getPackageInfo({ packageName: CSP_PACKAGE_NAME });
 
@@ -160,12 +161,12 @@ async function waitForScoresIndex(esClient: ReturnType<typeof getEsClient>): Pro
   for (let i = 0; i < maxAttempts; i++) {
     const exists = await esClient.indices.exists({ index: CSP_SCORES_INDEX_NAME });
     if (exists) {
-      console.log('CSP scores index created successfully');
+      log.info('CSP scores index created successfully');
       return;
     }
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
-  console.log('Warning: CSP scores index was not created within timeout');
+  log.info('Warning: CSP scores index was not created within timeout');
 }
 
 /**
@@ -180,8 +181,8 @@ export function resolveDataSources(input: string[]): DataSource[] {
     } else if ((ALL_DATA_SOURCES as readonly string[]).includes(item)) {
       resolved.add(item as DataSource);
     } else {
-      console.error(`Unknown data source: ${item}`);
-      console.error(`Valid options: all, elastic_all, ${ALL_DATA_SOURCES.join(', ')}`);
+      log.error(`Unknown data source: ${item}`);
+      log.error(`Valid options: all, elastic_all, ${ALL_DATA_SOURCES.join(', ')}`);
       process.exit(1);
     }
   }
@@ -232,16 +233,16 @@ async function triggerAndWaitForTransforms(transformIds: string[]): Promise<void
       const state = stats.transforms[0]?.state;
       if (state === 'stopped') {
         await esClient.transform.startTransform({ transform_id: id });
-        console.log(`Started transform '${id}'`);
+        log.info(`Started transform '${id}'`);
       }
       checkpoints.set(id, stats.transforms[0]?.checkpointing?.last?.checkpoint ?? 0);
       await esClient.transform.scheduleNowTransform({ transform_id: id });
     } catch (err) {
-      console.log(`Warning: failed to trigger transform '${id}':`, err);
+      log.info(`Warning: failed to trigger transform '${id}':`, err);
     }
   }
 
-  console.log(`Waiting for ${transformIds.length} transform(s) to complete...`);
+  log.info(`Waiting for ${transformIds.length} transform(s) to complete...`);
 
   // 2. Poll all transforms, re-scheduling periodically to handle sync delay
   const pending = new Set(checkpoints.keys());
@@ -271,7 +272,7 @@ async function triggerAndWaitForTransforms(transformIds: string[]): Promise<void
         const current = await esClient.transform.getTransformStats({ transform_id: id });
         const currentCheckpoint = current.transforms[0]?.checkpointing?.last?.checkpoint ?? 0;
         if (currentCheckpoint > (checkpoints.get(id) ?? 0)) {
-          console.log(`Transform '${id}' completed checkpoint ${currentCheckpoint}`);
+          log.info(`Transform '${id}' completed checkpoint ${currentCheckpoint}`);
           pending.delete(id);
         }
       } catch {
@@ -281,7 +282,7 @@ async function triggerAndWaitForTransforms(transformIds: string[]): Promise<void
   }
 
   if (pending.size > 0) {
-    console.log(`Warning: transforms did not complete within timeout: ${[...pending].join(', ')}`);
+    log.info(`Warning: transforms did not complete within timeout: ${[...pending].join(', ')}`);
   }
 }
 
@@ -293,9 +294,9 @@ export const generateCloudSecurityPosture = async ({
 }: GenerateCSPParams) => {
   faker.seed(seed);
 
-  console.log(`Generating CSP data with seed: ${seed}`);
-  console.log(`Data sources: ${dataSources.join(', ')}`);
-  console.log(`Findings count per source: ${findingsCount}`);
+  log.info(`Generating CSP data with seed: ${seed}`);
+  log.info(`Data sources: ${dataSources.join(', ')}`);
+  log.info(`Findings count per source: ${findingsCount}`);
 
   // Derive which providers/distributions are needed from selected data sources
   const cspmProviders = new Set<'aws' | 'gcp' | 'azure'>();
@@ -331,12 +332,12 @@ export const generateCloudSecurityPosture = async ({
   const clusters = kspmDistributions.size > 0 ? generateKSPMClusters([...kspmDistributions]) : [];
 
   if (accounts.length > 0) {
-    console.log(
+    log.info(
       `Generated ${accounts.length} account(s): ${accounts.map((a) => `${a.provider}:${a.id}`).join(', ')}`,
     );
   }
   if (clusters.length > 0) {
-    console.log(
+    log.info(
       `Generated ${clusters.length} cluster(s): ${clusters.map((c) => `${c.distribution}:${c.id.slice(0, 8)}`).join(', ')}`,
     );
   }
@@ -368,7 +369,7 @@ export const generateCloudSecurityPosture = async ({
       if (!dataSources.includes(`elastic_cspm_${provider}` as DataSource)) continue;
 
       const providerAccounts = accounts.filter((a) => a.provider === provider);
-      console.log(`\n--- Generating Elastic CSPM ${provider.toUpperCase()} ---`);
+      log.info(`\n--- Generating Elastic CSPM ${provider.toUpperCase()} ---`);
 
       for (const account of providerAccounts) {
         const docs = faker.helpers.multiple(
@@ -378,7 +379,7 @@ export const generateCloudSecurityPosture = async ({
         cspmMisconfigs.push(...docs);
       }
 
-      console.log(
+      log.info(
         `Generated ${providerAccounts.length * findingsCount} CSPM ${provider} misconfigurations`,
       );
     }
@@ -393,7 +394,7 @@ export const generateCloudSecurityPosture = async ({
       if (!dataSources.includes(`elastic_kspm_${distribution}` as DataSource)) continue;
 
       const distClusters = clusters.filter((c) => c.distribution === distribution);
-      console.log(`\n--- Generating Elastic KSPM ${distribution} ---`);
+      log.info(`\n--- Generating Elastic KSPM ${distribution} ---`);
 
       for (const cluster of distClusters) {
         const docs = faker.helpers.multiple(
@@ -403,7 +404,7 @@ export const generateCloudSecurityPosture = async ({
         kspmMisconfigs.push(...docs);
       }
 
-      console.log(
+      log.info(
         `Generated ${distClusters.length * findingsCount} KSPM ${distribution} misconfigurations`,
       );
     }
@@ -415,7 +416,7 @@ export const generateCloudSecurityPosture = async ({
   // ------- Native Elastic: CNVM -------
   if (hasAnyCnvm) {
     const awsAccounts = accounts.filter((a) => a.provider === 'aws');
-    console.log('\n--- Generating Elastic CNVM vulnerabilities ---');
+    log.info('\n--- Generating Elastic CNVM vulnerabilities ---');
 
     for (const account of awsAccounts) {
       const docs = faker.helpers.multiple(() => createCNVMVulnerability({ account }), {
@@ -424,7 +425,7 @@ export const generateCloudSecurityPosture = async ({
       cnvmVulnerabilities.push(...docs);
     }
 
-    console.log(`Generated ${cnvmVulnerabilities.length} CNVM vulnerabilities`);
+    log.info(`Generated ${cnvmVulnerabilities.length} CNVM vulnerabilities`);
     await ingest(VULNERABILITY_INDEX, cnvmVulnerabilities);
   }
 
@@ -440,52 +441,52 @@ export const generateCloudSecurityPosture = async ({
   const skipPipeline = { pipeline: '_none' };
 
   if (dataSources.includes('wiz_misconfigs')) {
-    console.log('\n--- Generating Wiz misconfigurations ---');
+    log.info('\n--- Generating Wiz misconfigurations ---');
     const docs = generateDocs(accounts, findingsCount, (account) =>
       createWizMisconfiguration({ account }),
     );
-    console.log(`Generated ${docs.length} Wiz misconfigurations`);
+    log.info(`Generated ${docs.length} Wiz misconfigurations`);
     await ingest(WIZ_MISCONFIGURATION_SOURCE_INDEX, docs, skipPipeline);
     sourceIndicesForTransforms.add(WIZ_MISCONFIGURATION_SOURCE_INDEX);
   }
 
   if (dataSources.includes('wiz_vulnerabilities')) {
-    console.log('\n--- Generating Wiz vulnerabilities ---');
+    log.info('\n--- Generating Wiz vulnerabilities ---');
     const docs = generateDocs(accounts, findingsCount, (account) =>
       createWizVulnerability({ account }),
     );
-    console.log(`Generated ${docs.length} Wiz vulnerabilities`);
+    log.info(`Generated ${docs.length} Wiz vulnerabilities`);
     await ingest(WIZ_VULNERABILITY_SOURCE_INDEX, docs, skipPipeline);
     sourceIndicesForTransforms.add(WIZ_VULNERABILITY_SOURCE_INDEX);
   }
 
   // ------- 3rd Party: Qualys -------
   if (dataSources.includes('qualys_vulnerabilities')) {
-    console.log('\n--- Generating Qualys VMDR vulnerabilities ---');
+    log.info('\n--- Generating Qualys VMDR vulnerabilities ---');
     await installPackage({ packageName: 'qualys_vmdr' });
     const docs = generateDocs(accounts, findingsCount, (account) =>
       createQualysVulnerability({ account }),
     );
-    console.log(`Generated ${docs.length} Qualys vulnerabilities`);
+    log.info(`Generated ${docs.length} Qualys vulnerabilities`);
     await ingest(QUALYS_VULNERABILITY_SOURCE_INDEX, docs, skipPipeline);
     sourceIndicesForTransforms.add(QUALYS_VULNERABILITY_SOURCE_INDEX);
   }
 
   // ------- 3rd Party: Tenable -------
   if (dataSources.includes('tenable_vulnerabilities')) {
-    console.log('\n--- Generating Tenable.io vulnerabilities ---');
+    log.info('\n--- Generating Tenable.io vulnerabilities ---');
     await installPackage({ packageName: 'tenable_io' });
     const docs = generateDocs(accounts, findingsCount, (account) =>
       createTenableVulnerability({ account }),
     );
-    console.log(`Generated ${docs.length} Tenable vulnerabilities`);
+    log.info(`Generated ${docs.length} Tenable vulnerabilities`);
     await ingest(TENABLE_VULNERABILITY_SOURCE_INDEX, docs, skipPipeline);
     sourceIndicesForTransforms.add(TENABLE_VULNERABILITY_SOURCE_INDEX);
   }
 
   // ------- 3rd Party: AWS Security Hub (aws package, ASFF) -------
   if (dataSources.includes('aws_misconfigs')) {
-    console.log('\n--- Generating AWS Security Hub misconfigurations (ASFF) ---');
+    log.info('\n--- Generating AWS Security Hub misconfigurations (ASFF) ---');
     await installPackage({ packageName: 'aws' });
     const awsAccounts = accounts.filter((a) => a.provider === 'aws');
 
@@ -498,14 +499,14 @@ export const generateCloudSecurityPosture = async ({
       docs.push(...accountDocs);
     }
 
-    console.log(`Generated ${docs.length} AWS Security Hub misconfigurations`);
+    log.info(`Generated ${docs.length} AWS Security Hub misconfigurations`);
     await ingest(AWS_MISCONFIGURATION_SOURCE_INDEX, docs, skipPipeline);
     sourceIndicesForTransforms.add(AWS_MISCONFIGURATION_SOURCE_INDEX);
   }
 
   // ------- Trigger all transforms in parallel -------
   if (sourceIndicesForTransforms.size > 0) {
-    console.log('\n--- Triggering transforms ---');
+    log.info('\n--- Triggering transforms ---');
     const allTransformIds = new Set<string>();
     for (const sourceIndex of sourceIndicesForTransforms) {
       const ids = await findTransformsForSource(sourceIndex);
@@ -521,7 +522,7 @@ export const generateCloudSecurityPosture = async ({
     const allElasticMisconfigs = [...cspmMisconfigs, ...kspmMisconfigs];
 
     if (hasAnyCspm && cspmMisconfigs.length > 0) {
-      console.log('\n--- Generating CSP Scores trend (CSPM) ---');
+      log.info('\n--- Generating CSP Scores trend (CSPM) ---');
       const misconfigStats = aggregateMisconfigurationStats(cspmMisconfigs, 'cspm');
       const vulnStats = aggregateVulnerabilityStats(cnvmVulnerabilities);
 
@@ -534,14 +535,14 @@ export const generateCloudSecurityPosture = async ({
       // Use pipeline: '_none' to bypass the default pipeline that overwrites @timestamp
       // with _ingest.timestamp (which would collapse all trend points to the current time)
       await ingest(CSP_SCORES_INDEX, docs, { pipeline: '_none' });
-      console.log(
+      log.info(
         `CSPM scores: ${docs.length} trend points, ` +
           `${Math.round((misconfigStats.passedFindings / misconfigStats.totalFindings) * 100)}% passed (latest)`,
       );
     }
 
     if (hasAnyKspm && kspmMisconfigs.length > 0) {
-      console.log('\n--- Generating CSP Scores trend (KSPM) ---');
+      log.info('\n--- Generating CSP Scores trend (KSPM) ---');
       const misconfigStats = aggregateMisconfigurationStats(kspmMisconfigs, 'kspm');
 
       const docs = generateScoresTrend({
@@ -550,14 +551,14 @@ export const generateCloudSecurityPosture = async ({
       });
 
       await ingest(CSP_SCORES_INDEX, docs, { pipeline: '_none' });
-      console.log(
+      log.info(
         `KSPM scores: ${docs.length} trend points, ` +
           `${Math.round((misconfigStats.passedFindings / misconfigStats.totalFindings) * 100)}% passed (latest)`,
       );
     }
 
     if (cnvmVulnerabilities.length > 0) {
-      console.log('\n--- Generating CSP Scores trend (CNVM / vuln_mgmt) ---');
+      log.info('\n--- Generating CSP Scores trend (CNVM / vuln_mgmt) ---');
       const vulnStats = aggregateVulnerabilityStats(cnvmVulnerabilities);
 
       const docs = generateVulnMgmtScoresTrend(vulnStats);
@@ -567,15 +568,15 @@ export const generateCloudSecurityPosture = async ({
         (sum, s) => sum + s.critical + s.high + s.medium + s.low,
         0,
       );
-      console.log(`CNVM scores: ${docs.length} trend points, ${totalVulns} total vulnerabilities`);
+      log.info(`CNVM scores: ${docs.length} trend points, ${totalVulns} total vulnerabilities`);
     }
 
     if (allElasticMisconfigs.length === 0 && dataSources.some((ds) => ds.startsWith('elastic_'))) {
-      console.log('\nNo elastic misconfigurations generated - skipping CSP scores');
+      log.info('\nNo elastic misconfigurations generated - skipping CSP scores');
     }
   }
 
-  console.log('\nCloud Security Posture data generation complete!');
+  log.info('\nCloud Security Posture data generation complete!');
 };
 
 /**

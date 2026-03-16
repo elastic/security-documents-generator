@@ -3,6 +3,7 @@ import createEvents from '../../generators/create_events.ts';
 import eventMappings from '../../mappings/eventMappings.json' with { type: 'json' };
 import { indexCheck } from '../utils/indices.ts';
 import { getConfig } from '../../get_config.ts';
+import { log } from '../../utils/logger.ts';
 import {
   type MappingTypeMapping,
   type BulkOperationContainer,
@@ -77,16 +78,16 @@ export const generateAlerts = async (
   space: string,
 ) => {
   if (userCount > alertCount) {
-    console.log('User count should be less than alert count');
+    log.info('User count should be less than alert count');
     process.exit(1);
   }
 
   if (hostCount > alertCount) {
-    console.log('Host count should be less than alert count');
+    log.info('Host count should be less than alert count');
     process.exit(1);
   }
 
-  console.log(
+  log.info(
     `Generating ${alertCount} alerts containing ${hostCount} hosts and ${userCount} users in space ${space}`,
   );
   const concurrency = 10; // how many batches to send in parallel
@@ -99,24 +100,24 @@ export const generateAlerts = async (
       getAlertIndex(space),
     );
 
-  console.log('Generating entity names...');
+  log.info('Generating entity names...');
   const userNames = Array.from({ length: userCount }, () => faker.internet.username());
   const hostNames = Array.from({ length: hostCount }, () => faker.internet.domainName());
 
-  console.log('Assigning entity names...');
+  log.info('Assigning entity names...');
   const alertEntityNames = Array.from({ length: alertCount }, (_, i) => ({
     userName: userNames[i % userCount],
     hostName: hostNames[i % hostCount],
   }));
 
-  console.log('Entity names assigned. Batching...');
+  log.info('Entity names assigned. Batching...');
   const operationBatches = chunk(alertEntityNames, batchSize).map((batch) =>
     batch.flatMap(batchOpForIndex),
   );
 
-  console.log('Batching complete. Sending to ES...');
+  log.info('Batching complete. Sending to ES...');
 
-  console.log(
+  log.info(
     `Sending in ${operationBatches.length} batches of ${batchSize} alerts, with up to ${concurrency} batches in parallel\n\n`,
   );
   const progress = createProgressBar('alerts', {
@@ -147,7 +148,7 @@ export const generateEvents = async (n: number) => {
     mappings: eventMappings as MappingTypeMapping,
   });
 
-  console.log('Generating events...');
+  log.info('Generating events...');
 
   await generateDocs({
     createDocs: createEvents,
@@ -155,11 +156,11 @@ export const generateEvents = async (n: number) => {
     index: config.eventIndex,
   });
 
-  console.log('Finished generating events');
+  log.info('Finished generating events');
 };
 
 export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
-  console.log('Generating alerts graph...');
+  log.info('Generating alerts graph...');
 
   type AlertOverride = { host: { name: string }; user: { name: string } };
 
@@ -221,35 +222,33 @@ export const generateGraph = async ({ users = 100, maxHosts = 3 }) => {
 
   try {
     const result = await bulkUpsert({ documents: alerts });
-    console.log(`${result.items.length} alerts created`);
+    log.info(`${result.items.length} alerts created`);
   } catch (err) {
-    console.log('Error: ', err);
+    log.error('Error: ', err);
   }
 };
 
 export const deleteAllAlerts = async () => {
-  console.log('Deleting all alerts...');
+  log.info('Deleting all alerts...');
   try {
     await deleteAllByIndex({ index: '.alerts-security.alerts-*' });
-    console.log('Deleted all alerts');
+    log.info('Deleted all alerts');
   } catch (error) {
-    console.log('Failed to delete alerts');
-    console.log(error);
+    log.error('Failed to delete alerts', error);
   }
 };
 
 export const deleteAllEvents = async () => {
   const config = getConfig();
 
-  console.log('Deleting all events...');
+  log.info('Deleting all events...');
   if (!config.eventIndex) {
     throw new Error('eventIndex not defined in config');
   }
   try {
     await deleteAllByIndex({ index: config.eventIndex });
-    console.log('Deleted all events');
+    log.info('Deleted all events');
   } catch (error) {
-    console.log('Failed to delete events');
-    console.log(error);
+    log.error('Failed to delete events', error);
   }
 };

@@ -1,6 +1,7 @@
 import { faker } from '@faker-js/faker';
 import fs from 'fs';
 import cliProgress from 'cli-progress';
+import { log } from '../utils/logger.ts';
 import createAlerts from '../generators/create_alerts.ts';
 import { uploadFile } from '../commands/entity_store_perf/entity_store_perf.ts';
 import { getAlertIndex } from '../utils/index.ts';
@@ -16,7 +17,7 @@ export const createPerfDataFile = ({
   alertsPerEntity: number;
   entityCount: number;
 }) => {
-  console.log(`Creating performance data file(s) for ${name}`);
+  log.info(`Creating performance data file(s) for ${name}`);
 
   // Ensure base data directory exists
   if (!fs.existsSync(DATA_DIRECTORY)) {
@@ -24,7 +25,7 @@ export const createPerfDataFile = ({
   }
 
   const totalAlerts = entityCount * alertsPerEntity;
-  console.log(`Generating ${totalAlerts} alerts...`);
+  log.info(`Generating ${totalAlerts} alerts...`);
 
   const sampleAlert = createAlerts({ userName: 'test', hostName: 'test' });
   const bytesPerAlert = Buffer.byteLength(JSON.stringify(sampleAlert), 'utf8');
@@ -34,7 +35,7 @@ export const createPerfDataFile = ({
   const filesNumber = Math.max(1, Math.ceil(totalAlerts / alertsPerFile));
   const estimatedTotalBytes = totalAlerts * bytesPerAlert;
 
-  console.log(
+  log.info(
     [
       'Size estimation:',
       ` - Bytes per alert: ~${bytesPerAlert}B`,
@@ -46,7 +47,7 @@ export const createPerfDataFile = ({
     ].join('\n'),
   );
   if (filesNumber > 1) {
-    console.log('Multiple files will be written to stay under 250MB per file.');
+    log.info('Multiple files will be written to stay under 250MB per file.');
   }
 
   // NEW: create (or clean) per-dataset subdirectory and zero-padded naming
@@ -108,7 +109,7 @@ export const createPerfDataFile = ({
       const nextFile = openWriteStream(currentFileIndex);
 
       writeStream = nextFile.stream;
-      // console.log(`Switched to file ${currentPath}`);
+      // log.info(`Switched to file ${currentPath}`);
     }
   };
 
@@ -138,19 +139,19 @@ export const createPerfDataFile = ({
     alertBar.stop();
     multiBar.stop();
 
-    console.log(`Created ${filesNumber} files for ${name} (${totalWritten} alerts total).`);
+    log.info(`Created ${filesNumber} files for ${name} (${totalWritten} alerts total).`);
   };
 
   return generateAlerts().catch((err) => {
-    console.error('Error generating alerts:', err);
+    log.error('Error generating alerts:', err);
   });
 };
 
 export const uploadPerfData = async (file: string, interval: number, uploadCount: number) => {
-  console.log(`Uploading performance data file ${file} every ${interval}ms ${uploadCount} times`);
+  log.info(`Uploading performance data file ${file} every ${interval}ms ${uploadCount} times`);
   const filePath = getFilePath(file);
   if (!fs.existsSync(filePath)) {
-    console.log(`Data file ${file} does not exist`);
+    log.info(`Data file ${file} does not exist`);
     process.exit(1);
   }
 
@@ -165,7 +166,7 @@ export const uploadPerfData = async (file: string, interval: number, uploadCount
   });
 
   const ingestTook = Date.now() - startTime;
-  console.log(`Data file ${file} uploaded in ${ingestTook}ms`);
+  log.info(`Data file ${file} uploaded in ${ingestTook}ms`);
 };
 
 const DATA_DIRECTORY = getRiskEnginePerfDataDir();

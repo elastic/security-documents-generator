@@ -1,5 +1,6 @@
 import { Agent } from 'undici';
 import { getConfig } from '../get_config.ts';
+import { log } from './logger.ts';
 import { faker } from '@faker-js/faker';
 import fs from 'fs';
 import FormData from 'form-data';
@@ -494,7 +495,7 @@ export const deleteEngines = async (
   const responses = await Promise.all(
     entityTypes.map((entityType) => _deleteEngine(entityType, space)),
   );
-  console.log('Delete responses:', responses);
+  log.info('Delete responses:', responses);
 };
 
 const _listEngines = (space?: string) => {
@@ -587,9 +588,9 @@ export const updateKibanaSettings = async (settings: Record<string, unknown>) =>
   // Update to serverless endpoint if needed
   if (config.serverless) {
     path = KIBANA_SETTINGS_INTERNAL_URL;
-    console.log('Detected serverless deployment, switching to internal API endpoint.');
+    log.info('Detected serverless deployment, switching to internal API endpoint.');
   } else {
-    console.log('Using standard Kibana settings API endpoint.');
+    log.info('Using standard Kibana settings API endpoint.');
   }
 
   const payload = {
@@ -609,10 +610,10 @@ export const updateKibanaSettings = async (settings: Record<string, unknown>) =>
       },
     );
 
-    console.log('Kibana settings updated successfully.');
+    log.info('Kibana settings updated successfully.');
     return response;
   } catch (error) {
-    console.error('Failed to update Kibana settings:', error);
+    log.error('Failed to update Kibana settings:', error);
     throw error;
   }
 };
@@ -622,11 +623,11 @@ export const updateKibanaSettings = async (settings: Record<string, unknown>) =>
  * This is required for generic entity types to work.
  */
 export const enableAssetInventory = async () => {
-  console.log('Enabling Asset Inventory feature...');
+  log.info('Enabling Asset Inventory feature...');
   await updateKibanaSettings({
     'securitySolution:enableAssetInventory': true,
   });
-  console.log('Asset Inventory feature enabled.');
+  log.info('Asset Inventory feature enabled.');
   // Wait a moment for the setting to take effect
   await new Promise((resolve) => setTimeout(resolve, 5000));
 };
@@ -640,16 +641,16 @@ export const initEntityEngineForEntityTypes = async (
     try {
       await enableAssetInventory();
     } catch (error) {
-      console.warn('Failed to enable Asset Inventory feature, continuing anyway:', error);
+      log.warn('Failed to enable Asset Inventory feature, continuing anyway:', error);
     }
   }
 
   if (await allRequestedEnginesAreStarted(entityTypes, space)) {
-    console.log('All requested engines are already started');
+    log.info('All requested engines are already started');
     return;
   }
 
-  console.log(`Initializing engines for types: ${entityTypes.join(', ')}`);
+  log.info(`Initializing engines for types: ${entityTypes.join(', ')}`);
   const initResults = await Promise.allSettled(
     entityTypes.map((entityType) => _initEngine(entityType, space)),
   );
@@ -657,9 +658,9 @@ export const initEntityEngineForEntityTypes = async (
   // Log any initialization failures
   initResults.forEach((result, index) => {
     if (result.status === 'rejected') {
-      console.error(`Failed to initialize engine for '${entityTypes[index]}':`, result.reason);
+      log.error(`Failed to initialize engine for '${entityTypes[index]}':`, result.reason);
     } else {
-      console.log(`Successfully initialized engine for '${entityTypes[index]}'`);
+      log.info(`Successfully initialized engine for '${entityTypes[index]}'`);
     }
   });
 
@@ -667,23 +668,23 @@ export const initEntityEngineForEntityTypes = async (
   const delay = 2000;
 
   for (let i = 0; i < attempts; i++) {
-    console.log('Checking if all engines are started attempt:', i + 1);
+    log.info('Checking if all engines are started attempt:', i + 1);
 
     // Check for engines in error state during polling
     const statusDetails = await getEngineStatusDetails(entityTypes, space);
     if (statusDetails.errorEngines.length > 0) {
-      console.warn(
+      log.warn(
         `Engines in error state detected: ${statusDetails.errorEngines.join(', ')}. This may indicate a configuration issue.`,
       );
       if (statusDetails.errorEngines.includes('generic')) {
-        console.warn(
+        log.warn(
           'Generic engine is in error state. Ensure Asset Inventory feature is enabled in Kibana advanced settings.',
         );
       }
     }
 
     if (await allRequestedEnginesAreStarted(entityTypes, space)) {
-      console.log('All engines are started');
+      log.info('All engines are started');
       return;
     }
     await new Promise((resolve) => setTimeout(resolve, delay));
@@ -703,7 +704,7 @@ export const initEntityEngineForEntityTypes = async (
         (e) => e.type === entityType || e.name === entityType || e.id === entityType,
       );
       if (engine) {
-        console.error(
+        log.error(
           `Engine '${entityType}' error details:`,
           engine.error || engine.message || 'No error details available',
         );
@@ -753,7 +754,7 @@ export const getAllRules = async (space?: string) => {
 
     return { data: allRules };
   } catch (e) {
-    console.error('Error fetching rules:', e);
+    log.error('Error fetching rules:', e);
     return { data: [] };
   }
 };
@@ -803,7 +804,7 @@ export const uploadPrivmonCsv = async (
 
     return { success: true };
   } catch (error) {
-    console.error('Error uploading CSV:', error);
+    log.error('Error uploading CSV:', error);
     // @ts-expect-error to have a message property
     return { success: false, message: error.message };
   }
@@ -821,7 +822,7 @@ export const enablePrivmon = async (space?: string) => {
     );
     return response;
   } catch (error) {
-    console.error('Error enabling Privileged User Monitoring:', error);
+    log.error('Error enabling Privileged User Monitoring:', error);
     throw error;
   }
 };
@@ -838,7 +839,7 @@ export const installPad = async (space?: string) => {
     );
     return response;
   } catch (error) {
-    console.error('Error installing PAD:', error);
+    log.error('Error installing PAD:', error);
     throw error;
   }
 };
@@ -863,7 +864,7 @@ export const getPadStatus = async (space?: string) => {
     };
     return status;
   } catch (error) {
-    console.error('Error getting PAD status:', error);
+    log.error('Error getting PAD status:', error);
     throw error;
   }
 };
@@ -889,7 +890,7 @@ export const setupPadMlModule = async (space?: string) => {
       datafeeds: Array<{ id: string; success: boolean; error?: string; started: boolean }>;
     };
   } catch (error) {
-    console.error('Error setting up ML module:', error);
+    log.error('Error setting up ML module:', error);
     throw error;
   }
 };

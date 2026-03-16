@@ -25,6 +25,7 @@ import {
   generateAndIndexMatchingEvents,
   type DetectionRuleResult,
 } from './detection_rules.ts';
+import { log } from '../../utils/logger.ts';
 
 /**
  * Valid organization sizes with descriptions
@@ -99,21 +100,21 @@ const runOrgDataHelper = async (
   // Parse integrations to enable
   const enabledIntegrations = parseIntegrationList(integrations);
   if (enabledIntegrations.length === 0) {
-    console.error(
+    log.error(
       `No valid integrations specified. Available: ${getAvailableIntegrations().join(', ')}`,
     );
     process.exit(1);
   }
 
-  console.log(`Organization: ${name}`);
-  console.log(`Size: ${size}`);
-  console.log(`Space: ${space}`);
-  console.log(`Seed: ${seed}`);
-  console.log(`Integrations: ${enabledIntegrations.join(', ')}`);
-  console.log('');
+  log.info(`Organization: ${name}`);
+  log.info(`Size: ${size}`);
+  log.info(`Space: ${space}`);
+  log.info(`Seed: ${seed}`);
+  log.info(`Integrations: ${enabledIntegrations.join(', ')}`);
+  log.info('');
 
   // Generate organization
-  console.log('Generating correlated organization data...');
+  log.info('Generating correlated organization data...');
   const orgConfig: OrganizationConfig = {
     name,
     domain: `${name.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`,
@@ -125,26 +126,26 @@ const runOrgDataHelper = async (
   const organization = generateOrgData(orgConfig);
 
   // Display organization summary
-  console.log('\n' + getOrgDataSummary(organization) + '\n');
+  log.info('\n' + getOrgDataSummary(organization) + '\n');
 
   // Build correlation map
-  console.log('Building correlation map...');
+  log.info('Building correlation map...');
   const correlationMap = buildCorrelationMap(organization);
 
   // Verify correlation integrity
   const verification = verifyCorrelationIntegrity(organization, correlationMap);
   if (!verification.valid) {
-    console.error('Correlation verification failed:');
-    verification.errors.forEach((e) => console.error(`  - ${e}`));
+    log.error('Correlation verification failed:');
+    verification.errors.forEach((e) => log.error(`  - ${e}`));
     process.exit(1);
   }
 
   if (verification.warnings.length > 0) {
-    console.log('Correlation warnings:');
-    verification.warnings.forEach((w) => console.log(`  - ${w}`));
+    log.info('Correlation warnings:');
+    verification.warnings.forEach((w) => log.info(`  - ${w}`));
   }
 
-  console.log('Correlation verification: ✓ PASSED\n');
+  log.info('Correlation verification: ✓ PASSED\n');
 
   // Create integration registry
   const registry = createIntegrationRegistry();
@@ -174,7 +175,7 @@ const runOrgDataHelper = async (
  * Main command function for generating correlated organization data
  */
 export const runOrgData = async (options: OrganizationOptions): Promise<void> => {
-  console.log('\n=== Correlated Organization Data Generator ===\n');
+  log.info('\n=== Correlated Organization Data Generator ===\n');
 
   // Prompt for organization size
   const size = await promptForSize();
@@ -248,52 +249,52 @@ const displaySummary = (
   space: string,
   detectionRuleResults: DetectionRuleResult[] = [],
 ): void => {
-  console.log('\n=== Generation Complete ===\n');
+  log.info('\n=== Generation Complete ===\n');
 
   // Integration results
-  console.log('Integration Results:');
+  log.info('Integration Results:');
   let totalDocs = 0;
   for (const result of results) {
     const status = result.success ? '✓' : '✗';
-    console.log(`  ${status} ${result.integrationName}: ${result.documentsGenerated} documents`);
+    log.info(`  ${status} ${result.integrationName}: ${result.documentsGenerated} documents`);
     if (result.error) {
-      console.log(`    Error: ${result.error}`);
+      log.info(`    Error: ${result.error}`);
     }
     totalDocs += result.documentsGenerated;
   }
-  console.log(`\nTotal documents generated: ${totalDocs}`);
+  log.info(`\nTotal documents generated: ${totalDocs}`);
 
   if (detectionRuleResults.length > 0) {
-    console.log(`\nDetection Rules Created: ${detectionRuleResults.length}`);
+    log.info(`\nDetection Rules Created: ${detectionRuleResults.length}`);
     for (const rule of detectionRuleResults) {
-      console.log(`  ✓ ${rule.name} (${rule.integration})`);
+      log.info(`  ✓ ${rule.name} (${rule.integration})`);
     }
   }
 
   // Quick stats
-  console.log('\nQuick Stats:');
-  console.log(`  Employees: ${organization.employees.length}`);
-  console.log(`  Devices: ${organization.employees.reduce((sum, e) => sum + e.devices.length, 0)}`);
-  console.log(`  Cloud Resources: ${organization.cloudResources.length}`);
-  console.log(`  IAM Users: ${organization.cloudIamUsers.length}`);
+  log.info('\nQuick Stats:');
+  log.info(`  Employees: ${organization.employees.length}`);
+  log.info(`  Devices: ${organization.employees.reduce((sum, e) => sum + e.devices.length, 0)}`);
+  log.info(`  Cloud Resources: ${organization.cloudResources.length}`);
+  log.info(`  IAM Users: ${organization.cloudIamUsers.length}`);
 
   // Helpful links
   const successfulIntegrations = results.filter((r) => r.success);
   if (successfulIntegrations.length > 0) {
-    console.log('\nView your data:');
+    log.info('\nView your data:');
 
     // Entity Analytics link
-    console.log(
+    log.info(
       `  Entity Analytics: ${buildKibanaUrl({ path: '/app/security/entity_analytics', space })}`,
     );
 
     // Discover link with Okta Entity Analytics data
     const oktaResult = results.find((r) => r.integrationName === 'entityanalytics_okta');
     if (oktaResult?.success) {
-      console.log(
+      log.info(
         `  Okta Users: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-entityanalytics_okta.user-*')", space })}`,
       );
-      console.log(
+      log.info(
         `  Okta Devices: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-entityanalytics_okta.device-*')", space })}`,
       );
     }
@@ -301,7 +302,7 @@ const displaySummary = (
     // Discover link with Okta System Logs data
     const oktaSystemResult = results.find((r) => r.integrationName === 'okta');
     if (oktaSystemResult?.success) {
-      console.log(
+      log.info(
         `  Okta System Logs: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-okta.system-*')", space })}`,
       );
     }
@@ -309,7 +310,7 @@ const displaySummary = (
     // Discover link with Cloud Asset data
     const cloudResult = results.find((r) => r.integrationName === 'cloud_asset_inventory');
     if (cloudResult?.success) {
-      console.log(
+      log.info(
         `  Cloud Assets: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-cloud_asset_inventory.asset_inventory-*')", space })}`,
       );
     }
@@ -317,7 +318,7 @@ const displaySummary = (
     // Discover link with CloudTrail data
     const cloudTrailResult = results.find((r) => r.integrationName === 'aws');
     if (cloudTrailResult?.success) {
-      console.log(
+      log.info(
         `  AWS CloudTrail: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-aws.cloudtrail-*')", space })}`,
       );
     }
@@ -325,10 +326,10 @@ const displaySummary = (
     // Discover link with Entra ID Entity Analytics data
     const entraIdResult = results.find((r) => r.integrationName === 'entityanalytics_entra_id');
     if (entraIdResult?.success) {
-      console.log(
+      log.info(
         `  Entra ID Users: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-entityanalytics_entra_id.user-*')", space })}`,
       );
-      console.log(
+      log.info(
         `  Entra ID Devices: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-entityanalytics_entra_id.device-*')", space })}`,
       );
     }
@@ -336,10 +337,10 @@ const displaySummary = (
     // CrowdStrike links
     const crowdstrikeResult = results.find((r) => r.integrationName === 'crowdstrike');
     if (crowdstrikeResult?.success) {
-      console.log(
+      log.info(
         `  CrowdStrike Hosts: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-crowdstrike.host-*')", space })}`,
       );
-      console.log(
+      log.info(
         `  CrowdStrike Alerts: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-crowdstrike.alert-*')", space })}`,
       );
     }
@@ -347,7 +348,7 @@ const displaySummary = (
     // O365 link
     const o365Result = results.find((r) => r.integrationName === 'o365');
     if (o365Result?.success) {
-      console.log(
+      log.info(
         `  Microsoft 365: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-o365.audit-*')", space })}`,
       );
     }
@@ -355,7 +356,7 @@ const displaySummary = (
     // GitHub link
     const githubResult = results.find((r) => r.integrationName === 'github');
     if (githubResult?.success) {
-      console.log(
+      log.info(
         `  GitHub Audit: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-github.audit-*')", space })}`,
       );
     }
@@ -363,7 +364,7 @@ const displaySummary = (
     // Cisco Duo link
     const duoResult = results.find((r) => r.integrationName === 'cisco_duo');
     if (duoResult?.success) {
-      console.log(
+      log.info(
         `  Cisco Duo Auth: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-cisco_duo.auth-*')", space })}`,
       );
     }
@@ -371,7 +372,7 @@ const displaySummary = (
     // 1Password link
     const onepassResult = results.find((r) => r.integrationName === '1password');
     if (onepassResult?.success) {
-      console.log(
+      log.info(
         `  1Password: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-1password.*-*')", space })}`,
       );
     }
@@ -379,7 +380,7 @@ const displaySummary = (
     // Google Workspace link
     const gwsResult = results.find((r) => r.integrationName === 'google_workspace');
     if (gwsResult?.success) {
-      console.log(
+      log.info(
         `  Google Workspace: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-google_workspace.*-*')", space })}`,
       );
     }
@@ -387,7 +388,7 @@ const displaySummary = (
     // Cloudflare link
     const cfResult = results.find((r) => r.integrationName === 'cloudflare_logpush');
     if (cfResult?.success) {
-      console.log(
+      log.info(
         `  Cloudflare: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-cloudflare_logpush.*-*')", space })}`,
       );
     }
@@ -395,7 +396,7 @@ const displaySummary = (
     // Zscaler link
     const zscalerResult = results.find((r) => r.integrationName === 'zscaler_zia');
     if (zscalerResult?.success) {
-      console.log(
+      log.info(
         `  Zscaler ZIA: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-zscaler_zia.*-*')", space })}`,
       );
     }
@@ -403,7 +404,7 @@ const displaySummary = (
     // TI AbuseCH link
     const tiResult = results.find((r) => r.integrationName === 'ti_abusech');
     if (tiResult?.success) {
-      console.log(
+      log.info(
         `  Threat Intel: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-ti_abusech.*-*')", space })}`,
       );
     }
@@ -411,10 +412,10 @@ const displaySummary = (
     // Jamf Pro link
     const jamfResult = results.find((r) => r.integrationName === 'jamf_pro');
     if (jamfResult?.success) {
-      console.log(
+      log.info(
         `  Jamf Pro Inventory: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-jamf_pro.inventory-*')", space })}`,
       );
-      console.log(
+      log.info(
         `  Jamf Pro Events: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-jamf_pro.events-*')", space })}`,
       );
     }
@@ -422,7 +423,7 @@ const displaySummary = (
     // Active Directory link
     const adResult = results.find((r) => r.integrationName === 'entityanalytics_ad');
     if (adResult?.success) {
-      console.log(
+      log.info(
         `  Active Directory: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-entityanalytics_ad.*-*')", space })}`,
       );
     }
@@ -430,7 +431,7 @@ const displaySummary = (
     // ServiceNow link
     const servicenowResult = results.find((r) => r.integrationName === 'servicenow');
     if (servicenowResult?.success) {
-      console.log(
+      log.info(
         `  ServiceNow: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-servicenow.event-*')", space })}`,
       );
     }
@@ -438,7 +439,7 @@ const displaySummary = (
     // Slack link
     const slackResult = results.find((r) => r.integrationName === 'slack');
     if (slackResult?.success) {
-      console.log(
+      log.info(
         `  Slack Audit: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-slack.audit-*')", space })}`,
       );
     }
@@ -446,7 +447,7 @@ const displaySummary = (
     // SailPoint link
     const sailpointResult = results.find((r) => r.integrationName === 'sailpoint_identity_sc');
     if (sailpointResult?.success) {
-      console.log(
+      log.info(
         `  SailPoint: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-sailpoint_identity_sc.events-*')", space })}`,
       );
     }
@@ -454,7 +455,7 @@ const displaySummary = (
     // PingOne link
     const pingOneResult = results.find((r) => r.integrationName === 'ping_one');
     if (pingOneResult?.success) {
-      console.log(
+      log.info(
         `  PingOne Audit: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-ping_one.audit-*')", space })}`,
       );
     }
@@ -462,7 +463,7 @@ const displaySummary = (
     // Workday link (custom integration)
     const workdayResult = results.find((r) => r.integrationName === 'workday');
     if (workdayResult?.success) {
-      console.log(
+      log.info(
         `  Workday People: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-workday.people-*')", space })}`,
       );
     }
@@ -470,16 +471,16 @@ const displaySummary = (
     // PingDirectory link (custom integration)
     const pingDirResult = results.find((r) => r.integrationName === 'ping_directory');
     if (pingDirResult?.success) {
-      console.log(
+      log.info(
         `  PingDirectory Users: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-ping_directory.users-*')", space })}`,
       );
     }
 
     // Security dashboard
-    console.log(`  Security Dashboard: ${buildKibanaUrl({ path: '/app/security', space })}`);
+    log.info(`  Security Dashboard: ${buildKibanaUrl({ path: '/app/security', space })}`);
 
     if (detectionRuleResults.length > 0) {
-      console.log(`  Detection Rules: ${buildKibanaUrl({ path: '/app/security/rules', space })}`);
+      log.info(`  Detection Rules: ${buildKibanaUrl({ path: '/app/security/rules', space })}`);
     }
   }
 
@@ -582,12 +583,12 @@ const displaySummary = (
   );
 
   if (applicableNotes.length > 0) {
-    console.log('\nNotes:');
+    log.info('\nNotes:');
     for (const entry of applicableNotes) {
-      console.log(`  - ${entry.note}`);
+      log.info(`  - ${entry.note}`);
     }
   }
-  console.log('');
+  log.info('');
 };
 
 /**

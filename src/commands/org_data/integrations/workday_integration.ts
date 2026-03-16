@@ -14,6 +14,7 @@ import {
   type IntegrationDocument,
   type DataStreamConfig,
 } from './base_integration.ts';
+import { log } from '../../../utils/logger.ts';
 import { type Organization, type Employee, type CorrelationMap } from '../types.ts';
 import { faker } from '@faker-js/faker';
 
@@ -93,7 +94,7 @@ export class WorkdayIntegration extends BaseIntegration {
    * We skip Fleet installation entirely.
    */
   async install(_space: string = 'default'): Promise<void> {
-    console.log(`  ℹ ${this.displayName}: Custom integration — no Fleet package to install`);
+    log.info(`  ℹ ${this.displayName}: Custom integration — no Fleet package to install`);
   }
 
   generateDocuments(

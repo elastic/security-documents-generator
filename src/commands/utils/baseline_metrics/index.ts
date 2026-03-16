@@ -10,6 +10,7 @@ import { calculateSystemMetrics } from './calculators/system_metrics_calculator.
 import { calculateEntityMetrics } from './calculators/entity_metrics_calculator.ts';
 import { calculateKibanaMetrics } from './calculators/kibana_metrics_calculator.ts';
 import { throwWithContext } from './utils.ts';
+import { log } from '../../../utils/logger.ts';
 import {
   saveBaseline,
   loadBaseline,
@@ -76,7 +77,7 @@ export const extractBaselineMetrics = async (
   const logFiles = [clusterHealthLog, nodeStatsLog];
   if (transformStatsLog) logFiles.push(transformStatsLog);
   if (kibanaStatsLog) logFiles.push(kibanaStatsLog);
-  console.log(`Parsing logs: ${logFiles.join(', ')}`);
+  log.info(`Parsing logs: ${logFiles.join(', ')}`);
 
   // Parse logs - provide empty transform data if transform stats log is missing
   const transformData = transformStatsLog

@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import { resolve } from 'path';
+import { log } from '../../utils/logger.ts';
 import { type User } from '../privileged_access_detection_ml/event_generator.ts';
 import { srcDirectory } from '../../index.ts';
 import { enablePrivmon, uploadPrivmonCsv } from '../../utils/kibana_api.ts';
@@ -43,18 +44,18 @@ export const generateCSVFile = async ({
     await fs.mkdir(outputDirectory, { recursive: true });
     await fs.writeFile(csvFilePath, csvContent);
     if (upload) {
-      console.log('Uploading CSV file to Privileged User Monitoring...');
-      console.log('First, enabling Privileged User Monitoring...');
+      log.info('Uploading CSV file to Privileged User Monitoring...');
+      log.info('First, enabling Privileged User Monitoring...');
       await enablePrivmon(space);
-      console.log('Now, uploading the CSV file...');
+      log.info('Now, uploading the CSV file...');
       await uploadPrivmonCsv(csvFilePath, space);
-      console.log('Upload complete.');
+      log.info('Upload complete.');
     }
-    console.log(`A CSV file containing all of the privileged users was written to ${csvFilePath}`);
+    log.info(`A CSV file containing all of the privileged users was written to ${csvFilePath}`);
   } catch (e) {
-    console.log(
+    log.error(
       'There was a problem writing the CSV file to the local directory. See details below.',
+      e,
     );
-    console.error(e);
   }
 };

@@ -1,19 +1,20 @@
 import { installLegacyRiskScore } from '../../utils/kibana_api.ts';
 import { bulkUpsert } from '../shared/elasticsearch.ts';
+import { log } from '../../utils/logger.ts';
 
 /**
  * Install legacy risk score and generate data
  */
 export const generateLegacyRiskScore = async () => {
-  console.log('Installing legacy risk score');
+  log.info('Installing legacy risk score');
 
   await installLegacyRiskScore();
 
-  console.log('Generating data');
+  log.info('Generating data');
 
   await bulkIndexData();
 
-  console.log('Data generated');
+  log.info('Data generated');
 };
 
 const data = [
