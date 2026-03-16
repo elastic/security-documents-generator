@@ -26,11 +26,15 @@ import { getConfig } from '../../get_config.ts';
 import { ensureSpace } from '../../utils/index.ts';
 import { type EntityType } from '../../types/entities.ts';
 
+const logEventDateOffset = once((offset: number) =>
+  log.info(`Using event date offset: ${offset} hours`),
+);
+
 const getOffset = (offsetHours?: number) => {
   const config = getConfig();
 
   if (config.eventDateOffsetHours !== undefined) {
-    once(() => log.info(`Using event date offset: ${config.eventDateOffsetHours} hours`));
+    logEventDateOffset(config.eventDateOffsetHours);
 
     return config.eventDateOffsetHours;
   }

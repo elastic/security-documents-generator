@@ -2,7 +2,6 @@ import { Client } from '@elastic/elasticsearch';
 import { type ConfigType, getConfig } from '../../get_config.ts';
 import { type IndicesCreateRequest } from '@elastic/elasticsearch/lib/api/types';
 import { exec } from 'child_process';
-import { once } from 'lodash-es';
 import { bulkIngest } from '../shared/elasticsearch.ts';
 import { log } from '../../utils/logger.ts';
 
@@ -27,7 +26,7 @@ export const getEsClient = () => {
   if (esClient) return esClient;
   const config = getConfig();
 
-  once(() => log.info('Elasticsearch node:', config.elastic.node));
+  log.info('Elasticsearch node:', config.elastic.node);
 
   esClient = new Client({
     node: config.elastic.node,
@@ -80,7 +79,7 @@ export const indexCheck = async (index: string, body?: Omit<IndicesCreateRequest
     });
     log.info('Index created', index);
   } catch (error) {
-    log.error('Index creation failed', JSON.stringify(error));
+    log.error('Index creation failed', error);
     throw error;
   }
 };

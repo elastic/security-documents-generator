@@ -166,7 +166,7 @@ async function waitForScoresIndex(esClient: ReturnType<typeof getEsClient>): Pro
     }
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
-  log.info('Warning: CSP scores index was not created within timeout');
+  log.warn('CSP scores index was not created within timeout');
 }
 
 /**
@@ -238,7 +238,7 @@ async function triggerAndWaitForTransforms(transformIds: string[]): Promise<void
       checkpoints.set(id, stats.transforms[0]?.checkpointing?.last?.checkpoint ?? 0);
       await esClient.transform.scheduleNowTransform({ transform_id: id });
     } catch (err) {
-      log.info(`Warning: failed to trigger transform '${id}':`, err);
+      log.warn(`Failed to trigger transform '${id}':`, err);
     }
   }
 
@@ -282,7 +282,7 @@ async function triggerAndWaitForTransforms(transformIds: string[]): Promise<void
   }
 
   if (pending.size > 0) {
-    log.info(`Warning: transforms did not complete within timeout: ${[...pending].join(', ')}`);
+    log.warn(`Transforms did not complete within timeout: ${[...pending].join(', ')}`);
   }
 }
 

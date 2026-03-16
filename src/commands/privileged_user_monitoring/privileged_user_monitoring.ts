@@ -151,7 +151,7 @@ const quickEnableRiskEngineAndRule = async (space: string) => {
     await createRule({ space, query: getMetadataKQL() });
     await enableRiskScore(space);
   } catch (e) {
-    log.info(e);
+    log.error('Failed to enable risk engine and rule:', e);
   }
 };
 
@@ -169,7 +169,7 @@ const generatePrivilegedUserMonitoringData = async ({ users }: { users: User[] }
       ...getSampleOktaAuthenticationLogs(users),
     ]);
   } catch (e) {
-    log.info(e);
+    log.error('Failed to generate privileged user monitoring source event data:', e);
   }
 };
 
@@ -193,7 +193,7 @@ const generatePrivilegedUserIntegrationsSyncData = async ({
     await reinitializeDataStream(oktaLogsUsersDataStreamName, sampleDocuments);
     await reinitializeDataStream(oktaLogsEntityDataStreamName, sampleEntityDocuments);
   } catch (e) {
-    log.info(e);
+    log.error('Failed to generate privileged user integrations sync data:', e);
   }
 };
 
@@ -205,7 +205,7 @@ export const generateADPrivilegedUserMonitoringData = async ({
   try {
     await reinitializeDataStream(adLogsUsersDataStreamName, getSampleAdUsersLogs(usersCount));
   } catch (e) {
-    log.info(e);
+    log.error('Failed to generate AD privileged user monitoring data:', e);
   }
 };
 
@@ -275,7 +275,7 @@ const runEngineEveryMinute = async (space: string) => {
       await scheduleRiskEngineNow(space);
       log.info('Scheduled risk engine, next run in 1 minute... (ctrl-c to stop)');
     } catch (e) {
-      log.info('Error scheduling risk engine run:', e);
+      log.error('Error scheduling risk engine run:', e);
     }
     await new Promise((r) => setTimeout(r, 60 * 1000));
   }

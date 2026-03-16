@@ -1,3 +1,5 @@
+import { inspect } from 'node:util';
+
 const LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3, silent: 4 } as const;
 type LogLevel = keyof typeof LOG_LEVELS;
 
@@ -33,11 +35,24 @@ function formatPrefix(level: Exclude<LogLevel, 'silent'>): string {
   return `${color}[${label}]${COLORS.reset}`;
 }
 
+function formatArg(arg: unknown): string {
+  if (typeof arg === 'string') return arg;
+  if (arg instanceof Error) {
+    return arg.stack ?? `${arg.name}: ${arg.message}`;
+  }
+
+  try {
+    return inspect(arg, { colors: false, depth: 10, breakLength: 120 });
+  } catch {
+    return '[Unserializable value]';
+  }
+}
+
 function write(level: Exclude<LogLevel, 'silent'>, args: unknown[]): void {
   if (!shouldLog(level)) return;
   const stream = level === 'error' || level === 'warn' ? process.stderr : process.stdout;
   const prefix = formatPrefix(level);
-  const msg = args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a, null, 2))).join(' ');
+  const msg = args.map(formatArg).join(' ');
   stream.write(`${prefix} ${msg}\n`);
 }
 

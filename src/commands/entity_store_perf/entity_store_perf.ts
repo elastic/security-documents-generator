@@ -1002,7 +1002,7 @@ export const uploadFile = async ({
       progress.increment();
     },
     onDrop: (doc) => {
-      log.info('Failed to index document:', doc);
+      log.error('Failed to index document:', doc);
       process.exit(1);
     },
   });
