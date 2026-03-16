@@ -32,7 +32,7 @@ export const createConfigFileOnFirstRun = async () => {
     default: AuthMethod.Basic,
   });
 
-  if (authMethod === 'api_key') {
+  if (authMethod === AuthMethod.ApiKey) {
     apiKey = await input({
       message: 'Enter the API key',
       default: '',
