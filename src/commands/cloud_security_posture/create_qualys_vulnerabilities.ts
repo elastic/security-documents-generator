@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import { getRandomCve, pickSeverity, type CSPMAccount } from './csp_utils.ts';
 
 export interface CreateQualysVulnerabilityParams {
@@ -9,7 +9,7 @@ export interface CreateQualysVulnerabilityParams {
 export default function createQualysVulnerability({
   account,
 }: CreateQualysVulnerabilityParams = {}) {
-  const now = moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+  const now = dayjs().format('YYYY-MM-DDTHH:mm:ss.SSSZ');
   const cve = getRandomCve();
   const severity = pickSeverity();
   const accountId = account?.id || faker.string.numeric(12);
@@ -41,9 +41,9 @@ export default function createQualysVulnerability({
   ]);
   const osPlatform = osName.toLowerCase().includes('windows') ? 'windows' : 'linux';
 
-  const firstFoundDatetime = moment()
+  const firstFoundDatetime = dayjs()
     .subtract(faker.number.int({ min: 30, max: 180 }), 'days')
-    .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+    .format('YYYY-MM-DDTHH:mm:ss.SSSZ');
   const lastFoundDatetime = now;
   const lastScanDatetime = now;
 
@@ -174,9 +174,9 @@ export default function createQualysVulnerability({
           patchable: faker.datatype.boolean(),
           pci_flag: faker.datatype.boolean(),
           vuln_type: 'Vulnerability',
-          published_datetime: moment()
+          published_datetime: dayjs()
             .subtract(faker.number.int({ min: 60, max: 365 }), 'days')
-            .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+            .format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
           discovery: {
             remote: faker.datatype.boolean() ? 1 : 0,
           },

@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import {
   type CloudProvider,
   CSP_AGENT_VERSION,
@@ -22,7 +22,7 @@ export default function createCSPMMisconfiguration({
   provider,
   account,
 }: CreateCSPMMisconfigurationParams) {
-  const now = moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+  const now = dayjs().format('YYYY-MM-DDTHH:mm:ss.SSSZ');
   const benchmark = CSPM_PROVIDERS[provider];
   const cisRule = getRandomCisRule(provider);
   const resourceType = getRandomResourceType(provider);

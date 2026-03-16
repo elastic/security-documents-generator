@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import { getRandomCve, pickSeverity, type CSPMAccount, type CloudProvider } from './csp_utils.ts';
 
 export interface CreateWizVulnerabilityParams {
@@ -7,7 +7,7 @@ export interface CreateWizVulnerabilityParams {
 }
 
 export default function createWizVulnerability({ account }: CreateWizVulnerabilityParams = {}) {
-  const now = moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+  const now = dayjs().format('YYYY-MM-DDTHH:mm:ss.SSSZ');
   const cve = getRandomCve();
   const severity = pickSeverity();
   const provider =
@@ -143,17 +143,17 @@ export default function createWizVulnerability({ account }: CreateWizVulnerabili
         impact_score: faker.number.float({ min: 0, max: 6, fractionDigits: 1 }),
         has_exploit: faker.datatype.boolean(),
         has_cisa_kev_exploit: faker.datatype.boolean(),
-        first_detected_at: moment()
+        first_detected_at: dayjs()
           .subtract(faker.number.int({ min: 1, max: 180 }), 'days')
-          .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+          .format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
         last_detected_at: now,
         status: faker.helpers.arrayElement(['OPEN', 'IN_PROGRESS', 'RESOLVED']),
         remedation: `Upgrade ${cve.package} to version ${cve.fixedVersion} or later.`, // Note: typo matches actual schema
         resolution_reason: faker.helpers.arrayElement(['FIXED', 'WONT_FIX', 'ACCEPTED_RISK', null]),
         resolved_at: faker.datatype.boolean()
-          ? moment()
+          ? dayjs()
               .subtract(faker.number.int({ min: 1, max: 30 }), 'days')
-              .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ')
+              .format('YYYY-MM-DDTHH:mm:ss.SSSZ')
           : null,
         detailed_name: cve.package,
         detection_method: detectionMethod,
@@ -180,9 +180,9 @@ export default function createWizVulnerability({ account }: CreateWizVulnerabili
               enabled: true,
               id: faker.string.alphanumeric(10),
               name: faker.word.noun(),
-              expired_at: moment()
+              expired_at: dayjs()
                 .add(faker.number.int({ min: 30, max: 365 }), 'days')
-                .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+                .format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
             }
           : undefined,
         projects: [

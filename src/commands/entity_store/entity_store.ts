@@ -2,7 +2,7 @@ import { faker } from '@faker-js/faker';
 import { indexCheck, createAgentDocument } from '../utils/indices.ts';
 import { bulkIngest, deleteAllByIndex } from '../shared/elasticsearch.ts';
 import { chunk, once } from 'lodash-es';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import auditbeatMappings from '../../mappings/auditbeat.json' with { type: 'json' };
 import {
   assignAssetCriticality,
@@ -236,9 +236,9 @@ export const createRandomGenericEntity = (): GenericEntity => {
 };
 
 export const createRandomEventForHost = (host: Host, offsetHours?: number): HostEvent => ({
-  '@timestamp': moment()
+  '@timestamp': dayjs()
     .subtract(getOffset(offsetHours), 'h')
-    .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+    .format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
   message: `Host ${faker.hacker.phrase()}`,
   service: {
     type: 'system',
@@ -255,9 +255,9 @@ export const createRandomEventForHost = (host: Host, offsetHours?: number): Host
 });
 
 export const createRandomEventForUser = (user: User, offsetHours?: number): UserEvent => ({
-  '@timestamp': moment()
+  '@timestamp': dayjs()
     .subtract(getOffset(offsetHours), 'h')
-    .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+    .format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
   message: `User ${faker.hacker.phrase()}`,
   service: {
     type: 'system',
@@ -272,9 +272,9 @@ export const createRandomEventForService = (
   service: Service,
   offsetHours?: number,
 ): ServiceEvent => ({
-  '@timestamp': moment()
+  '@timestamp': dayjs()
     .subtract(getOffset(offsetHours), 'h')
-    .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+    .format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
   message: `Service ${faker.hacker.phrase()}`,
   service: {
     node: {
@@ -308,12 +308,12 @@ export const createRandomEventForGenericEntity = (
   const region = faker.helpers.arrayElement(regions);
 
   return {
-    '@timestamp': moment()
+    '@timestamp': dayjs()
       .subtract(getOffset(offsetHours), 'h')
-      .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+      .format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
     message: `${service.subType} entity discovered`,
     event: {
-      ingested: moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+      ingested: dayjs().format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
       dataset: 'cloud_asset_inventory.asset_inventory',
       module: 'cloud_asset_inventory',
     },

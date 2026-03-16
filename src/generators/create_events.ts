@@ -1,9 +1,9 @@
 import { faker } from '@faker-js/faker';
-import moment from 'moment';
+import dayjs from 'dayjs';
 
 export default function createEvents(override = {}) {
   return {
-    '@timestamp': moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+    '@timestamp': dayjs().format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
     criticality: faker.helpers.arrayElement([
       'low_impact',
       'medium_impact',

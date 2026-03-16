@@ -1,6 +1,6 @@
 import { faker } from '@faker-js/faker';
 import { getEsClient } from '../utils/indices.ts';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import { chunk } from 'lodash-es';
 import { createRule, getAllRules, bulkDeleteRules } from '../../utils/kibana_api.ts';
 import { bulkIngest } from '../shared/elasticsearch.ts';
@@ -88,7 +88,7 @@ interface GapEvent {
 }
 
 const generateEvent = (from: number): Event => ({
-  '@timestamp': moment()
+  '@timestamp': dayjs()
     .subtract(faker.number.int({ min: 1, max: from }), 'h')
     .toISOString(),
   message: faker.lorem.sentence(),
@@ -161,8 +161,8 @@ const generateNonOverlappingGapEvents = (
   // Convert minute-based gaps to actual gap events
   return gaps.map((gap) => {
     const gapDurationMs = (gap.end - gap.start) * 60 * 1000;
-    const gapEndTime = moment().subtract(gap.start, 'minutes');
-    const gapStartTime = moment().subtract(gap.end, 'minutes');
+    const gapEndTime = dayjs().subtract(gap.start, 'minutes');
+    const gapStartTime = dayjs().subtract(gap.end, 'minutes');
 
     const range = {
       gte: gapStartTime.toISOString(),

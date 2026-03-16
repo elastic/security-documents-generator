@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import { CSP_AGENT_VERSION, getRandomCve, pickSeverity, type CSPMAccount } from './csp_utils.ts';
 import type { BaseDocumentParams } from '../../types/document_params.ts';
 
@@ -9,7 +9,7 @@ export interface CreateCNVMVulnerabilityParams extends BaseDocumentParams {
 
 // CNVM = Cloud Native Vulnerability Management (AWS only)
 export default function createCNVMVulnerability({ account }: CreateCNVMVulnerabilityParams = {}) {
-  const now = moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+  const now = dayjs().format('YYYY-MM-DDTHH:mm:ss.SSSZ');
   const cve = getRandomCve();
   const severity = pickSeverity();
   const accountId = account?.id || faker.string.numeric(12);
@@ -73,9 +73,9 @@ export default function createCNVMVulnerability({ account }: CreateCNVMVulnerabi
           key: `cloudbeat-generated-${faker.string.uuid()}`,
         },
         Image: `ami-${faker.string.alphanumeric(17)}`,
-        Launch_time: moment()
+        Launch_time: dayjs()
           .subtract(faker.number.int({ min: 1, max: 365 }), 'days')
-          .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+          .format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
         type: faker.helpers.arrayElement([
           't3.micro',
           't3.small',
@@ -180,9 +180,9 @@ export default function createCNVMVulnerability({ account }: CreateCNVMVulnerabi
         name: cve.package,
         version: packageVersion,
       },
-      published_date: moment()
+      published_date: dayjs()
         .subtract(faker.number.int({ min: 30, max: 365 }), 'days')
-        .format('yyyy-MM-DDTHH:mm:ss.SSSZ'),
+        .format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
       reference: `https://nvd.nist.gov/vuln/detail/${cve.id}`,
       report_id: `1.${faker.number.int({ min: 1000000000, max: 9999999999 })}E9`,
       scanner: {

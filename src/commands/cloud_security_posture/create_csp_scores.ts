@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import { type PostureType } from './csp_utils.ts';
 
 export interface BenchmarkScore {
@@ -59,7 +59,7 @@ export default function createCSPScores({
   vulnerabilityStats,
   timestamp,
 }: CreateCSPScoresParams) {
-  const now = timestamp || moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+  const now = timestamp || dayjs().format('YYYY-MM-DDTHH:mm:ss.SSSZ');
   const score = totalFindings > 0 ? Math.round((passedFindings / totalFindings) * 100) : 0;
 
   // Build score_by_benchmark_id structure
@@ -354,7 +354,7 @@ export function createVulnMgmtScores({
   vulnStats: VulnerabilityStats[];
   timestamp?: string;
 }) {
-  const now = timestamp || moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+  const now = timestamp || dayjs().format('YYYY-MM-DDTHH:mm:ss.SSSZ');
 
   const totals = vulnStats.reduce(
     (acc, s) => ({
