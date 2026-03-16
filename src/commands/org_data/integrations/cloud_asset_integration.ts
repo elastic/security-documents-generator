@@ -3,15 +3,19 @@
  * Generates cloud asset documents for AWS, GCP, and Azure resources
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
 import {
-  Organization,
-  CloudResource,
-  CloudIamUser,
-  CloudAssetDocument,
-  CorrelationMap,
-  Host,
-} from '../types';
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import {
+  type Organization,
+  type CloudResource,
+  type CloudIamUser,
+  type CloudAssetDocument,
+  type CorrelationMap,
+  type Host,
+} from '../types.ts';
 import { faker } from '@faker-js/faker';
 
 /**

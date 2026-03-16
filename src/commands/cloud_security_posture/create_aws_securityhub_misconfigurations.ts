@@ -1,6 +1,6 @@
 import { faker } from '@faker-js/faker';
 import moment from 'moment';
-import { pickEvaluation, CSPMAccount } from './csp_utils';
+import { pickEvaluation, type CSPMAccount } from './csp_utils.ts';
 
 export interface CreateAwsSecurityHubMisconfigurationParams {
   account?: CSPMAccount;

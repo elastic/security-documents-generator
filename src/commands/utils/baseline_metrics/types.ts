@@ -1,5 +1,5 @@
-import { EntityType } from '../../../types/entities';
-import { PercentileMetrics } from './utils';
+import { type EntityType } from '../../../types/entities.ts';
+import { type PercentileMetrics } from './utils.ts';
 
 export interface EntityTypeMetrics {
   searchLatency: PercentileMetrics;

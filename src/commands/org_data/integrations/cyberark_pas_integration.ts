@@ -5,8 +5,12 @@
  * Audit record fields use CamelCase; pipeline converts to snake_case.
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
-import { Organization, Employee, CorrelationMap } from '../types';
+import {
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import { type Organization, type Employee, type CorrelationMap } from '../types.ts';
 import { faker } from '@faker-js/faker';
 
 const AUDIT_ACTIONS: Array<{

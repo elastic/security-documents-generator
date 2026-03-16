@@ -3,8 +3,14 @@
  * Handles cross-integration data correlation and ensures realistic relationships
  */
 
-import { Organization, Employee, OktaGroup, CorrelationMap, DepartmentName } from './types';
-import { getCloudAccessDepartments } from './data/departments';
+import {
+  type Organization,
+  type Employee,
+  type OktaGroup,
+  type CorrelationMap,
+  type DepartmentName,
+} from './types.ts';
+import { getCloudAccessDepartments } from './data/departments.ts';
 
 /**
  * Build correlation map from organization data

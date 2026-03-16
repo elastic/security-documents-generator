@@ -9,8 +9,8 @@ import {
   createRandomEventForHost,
   createRandomEventForService,
   createRandomEventForGenericEntity,
-} from '../entity_store/entity_store';
-import { bulkIngest } from '../shared/elasticsearch';
+} from '../entity_store/entity_store.ts';
+import { bulkIngest } from '../shared/elasticsearch.ts';
 import {
   assignAssetCriticality,
   enableRiskScore,
@@ -19,15 +19,15 @@ import {
   uploadPrivmonCsv,
   enablePrivmon,
   initEntityEngineForEntityTypes,
-} from '../../utils/kibana_api';
+} from '../../utils/kibana_api.ts';
 import {
   ASSET_CRITICALITY,
-  AssetCriticality,
+  type AssetCriticality,
   DEFAULT_CHUNK_SIZE,
   EVENT_INDEX_NAME,
-} from '../../constants';
-import { ensureSpace } from '../../utils';
-import { ensureSecurityDefaultDataView } from '../../utils/security_default_data_view';
+} from '../../constants.ts';
+import { ensureSpace } from '../../utils/index.ts';
+import { ensureSecurityDefaultDataView } from '../../utils/security_default_data_view.ts';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 

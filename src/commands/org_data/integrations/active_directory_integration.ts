@@ -4,8 +4,18 @@
  * Based on beats x-pack/filebeat/input/entityanalytics/provider/activedirectory/
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
-import { Organization, Employee, Device, ActiveDirectoryDocument, CorrelationMap } from '../types';
+import {
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import {
+  type Organization,
+  type Employee,
+  type Device,
+  type ActiveDirectoryDocument,
+  type CorrelationMap,
+} from '../types.ts';
 import { faker } from '@faker-js/faker';
 
 const IDENTITY_SOURCE = 'ad-saas-organization';

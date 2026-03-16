@@ -1,9 +1,9 @@
 /* eslint-disable no-useless-escape */
-import { getEsClient } from '../commands/utils/indices';
+import { getEsClient } from '../commands/utils/indices.ts';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { getAlertIndex } from '../utils';
-import { sleep } from '../utils/sleep';
+import { getAlertIndex } from '../utils/index.ts';
+import { sleep } from '../utils/sleep.ts';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Report = Record<number, { ok?: any; error?: any; delay?: number }>;

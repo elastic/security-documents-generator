@@ -1,13 +1,13 @@
-import { Command } from 'commander';
+import { type Command } from 'commander';
 import fs from 'fs';
-import { CommandModule } from '../types';
-import { handleCommandError, parseIntBase10, wrapAction } from '../utils/cli_utils';
-import { deleteAllAlerts } from '../documents';
-import * as RiskEngine from '../../risk_engine/generate_perf_data';
-import * as RiskEngineIngest from '../../risk_engine/ingest';
-import { stressTest } from '../../risk_engine/esql_stress_test';
-import * as Pain from '../../risk_engine/scripted_metrics_stress_test';
-import { getRiskEnginePerfDataDir } from '../../utils/data_paths';
+import { type CommandModule } from '../types.ts';
+import { handleCommandError, parseIntBase10, wrapAction } from '../utils/cli_utils.ts';
+import { deleteAllAlerts } from '../documents/index.ts';
+import * as RiskEngine from '../../risk_engine/generate_perf_data.ts';
+import * as RiskEngineIngest from '../../risk_engine/ingest.ts';
+import { stressTest } from '../../risk_engine/esql_stress_test.ts';
+import * as Pain from '../../risk_engine/scripted_metrics_stress_test.ts';
+import { getRiskEnginePerfDataDir } from '../../utils/data_paths.ts';
 
 export const riskEngineCommands: CommandModule = {
   register(program: Command) {

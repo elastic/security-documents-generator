@@ -3,8 +3,18 @@
  * Generates authentication and activity log documents for okta.system data stream
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
-import { Organization, Employee, OktaSystemLogDocument, CorrelationMap, OktaGroup } from '../types';
+import {
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import {
+  type Organization,
+  type Employee,
+  type OktaSystemLogDocument,
+  type CorrelationMap,
+  type OktaGroup,
+} from '../types.ts';
 import { faker } from '@faker-js/faker';
 
 /**

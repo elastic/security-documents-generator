@@ -5,10 +5,19 @@
  * The ingest pipeline parses message and derives ECS fields.
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
-import { Organization, CorrelationMap, Employee, DepartmentName } from '../types';
+import {
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import {
+  type Organization,
+  type CorrelationMap,
+  type Employee,
+  type DepartmentName,
+} from '../types.ts';
 import { faker } from '@faker-js/faker';
-import { GOOGLE_WORKSPACE_SERVICES, DEPT_DRIVE_WEIGHTS } from '../data/saas_apps';
+import { GOOGLE_WORKSPACE_SERVICES, DEPT_DRIVE_WEIGHTS } from '../data/saas_apps.ts';
 
 const DS = {
   login: 'logs-google_workspace.login-default',

@@ -1,5 +1,5 @@
-import { TransformStatsData } from '../types';
-import { computePercentileMetrics } from '../utils';
+import { type TransformStatsData } from '../types.ts';
+import { computePercentileMetrics } from '../utils.ts';
 
 export interface LatencyMetrics {
   searchLatency: {

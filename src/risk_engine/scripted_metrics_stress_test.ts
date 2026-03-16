@@ -1,6 +1,6 @@
-import { getEsClient } from '../commands/utils/indices';
-import { getAlertIndex } from '../utils';
-import { sleep } from '../utils/sleep';
+import { getEsClient } from '../commands/utils/indices.ts';
+import { getAlertIndex } from '../utils/index.ts';
+import { sleep } from '../utils/sleep.ts';
 
 type Report = Record<
   number,

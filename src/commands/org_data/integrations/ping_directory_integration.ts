@@ -10,8 +10,12 @@
  * API reference: https://developer.pingidentity.com/pingdirectory/directory-proxy-scim/user-profile-endpoints/get-read-search-users.html
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
-import { Organization, Employee, CorrelationMap } from '../types';
+import {
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import { type Organization, type Employee, type CorrelationMap } from '../types.ts';
 import { faker } from '@faker-js/faker';
 
 /** SCIM v2 schema URNs used by PingDirectory */

@@ -1,4 +1,4 @@
-import { getDataView, createDataView } from './kibana_api';
+import { getDataView, createDataView } from './kibana_api.ts';
 
 type DataView = {
   id: string;

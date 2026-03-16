@@ -1,29 +1,29 @@
 import { faker } from '@faker-js/faker';
-import { indexCheck, createAgentDocument } from '../utils/indices';
-import { bulkIngest, deleteAllByIndex } from '../shared/elasticsearch';
+import { indexCheck, createAgentDocument } from '../utils/indices.ts';
+import { bulkIngest, deleteAllByIndex } from '../shared/elasticsearch.ts';
 import { chunk, once } from 'lodash-es';
 import moment from 'moment';
-import auditbeatMappings from '../../mappings/auditbeat.json' assert { type: 'json' };
+import auditbeatMappings from '../../mappings/auditbeat.json' with { type: 'json' };
 import {
   assignAssetCriticality,
   enableRiskScore,
   createRule,
   enrichEntityViaApi,
-  EntityEnrichment,
-} from '../../utils/kibana_api';
+  type EntityEnrichment,
+} from '../../utils/kibana_api.ts';
 import {
   AGENT_INDEX_NAME,
   ASSET_CRITICALITY,
-  AssetCriticality,
+  type AssetCriticality,
   DEFAULT_CHUNK_SIZE,
   ENTITY_STORE_OPTIONS,
   EVENT_INDEX_NAME,
   generateNewSeed,
-} from '../../constants';
-import { MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
-import { getConfig } from '../../get_config';
-import { ensureSpace } from '../../utils';
-import { EntityType } from '../../types/entities';
+} from '../../constants.ts';
+import { type MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
+import { getConfig } from '../../get_config.ts';
+import { ensureSpace } from '../../utils/index.ts';
+import { type EntityType } from '../../types/entities.ts';
 
 const getOffset = (offsetHours?: number) => {
   const config = getConfig();

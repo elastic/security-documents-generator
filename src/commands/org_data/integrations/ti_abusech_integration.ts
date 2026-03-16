@@ -3,8 +3,12 @@
  * Generates malware hash and malicious URL indicator documents
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
-import { Organization, CorrelationMap } from '../types';
+import {
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import { type Organization, type CorrelationMap } from '../types.ts';
 import { faker } from '@faker-js/faker';
 import {
   MALWARE_FAMILIES,
@@ -13,7 +17,7 @@ import {
   TI_CONFIDENCE_LEVELS,
   ABUSECH_MALWARE_TYPES,
   ABUSECH_THREAT_TYPES,
-} from '../data/threat_intel_data';
+} from '../data/threat_intel_data.ts';
 
 /**
  * TI AbuseCH Integration

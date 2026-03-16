@@ -1,15 +1,18 @@
-import createAlerts, { BaseCreateAlertsReturnType } from '../../generators/create_alerts';
-import createEvents from '../../generators/create_events';
-import eventMappings from '../../mappings/eventMappings.json' assert { type: 'json' };
-import { indexCheck } from '../utils/indices';
-import { getConfig } from '../../get_config';
-import { MappingTypeMapping, BulkOperationContainer } from '@elastic/elasticsearch/lib/api/types';
+import createAlerts, { type BaseCreateAlertsReturnType } from '../../generators/create_alerts.ts';
+import createEvents from '../../generators/create_events.ts';
+import eventMappings from '../../mappings/eventMappings.json' with { type: 'json' };
+import { indexCheck } from '../utils/indices.ts';
+import { getConfig } from '../../get_config.ts';
+import {
+  type MappingTypeMapping,
+  type BulkOperationContainer,
+} from '@elastic/elasticsearch/lib/api/types';
 import pMap from 'p-map';
 import { chunk } from 'lodash-es';
 import { faker } from '@faker-js/faker';
-import { getAlertIndex } from '../../utils';
-import { bulkUpsert, deleteAllByIndex } from '../shared/elasticsearch';
-import { createProgressBar, handleCommandError } from '../utils/cli_utils';
+import { getAlertIndex } from '../../utils/index.ts';
+import { bulkUpsert, deleteAllByIndex } from '../shared/elasticsearch.ts';
+import { createProgressBar, handleCommandError } from '../utils/cli_utils.ts';
 
 const generateDocs = async ({
   createDocs,

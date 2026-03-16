@@ -1,11 +1,11 @@
 import { Client } from '@elastic/elasticsearch';
-import { ConfigType, getConfig } from '../../get_config';
-import { IndicesCreateRequest } from '@elastic/elasticsearch/lib/api/types';
+import { type ConfigType, getConfig } from '../../get_config.ts';
+import { type IndicesCreateRequest } from '@elastic/elasticsearch/lib/api/types';
 import { exec } from 'child_process';
 import { once } from 'lodash-es';
-import { bulkIngest } from '../shared/elasticsearch';
+import { bulkIngest } from '../shared/elasticsearch.ts';
 
-export * from './create_agent_document';
+export * from './create_agent_document.ts';
 
 let esClient: Client;
 

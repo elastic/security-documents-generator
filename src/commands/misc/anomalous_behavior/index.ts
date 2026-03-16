@@ -1,20 +1,20 @@
-import { MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
-import { indexCheck } from '../../utils/indices';
-import { bulkIngest } from '../../shared/elasticsearch';
+import { type MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
+import { indexCheck } from '../../utils/indices.ts';
+import { bulkIngest } from '../../shared/elasticsearch.ts';
 import {
   ALL_ANOMALY_JOB_IDS,
   waitForAllJobsToStart,
   setupAnomalyMlModulesAndStartDatafeeds,
-} from './ml_modules_setup';
-import windowsServicesMappings from './mappings/windowsServicesMappings.json' assert { type: 'json' };
-import auditbeatHostsMappings from './mappings/auditbeatHostsMappings.json' assert { type: 'json' };
-import ecsCompliantMappings from './mappings/ecsCompliantMappings.json' assert { type: 'json' };
-import securityAuthAnomaliesMappings from './mappings/securityAuthAnomaliesMappings.json' assert { type: 'json' };
-import padAnomaliesMappings from './mappings/padAnomaliesMappings.json' assert { type: 'json' };
-import lmdAnomaliesMappings from './mappings/lmdAnomaliesMappings.json' assert { type: 'json' };
-import packetbeatAnomaliesMappings from './mappings/packetbeatAnomaliesMappings.json' assert { type: 'json' };
-import sharedAnomaliesMappings from './mappings/sharedAnomaliesMappings.json' assert { type: 'json' };
-import { createAlertsIndex } from '../../../utils/kibana_api';
+} from './ml_modules_setup.ts';
+import windowsServicesMappings from './mappings/windowsServicesMappings.json' with { type: 'json' };
+import auditbeatHostsMappings from './mappings/auditbeatHostsMappings.json' with { type: 'json' };
+import ecsCompliantMappings from './mappings/ecsCompliantMappings.json' with { type: 'json' };
+import securityAuthAnomaliesMappings from './mappings/securityAuthAnomaliesMappings.json' with { type: 'json' };
+import padAnomaliesMappings from './mappings/padAnomaliesMappings.json' with { type: 'json' };
+import lmdAnomaliesMappings from './mappings/lmdAnomaliesMappings.json' with { type: 'json' };
+import packetbeatAnomaliesMappings from './mappings/packetbeatAnomaliesMappings.json' with { type: 'json' };
+import sharedAnomaliesMappings from './mappings/sharedAnomaliesMappings.json' with { type: 'json' };
+import { createAlertsIndex } from '../../../utils/kibana_api.ts';
 import {
   generateSecurityAuthRecords,
   generatePadRecords,
@@ -22,7 +22,7 @@ import {
   generateDedRecords,
   generatePacketbeatRecords,
   generateSourceData,
-} from './generators';
+} from './generators/index.ts';
 
 const WINDOWS_SERVICES_INDEX = 'winlogbeat-windows-services';
 const AUDITBEAT_HOSTS_INDEX = 'auditbeat-hosts';

@@ -1,4 +1,4 @@
-import { readFileSafely } from '../utils';
+import { readFileSafely } from '../utils.ts';
 
 /**
  * Parse node stats log and extract CPU and memory metrics

@@ -1,6 +1,6 @@
 import { faker } from '@faker-js/faker';
 import moment from 'moment';
-import { pickEvaluation, CSPMAccount, CloudProvider } from './csp_utils';
+import { pickEvaluation, type CSPMAccount, type CloudProvider } from './csp_utils.ts';
 
 export interface CreateWizMisconfigurationParams {
   account?: CSPMAccount;

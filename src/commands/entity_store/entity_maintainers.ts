@@ -1,15 +1,15 @@
 import { faker } from '@faker-js/faker';
 import { chunk } from 'lodash-es';
-import { getEsClient } from '../utils/indices';
-import { bulkIngest, bulkUpsert } from '../shared/elasticsearch';
+import { getEsClient } from '../utils/indices.ts';
+import { bulkIngest, bulkUpsert } from '../shared/elasticsearch.ts';
 import {
   getEntityStoreV2Index,
   ENTITY_MAINTAINERS_OPTIONS,
   DEFAULT_CHUNK_SIZE,
   type EntityMaintainerOption,
-} from '../../constants';
-import { getAlertIndex } from '../../utils';
-import createAlerts from '../../generators/create_alerts';
+} from '../../constants.ts';
+import { getAlertIndex } from '../../utils/index.ts';
+import createAlerts from '../../generators/create_alerts.ts';
 
 const RISK_LEVELS = ['Unknown', 'Low', 'Moderate', 'High', 'Critical'] as const;
 

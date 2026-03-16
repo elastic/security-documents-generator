@@ -1,18 +1,18 @@
-import { Command } from 'commander';
-import { CommandModule } from '../types';
-import { parseIntBase10, wrapAction } from '../utils/cli_utils';
+import { type Command } from 'commander';
+import { type CommandModule } from '../types.ts';
+import { parseIntBase10, wrapAction } from '../utils/cli_utils.ts';
 import {
   extractBaselineMetrics,
   saveBaseline,
   loadBaseline,
   listBaselines,
   loadBaselineWithPattern,
-} from '../utils/baseline_metrics';
+} from '../utils/baseline_metrics/index.ts';
 import {
   compareMetrics,
   formatComparisonReport,
   buildComparisonThresholds,
-} from '../utils/metrics_comparison';
+} from '../utils/metrics_comparison.ts';
 
 export const baselineMetricsCommands: CommandModule = {
   register(program: Command) {

@@ -1,18 +1,27 @@
 import { faker } from '@faker-js/faker';
 import fs from 'fs';
-import { getEsClient, getFileLineCount } from '../utils/indices';
-import { streamingBulkIngest } from '../shared/elasticsearch';
-import { createProgressBar } from '../utils/cli_utils';
-import { ensureSecurityDefaultDataView } from '../../utils/security_default_data_view';
+import { getEsClient, getFileLineCount } from '../utils/indices.ts';
+import { streamingBulkIngest } from '../shared/elasticsearch.ts';
+import { createProgressBar } from '../utils/cli_utils.ts';
+import { ensureSecurityDefaultDataView } from '../../utils/security_default_data_view.ts';
 import readline from 'readline';
-import { deleteEngines, initEntityEngineForEntityTypes, kibanaFetch } from '../../utils/kibana_api';
+import {
+  deleteEngines,
+  initEntityEngineForEntityTypes,
+  kibanaFetch,
+} from '../../utils/kibana_api.ts';
 import { get } from 'lodash-es';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { getConfig } from '../../get_config';
+import { getConfig } from '../../get_config.ts';
 import * as path from 'path';
-import { GenericEntityFields, HostFields, ServiceFields, UserFields } from '../../types/entities';
-import { getEntityStorePerfDataDir } from '../../utils/data_paths';
+import {
+  type GenericEntityFields,
+  type HostFields,
+  type ServiceFields,
+  type UserFields,
+} from '../../types/entities.ts';
+import { getEntityStorePerfDataDir } from '../../utils/data_paths.ts';
 
 const config = getConfig();
 

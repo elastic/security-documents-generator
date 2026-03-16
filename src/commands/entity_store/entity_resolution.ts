@@ -1,18 +1,18 @@
-import { getEsClient, getFileLineCount } from '../utils/indices';
-import { bulkUpsert } from '../shared/elasticsearch';
+import { getEsClient, getFileLineCount } from '../utils/indices.ts';
+import { bulkUpsert } from '../shared/elasticsearch.ts';
 import {
   installPackage,
   createRule,
   getRule,
   createComponentTemplate,
   buildKibanaUrl,
-} from '../../utils/kibana_api';
+} from '../../utils/kibana_api.ts';
 import pMap from 'p-map';
-import { createProgressBar } from '../utils/cli_utils';
+import { createProgressBar } from '../utils/cli_utils.ts';
 import readline from 'readline';
 import fs from 'fs';
 import path from 'path';
-import { getEntityResolutionDataDir } from '../../utils/data_paths';
+import { getEntityResolutionDataDir } from '../../utils/data_paths.ts';
 
 const BATCH_SIZE = 1000;
 const CONCURRENCY = 10;
