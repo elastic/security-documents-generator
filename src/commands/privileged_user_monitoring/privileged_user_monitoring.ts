@@ -151,7 +151,10 @@ const quickEnableRiskEngineAndRule = async (space: string) => {
     await createRule({ space, query: getMetadataKQL() });
     await enableRiskScore(space);
   } catch (e) {
-    log.error('Failed to enable risk engine and rule:', e);
+    log.error(
+      'Failed to enable risk engine and rule',
+      e instanceof Error ? e.stack : e,
+    );
   }
 };
 
@@ -169,7 +172,10 @@ const generatePrivilegedUserMonitoringData = async ({ users }: { users: User[] }
       ...getSampleOktaAuthenticationLogs(users),
     ]);
   } catch (e) {
-    log.error('Failed to generate privileged user monitoring source event data:', e);
+    log.error(
+      'Failed to generate privileged user monitoring data',
+      e instanceof Error ? e.stack : e,
+    );
   }
 };
 
