@@ -47,13 +47,15 @@ export const entityStorePerfCommands: CommandModule = {
       .argument('[file]', 'File to upload')
       .option('--index <index>', 'Destination index')
       .option('--delete', 'Delete all entities before uploading')
+      .option('--noTransforms', 'Use Entity Store V2 / ESQL flow (no transforms)')
       .description('Upload performance data file')
       .action(
         wrapAction(async (file, options) => {
           await uploadPerfDataFile(
             file ?? (await promptForFileSelection(listPerfDataFiles())),
             options.index,
-            options.delete
+            options.delete,
+            options.noTransforms
           );
         })
       );
@@ -77,7 +79,10 @@ export const entityStorePerfCommands: CommandModule = {
         parseIntBase10,
         5
       )
-      .option('--noTransforms', 'Skip transform-related operations (for ESQL workflows)')
+      .option(
+        '--noTransforms',
+        'Run Entity Store V2 / ESQL flow (enable V2, install V2, no transforms, v2 indices)'
+      )
       .option('--index <index>', 'Destination index')
       .description('Upload performance data file')
       .action(
