@@ -236,9 +236,7 @@ export const createRandomGenericEntity = (): GenericEntity => {
 };
 
 export const createRandomEventForHost = (host: Host, offsetHours?: number): HostEvent => ({
-  '@timestamp': dayjs()
-    .subtract(getOffset(offsetHours), 'h')
-    .format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
+  '@timestamp': dayjs().subtract(getOffset(offsetHours), 'h').format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
   message: `Host ${faker.hacker.phrase()}`,
   service: {
     type: 'system',
@@ -255,9 +253,7 @@ export const createRandomEventForHost = (host: Host, offsetHours?: number): Host
 });
 
 export const createRandomEventForUser = (user: User, offsetHours?: number): UserEvent => ({
-  '@timestamp': dayjs()
-    .subtract(getOffset(offsetHours), 'h')
-    .format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
+  '@timestamp': dayjs().subtract(getOffset(offsetHours), 'h').format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
   message: `User ${faker.hacker.phrase()}`,
   service: {
     type: 'system',
@@ -272,9 +268,7 @@ export const createRandomEventForService = (
   service: Service,
   offsetHours?: number,
 ): ServiceEvent => ({
-  '@timestamp': dayjs()
-    .subtract(getOffset(offsetHours), 'h')
-    .format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
+  '@timestamp': dayjs().subtract(getOffset(offsetHours), 'h').format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
   message: `Service ${faker.hacker.phrase()}`,
   service: {
     node: {
@@ -308,9 +302,7 @@ export const createRandomEventForGenericEntity = (
   const region = faker.helpers.arrayElement(regions);
 
   return {
-    '@timestamp': dayjs()
-      .subtract(getOffset(offsetHours), 'h')
-      .format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
+    '@timestamp': dayjs().subtract(getOffset(offsetHours), 'h').format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
     message: `${service.subType} entity discovered`,
     event: {
       ingested: dayjs().format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
