@@ -9,7 +9,7 @@ import {
   type IntegrationDocument,
   type DataStreamConfig,
 } from './base_integration.ts';
-import { type Organization, type Host, type Employee, type CorrelationMap } from '../types.ts';
+import { type Organization, type Host, type Employee, type CorrelationMap, type Device } from '../types.ts';
 import { ATTACKER_IPS } from '../data/network_data.ts';
 import { faker } from '@faker-js/faker';
 
