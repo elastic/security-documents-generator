@@ -10,7 +10,7 @@
     "start": "node src/index.ts",
     "lint": "eslint",
     "format": "prettier --write .",
-    "checks": "yarn typecheck && yarn lint && yarn prettier --check . || { echo \"‼️ run yarn fix to automatically fix issues ‼️\"; exit 1; }",
+    "checks": "./scripts/checks.sh",
     "fix": "yarn lint --fix && yarn prettier --write ."
   },
   "engines": {
@@ -25,18 +25,12 @@
     "@inquirer/prompts": "^8.0.0",
     "cli-progress": "^3.12.0",
     "commander": "^14.0.2",
+    "dayjs": "^1.11.20",
     "form-data": "^4.0.3",
-    "fp-ts": "^2.16.5",
     "globals": "^17.0.0",
-    "io-ts": "^2.2.21",
     "lodash-es": "^4.17.21",
-    "moment": "^2.29.4",
-    "node-fetch": "^3.3.1",
     "p-map": "^7.0.2",
-    "p-retry": "^7.1.1",
-    "readline": "^1.3.0",
-    "url-join": "^5.0.0",
-    "uuid": "^13.0.0"
+    "p-retry": "^7.1.1"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

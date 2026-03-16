@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import { getRandomCve, pickSeverity, type CSPMAccount } from './csp_utils.ts';
 
 export interface CreateTenableVulnerabilityParams {
@@ -9,7 +9,7 @@ export interface CreateTenableVulnerabilityParams {
 export default function createTenableVulnerability({
   account,
 }: CreateTenableVulnerabilityParams = {}) {
-  const now = moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+  const now = dayjs().format('YYYY-MM-DDTHH:mm:ss.SSSZ');
   const cve = getRandomCve();
   const severity = pickSeverity();
   const accountId = account?.id || faker.string.numeric(12);
@@ -66,27 +66,27 @@ export default function createTenableVulnerability({
   const pluginFamilyId = faker.number.int({ min: 1000000, max: 9999999 });
 
   // Dates
-  const firstFound = moment()
+  const firstFound = dayjs()
     .subtract(faker.number.int({ min: 30, max: 180 }), 'days')
-    .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+    .format('YYYY-MM-DDTHH:mm:ss.SSSZ');
   const lastFound = now;
   const indexed = now;
-  const scanStarted = moment()
+  const scanStarted = dayjs()
     .subtract(faker.number.int({ min: 1, max: 24 }), 'hours')
-    .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+    .format('YYYY-MM-DDTHH:mm:ss.SSSZ');
   const scanCompleted = now;
-  const vulnPublicationDate = moment()
+  const vulnPublicationDate = dayjs()
     .subtract(faker.number.int({ min: 60, max: 365 }), 'days')
-    .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
-  const pluginPublicationDate = moment()
+    .format('YYYY-MM-DDTHH:mm:ss.SSSZ');
+  const pluginPublicationDate = dayjs()
     .subtract(faker.number.int({ min: 30, max: 180 }), 'days')
-    .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
-  const pluginModificationDate = moment()
+    .format('YYYY-MM-DDTHH:mm:ss.SSSZ');
+  const pluginModificationDate = dayjs()
     .subtract(faker.number.int({ min: 1, max: 30 }), 'days')
-    .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
-  const patchPublicationDate = moment()
+    .format('YYYY-MM-DDTHH:mm:ss.SSSZ');
+  const patchPublicationDate = dayjs()
     .subtract(faker.number.int({ min: 1, max: 29 }), 'days')
-    .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+    .format('YYYY-MM-DDTHH:mm:ss.SSSZ');
 
   // Plugin details
   const pluginName = `${cve.package} < ${cve.fixedVersion} Security Vulnerability`;
@@ -311,9 +311,9 @@ export default function createTenableVulnerability({
           // VPR (Vulnerability Priority Rating)
           vpr: {
             score: vprScore,
-            updated: moment()
+            updated: dayjs()
               .subtract(faker.number.int({ min: 1, max: 30 }), 'days')
-              .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+              .format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
             drivers: {
               age_of_vuln: {
                 lower_bound: faker.number.int({ min: 0, max: 365 }),

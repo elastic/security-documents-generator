@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import { ingest, getEsClient } from '../utils/indices.ts';
 import {
   installPackage,
@@ -620,9 +620,9 @@ function generateScoresTrend({
   const totalPoints = (hoursBack * 60) / intervalMinutes; // 288
 
   for (let i = totalPoints; i >= 0; i--) {
-    const timestamp = moment()
+    const timestamp = dayjs()
       .subtract(i * intervalMinutes, 'minutes')
-      .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+      .format('YYYY-MM-DDTHH:mm:ss.SSSZ');
 
     // Add small random drift to pass/fail counts (±5% of total)
     const driftRange = Math.max(1, Math.floor(misconfigStats.totalFindings * 0.05));
@@ -676,9 +676,9 @@ function generateVulnMgmtScoresTrend(vulnStats: VulnerabilityStats[]): object[] 
   const totalPoints = (daysBack * 24 * 60) / intervalMinutes;
 
   for (let i = totalPoints; i >= 0; i--) {
-    const timestamp = moment()
+    const timestamp = dayjs()
       .subtract(i * intervalMinutes, 'minutes')
-      .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+      .format('YYYY-MM-DDTHH:mm:ss.SSSZ');
 
     // Add small random drift to severity counts (±5%)
     const driftedStats = vulnStats.map((s) => {

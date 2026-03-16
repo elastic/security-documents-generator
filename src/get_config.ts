@@ -1,33 +1,66 @@
 import * as fs from 'fs';
-import * as t from 'io-ts';
-// get config relative to the file
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
-import { PathReporter } from 'io-ts/lib/PathReporter.js';
 
-const NodeWithCredentials = t.type({
-  node: t.string,
-  username: t.string,
-  password: t.string,
-});
+interface NodeWithCredentials {
+  node: string;
+  username: string;
+  password: string;
+}
 
-const NodeWithAPIKey = t.type({
-  node: t.string,
-  apiKey: t.string,
-});
+interface NodeWithAPIKey {
+  node: string;
+  apiKey: string;
+}
 
-const Node = t.union([NodeWithCredentials, NodeWithAPIKey]);
+type NodeConfig = NodeWithCredentials | NodeWithAPIKey;
 
-const Config = t.type({
-  elastic: Node,
-  kibana: Node,
-  serverless: t.union([t.boolean, t.undefined]),
-  eventIndex: t.union([t.string, t.undefined]),
-  eventDateOffsetHours: t.union([t.number, t.undefined]),
-  allowSelfSignedCerts: t.union([t.boolean, t.undefined]),
-});
+export interface ConfigType {
+  elastic: NodeConfig;
+  kibana: NodeConfig;
+  serverless?: boolean;
+  eventIndex?: string;
+  eventDateOffsetHours?: number;
+  allowSelfSignedCerts?: boolean;
+}
 
-export type ConfigType = t.TypeOf<typeof Config>;
+const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object';
+const checkOptionalType = (obj: Record<string, unknown>, key: string, type: string, prefix = '') =>
+  obj[key] !== undefined && typeof obj[key] !== type ? `${prefix}${key}: must be a ${type}` : null;
+const checkRequired = (obj: Record<string, unknown>, key: string, type: string, prefix = '') =>
+  typeof obj[key] !== type ? `${prefix}${key}: must be a ${type}` : null;
+
+const validateNodeConfig = (value: unknown, name: string): string[] => {
+  if (!isObject(value)) return [`${name}: must be an object`];
+  if (typeof value.node !== 'string') return [`${name}.node: must be a string`];
+
+  if ('apiKey' in value) {
+    return [checkRequired(value, 'apiKey', 'string', `${name}.`)].filter(Boolean) as string[];
+  }
+  if ('username' in value || 'password' in value) {
+    return [
+      checkRequired(value, 'username', 'string', `${name}.`),
+      checkRequired(value, 'password', 'string', `${name}.`),
+    ].filter(Boolean) as string[];
+  }
+  return [`${name}: must have either (username + password) or apiKey`];
+};
+
+const OPTIONAL_FIELDS: Array<[string, string]> = [
+  ['serverless', 'boolean'],
+  ['eventIndex', 'string'],
+  ['eventDateOffsetHours', 'number'],
+  ['allowSelfSignedCerts', 'boolean'],
+];
+
+const validateConfig = (value: unknown): string[] => {
+  if (!isObject(value)) return ['Config must be an object'];
+  return [
+    ...validateNodeConfig(value.elastic, 'elastic'),
+    ...validateNodeConfig(value.kibana, 'kibana'),
+    ...OPTIONAL_FIELDS.map(([key, type]) => checkOptionalType(value, key, type)).filter(Boolean),
+  ] as string[];
+};
 
 let config: ConfigType;
 
@@ -157,7 +190,7 @@ const loadAndMergeConfig = (
   throwOnReadError: boolean = false,
 ): {
   mergedConfig: Partial<ConfigType>;
-  validationResult: t.Validation<ConfigType>;
+  errors: string[];
   envConfig: Partial<ConfigType> | null;
 } => {
   // Try to read from environment variables first
@@ -186,10 +219,9 @@ const loadAndMergeConfig = (
     mergedConfig.eventIndex = 'logs-testlogs-default';
   }
 
-  // Validate the merged configuration
-  const validationResult = Config.decode(mergedConfig);
+  const errors = validateConfig(mergedConfig);
 
-  return { mergedConfig, validationResult, envConfig };
+  return { mergedConfig, errors, envConfig };
 };
 
 /**
@@ -197,8 +229,8 @@ const loadAndMergeConfig = (
  * This is used to determine if we need to prompt the user to create a config file.
  */
 export const hasValidConfig = (): boolean => {
-  const { validationResult } = loadAndMergeConfig(false);
-  return validationResult._tag === 'Right';
+  const { errors } = loadAndMergeConfig(false);
+  return errors.length === 0;
 };
 
 export const getConfig = (): ConfigType => {
@@ -206,13 +238,13 @@ export const getConfig = (): ConfigType => {
     return config;
   }
 
-  const { mergedConfig, validationResult, envConfig } = loadAndMergeConfig(true);
+  const { mergedConfig, errors, envConfig } = loadAndMergeConfig(true);
 
-  if (validationResult._tag === 'Left') {
+  if (errors.length > 0) {
     console.error(
       `There was a config validation error. Fix issues below in your ${envConfig ? 'environment variables or ' : ''}${CONFIG_FILE_NAME} file, and try again.`,
     );
-    console.log(PathReporter.report(validationResult));
+    errors.forEach((err) => console.error(`  - ${err}`));
     process.exit(1);
   }
 

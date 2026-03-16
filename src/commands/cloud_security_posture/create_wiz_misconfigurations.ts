@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import { pickEvaluation, type CSPMAccount, type CloudProvider } from './csp_utils.ts';
 
 export interface CreateWizMisconfigurationParams {
@@ -114,8 +114,8 @@ const WIZ_RULES = [
 export default function createWizMisconfiguration({
   account,
 }: CreateWizMisconfigurationParams = {}) {
-  const now = moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
-  const analyzedAt = moment()
+  const now = dayjs().format('YYYY-MM-DDTHH:mm:ss.SSSZ');
+  const analyzedAt = dayjs()
     .subtract(faker.number.int({ min: 0, max: 24 }), 'hours')
     .toISOString();
   const evaluation = pickEvaluation();

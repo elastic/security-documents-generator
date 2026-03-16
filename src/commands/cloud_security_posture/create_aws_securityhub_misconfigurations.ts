@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import { pickEvaluation, type CSPMAccount } from './csp_utils.ts';
 
 export interface CreateAwsSecurityHubMisconfigurationParams {
@@ -178,8 +178,8 @@ const AWS_REGIONS = [
 export default function createAwsSecurityHubMisconfiguration({
   account,
 }: CreateAwsSecurityHubMisconfigurationParams = {}) {
-  const now = moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
-  const createdAt = moment()
+  const now = dayjs().format('YYYY-MM-DDTHH:mm:ss.SSSZ');
+  const createdAt = dayjs()
     .subtract(faker.number.int({ min: 1, max: 72 }), 'hours')
     .toISOString();
   const evaluation = pickEvaluation();

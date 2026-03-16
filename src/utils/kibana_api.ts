@@ -1,6 +1,4 @@
-import urlJoin from 'url-join';
-import fetch, { Headers } from 'node-fetch';
-import https from 'https';
+import { Agent } from 'undici';
 import { getConfig } from '../get_config.ts';
 import { faker } from '@faker-js/faker';
 import fs from 'fs';
@@ -28,24 +26,27 @@ import {
   ML_GROUP_ID,
 } from '../constants.ts';
 
-let httpsAgent: https.Agent | undefined;
+let insecureDispatcher: Agent | undefined;
 
-const getHttpsAgent = () => {
+const getDispatcher = () => {
   const config = getConfig();
   if (config.allowSelfSignedCerts) {
-    if (!httpsAgent) {
-      httpsAgent = new https.Agent({ rejectUnauthorized: false });
+    if (!insecureDispatcher) {
+      insecureDispatcher = new Agent({ connect: { rejectUnauthorized: false } });
     }
-    return httpsAgent;
+    return insecureDispatcher;
   }
   return undefined;
 };
 
+const joinUrl = (...parts: string[]) =>
+  parts.map((p, i) => (i === 0 ? p.replace(/\/+$/, '') : p.replace(/^\/+/, ''))).join('/');
+
 export const buildKibanaUrl = (opts: { path: string; space?: string }) => {
   const config = getConfig();
   const { path, space } = opts;
-  const pathWithSpace = space ? urlJoin(`/s/${space}`, path) : path;
-  return urlJoin(config.kibana.node, pathWithSpace);
+  const pathWithSpace = space ? joinUrl(`/s/${space}`, path) : path;
+  return joinUrl(config.kibana.node, pathWithSpace);
 };
 
 type ResponseError = Error & { statusCode: number; responseData: unknown };
@@ -90,8 +91,8 @@ export const kibanaFetch = async <T>(
   const result = await fetch(url, {
     headers: headers,
     ...params,
-    agent: url.startsWith('https') ? getHttpsAgent() : undefined,
-  });
+    dispatcher: getDispatcher(),
+  } as RequestInit);
   const rawResponse = await result.text();
   // log response status
   let data: unknown;
@@ -791,9 +792,9 @@ export const uploadPrivmonCsv = async (
         ...formData.getHeaders(),
         Authorization: getAuthorizationHeader(),
       },
-      body: formData,
-      agent: uploadUrl.startsWith('https') ? getHttpsAgent() : undefined,
-    });
+      body: formData as unknown as BodyInit,
+      dispatcher: getDispatcher(),
+    } as RequestInit);
 
     if (!response.ok) {
       const errorText = await response.text();

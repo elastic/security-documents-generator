@@ -1,10 +1,12 @@
-import { v4 as uuidv4 } from 'uuid';
-import moment from 'moment';
+import crypto from 'crypto';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc.js';
+dayjs.extend(utc);
 
 export const createAgentDocument = ({ hostname }: { hostname: string }) => {
-  const agentId = uuidv4();
+  const agentId = crypto.randomUUID();
 
-  const nowTimestamp = moment().utc().toISOString();
+  const nowTimestamp = dayjs().utc().toISOString();
 
   return {
     access_api_key_id: 'WDxG740BAG_XfFTa8Wbz',

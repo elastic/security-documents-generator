@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import {
   CSP_AGENT_VERSION,
   type KSPMDistribution,
@@ -20,7 +20,7 @@ export default function createKSPMMisconfiguration({
   distribution,
   cluster,
 }: CreateKSPMMisconfigurationParams) {
-  const now = moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+  const now = dayjs().format('YYYY-MM-DDTHH:mm:ss.SSSZ');
   const benchmark = KSPM_DISTRIBUTIONS[distribution];
   const ruleType = distribution === 'eks' ? 'eks' : 'k8s';
   const cisRule = getRandomCisRule(ruleType);
