@@ -27,7 +27,7 @@ export const getEsClient = () => {
   if (esClient) return esClient;
   const config = getConfig();
 
-  once(() => log.debug('Elasticsearch node:', config.elastic.node));
+  once(() => log.info('Elasticsearch node:', config.elastic.node));
 
   esClient = new Client({
     node: config.elastic.node,
