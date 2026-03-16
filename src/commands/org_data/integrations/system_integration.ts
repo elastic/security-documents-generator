@@ -9,7 +9,13 @@ import {
   type IntegrationDocument,
   type DataStreamConfig,
 } from './base_integration.ts';
-import { type Organization, type Host, type Employee, type CorrelationMap, type Device } from '../types.ts';
+import {
+  type Organization,
+  type Host,
+  type Employee,
+  type CorrelationMap,
+  type Device,
+} from '../types.ts';
 import { ATTACKER_IPS } from '../data/network_data.ts';
 import { faker } from '@faker-js/faker';
 
@@ -294,9 +300,7 @@ export class SystemIntegration extends BaseIntegration {
     }
 
     for (const { employee, device } of windowsDevices) {
-      securityDocuments.push(
-        ...this.generateWindowsSecurityDocuments(employee, device, org),
-      );
+      securityDocuments.push(...this.generateWindowsSecurityDocuments(employee, device, org));
     }
 
     const sortByTimestamp = (a: IntegrationDocument, b: IntegrationDocument) =>
@@ -518,9 +522,7 @@ export class SystemIntegration extends BaseIntegration {
     // Successful interactive / RDP logons from the employee — 4624
     const interactiveLogonCount = faker.number.int({ min: 1, max: 3 });
     for (let i = 0; i < interactiveLogonCount; i++) {
-      documents.push(
-        this.createWindowsSuccessLogonDocument(windowsHost, 'employee', employee),
-      );
+      documents.push(this.createWindowsSuccessLogonDocument(windowsHost, 'employee', employee));
     }
 
     // Failed network logons (brute-force from external IPs) — 4625
@@ -635,7 +637,11 @@ export class SystemIntegration extends BaseIntegration {
       input: { type: 'winlog' },
       log: { level: 'information' },
       message,
-      process: { executable: proc.executable, name: proc.name, pid: faker.number.int({ min: 400, max: 8000 }) },
+      process: {
+        executable: proc.executable,
+        name: proc.name,
+        pid: faker.number.int({ min: 400, max: 8000 }),
+      },
       related: { user: relatedUsers },
       user: { domain: user.domain, id: user.sid, name: user.name },
       winlog: {
@@ -754,8 +760,11 @@ export class SystemIntegration extends BaseIntegration {
         logon: {
           failure: {
             reason: failureInfo.reason,
-            status: WINDOWS_LOGON_FAILURE_STATUS_DESCRIPTIONS[failureInfo.status] || failureInfo.reason,
-            sub_status: WINDOWS_LOGON_FAILURE_SUBSTATUS_DESCRIPTIONS[failureInfo.subStatus] || failureInfo.subStatus,
+            status:
+              WINDOWS_LOGON_FAILURE_STATUS_DESCRIPTIONS[failureInfo.status] || failureInfo.reason,
+            sub_status:
+              WINDOWS_LOGON_FAILURE_SUBSTATUS_DESCRIPTIONS[failureInfo.subStatus] ||
+              failureInfo.subStatus,
           },
           id: '0x0',
           type: 'Network',
@@ -785,7 +794,11 @@ export class SystemIntegration extends BaseIntegration {
     const isServiceLogoff = faker.number.float() < 0.5;
     const user = isServiceLogoff
       ? faker.helpers.arrayElement(WINDOWS_SERVICE_USERS)
-      : { name: employee.userName, domain: employee.userName.split('.')[0].toUpperCase(), sid: employee.windowsSid };
+      : {
+          name: employee.userName,
+          domain: employee.userName.split('.')[0].toUpperCase(),
+          sid: employee.windowsSid,
+        };
     const logonTypeKey = isServiceLogoff ? '5' : faker.helpers.arrayElement(['2', '3', '10']);
     const logonType = WINDOWS_LOGON_TYPES[logonTypeKey] || 'Interactive';
     const logonId = `0x${faker.string.hexadecimal({ length: 5, casing: 'lower', prefix: '' })}`;
@@ -872,11 +885,22 @@ export class SystemIntegration extends BaseIntegration {
       sid: employee.windowsSid,
     };
     const targetUser = faker.helpers.weightedArrayElement([
-      { value: { name: 'Administrator', domain: ctx.hostname.toUpperCase(), sid: 'S-1-5-21-0-0-0-500' }, weight: 3 },
+      {
+        value: {
+          name: 'Administrator',
+          domain: ctx.hostname.toUpperCase(),
+          sid: 'S-1-5-21-0-0-0-500',
+        },
+        weight: 3,
+      },
       { value: faker.helpers.arrayElement(WINDOWS_SERVICE_USERS), weight: 2 },
     ]);
     const subjectLogonId = `0x${faker.string.hexadecimal({ length: 5, casing: 'lower', prefix: '' })}`;
-    const targetServer = faker.helpers.arrayElement([ctx.hostname, 'localhost', faker.internet.domainWord()]);
+    const targetServer = faker.helpers.arrayElement([
+      ctx.hostname,
+      'localhost',
+      faker.internet.domainWord(),
+    ]);
     const proc = faker.helpers.arrayElement(WINDOWS_SYSTEM_PROCESSES);
 
     const message =
@@ -920,7 +944,11 @@ export class SystemIntegration extends BaseIntegration {
       input: { type: 'winlog' },
       log: { level: 'information' },
       message,
-      process: { executable: proc.executable, name: proc.name, pid: faker.number.int({ min: 400, max: 8000 }) },
+      process: {
+        executable: proc.executable,
+        name: proc.name,
+        pid: faker.number.int({ min: 400, max: 8000 }),
+      },
       related: { user: relatedUsers },
       user: {
         domain: subjectUser.domain,
