@@ -55,7 +55,7 @@ export const entityStorePerfCommands: CommandModule = {
             file ?? (await promptForFileSelection(listPerfDataFiles())),
             options.index,
             options.delete,
-            options.noTransforms
+            options.noTransforms,
           );
         }),
       );
@@ -81,7 +81,7 @@ export const entityStorePerfCommands: CommandModule = {
       )
       .option(
         '--noTransforms',
-        'Run Entity Store V2 / ESQL flow (enable V2, install V2, no transforms, v2 indices)'
+        'Run Entity Store V2 / ESQL flow (enable V2, install V2, no transforms, v2 indices)',
       )
       .option('--index <index>', 'Destination index')
       .description('Upload performance data file')

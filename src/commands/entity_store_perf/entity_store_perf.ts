@@ -419,10 +419,7 @@ const deleteDataStream = async (index: string) => {
   );
 };
 
-const countEntities = async (
-  baseDomainName: string,
-  entityIndex: string = ENTITY_INDEX_V1
-) => {
+const countEntities = async (baseDomainName: string, entityIndex: string = ENTITY_INDEX_V1) => {
   const esClient = getEsClient();
   const res = await esClient.count({
     index: entityIndex,
@@ -461,7 +458,7 @@ const countEntities = async (
 const countEntitiesUntil = async (
   name: string,
   count: number,
-  entityIndex: string = ENTITY_INDEX_V1
+  entityIndex: string = ENTITY_INDEX_V1,
 ) => {
   let total = 0;
   console.log('Polling for entities...');
@@ -1035,7 +1032,7 @@ export const uploadPerfDataFile = async (
   name: string,
   indexOverride?: string,
   deleteEntities?: boolean,
-  noTransforms?: boolean
+  noTransforms?: boolean,
 ) => {
   const index = indexOverride || `logs-perftest.${name}-default`;
   const entityIndex = noTransforms ? ENTITY_INDEX_V2 : ENTITY_INDEX_V1;
@@ -1100,7 +1097,7 @@ const runUploadPerfDataIntervalV2 = async (
   _doDeleteEngines?: boolean,
   _transformTimeoutMs?: number,
   samplingIntervalMs?: number,
-  indexOverride?: string
+  indexOverride?: string,
 ) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addIdPrefix = (prefix: string) => (doc: Record<string, any>) => {
@@ -1120,7 +1117,7 @@ const runUploadPerfDataIntervalV2 = async (
   const filePath = getFilePath(name);
 
   console.log(
-    `Uploading performance data file ${name} every ${intervalMs}ms ${uploadCount} times to index ${index} (Entity Store V2)`
+    `Uploading performance data file ${name} every ${intervalMs}ms ${uploadCount} times to index ${index} (Entity Store V2)`,
   );
 
   if (deleteEntities) {
@@ -1150,7 +1147,7 @@ const runUploadPerfDataIntervalV2 = async (
   const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
 
   console.log(
-    `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`
+    `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`,
   );
 
   const startTime = Date.now();
@@ -1176,7 +1173,7 @@ const runUploadPerfDataIntervalV2 = async (
         index,
         lineCount,
         modifyDoc: addIdPrefix(i.toString()),
-      })
+      }),
     );
     let progress: ReturnType<typeof createProgressBar> | null = null;
     for (let j = 0; j < intervalS; j++) {
@@ -1224,7 +1221,7 @@ const runUploadPerfDataIntervalV1 = async (
   doDeleteEngines?: boolean,
   transformTimeoutMs?: number,
   samplingIntervalMs?: number,
-  indexOverride?: string
+  indexOverride?: string,
 ) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addIdPrefix = (prefix: string) => (doc: Record<string, any>) => {
@@ -1244,7 +1241,7 @@ const runUploadPerfDataIntervalV1 = async (
   const filePath = getFilePath(name);
 
   console.log(
-    `Uploading performance data file ${name} every ${intervalMs}ms ${uploadCount} times to index ${index} (Entity Store V1)`
+    `Uploading performance data file ${name} every ${intervalMs}ms ${uploadCount} times to index ${index} (Entity Store V1)`,
   );
 
   if (doDeleteEngines) {
@@ -1337,17 +1334,17 @@ const runUploadPerfDataIntervalV1 = async (
   const totalDocumentsIngested = lineCount * uploadCount;
   const timeout = transformTimeoutMs ?? 1800000;
   console.log(
-    `Waiting for generic transform to process ${totalDocumentsIngested} documents (timeout: ${timeout / 1000 / 60} minutes)...`
+    `Waiting for generic transform to process ${totalDocumentsIngested} documents (timeout: ${timeout / 1000 / 60} minutes)...`,
   );
   try {
     await waitForTransformToComplete(
       'entities-v1-latest-security_generic_default',
       totalDocumentsIngested,
-      timeout
+      timeout,
     );
   } catch (error) {
     console.warn(
-      `Warning: ${error instanceof Error ? error.message : 'Failed to wait for transform completion'}. Continuing...`
+      `Warning: ${error instanceof Error ? error.message : 'Failed to wait for transform completion'}. Continuing...`,
     );
   }
 
@@ -1368,7 +1365,7 @@ export const uploadPerfDataFileInterval = async (
   transformTimeoutMs?: number,
   samplingIntervalMs?: number,
   noTransforms?: boolean,
-  indexOverride?: string
+  indexOverride?: string,
 ) => {
   if (noTransforms) {
     return runUploadPerfDataIntervalV2(
@@ -1379,7 +1376,7 @@ export const uploadPerfDataFileInterval = async (
       doDeleteEngines,
       transformTimeoutMs,
       samplingIntervalMs,
-      indexOverride
+      indexOverride,
     );
   }
   return runUploadPerfDataIntervalV1(
@@ -1390,6 +1387,6 @@ export const uploadPerfDataFileInterval = async (
     doDeleteEngines,
     transformTimeoutMs,
     samplingIntervalMs,
-    indexOverride
+    indexOverride,
   );
 };

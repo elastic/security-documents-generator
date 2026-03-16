@@ -638,7 +638,7 @@ export const enableEntityStoreV2 = async (space: string = 'default'): Promise<vo
       method: 'POST',
       body: JSON.stringify({ changes: { [ENTITY_STORE_V2_SETTING_KEY]: true } }),
     },
-    { apiVersion: '1' }
+    { apiVersion: '1' },
   );
   console.log('Entity Store V2 feature flag posted, waiting for it to be active...');
 
@@ -649,7 +649,7 @@ export const enableEntityStoreV2 = async (space: string = 'default'): Promise<vo
     }>(
       `${settingsPath}?query=${encodeURIComponent(ENTITY_STORE_V2_SETTING_KEY)}`,
       { method: 'GET' },
-      { apiVersion: '1' }
+      { apiVersion: '1' },
     );
     if (response?.settings?.[ENTITY_STORE_V2_SETTING_KEY]?.userValue === true) {
       console.log('Entity Store V2 feature flag enabled and active');
@@ -658,7 +658,7 @@ export const enableEntityStoreV2 = async (space: string = 'default'): Promise<vo
     await new Promise((resolve) => setTimeout(resolve, ENTITY_STORE_V2_POLL_INTERVAL_MS));
   }
   throw new Error(
-    `Entity Store V2 setting did not become active within ${ENTITY_STORE_V2_POLL_TIMEOUT_MS / 1000}s`
+    `Entity Store V2 setting did not become active within ${ENTITY_STORE_V2_POLL_TIMEOUT_MS / 1000}s`,
   );
 };
 
