@@ -47,7 +47,7 @@ export class EntraIdIntegration extends BaseIntegration {
    */
   generateDocuments(
     org: Organization,
-    correlationMap: CorrelationMap
+    correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const entityIndex = this.dataStreams[0].index;
@@ -91,7 +91,7 @@ export class EntraIdIntegration extends BaseIntegration {
   private createUserDocument(
     employee: Employee,
     org: Organization,
-    timestamp: string
+    timestamp: string,
   ): EntraIdUserDocument {
     // Find groups for this employee
     const employeeGroups = this.getEmployeeGroups(employee, org.entraIdGroups);
@@ -144,7 +144,7 @@ export class EntraIdIntegration extends BaseIntegration {
     device: Device,
     employee: Employee,
     org: Organization,
-    timestamp: string
+    timestamp: string,
   ): EntraIdDeviceDocument {
     const registrationDate = faker.date.past({ years: 1 }).toISOString();
     const lastSignIn = faker.date.recent({ days: 7 }).toISOString();
@@ -230,7 +230,7 @@ export class EntraIdIntegration extends BaseIntegration {
   private createSyncMarker(
     action: 'started' | 'completed',
     timestamp: string,
-    dataset: string
+    dataset: string,
   ): EntraIdSyncMarkerDocument {
     return {
       '@timestamp': timestamp,
@@ -337,7 +337,7 @@ export class EntraIdIntegration extends BaseIntegration {
    */
   private getDeviceInfo(
     platform: string,
-    displayName: string
+    displayName: string,
   ): { manufacturer: string; model: string } {
     if (platform === 'mac') {
       return {

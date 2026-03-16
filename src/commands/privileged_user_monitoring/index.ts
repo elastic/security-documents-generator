@@ -14,7 +14,7 @@ export const privilegedUserMonitoringCommands: CommandModule = {
       .command('privileged-user-monitoring')
       .alias('privmon')
       .description(
-        `Generate source events and anomalous source data for privileged user monitoring and the privileged access detection ML jobs.`
+        `Generate source events and anomalous source data for privileged user monitoring and the privileged access detection ML jobs.`,
       )
       .option('--space <space>', 'Space to use', 'default')
       .action(
@@ -65,7 +65,7 @@ export const privilegedUserMonitoringCommands: CommandModule = {
             userCount,
             space: options.space,
           });
-        })
+        }),
       );
 
     program
@@ -80,14 +80,14 @@ export const privilegedUserMonitoringCommands: CommandModule = {
             ? []
             : [PRIVILEGED_USER_MONITORING_OPTIONS.installPad];
           const quickOptions = [...Object.values(PRIVILEGED_USER_MONITORING_OPTIONS)].filter(
-            (opt) => !excludeOptions.includes(opt)
+            (opt) => !excludeOptions.includes(opt),
           );
           await privmonCommand({
             options: quickOptions,
             userCount: 100,
             space: options.space,
           });
-        })
+        }),
       );
   },
 };

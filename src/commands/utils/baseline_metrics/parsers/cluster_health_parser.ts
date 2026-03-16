@@ -4,7 +4,7 @@ import { readFileSafely } from '../utils';
  * Parse cluster health log
  */
 export const parseClusterHealth = (
-  logPath: string
+  logPath: string,
 ): {
   statuses: string[];
   activeShards: number[];

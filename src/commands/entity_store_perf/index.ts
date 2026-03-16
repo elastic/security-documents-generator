@@ -21,7 +21,7 @@ export const entityStorePerfCommands: CommandModule = {
       .option(
         '--distribution <type>',
         `Entity distribution type: equal (user/host/generic/service: 25% each), standard (user/host/generic/service: 33/33/33/1) (default: standard)`,
-        'standard'
+        'standard',
       )
       .description('Create performance data')
       .action(
@@ -39,7 +39,7 @@ export const entityStorePerfCommands: CommandModule = {
             startIndex,
             distribution: distributionType,
           });
-        })
+        }),
       );
 
     program
@@ -57,7 +57,7 @@ export const entityStorePerfCommands: CommandModule = {
             options.delete,
             options.noTransforms
           );
-        })
+        }),
       );
 
     program
@@ -71,13 +71,13 @@ export const entityStorePerfCommands: CommandModule = {
         '--transformTimeout <timeout>',
         'Timeout in minutes for waiting for generic transform to complete (default: 30)',
         parseIntBase10,
-        30
+        30,
       )
       .option(
         '--samplingInterval <seconds>',
         'Sampling interval in seconds for metrics collection (default: 5)',
         parseIntBase10,
-        5
+        5,
       )
       .option(
         '--noTransforms',
@@ -96,9 +96,9 @@ export const entityStorePerfCommands: CommandModule = {
             options.transformTimeout * 60 * 1000,
             options.samplingInterval * 1000,
             options.noTransforms,
-            options.index
+            options.index,
           );
-        })
+        }),
       );
   },
 };

@@ -64,18 +64,18 @@ const setupMlModulesWithRetry = (moduleId: string, indexPatternName: string, spa
 
       if (!allJobsSucceeded) {
         throw new Error(
-          `Expected all jobs to set up successfully, but got ${JSON.stringify(response)}`
+          `Expected all jobs to set up successfully, but got ${JSON.stringify(response)}`,
         );
       }
 
       return response;
     },
-    { retries: 5 }
+    { retries: 5 },
   );
 
 export const setupAnomalyMlModulesAndStartDatafeeds = async (
   space: string,
-  generateAnomalyData: boolean
+  generateAnomalyData: boolean,
 ): Promise<void> => {
   try {
     // Security Auth (built-in, no Fleet integration)
@@ -128,12 +128,12 @@ export const setupAnomalyMlModulesAndStartDatafeeds = async (
     console.log('Starting all anomaly job datafeeds');
     await forceStartDatafeeds(
       ALL_ANOMALY_JOB_IDS.map((id) => `datafeed-${id}`),
-      space
+      space,
     );
     console.log('ML modules setup and datafeeds started.');
   } else {
     console.log(
-      'ML modules setup completed. Skipping datafeed start and anomaly record generation due to --no-anomaly-data flag.'
+      'ML modules setup completed. Skipping datafeed start and anomaly record generation due to --no-anomaly-data flag.',
     );
   }
 };
@@ -176,7 +176,7 @@ export const waitForAllJobsToStart = async (jobIds: string[], space?: string): P
 
       // Check if all the jobs we care about are started
       const notStartedJobs = jobs.filter(
-        (job) => jobIds.includes(job.id) && !isJobStarted(job.jobState, job.datafeedState)
+        (job) => jobIds.includes(job.id) && !isJobStarted(job.jobState, job.datafeedState),
       );
       const startedCount = jobs.length - notStartedJobs.length;
 
@@ -185,10 +185,10 @@ export const waitForAllJobsToStart = async (jobIds: string[], space?: string): P
         console.log(
           `[${elapsedSeconds}s] Status: ${startedCount}/${
             jobs.length
-          } jobs started. Waiting for: ${notStartedJobs.map((job) => job.id).join(', ')}`
+          } jobs started. Waiting for: ${notStartedJobs.map((job) => job.id).join(', ')}`,
         );
         const jobStates = notStartedJobs.map(
-          (job) => `${job.id} (jobState: ${job.jobState}, datafeedState: ${job.datafeedState})`
+          (job) => `${job.id} (jobState: ${job.jobState}, datafeedState: ${job.datafeedState})`,
         );
         throw new Error(`Not all jobs are started. Jobs not started: ${jobStates.join(', ')}`);
       }
@@ -203,9 +203,9 @@ export const waitForAllJobsToStart = async (jobIds: string[], space?: string): P
         console.log(error);
         const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
         console.log(
-          `[${elapsedSeconds}s] Retry attempt ${error.attemptNumber} failed. ${error.retriesLeft} retries left. Error: ${error}`
+          `[${elapsedSeconds}s] Retry attempt ${error.attemptNumber} failed. ${error.retriesLeft} retries left. Error: ${error}`,
         );
       },
-    }
+    },
   );
 };

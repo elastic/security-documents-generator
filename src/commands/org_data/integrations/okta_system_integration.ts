@@ -47,7 +47,7 @@ export class OktaSystemIntegration extends BaseIntegration {
    */
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
@@ -105,14 +105,14 @@ export class OktaSystemIntegration extends BaseIntegration {
           loginTime,
           sessionId,
           isFailure ? 'FAILURE' : 'SUCCESS',
-          isFailure ? 'INVALID_CREDENTIALS' : undefined
-        )
+          isFailure ? 'INVALID_CREDENTIALS' : undefined,
+        ),
       );
 
       // Session end (logout) - only for successful logins
       if (!isFailure && faker.number.float() < 0.7) {
         const logoutTime = new Date(
-          new Date(loginTime).getTime() + faker.number.int({ min: 30, max: 480 }) * 60 * 1000
+          new Date(loginTime).getTime() + faker.number.int({ min: 30, max: 480 }) * 60 * 1000,
         ).toISOString();
         events.push(
           this.createSessionEvent(
@@ -122,8 +122,8 @@ export class OktaSystemIntegration extends BaseIntegration {
             'User logout from Okta',
             logoutTime,
             sessionId,
-            'SUCCESS'
-          )
+            'SUCCESS',
+          ),
         );
       }
     }
@@ -168,8 +168,8 @@ export class OktaSystemIntegration extends BaseIntegration {
           org,
           timestamp,
           isFailure ? 'FAILURE' : 'SUCCESS',
-          isFailure ? 'INVALID_MFA_CODE' : undefined
-        )
+          isFailure ? 'INVALID_MFA_CODE' : undefined,
+        ),
       );
     }
 
@@ -197,7 +197,7 @@ export class OktaSystemIntegration extends BaseIntegration {
   private generateGroupMembershipEvents(
     employee: Employee,
     groups: OktaGroup[],
-    org: Organization
+    org: Organization,
   ): OktaSystemLogDocument[] {
     const events: OktaSystemLogDocument[] = [];
 
@@ -221,7 +221,7 @@ export class OktaSystemIntegration extends BaseIntegration {
     timestamp: string,
     sessionId: string,
     result: 'SUCCESS' | 'FAILURE',
-    reason?: string
+    reason?: string,
   ): OktaSystemLogDocument {
     const clientInfo = this.generateClientInfo(employee);
     const transactionId = this.generateTransactionId();
@@ -297,15 +297,11 @@ export class OktaSystemIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
-      host: {
-        name: `${org.domain.replace('.com', '')}.okta.com`,
-      },
       data_stream: {
         namespace: 'default',
         type: 'logs',
         dataset: 'okta.system',
       },
-      tags: ['session', 'okta-system', 'forwarded', 'preserve_original_event'],
     } as unknown as OktaSystemLogDocument;
   }
 
@@ -316,7 +312,7 @@ export class OktaSystemIntegration extends BaseIntegration {
     employee: Employee,
     org: Organization,
     app: { name: string; id: string; type: string },
-    timestamp: string
+    timestamp: string,
   ): OktaSystemLogDocument {
     const clientInfo = this.generateClientInfo(employee);
     const transactionId = this.generateTransactionId();
@@ -381,15 +377,11 @@ export class OktaSystemIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
-      host: {
-        name: `${org.domain.replace('.com', '')}.okta.com`,
-      },
       data_stream: {
         namespace: 'default',
         type: 'logs',
         dataset: 'okta.system',
       },
-      tags: ['authentication', 'okta-system', 'forwarded', 'preserve_original_event'],
     } as unknown as OktaSystemLogDocument;
   }
 
@@ -401,7 +393,7 @@ export class OktaSystemIntegration extends BaseIntegration {
     org: Organization,
     timestamp: string,
     result: 'SUCCESS' | 'FAILURE',
-    reason?: string
+    reason?: string,
   ): OktaSystemLogDocument {
     const clientInfo = this.generateClientInfo(employee);
     const transactionId = this.generateTransactionId();
@@ -459,15 +451,11 @@ export class OktaSystemIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
-      host: {
-        name: `${org.domain.replace('.com', '')}.okta.com`,
-      },
       data_stream: {
         namespace: 'default',
         type: 'logs',
         dataset: 'okta.system',
       },
-      tags: ['authentication', 'mfa', 'okta-system', 'forwarded', 'preserve_original_event'],
     } as unknown as OktaSystemLogDocument;
   }
 
@@ -477,7 +465,7 @@ export class OktaSystemIntegration extends BaseIntegration {
   private createPolicyEvent(
     employee: Employee,
     org: Organization,
-    timestamp: string
+    timestamp: string,
   ): OktaSystemLogDocument {
     const clientInfo = this.generateClientInfo(employee);
     const transactionId = this.generateTransactionId();
@@ -546,15 +534,11 @@ export class OktaSystemIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
-      host: {
-        name: `${org.domain.replace('.com', '')}.okta.com`,
-      },
       data_stream: {
         namespace: 'default',
         type: 'logs',
         dataset: 'okta.system',
       },
-      tags: ['policy', 'okta-system', 'forwarded', 'preserve_original_event'],
     } as unknown as OktaSystemLogDocument;
   }
 
@@ -565,7 +549,7 @@ export class OktaSystemIntegration extends BaseIntegration {
     employee: Employee,
     group: OktaGroup,
     org: Organization,
-    timestamp: string
+    timestamp: string,
   ): OktaSystemLogDocument {
     const transactionId = this.generateTransactionId();
     const uuid = faker.string.uuid();
@@ -625,15 +609,11 @@ export class OktaSystemIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
-      host: {
-        name: `${org.domain.replace('.com', '')}.okta.com`,
-      },
       data_stream: {
         namespace: 'default',
         type: 'logs',
         dataset: 'okta.system',
       },
-      tags: ['iam', 'group', 'okta-system', 'forwarded', 'preserve_original_event'],
     } as unknown as OktaSystemLogDocument;
   }
 
@@ -731,7 +711,7 @@ export class OktaSystemIntegration extends BaseIntegration {
    */
   private getEmployeeApps(employee: Employee): typeof OKTA_APPLICATIONS {
     const baseApps = OKTA_APPLICATIONS.filter((app) =>
-      ['Slack', 'Zoom', 'Google Workspace'].includes(app.name)
+      ['Slack', 'Zoom', 'Google Workspace'].includes(app.name),
     );
 
     // Engineering gets GitHub and AWS
@@ -739,7 +719,7 @@ export class OktaSystemIntegration extends BaseIntegration {
       return [
         ...baseApps,
         ...OKTA_APPLICATIONS.filter((app) =>
-          ['AWS Console', 'GitHub Enterprise', 'Jira', 'Confluence'].includes(app.name)
+          ['AWS Console', 'GitHub Enterprise', 'Jira', 'Confluence'].includes(app.name),
         ),
       ];
     }

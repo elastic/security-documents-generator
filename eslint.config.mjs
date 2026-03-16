@@ -1,28 +1,25 @@
-import tseslint from '@typescript-eslint/eslint-plugin';
-import tsparser from '@typescript-eslint/parser';
-import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
+import tseslint from 'typescript-eslint';
 import checkFile from 'eslint-plugin-check-file';
+import eslintConfigPrettier from 'eslint-config-prettier';
 
 import js from '@eslint/js';
 import globals from 'globals';
-export default [
+
+export default tseslint.config(
   {
     languageOptions: {
-      parser: tsparser,
       globals: {
         ...globals.node,
       },
     },
+  },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  {
     plugins: {
-      '@typescript-eslint': tseslint,
-      ...eslintPluginPrettierRecommended.plugins,
       'check-file': checkFile,
     },
     rules: {
-      ...js.configs.recommended.rules,
-      ...tseslint.configs['eslint-recommended'].rules,
-      ...tseslint.configs.recommended.rules,
-      ...eslintPluginPrettierRecommended.rules,
       '@typescript-eslint/no-unused-vars': [
         'error',
         {
@@ -31,7 +28,6 @@ export default [
           destructuredArrayIgnorePattern: '^_',
         },
       ],
-      'prettier/prettier': ['error', { singleQuote: true }],
       'check-file/filename-naming-convention': [
         'error',
         {
@@ -41,4 +37,5 @@ export default [
     },
     files: ['src/**/*.ts'],
   },
-];
+  eslintConfigPrettier,
+);

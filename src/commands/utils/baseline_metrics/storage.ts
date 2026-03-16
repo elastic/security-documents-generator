@@ -116,7 +116,7 @@ export const findBaselineByPattern = (pattern: string): string | null => {
  * Load baseline by pattern or path, with fallback to latest
  */
 export const loadBaselineWithPattern = (
-  baselinePattern?: string
+  baselinePattern?: string,
 ): { baseline: BaselineMetrics; path: string } => {
   let baselinePath: string;
   let baseline: BaselineMetrics;

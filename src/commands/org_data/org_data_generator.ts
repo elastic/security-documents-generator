@@ -75,14 +75,14 @@ export const generateOrgData = (config: OrganizationConfig): Organization => {
   const cloudAccounts = generateCloudAccounts(
     sizeConfig.cloudAccounts,
     sizeConfig.cloudProviders,
-    config.name
+    config.name,
   );
 
   // Generate cloud resources
   const cloudResources = generateCloudResources(
     cloudAccounts,
     sizeConfig.resourceMultiplier,
-    config.name
+    config.name,
   );
 
   // Generate cloud IAM users (linked to employees with AWS access)
@@ -245,7 +245,7 @@ const generateEntraIdGroups = (): EntraIdGroup[] => {
 const generateEmployees = (
   totalCount: number,
   domain: string,
-  _oktaGroups: OktaGroup[]
+  _oktaGroups: OktaGroup[],
 ): Employee[] => {
   const employees: Employee[] = [];
   const cloudAccessDepts = getCloudAccessDepartments().map((d) => d.name);
@@ -267,7 +267,7 @@ const generateEmployees = (
       domainSidPrefix,
       nextRid,
       nextUid,
-      true
+      true,
     );
     employee.firstName = 'John';
     employee.lastName = 'Doe';
@@ -293,7 +293,7 @@ const generateEmployees = (
         cloudAccessDepts,
         domainSidPrefix,
         nextRid++,
-        nextUid++
+        nextUid++,
       );
       employees.push(employee);
 
@@ -326,7 +326,7 @@ const generateEmployees = (
     const deptManagers = managersByDept.get(employee.department) || [];
     // Don't assign manager to themselves, and only non-executives get managers
     const potentialManagers = deptManagers.filter(
-      (m) => m.id !== employee.id && !employee.role.includes('Chief')
+      (m) => m.id !== employee.id && !employee.role.includes('Chief'),
     );
 
     if (potentialManagers.length > 0 && !employee.role.includes('Chief')) {
@@ -348,7 +348,7 @@ const generateEmployee = (
   domainSidPrefix: string,
   rid: number,
   uid: number,
-  allPlatforms: boolean = false
+  allPlatforms: boolean = false,
 ): Employee => {
   const firstName = faker.person.firstName();
   const lastName = faker.person.lastName();
@@ -360,9 +360,10 @@ const generateEmployee = (
 
   const hasAwsAccess = cloudAccessDepts.includes(department);
 
-  // GitHub username only for Engineering + Executive departments
-  const hasGithubAccess = department === 'Product & Engineering' || department === 'Executive';
-  const githubUsername = hasGithubAccess ? userName.replace(/\./g, '-') : undefined;
+  // GitHub/GitLab username only for Engineering + Executive departments
+  const hasDevToolAccess = department === 'Product & Engineering' || department === 'Executive';
+  const githubUsername = hasDevToolAccess ? userName.replace(/\./g, '-') : undefined;
+  const gitlabUserId = hasDevToolAccess ? faker.number.int({ min: 1, max: 99999 }) : undefined;
 
   return {
     id: faker.string.uuid(),
@@ -382,6 +383,7 @@ const generateEmployee = (
     entraIdUserId: faker.string.uuid(),
     employeeNumber: faker.string.numeric(6),
     githubUsername,
+    gitlabUserId,
     duoUserId: `DU${faker.string.alphanumeric(18).toUpperCase()}`,
     onePasswordUuid: faker.string.uuid(),
     windowsSid: `${domainSidPrefix}-${rid}`,
@@ -518,7 +520,7 @@ const generateHostOS = (): { name: string; version: string; family: string } => 
 const generateCloudAccounts = (
   count: number,
   providers: CloudProvider[],
-  orgName: string
+  orgName: string,
 ): CloudAccount[] => {
   const accounts: CloudAccount[] = [];
   const environments: Array<'production' | 'staging' | 'development'> = [
@@ -568,7 +570,7 @@ const generateAccountId = (provider: CloudProvider): string => {
 const generateCloudResources = (
   accounts: CloudAccount[],
   multiplier: number,
-  orgName: string
+  orgName: string,
 ): CloudResource[] => {
   const resources: CloudResource[] = [];
   const orgPrefix = orgName.toLowerCase().replace(/\s+/g, '-');
@@ -614,7 +616,7 @@ const generateCloudResources = (
 const generateResourceName = (
   resourceType: { subType: string; namePrefix: string },
   orgPrefix: string,
-  environment: string
+  environment: string,
 ): string => {
   const serviceName = faker.helpers.arrayElement(SERVICE_NAMES);
   const suffix = faker.string.alphanumeric(8).toLowerCase();
@@ -869,7 +871,7 @@ export const getOrgDataSummary = (org: Organization): string => {
       acc[r.provider] = (acc[r.provider] || 0) + 1;
       return acc;
     },
-    {} as Record<string, number>
+    {} as Record<string, number>,
   );
 
   return `

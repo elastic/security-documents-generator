@@ -149,7 +149,8 @@ const USER_ACTIVITY_OPERATIONS = [
   'revokeAPIClient',
 ];
 
-const FIREWALL_RULE_ACTIONS = ['allow', 'block', 'monitor'];
+// Pipeline expects RuleAction: "1"=Allowed, "2"=Blocked; other=Unknown
+const FIREWALL_RULE_ACTIONS = ['1', '2', '3'];
 const FIREWALL_PROTOCOLS = ['TCP', 'UDP', 'ICMP'];
 const FIREWALL_POLICIES = [
   'Default Workstation Policy',
@@ -173,7 +174,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    correlationMap: CorrelationMap
+    correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const hostDocs: IntegrationDocument[] = [];
@@ -189,11 +190,11 @@ export class CrowdStrikeIntegration extends BaseIntegration {
 
     // Generate alerts (2-5% of devices)
     const laptopEntries = [...correlationMap.crowdstrikeAgentIdToDevice.entries()].filter(
-      ([, { device }]) => device.type === 'laptop'
+      ([, { device }]) => device.type === 'laptop',
     );
     const alertCount = Math.max(
       1,
-      Math.floor(laptopEntries.length * faker.number.float({ min: 0.02, max: 0.05 }))
+      Math.floor(laptopEntries.length * faker.number.float({ min: 0.02, max: 0.05 })),
     );
     const alertDevices = faker.helpers.arrayElements(laptopEntries, alertCount);
 
@@ -228,7 +229,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
       platform_name: platform,
       platform_id: this.mapPlatformId(device.platform),
       agent_version: CS_AGENT_VERSION,
-      agent_local_time: this.getTimestamp(),
+      agent_local_time: modifiedTimestamp,
       status: 'normal',
       provision_status: 'Provisioned',
       serial_number: device.serialNumber,
@@ -259,12 +260,10 @@ export class CrowdStrikeIntegration extends BaseIntegration {
     };
 
     return {
-      // @timestamp is required by IntegrationDocument type but the pipeline
-      // will overwrite it from modified_timestamp
+      // @timestamp is required by IntegrationDocument type; pipeline overwrites from modified_timestamp
       '@timestamp': modifiedTimestamp,
       message: JSON.stringify(rawHost),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'crowdstrike.host' },
-      tags: ['forwarded', 'crowdstrike-host'],
     } as IntegrationDocument;
   }
 
@@ -373,12 +372,10 @@ export class CrowdStrikeIntegration extends BaseIntegration {
     };
 
     return {
-      // @timestamp is required by IntegrationDocument type but the pipeline
-      // will overwrite it from timestamp
+      // @timestamp is required by IntegrationDocument type; pipeline overwrites from timestamp
       '@timestamp': alertTimestamp,
       message: JSON.stringify(rawAlert),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'crowdstrike.alert' },
-      tags: ['forwarded', 'crowdstrike-alert'],
     } as IntegrationDocument;
   }
 
@@ -429,7 +426,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
     eventType: FalconEventType,
     employee: Employee,
     device: Device,
-    offset: number
+    offset: number,
   ): IntegrationDocument {
     switch (eventType) {
       case 'DetectionSummaryEvent':
@@ -449,53 +446,42 @@ export class CrowdStrikeIntegration extends BaseIntegration {
     }
   }
 
+  /**
+   * Build raw pre-pipeline falcon document.
+   * Pipeline expects message with JSON: { event: {...}, metadata: { eventType, eventCreationTime, ... } }
+   * Only @timestamp, message, and data_stream in output.
+   */
   private buildFalconDoc(
     eventType: string,
     rawEvent: Record<string, unknown>,
     offset: number,
-    ecsOverrides: Record<string, unknown>
+    timestamp: string,
   ): IntegrationDocument {
-    const metadata = {
-      customerIDString: CS_CID,
-      eventType,
-      offset,
-      version: '1.0',
-    };
-    const eventCreationTime = ecsOverrides['@timestamp'] as string;
+    const eventCreationTimeMs = new Date(timestamp).getTime();
     const rawEnvelope = {
       event: rawEvent,
-      metadata: { ...metadata, eventCreationTime: new Date(eventCreationTime).getTime() },
+      metadata: {
+        customerIDString: CS_CID,
+        eventType,
+        eventCreationTime: eventCreationTimeMs,
+        offset,
+        version: '1.0',
+      },
     };
 
     return {
-      '@timestamp': eventCreationTime,
-      crowdstrike: { event: rawEvent, metadata },
+      '@timestamp': timestamp,
+      message: JSON.stringify(rawEnvelope),
       data_stream: { dataset: 'crowdstrike.falcon', namespace: 'default', type: 'logs' },
-      event: {
-        kind: 'event',
-        original: JSON.stringify(rawEnvelope),
-        ...(ecsOverrides.event as Record<string, unknown>),
-      },
-      observer: { product: 'Falcon', vendor: 'Crowdstrike' },
-      tags: ['preserve_original_event', 'forwarded', 'crowdstrike-falcon'],
-      ...(ecsOverrides.message ? { message: ecsOverrides.message } : {}),
-      ...(ecsOverrides.user ? { user: ecsOverrides.user } : {}),
-      ...(ecsOverrides.host ? { host: ecsOverrides.host } : {}),
-      ...(ecsOverrides.process ? { process: ecsOverrides.process } : {}),
-      ...(ecsOverrides.threat ? { threat: ecsOverrides.threat } : {}),
-      ...(ecsOverrides.file ? { file: ecsOverrides.file } : {}),
-      ...(ecsOverrides.source ? { source: ecsOverrides.source } : {}),
-      ...(ecsOverrides.destination ? { destination: ecsOverrides.destination } : {}),
-      ...(ecsOverrides.related ? { related: ecsOverrides.related } : {}),
     } as IntegrationDocument;
   }
 
   private generateDetectionSummaryEvent(
     employee: Employee,
     device: Device,
-    offset: number
+    offset: number,
   ): IntegrationDocument {
-    const mitre = faker.helpers.arrayElement(MITRE_ATTACKS);
+    const _mitre = faker.helpers.arrayElement(MITRE_ATTACKS);
     const proc = faker.helpers.arrayElement(SUSPICIOUS_PROCESSES);
     const cmdline = faker.helpers.arrayElement(CMDLINES);
     const sha256 = faker.helpers.arrayElement(MALWARE_HASHES);
@@ -514,6 +500,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
     const parentProcessId = faker.number.int({ min: 100, max: 999 });
     const detectId = `ldt:${device.crowdstrikeAgentId}:${faker.string.numeric(18)}`;
 
+    const timestampMs = new Date(timestamp).getTime();
     const rawEvent: Record<string, unknown> = {
       AgentIdString: device.crowdstrikeAgentId,
       ComputerName: hostname,
@@ -538,54 +525,17 @@ export class CrowdStrikeIntegration extends BaseIntegration {
       PatternDispositionValue: faker.helpers.arrayElement([0, 16, 2048]),
       Objective: 'FalconDetectionMethod',
       FalconHostLink: `https://falcon.crowdstrike.com/activity/detections/detail/${device.crowdstrikeAgentId}/${detectId}`,
+      UTCTimestamp: timestampMs,
+      ProcessStartTime: timestampMs,
     };
 
-    return this.buildFalconDoc('DetectionSummaryEvent', rawEvent, offset, {
-      '@timestamp': timestamp,
-      message: `Detection: ${rawEvent.DetectName} on ${hostname}`,
-      event: {
-        action: ['detection_summary_event'],
-        category: ['malware'],
-        type: ['info'],
-        severity: severity,
-      },
-      host: { name: hostname },
-      user: {
-        name: employee.userName,
-        email: employee.email,
-        domain: employee.email.split('@')[1],
-      },
-      process: {
-        pid: processId,
-        name: proc.name,
-        executable: `${proc.path}${proc.name}`,
-        command_line: cmdline,
-        parent: {
-          pid: parentProcessId,
-          executable: 'C:\\Windows\\explorer.exe',
-        },
-      },
-      file: {
-        hash: { sha256, md5, sha1 },
-      },
-      threat: {
-        framework: 'MITRE ATT&CK',
-        tactic: { name: mitre.tactic, id: mitre.tacticId },
-        technique: { name: mitre.technique, id: mitre.techniqueId },
-      },
-      related: {
-        user: [employee.userName, employee.email],
-        hosts: [hostname],
-        hash: [sha256, md5, sha1],
-        ip: [device.ipAddress],
-      },
-    });
+    return this.buildFalconDoc('DetectionSummaryEvent', rawEvent, offset, timestamp);
   }
 
   private generateRemoteResponseStartEvent(
     employee: Employee,
     device: Device,
-    offset: number
+    offset: number,
   ): IntegrationDocument {
     const hostname = `${employee.userName}-${device.platform}`;
     const timestamp = this.getRandomTimestamp(24);
@@ -599,32 +549,13 @@ export class CrowdStrikeIntegration extends BaseIntegration {
       StartTimestamp: Math.floor(new Date(timestamp).getTime() / 1000),
     };
 
-    return this.buildFalconDoc('RemoteResponseSessionStartEvent', rawEvent, offset, {
-      '@timestamp': timestamp,
-      message: 'Remote response session started.',
-      event: {
-        action: ['remote_response_session_start_event'],
-        category: ['network', 'session'],
-        type: ['start'],
-        start: timestamp,
-      },
-      host: { name: hostname },
-      user: {
-        name: employee.userName,
-        email: employee.email,
-        domain: employee.email.split('@')[1],
-      },
-      related: {
-        user: [employee.userName, employee.email],
-        hosts: [hostname],
-      },
-    });
+    return this.buildFalconDoc('RemoteResponseSessionStartEvent', rawEvent, offset, timestamp);
   }
 
   private generateRemoteResponseEndEvent(
     employee: Employee,
     device: Device,
-    offset: number
+    offset: number,
   ): IntegrationDocument {
     const hostname = `${employee.userName}-${device.platform}`;
     const timestamp = this.getRandomTimestamp(24);
@@ -641,31 +572,11 @@ export class CrowdStrikeIntegration extends BaseIntegration {
       EndTimestamp: Math.floor(new Date(endTimestamp).getTime() / 1000),
       Commands: faker.helpers.arrayElements(
         ['ls', 'ps', 'netstat', 'cat /etc/hosts', 'reg query', 'get-process'],
-        { min: 1, max: 3 }
+        { min: 1, max: 3 },
       ),
     };
 
-    return this.buildFalconDoc('RemoteResponseSessionEndEvent', rawEvent, offset, {
-      '@timestamp': endTimestamp,
-      message: 'Remote response session ended.',
-      event: {
-        action: ['remote_response_session_end_event'],
-        category: ['network', 'session'],
-        type: ['end'],
-        start: timestamp,
-        end: endTimestamp,
-      },
-      host: { name: hostname },
-      user: {
-        name: employee.userName,
-        email: employee.email,
-        domain: employee.email.split('@')[1],
-      },
-      related: {
-        user: [employee.userName, employee.email],
-        hosts: [hostname],
-      },
-    });
+    return this.buildFalconDoc('RemoteResponseSessionEndEvent', rawEvent, offset, endTimestamp);
   }
 
   private generateAuthAuditEvent(employee: Employee, offset: number): IntegrationDocument {
@@ -685,25 +596,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
       ],
     };
 
-    return this.buildFalconDoc('AuthActivityAuditEvent', rawEvent, offset, {
-      '@timestamp': timestamp,
-      message: `Auth audit: ${operation} by ${employee.email} (${success ? 'success' : 'failure'})`,
-      event: {
-        action: ['auth_activity_audit_event'],
-        category: ['authentication'],
-        type: ['info'],
-        outcome: success ? 'success' : 'failure',
-      },
-      user: {
-        name: employee.userName,
-        email: employee.email,
-        domain: employee.email.split('@')[1],
-        id: employee.email,
-      },
-      related: {
-        user: [employee.userName, employee.email],
-      },
-    });
+    return this.buildFalconDoc('AuthActivityAuditEvent', rawEvent, offset, timestamp);
   }
 
   private generateUserActivityAuditEvent(employee: Employee, offset: number): IntegrationDocument {
@@ -723,31 +616,13 @@ export class CrowdStrikeIntegration extends BaseIntegration {
       ],
     };
 
-    return this.buildFalconDoc('UserActivityAuditEvent', rawEvent, offset, {
-      '@timestamp': timestamp,
-      message: `User activity: ${operation} by ${employee.email}`,
-      event: {
-        action: ['user_activity_audit_event'],
-        category: ['iam'],
-        type: ['info'],
-        outcome: success ? 'success' : 'failure',
-      },
-      user: {
-        name: employee.userName,
-        email: employee.email,
-        domain: employee.email.split('@')[1],
-        id: employee.email,
-      },
-      related: {
-        user: [employee.userName, employee.email],
-      },
-    });
+    return this.buildFalconDoc('UserActivityAuditEvent', rawEvent, offset, timestamp);
   }
 
   private generateFirewallMatchEvent(
     employee: Employee,
     device: Device,
-    offset: number
+    offset: number,
   ): IntegrationDocument {
     const hostname = `${employee.userName}-${device.platform}`;
     const timestamp = this.getRandomTimestamp(24);
@@ -757,6 +632,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
     const remotePort = faker.helpers.arrayElement([80, 443, 8080, 3389, 22, 445, 53]);
     const remoteIp = faker.internet.ipv4();
 
+    const timestampSec = Math.floor(new Date(timestamp).getTime() / 1000);
     const rawEvent: Record<string, unknown> = {
       AgentIdString: device.crowdstrikeAgentId,
       ComputerName: hostname,
@@ -771,42 +647,29 @@ export class CrowdStrikeIntegration extends BaseIntegration {
       MatchCount: faker.number.int({ min: 1, max: 50 }),
       MatchCountSinceLastReport: faker.number.int({ min: 1, max: 10 }),
       NetworkProfile: 'Private',
-      Timestamp: Math.floor(new Date(timestamp).getTime() / 1000),
+      Timestamp: timestampSec,
+      UTCTimestamp: new Date(timestamp).getTime(),
       'Flags.Audit': true,
       'Flags.Log': true,
-      'Flags.Monitor': ruleAction === 'monitor',
+      'Flags.Monitor': ruleAction === '3',
       TreeID: faker.string.hexadecimal({ length: 16, casing: 'lower', prefix: '' }),
-      Status: ruleAction === 'block' ? 'blocked' : 'allowed',
+      Status: ruleAction === '2' ? 'blocked' : 'allowed',
     };
 
-    return this.buildFalconDoc('FirewallMatchEvent', rawEvent, offset, {
-      '@timestamp': timestamp,
-      message: `Firewall ${ruleAction}: ${protocol} ${device.ipAddress}:${localPort} -> ${remoteIp}:${remotePort}`,
-      event: {
-        action: ['firewall_match_event'],
-        category: ['network'],
-        type: ['connection'],
-      },
-      host: { name: hostname },
-      source: { ip: device.ipAddress, port: localPort },
-      destination: { ip: remoteIp, port: remotePort },
-      related: {
-        hosts: [hostname],
-        ip: [device.ipAddress, remoteIp],
-      },
-    });
+    return this.buildFalconDoc('FirewallMatchEvent', rawEvent, offset, timestamp);
   }
 
   private generateIncidentSummaryEvent(
     employee: Employee,
     device: Device,
-    offset: number
+    offset: number,
   ): IntegrationDocument {
     const hostname = `${employee.userName}-${device.platform}`;
     const timestamp = this.getRandomTimestamp(48);
     const fineScore = faker.number.int({ min: 10, max: 100 });
-    const severity = fineScore >= 75 ? 5 : fineScore >= 50 ? 4 : fineScore >= 25 ? 3 : 2;
+    const _severity = fineScore >= 75 ? 5 : fineScore >= 50 ? 4 : fineScore >= 25 ? 3 : 2;
 
+    const timestampMs = new Date(timestamp).getTime();
     const rawEvent: Record<string, unknown> = {
       AgentIdString: device.crowdstrikeAgentId,
       ComputerName: hostname,
@@ -817,27 +680,9 @@ export class CrowdStrikeIntegration extends BaseIntegration {
       NumbersOfAlerts: faker.number.int({ min: 1, max: 15 }),
       NumberOfCompromisedEntities: faker.number.int({ min: 1, max: 5 }),
       UserName: employee.userName,
+      UTCTimestamp: timestampMs,
     };
 
-    return this.buildFalconDoc('IncidentSummaryEvent', rawEvent, offset, {
-      '@timestamp': timestamp,
-      message: `Incident on ${hostname}: score ${fineScore}, state ${rawEvent.State}`,
-      event: {
-        action: ['incident_summary_event'],
-        category: ['malware'],
-        type: ['info'],
-        severity,
-      },
-      host: { name: hostname },
-      user: {
-        name: employee.userName,
-        email: employee.email,
-        domain: employee.email.split('@')[1],
-      },
-      related: {
-        user: [employee.userName, employee.email],
-        hosts: [hostname],
-      },
-    });
+    return this.buildFalconDoc('IncidentSummaryEvent', rawEvent, offset, timestamp);
   }
 }

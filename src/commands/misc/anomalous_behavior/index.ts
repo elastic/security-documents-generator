@@ -167,7 +167,7 @@ const setupIndexMappings = async (space: string): Promise<void> => {
 export const generateAnomalousBehaviorDataWithMlJobs = async (
   space: string,
   recordCount: number,
-  generateAnomalyData: boolean
+  generateAnomalyData: boolean,
 ): Promise<void> => {
   await setupIndexMappings(space);
   await generateSource();

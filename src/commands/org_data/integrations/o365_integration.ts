@@ -19,7 +19,7 @@ export class O365Integration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
 
@@ -53,53 +53,28 @@ export class O365Integration extends BaseIntegration {
     const clientIp = faker.internet.ipv4();
     const timestamp = this.getRandomTimestamp(72);
 
-    const doc: IntegrationDocument = {
-      '@timestamp': timestamp,
-      event: {
-        action: operation,
-        category: this.getEventCategory(workload),
-        type: this.getEventType(operation),
-        outcome: faker.helpers.weightedArrayElement([
-          { value: 'success', weight: 95 },
-          { value: 'failure', weight: 5 },
-        ]),
-        kind: 'event',
-        dataset: 'o365.audit',
-        code: workloadConfig.recordType,
-        provider: workload,
-      },
-      o365: {
-        audit: {
-          Operation: operation,
-          Workload: workload,
-          UserId: employee.email,
-          UserKey: employee.entraIdUserId,
-          UserType: 'Regular',
-          ClientIP: clientIp,
-          RecordType: workloadConfig.recordType,
-          ResultStatus: 'Succeeded',
-          OrganizationId: faker.string.uuid(),
-          CreationTime: timestamp,
-          Id: faker.string.uuid(),
-          Version: 1,
-          ...this.getWorkloadSpecificFields(workload, operation, employee, org),
-        },
-      },
-      user: {
-        email: employee.email,
-        name: employee.email,
-        domain: org.domain,
-        id: employee.entraIdUserId,
-      },
-      source: { ip: clientIp },
-      client: { ip: clientIp },
-      organization: { id: faker.string.uuid() },
-      related: { user: [employee.email, employee.userName], ip: [clientIp] },
-      data_stream: { namespace: 'default', type: 'logs', dataset: 'o365.audit' },
-      tags: ['forwarded', 'o365-audit', 'preserve_original_event'],
+    // Raw pre-pipeline format: pipeline expects o365audit (flat PascalCase)
+    const o365audit = {
+      Operation: operation,
+      Workload: workload,
+      UserId: employee.email,
+      UserKey: employee.entraIdUserId,
+      UserType: 'Regular',
+      ClientIP: clientIp,
+      RecordType: workloadConfig.recordType,
+      ResultStatus: 'Succeeded',
+      OrganizationId: faker.string.uuid(),
+      CreationTime: timestamp,
+      Id: faker.string.uuid(),
+      Version: 1,
+      ...this.getWorkloadSpecificFields(workload, operation, employee, org),
     };
 
-    return doc;
+    return {
+      '@timestamp': timestamp,
+      o365audit,
+      data_stream: { namespace: 'default', type: 'logs', dataset: 'o365.audit' },
+    } as IntegrationDocument;
   }
 
   private pickWorkload(department: DepartmentName): string {
@@ -119,7 +94,7 @@ export class O365Integration extends BaseIntegration {
     workload: string,
     operation: string,
     employee: Employee,
-    org: Organization
+    org: Organization,
   ): Record<string, unknown> {
     switch (workload) {
       case 'SharePoint':
@@ -157,47 +132,6 @@ export class O365Integration extends BaseIntegration {
       default:
         return {};
     }
-  }
-
-  private getEventCategory(workload: string): string[] {
-    switch (workload) {
-      case 'AzureActiveDirectory':
-        return ['authentication'];
-      case 'Exchange':
-        return ['email'];
-      case 'SharePoint':
-      case 'OneDrive':
-        return ['file'];
-      case 'MicrosoftTeams':
-        return ['web'];
-      default:
-        return ['web'];
-    }
-  }
-
-  private getEventType(operation: string): string[] {
-    if (
-      operation.includes('Logged') ||
-      operation.includes('Login') ||
-      operation.includes('Accessed')
-    )
-      return ['access'];
-    if (
-      operation.includes('Created') ||
-      operation.includes('Create') ||
-      operation.includes('Add') ||
-      operation.includes('Uploaded')
-    )
-      return ['creation'];
-    if (
-      operation.includes('Modified') ||
-      operation.includes('Update') ||
-      operation.includes('Change') ||
-      operation.includes('Set')
-    )
-      return ['change'];
-    if (operation.includes('Deleted') || operation.includes('Remove')) return ['deletion'];
-    return ['info'];
   }
 
   private getEventsPerEmployee(size: string): { min: number; max: number } {

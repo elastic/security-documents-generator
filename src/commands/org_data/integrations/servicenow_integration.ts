@@ -55,7 +55,7 @@ const SHORT_DESCRIPTIONS = [
 ];
 
 /** Assignment groups */
-const ASSIGNMENT_GROUPS = [
+const _ASSIGNMENT_GROUPS = [
   'IT Service Desk',
   'Network Operations',
   'Database Administration',
@@ -82,7 +82,7 @@ export class ServiceNowIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
@@ -91,7 +91,7 @@ export class ServiceNowIntegration extends BaseIntegration {
     const incidentCount = Math.max(
       5,
       Math.floor(org.employees.length / 5) +
-        faker.number.int({ min: 0, max: Math.ceil(org.employees.length / 10) })
+        faker.number.int({ min: 0, max: Math.ceil(org.employees.length / 10) }),
     );
 
     const opsEmployees = org.employees.filter((e) => e.department === 'Operations');
@@ -121,18 +121,19 @@ export class ServiceNowIntegration extends BaseIntegration {
   }
 
   /**
-   * Create a ServiceNow incident document
+   * Create a raw ServiceNow incident document (pre-pipeline format).
+   * Pipeline expects: message (raw JSON), _conf, @timestamp, data_stream.
    */
   private createIncidentDocument(
     opener: Employee,
     assignee: Employee,
     org: Organization,
-    seq: number
+    seq: number,
   ): IntegrationDocument {
     const category = faker.helpers.arrayElement(INCIDENT_CATEGORIES);
     const subcategory = faker.helpers.arrayElement(INCIDENT_SUBCATEGORIES[category]);
     const state = faker.helpers.weightedArrayElement(
-      INCIDENT_STATES.map((s) => ({ value: s, weight: s.weight }))
+      INCIDENT_STATES.map((s) => ({ value: s, weight: s.weight })),
     );
     const priority = faker.helpers.weightedArrayElement([
       { value: '1', weight: 5 },
@@ -154,98 +155,59 @@ export class ServiceNowIntegration extends BaseIntegration {
     const sysId = faker.string.uuid().replace(/-/g, '');
     const number = `INC${String(seq).padStart(7, '0')}`;
     const openedAt = faker.date.recent({ days: 14 }).toISOString();
-    const assignmentGroup = faker.helpers.arrayElement(ASSIGNMENT_GROUPS);
+    const sysUpdatedOn = this.getRandomTimestamp(48);
     const shortDescription = faker.helpers.arrayElement(SHORT_DESCRIPTIONS);
+    const description = `${shortDescription} - reported by ${opener.firstName} ${opener.lastName}`;
+
+    // Raw ServiceNow API format (data_has_display_values: false → plain scalar values)
+    const rawServiceNowEvent: Record<string, string | boolean> = {
+      table_name: 'incident',
+      sys_id: sysId,
+      number,
+      short_description: shortDescription,
+      description,
+      category,
+      subcategory,
+      state: state.value,
+      priority,
+      impact,
+      urgency,
+      opened_by: faker.string.uuid().replace(/-/g, ''),
+      opened_at: openedAt,
+      assigned_to: faker.string.uuid().replace(/-/g, ''),
+      assignment_group: faker.string.uuid().replace(/-/g, ''),
+      caller_id: faker.string.uuid().replace(/-/g, ''),
+      company: faker.string.uuid().replace(/-/g, ''),
+      contact_type: faker.helpers.arrayElement(['email', 'phone', 'self-service', 'walk-in']),
+      sys_created_on: openedAt,
+      sys_updated_on: sysUpdatedOn,
+      active: state.value !== '7',
+    };
 
     return {
       '@timestamp': openedAt,
-      event: {
-        dataset: 'servicenow.event',
-        kind: 'event',
-        category: ['configuration'],
-        type: ['info'],
-      },
-      servicenow: {
-        event: {
-          table_name: 'incident',
-          sys_id: { value: sysId },
-          number: { value: number, display_value: number },
-          short_description: { value: shortDescription, display_value: shortDescription },
-          description: {
-            value: `${shortDescription} - reported by ${opener.firstName} ${opener.lastName}`,
-            display_value: `${shortDescription} - reported by ${opener.firstName} ${opener.lastName}`,
-          },
-          category: { value: category, display_value: category },
-          subcategory: { value: subcategory, display_value: subcategory },
-          state: { value: state.value, display_value: state.display },
-          priority: {
-            value: priority,
-            display_value: ['Critical', 'High', 'Moderate', 'Low'][parseInt(priority) - 1],
-          },
-          impact: {
-            value: impact,
-            display_value: ['High', 'Medium', 'Low'][parseInt(impact) - 1],
-          },
-          urgency: {
-            value: urgency,
-            display_value: ['High', 'Medium', 'Low'][parseInt(urgency) - 1],
-          },
-          opened_by: {
-            value: faker.string.uuid().replace(/-/g, ''),
-            display_value: `${opener.firstName} ${opener.lastName}`,
-          },
-          opened_at: { value: openedAt, display_value: openedAt },
-          assigned_to: {
-            value: faker.string.uuid().replace(/-/g, ''),
-            display_value: `${assignee.firstName} ${assignee.lastName}`,
-          },
-          assignment_group: {
-            value: faker.string.uuid().replace(/-/g, ''),
-            display_value: assignmentGroup,
-          },
-          caller_id: {
-            value: faker.string.uuid().replace(/-/g, ''),
-            display_value: `${opener.firstName} ${opener.lastName}`,
-          },
-          company: { value: faker.string.uuid().replace(/-/g, ''), display_value: org.name },
-          contact_type: {
-            value: faker.helpers.arrayElement(['email', 'phone', 'self-service', 'walk-in']),
-          },
-          sys_created_on: { value: openedAt, display_value: openedAt },
-          sys_updated_on: {
-            value: this.getRandomTimestamp(48),
-            display_value: this.getRandomTimestamp(48),
-          },
-          active: { value: state.value !== '7', display_value: state.value !== '7' },
-        },
-      },
-      user: {
-        name: `${opener.firstName} ${opener.lastName}`,
-        email: opener.email,
-      },
-      related: {
-        user: [
-          `${opener.firstName} ${opener.lastName}`,
-          `${assignee.firstName} ${assignee.lastName}`,
-          opener.email,
-        ],
+      message: JSON.stringify(rawServiceNowEvent),
+      _conf: {
+        timestamp_field: 'sys_updated_on',
+        data_has_display_values: 'false',
+        table_name: 'incident',
       },
       data_stream: {
         namespace: 'default',
         type: 'logs',
         dataset: 'servicenow.event',
       },
-      tags: ['forwarded', 'servicenow-event', 'incident'],
     } as IntegrationDocument;
   }
 
   /**
-   * Create a ServiceNow change request document
+   * Create a raw ServiceNow change request document (pre-pipeline format).
+   * Pipeline expects: message (raw JSON), _conf, @timestamp, data_stream.
    */
   private createChangeRequestDocument(
     requester: Employee,
     org: Organization,
-    seq: number
+    seq: number,
   ): IntegrationDocument {
     const sysId = faker.string.uuid().replace(/-/g, '');
     const number = `CHG${String(seq).padStart(7, '0')}`;
@@ -272,55 +234,39 @@ export class ServiceNowIntegration extends BaseIntegration {
 
     const shortDescription = faker.helpers.arrayElement(descriptions);
     const openedAt = faker.date.recent({ days: 30 }).toISOString();
+    const sysUpdatedOn = this.getRandomTimestamp(72);
+
+    // Raw ServiceNow API format (data_has_display_values: false → plain scalar values)
+    const rawServiceNowEvent: Record<string, string> = {
+      table_name: 'change_request',
+      sys_id: sysId,
+      number,
+      short_description: shortDescription,
+      state: state.value,
+      priority: '3',
+      risk: '3',
+      impact: '2',
+      requested_by: faker.string.uuid().replace(/-/g, ''),
+      assignment_group: faker.string.uuid().replace(/-/g, ''),
+      company: faker.string.uuid().replace(/-/g, ''),
+      opened_at: openedAt,
+      sys_created_on: openedAt,
+      sys_updated_on: sysUpdatedOn,
+    };
 
     return {
       '@timestamp': openedAt,
-      event: {
-        dataset: 'servicenow.event',
-        kind: 'event',
-        category: ['configuration'],
-        type: ['change'],
-      },
-      servicenow: {
-        event: {
-          table_name: 'change_request',
-          sys_id: { value: sysId },
-          number: { value: number, display_value: number },
-          short_description: { value: shortDescription, display_value: shortDescription },
-          state: { value: state.value, display_value: state.display },
-          priority: { value: '3', display_value: 'Moderate' },
-          risk: { value: '3', display_value: 'Moderate' },
-          impact: { value: '2', display_value: 'Medium' },
-          requested_by: {
-            value: faker.string.uuid().replace(/-/g, ''),
-            display_value: `${requester.firstName} ${requester.lastName}`,
-          },
-          assignment_group: {
-            value: faker.string.uuid().replace(/-/g, ''),
-            display_value: faker.helpers.arrayElement(ASSIGNMENT_GROUPS),
-          },
-          company: { value: faker.string.uuid().replace(/-/g, ''), display_value: org.name },
-          opened_at: { value: openedAt, display_value: openedAt },
-          sys_created_on: { value: openedAt, display_value: openedAt },
-          sys_updated_on: {
-            value: this.getRandomTimestamp(72),
-            display_value: this.getRandomTimestamp(72),
-          },
-        },
-      },
-      user: {
-        name: `${requester.firstName} ${requester.lastName}`,
-        email: requester.email,
-      },
-      related: {
-        user: [`${requester.firstName} ${requester.lastName}`, requester.email],
+      message: JSON.stringify(rawServiceNowEvent),
+      _conf: {
+        timestamp_field: 'sys_updated_on',
+        data_has_display_values: 'false',
+        table_name: 'change_request',
       },
       data_stream: {
         namespace: 'default',
         type: 'logs',
         dataset: 'servicenow.event',
       },
-      tags: ['forwarded', 'servicenow-event', 'change_request'],
     } as IntegrationDocument;
   }
 }

@@ -138,7 +138,7 @@ export class SailPointIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
@@ -164,10 +164,10 @@ export class SailPointIntegration extends BaseIntegration {
   private createEventDocument(
     actor: Employee,
     target: Employee,
-    orgSlug: string
+    orgSlug: string,
   ): IntegrationDocument {
     const eventType = faker.helpers.weightedArrayElement(
-      EVENT_TYPES.map((et) => ({ value: et, weight: et.weight }))
+      EVENT_TYPES.map((et) => ({ value: et, weight: et.weight })),
     );
     const action = faker.helpers.arrayElement(eventType.actions);
     const status = action.includes('FAILED') ? 'FAILED' : 'PASSED';
@@ -203,7 +203,7 @@ export class SailPointIntegration extends BaseIntegration {
       tracking_number: faker.string.hexadecimal({ length: 32, prefix: '' }).toLowerCase(),
       created: created,
       synced: new Date(
-        new Date(created).getTime() + faker.number.int({ min: 1000, max: 60000 })
+        new Date(created).getTime() + faker.number.int({ min: 1000, max: 60000 }),
       ).toISOString(),
       org: orgSlug,
       pod: `se01-useast1`,
@@ -233,7 +233,6 @@ export class SailPointIntegration extends BaseIntegration {
         type: 'logs',
         dataset: 'sailpoint_identity_sc.events',
       },
-      tags: ['forwarded', 'sailpoint_identity_sc.events', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 

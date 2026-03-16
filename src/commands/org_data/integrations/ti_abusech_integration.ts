@@ -29,7 +29,7 @@ export class TiAbusechIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const malwareDocs: IntegrationDocument[] = [];
@@ -59,7 +59,7 @@ export class TiAbusechIntegration extends BaseIntegration {
     const md5 = faker.string.hexadecimal({ length: 32, prefix: '' }).toLowerCase();
     const sha1 = faker.string.hexadecimal({ length: 40, prefix: '' }).toLowerCase();
     const confidence = faker.helpers.weightedArrayElement(
-      TI_CONFIDENCE_LEVELS.map((c) => ({ value: c.level, weight: c.weight }))
+      TI_CONFIDENCE_LEVELS.map((c) => ({ value: c.level, weight: c.weight })),
     );
     const fileType = faker.helpers.arrayElement(ABUSECH_MALWARE_TYPES);
     const firstSeen = faker.date.past({ years: 1 }).toISOString();
@@ -80,14 +80,17 @@ export class TiAbusechIntegration extends BaseIntegration {
       reporter: family.reporter,
       tags: family.tags,
       confidence_level: confidence,
-      virustotal: `${faker.number.int({ min: 10, max: 60 })} / 70`,
+      virustotal: {
+        percent: faker.number.int({ min: 10, max: 95 }),
+        link: `https://www.virustotal.com/gui/file/${sha256}/detection`,
+      },
     };
 
     return {
       '@timestamp': lastSeen,
       message: JSON.stringify(rawEvent),
+      _conf: { ioc_expiration_duration: '90d' },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'ti_abusech.malware' },
-      tags: ['forwarded', 'ti_abusech-malware', 'threatintel', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 
@@ -133,11 +136,8 @@ export class TiAbusechIntegration extends BaseIntegration {
     return {
       '@timestamp': lastSeen,
       message: JSON.stringify(rawEvent),
-      _conf: {
-        interval: '1h',
-      },
+      _conf: { interval: '24h' },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'ti_abusech.url' },
-      tags: ['forwarded', 'ti_abusech-url', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 

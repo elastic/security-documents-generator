@@ -454,7 +454,7 @@ export const GRANTED_RIGHTS_WINDOWS_SAMPLE_DOCUMENT = (userName: string, timesta
 export const OKTA_USERS_SAMPLE_DOCUMENT = (
   oktaSampleUser: OktaSampleUser,
   timestamp: string,
-  roles: string[]
+  roles: string[],
 ) => {
   const { email, firstName, lastName, userId, userName } = oktaSampleUser;
   return {
@@ -636,7 +636,7 @@ const buildEntityAnalyticsGroup = (
   groupName: string,
   groupId: string,
   index: number,
-  isCriticalSystemObject: boolean
+  isCriticalSystemObject: boolean,
 ) => {
   const isBuiltin = groupName === 'Administrators';
   const container = isBuiltin ? 'CN=Builtin' : 'CN=Users';
@@ -690,7 +690,7 @@ const buildMemberOfArray = (groups: string[]): string[] => {
 export const AD_USERS_SAMPLE_ADMIN_DOCUMENT = (
   adSampleUser: AdSampleUser,
   timestamp: string,
-  groups: string[]
+  groups: string[],
 ) => {
   const { userName } = adSampleUser;
   const userSid = 'S-1-5-21-1000000000-2000000000-3000000000-1000';
@@ -795,7 +795,7 @@ export const AD_USERS_SAMPLE_DOCUMENT = (
   adSampleUser: AdSampleUser,
   timestamp: string,
   groups: string[],
-  userIdIncrement: number
+  userIdIncrement: number,
 ) => {
   const { userName } = adSampleUser;
   // Base SID for your domain

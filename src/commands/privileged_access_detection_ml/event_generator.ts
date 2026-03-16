@@ -40,7 +40,7 @@ export class User {
   constructor(
     readonly userName: string,
     readonly numberOfAnomalousDays: number,
-    readonly maxNumberOfAnomalousEvents: number
+    readonly maxNumberOfAnomalousEvents: number,
   ) {}
 }
 
@@ -59,15 +59,15 @@ export class UserGenerator {
     });
 
     const usersByNumberOfAnomalousEvents = UserGenerator.getUsersByNumberOfAnomalousEvents(
-      UserGenerator.getWeightedUserNames(userNames)
+      UserGenerator.getWeightedUserNames(userNames),
     );
     return userNames.map(
       (eachUserName) =>
         new User(
           eachUserName,
           faker.helpers.rangeToNumber({ min: 3, max: 10 }),
-          usersByNumberOfAnomalousEvents[eachUserName] ?? 1
-        )
+          usersByNumberOfAnomalousEvents[eachUserName] ?? 1,
+        ),
     );
   }
 
@@ -80,7 +80,7 @@ export class UserGenerator {
     weightedUserNames: {
       weight: number;
       value: string;
-    }[]
+    }[],
   ): UserNameByNumber {
     return faker.helpers
       .multiple(
@@ -89,7 +89,7 @@ export class UserGenerator {
         },
         {
           count: BASELINE_NUMBER_OF_EVENTS_PER_USER * ANOMALOUS_PROBABILITY_WEIGHT,
-        }
+        },
       )
       .reduce((acc, next) => {
         if (acc[next]) acc[next]++;
@@ -119,14 +119,14 @@ export class UserEventGenerator {
       () => {
         return createPrivilegedLinuxEvent(TimeWindows.last30DayWindow(), user.userName);
       },
-      { count: BASELINE_NUMBER_OF_EVENTS_PER_USER * eventMultiplier }
+      { count: BASELINE_NUMBER_OF_EVENTS_PER_USER * eventMultiplier },
     );
   }
 
   private static anomalousEventsForWindow(
     user: User,
     window: TimeWindow,
-    eventMultiplier: number
+    eventMultiplier: number,
   ): Event[] {
     const randomNumberOfAnomalousEvents = faker.helpers.rangeToNumber({
       min: 0,
@@ -136,7 +136,7 @@ export class UserEventGenerator {
       () => {
         return createPrivilegedLinuxEvent(window, user.userName);
       },
-      { count: randomNumberOfAnomalousEvents * eventMultiplier }
+      { count: randomNumberOfAnomalousEvents * eventMultiplier },
     );
   }
 
@@ -150,7 +150,7 @@ export class UserEventGenerator {
           const window = TimeWindows.randomWindowOfOneDayInTheLastMonth();
           return this.anomalousEventsForWindow(user, window, eventMultiplier);
         },
-        { count: user.numberOfAnomalousDays }
+        { count: user.numberOfAnomalousDays },
       )
       .flat();
   }

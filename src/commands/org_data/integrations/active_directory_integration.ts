@@ -50,7 +50,7 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
    */
   generateDocuments(
     org: Organization,
-    correlationMap: CorrelationMap
+    correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
@@ -70,7 +70,7 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
     // Generate computer documents for Windows devices
     for (const employee of org.employees) {
       const windowsDevices = employee.devices.filter(
-        (d) => d.type === 'laptop' && d.platform === 'windows'
+        (d) => d.type === 'laptop' && d.platform === 'windows',
       );
       for (const device of windowsDevices) {
         const computerDoc = this.createDeviceDocument(device, employee, org, timestamp, baseDn);
@@ -99,7 +99,7 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
     org: Organization,
     timestamp: string,
     baseDn: string,
-    userDn: string
+    userDn: string,
   ): ActiveDirectoryDocument {
     const whenCreated = faker.date.past({ years: 2 }).toISOString();
     const whenChanged = faker.date.recent({ days: 30 }).toISOString();
@@ -165,12 +165,17 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
       dSCorePropagationData: whenCreated,
     };
 
-    // Add groups as structured array
+    // Add groups as structured array (pipeline expects name and objectSid for privileged detection)
     const groups = memberOf.map((dn) => {
       const cnMatch = dn.match(/^CN=([^,]+)/);
+      const cn = cnMatch ? cnMatch[1] : dn;
+      // Generate SID for group; use well-known RID for Domain Users (513)
+      const groupSid = `S-1-5-21-${faker.string.numeric(10)}-${faker.string.numeric(10)}-${faker.string.numeric(10)}-513`;
       return {
         distinguishedName: dn,
-        cn: cnMatch ? cnMatch[1] : dn,
+        cn,
+        name: cn,
+        objectSid: this.sidToBase64(groupSid),
       };
     });
 
@@ -183,9 +188,6 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
       },
       event: {
         action: 'user-discovered',
-        kind: 'asset',
-        category: ['iam'],
-        type: ['user', 'info'],
       },
       user: {
         id: employee.windowsSid,
@@ -210,7 +212,7 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
     employee: Employee,
     org: Organization,
     timestamp: string,
-    baseDn: string
+    baseDn: string,
   ): ActiveDirectoryDocument {
     const whenCreated = faker.date.past({ years: 1 }).toISOString();
     const whenChanged = faker.date.recent({ days: 14 }).toISOString();
@@ -259,9 +261,6 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
       },
       event: {
         action: 'device-discovered',
-        kind: 'asset',
-        category: ['host'],
-        type: ['info'],
       },
       device: {
         id: computerDn,
@@ -284,7 +283,7 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
   private findManagerDn(
     managerOktaId: string,
     org: Organization,
-    baseDn: string
+    baseDn: string,
   ): string | undefined {
     const manager = org.employees.find((e) => e.oktaUserId === managerOktaId);
     if (manager) {

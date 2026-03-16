@@ -46,7 +46,7 @@ const createDocuments = (
   n: number,
   generated: number,
   createDoc: DocumentCreator,
-  index: string
+  index: string,
 ): unknown[] => {
   return Array(n)
     .fill(null)
@@ -71,7 +71,7 @@ export const generateAlerts = async (
   alertCount: number,
   hostCount: number,
   userCount: number,
-  space: string
+  space: string,
 ) => {
   if (userCount > alertCount) {
     console.log('User count should be less than alert count');
@@ -84,7 +84,7 @@ export const generateAlerts = async (
   }
 
   console.log(
-    `Generating ${alertCount} alerts containing ${hostCount} hosts and ${userCount} users in space ${space}`
+    `Generating ${alertCount} alerts containing ${hostCount} hosts and ${userCount} users in space ${space}`,
   );
   const concurrency = 10; // how many batches to send in parallel
   const batchSize = 2500; // number of alerts in a batch
@@ -93,7 +93,7 @@ export const generateAlerts = async (
   const batchOpForIndex = ({ userName, hostName }: { userName: string; hostName: string }) =>
     alertToBatchOps(
       createAlerts(no_overrides, { userName, hostName, space }),
-      getAlertIndex(space)
+      getAlertIndex(space),
     );
 
   console.log('Generating entity names...');
@@ -108,13 +108,13 @@ export const generateAlerts = async (
 
   console.log('Entity names assigned. Batching...');
   const operationBatches = chunk(alertEntityNames, batchSize).map((batch) =>
-    batch.flatMap(batchOpForIndex)
+    batch.flatMap(batchOpForIndex),
   );
 
   console.log('Batching complete. Sending to ES...');
 
   console.log(
-    `Sending in ${operationBatches.length} batches of ${batchSize} alerts, with up to ${concurrency} batches in parallel\n\n`
+    `Sending in ${operationBatches.length} batches of ${batchSize} alerts, with up to ${concurrency} batches in parallel\n\n`,
   );
   const progress = createProgressBar('alerts', {
     format: '{bar} | {percentage}% | {value}/{total} batches',
@@ -127,7 +127,7 @@ export const generateAlerts = async (
       await bulkUpsert({ documents: operations });
       progress.increment();
     },
-    { concurrency }
+    { concurrency },
   );
 
   progress.stop();

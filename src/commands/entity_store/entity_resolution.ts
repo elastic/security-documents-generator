@@ -192,7 +192,7 @@ const installPackages = async (space: string) => {
       await installPackage({ packageName, space });
       progress.increment();
     },
-    { concurrency: 1 }
+    { concurrency: 1 },
   );
   progress.stop();
 };
@@ -202,7 +202,7 @@ const jsonlFileToBatchGenerator = (
   filePath: string,
   batchSize: number,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  lineToOperation: (line: any, index: number) => [any, any]
+  lineToOperation: (line: any, index: number) => [any, any],
 ): AsyncGenerator<unknown[], void, void> => {
   const rl = readline.createInterface({
     input: fs.createReadStream(filePath),
@@ -359,7 +359,7 @@ const importEntraIdUserData = async ({
 const importFile = async (
   filePath: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  lineToOperation: (line: any, index: number) => [any, any]
+  lineToOperation: (line: any, index: number) => [any, any],
 ) => {
   const lineCountInFile = await getFileLineCount(filePath);
   const batchGenerator = jsonlFileToBatchGenerator(filePath, BATCH_SIZE, lineToOperation);
@@ -383,7 +383,7 @@ const createMatchAllRule = async (space: string) => {
 
 const batchIndexDocsWithProgress = async (
   generator: AsyncGenerator<unknown[], void, void>,
-  docCount: number
+  docCount: number,
 ) => {
   const progress = createProgressBar('documents', { clearOnComplete: true });
   progress.start(docCount, 0);
@@ -398,7 +398,7 @@ const batchIndexDocsWithProgress = async (
       }
       progress.increment(operations.length / 2);
     },
-    { concurrency: CONCURRENCY }
+    { concurrency: CONCURRENCY },
   );
 
   progress.stop();

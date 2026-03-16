@@ -264,7 +264,7 @@ export class EndpointIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const processDocs: IntegrationDocument[] = [];
@@ -288,7 +288,7 @@ export class EndpointIntegration extends BaseIntegration {
         const processCount = faker.number.int({ min: 3, max: 5 });
         for (let i = 0; i < processCount; i++) {
           processDocs.push(
-            this.generateProcessDocument(employee, device, agentId, hostId, platform)
+            this.generateProcessDocument(employee, device, agentId, hostId, platform),
           );
         }
 
@@ -300,14 +300,14 @@ export class EndpointIntegration extends BaseIntegration {
         const networkCount = faker.number.int({ min: 2, max: 4 });
         for (let i = 0; i < networkCount; i++) {
           networkDocs.push(
-            this.generateNetworkDocument(employee, device, agentId, hostId, platform)
+            this.generateNetworkDocument(employee, device, agentId, hostId, platform),
           );
         }
 
         const securityCount = faker.number.int({ min: 1, max: 2 });
         for (let i = 0; i < securityCount; i++) {
           securityDocs.push(
-            this.generateSecurityDocument(employee, device, agentId, hostId, platform)
+            this.generateSecurityDocument(employee, device, agentId, hostId, platform),
           );
         }
 
@@ -321,7 +321,7 @@ export class EndpointIntegration extends BaseIntegration {
         const libraryCount = faker.number.int({ min: 1, max: 2 });
         for (let i = 0; i < libraryCount; i++) {
           libraryDocs.push(
-            this.generateLibraryDocument(employee, device, agentId, hostId, platform)
+            this.generateLibraryDocument(employee, device, agentId, hostId, platform),
           );
         }
       }
@@ -329,11 +329,11 @@ export class EndpointIntegration extends BaseIntegration {
 
     const alertCount = Math.max(
       1,
-      Math.floor(allLaptops.length * faker.number.float({ min: 0.02, max: 0.05 }))
+      Math.floor(allLaptops.length * faker.number.float({ min: 0.02, max: 0.05 })),
     );
     const alertDevices = faker.helpers.arrayElements(
       allLaptops,
-      Math.min(alertCount, allLaptops.length)
+      Math.min(alertCount, allLaptops.length),
     );
     for (const { employee, device } of alertDevices) {
       alertDocs.push(
@@ -342,8 +342,8 @@ export class EndpointIntegration extends BaseIntegration {
           device,
           device.crowdstrikeAgentId,
           device.id,
-          device.platform as string
-        )
+          device.platform as string,
+        ),
       );
     }
 
@@ -394,7 +394,7 @@ export class EndpointIntegration extends BaseIntegration {
     device: Device,
     agentId: string,
     hostId: string,
-    platform: string
+    platform: string,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp();
     const proc = faker.helpers.arrayElement(COMMON_PROCESSES);
@@ -405,7 +405,7 @@ export class EndpointIntegration extends BaseIntegration {
     const parentEntityId = faker.string.alphanumeric(40);
     const executablePath = (proc.executable[platform] ?? proc.executable.linux).replace(
       '%USER%',
-      employee.userName
+      employee.userName,
     );
 
     return {
@@ -464,7 +464,7 @@ export class EndpointIntegration extends BaseIntegration {
     device: Device,
     agentId: string,
     hostId: string,
-    platform: string
+    platform: string,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp();
     const action = faker.helpers.arrayElement(FILE_ACTIONS);
@@ -521,7 +521,7 @@ export class EndpointIntegration extends BaseIntegration {
     device: Device,
     agentId: string,
     hostId: string,
-    platform: string
+    platform: string,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp();
     const action = faker.helpers.arrayElement(NETWORK_ACTIONS);
@@ -541,7 +541,7 @@ export class EndpointIntegration extends BaseIntegration {
         entity_id: entityId,
         executable: (proc.executable[platform] ?? proc.executable.linux).replace(
           '%USER%',
-          employee.userName
+          employee.userName,
         ),
       },
       destination: {
@@ -592,7 +592,7 @@ export class EndpointIntegration extends BaseIntegration {
     device: Device,
     agentId: string,
     hostId: string,
-    platform: string
+    platform: string,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp();
     const logonType = faker.helpers.arrayElement(SECURITY_LOGON_TYPES);
@@ -659,7 +659,7 @@ export class EndpointIntegration extends BaseIntegration {
     device: Device,
     agentId: string,
     hostId: string,
-    platform: string
+    platform: string,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(48);
     const alertType = faker.helpers.arrayElement(ALERT_TYPES);
@@ -759,7 +759,7 @@ export class EndpointIntegration extends BaseIntegration {
     employee: Employee,
     device: Device,
     agentId: string,
-    hostId: string
+    hostId: string,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp();
     const action = faker.helpers.arrayElement(REGISTRY_ACTIONS);
@@ -819,7 +819,7 @@ export class EndpointIntegration extends BaseIntegration {
     device: Device,
     agentId: string,
     hostId: string,
-    platform: string
+    platform: string,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp();
     const entityId = faker.string.alphanumeric(40);

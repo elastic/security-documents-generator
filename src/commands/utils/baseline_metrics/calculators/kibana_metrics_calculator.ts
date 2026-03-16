@@ -110,15 +110,15 @@ export const calculateKibanaMetrics = (kibanaData: KibanaStatsData | null): Kiba
         avg: avg(kibanaData.eventLoopDelays),
         p50: percentile(
           [...kibanaData.eventLoopDelayPercentiles.p50].sort((a, b) => a - b),
-          50
+          50,
         ),
         p95: percentile(
           [...kibanaData.eventLoopDelayPercentiles.p95].sort((a, b) => a - b),
-          95
+          95,
         ),
         p99: percentile(
           [...kibanaData.eventLoopDelayPercentiles.p99].sort((a, b) => a - b),
-          99
+          99,
         ),
         max: max(kibanaData.eventLoopDelays),
       },

@@ -85,7 +85,7 @@ export class JamfProIntegration extends BaseIntegration {
    */
   generateDocuments(
     org: Organization,
-    correlationMap: CorrelationMap
+    correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const inventoryDocs: IntegrationDocument[] = [];
@@ -94,7 +94,7 @@ export class JamfProIntegration extends BaseIntegration {
     // Generate inventory + event documents for Mac laptops only
     for (const employee of org.employees) {
       const macDevices = employee.devices.filter(
-        (d) => d.type === 'laptop' && d.platform === 'mac'
+        (d) => d.type === 'laptop' && d.platform === 'mac',
       );
       for (const device of macDevices) {
         const udid = faker.string.uuid().toUpperCase();
@@ -127,7 +127,7 @@ export class JamfProIntegration extends BaseIntegration {
     employee: Employee,
     org: Organization,
     udid: string,
-    jssId: string
+    jssId: string,
   ): IntegrationDocument {
     const osInfo = faker.helpers.arrayElement(MACOS_VERSIONS);
     const lastContactTime = faker.date.recent({ days: 1 }).toISOString();
@@ -188,7 +188,6 @@ export class JamfProIntegration extends BaseIntegration {
         type: 'logs',
         dataset: 'jamf_pro.inventory',
       },
-      tags: ['forwarded', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 
@@ -201,29 +200,21 @@ export class JamfProIntegration extends BaseIntegration {
     employee: Employee,
     org: Organization,
     udid: string,
-    jssId: string
+    jssId: string,
   ): IntegrationDocument {
     const webhookEvent = faker.helpers.arrayElement(WEBHOOK_EVENTS);
     const modelId = faker.helpers.arrayElement(MAC_MODEL_IDENTIFIERS);
     const osInfo = faker.helpers.arrayElement(MACOS_VERSIONS);
     const macColonFormat = device.macAddress.replace(/-/g, ':').toLowerCase();
+    const fullName = `${employee.firstName} ${employee.lastName}`;
 
+    // Pipeline expects json -> jamf_pro.events; device fields under event.computer
     return {
       '@timestamp': this.getRandomTimestamp(48),
       json: {
         event: {
-          udid: udid,
-          device_name: `${employee.firstName}'s MacBook Pro`,
-          model: modelId,
-          serial_number: device.serialNumber,
-          os_version: osInfo.version,
-          os_build: osInfo.build,
-          ip_address: device.ipAddress,
-          reported_ip_address: device.ipAddress,
-          mac_address: macColonFormat,
-          alternate_mac_address: macColonFormat,
-          username: `${employee.firstName} ${employee.lastName}`,
-          real_name: `${employee.firstName} ${employee.lastName}`,
+          username: fullName,
+          real_name: fullName,
           email_address: employee.email,
           phone: faker.phone.number({ style: 'international' }),
           position: employee.role,
@@ -239,6 +230,20 @@ export class JamfProIntegration extends BaseIntegration {
           jss_id: jssId,
           management_id: faker.string.uuid(),
           user_directory_id: faker.string.numeric(10),
+          computer: {
+            device_name: `${employee.firstName}'s MacBook Pro`,
+            udid: udid,
+            reported_ip_address: device.ipAddress,
+            os_version: osInfo.version,
+            model: modelId,
+            serial_number: device.serialNumber,
+            os_build: osInfo.build,
+            ip_address: device.ipAddress,
+            mac_address: macColonFormat,
+            alternate_mac_address: macColonFormat,
+            username: fullName,
+            email_address: employee.email,
+          },
         },
         webhook: {
           event_timestamp: Date.now() - faker.number.int({ min: 0, max: 48 * 60 * 60 * 1000 }),
@@ -252,7 +257,6 @@ export class JamfProIntegration extends BaseIntegration {
         type: 'logs',
         dataset: 'jamf_pro.events',
       },
-      tags: ['forwarded', 'jamf_pro-events', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 }

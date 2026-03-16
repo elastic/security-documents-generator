@@ -68,7 +68,7 @@ export class SlackIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
@@ -90,7 +90,7 @@ export class SlackIntegration extends BaseIntegration {
    */
   private createAuditDocument(employee: Employee, org: Organization): IntegrationDocument {
     const action = faker.helpers.weightedArrayElement(
-      AUDIT_ACTIONS.map((a) => ({ value: a, weight: a.weight }))
+      AUDIT_ACTIONS.map((a) => ({ value: a, weight: a.weight })),
     );
     const sourceIp = faker.internet.ipv4();
     const workspaceId = faker.string.alphanumeric(9).toUpperCase();
@@ -152,67 +152,75 @@ export class SlackIntegration extends BaseIntegration {
         type: 'logs',
         dataset: 'slack.audit',
       },
-      tags: ['forwarded', 'slack-audit', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 
   /**
-   * Build entity object based on action type
+   * Build entity object based on action type.
+   * Pipeline expects raw Slack API format: entity.type + nested entity.{user|channel|file|app}
    */
   private buildEntity(
     action: string,
     targetEmployee: Employee,
     channelId: string,
-    channelName: string
+    channelName: string,
   ): Record<string, unknown> {
     if (action.includes('channel') || action === 'member_joined_channel') {
       return {
-        entity_type: 'channel',
-        id: channelId,
-        name: channelName,
-        privacy: faker.helpers.arrayElement(['public', 'private']),
-        is_shared: faker.datatype.boolean(0.2),
-        is_org_shared: faker.datatype.boolean(0.1),
+        type: 'channel',
+        channel: {
+          id: channelId,
+          name: channelName,
+          privacy: faker.helpers.arrayElement(['public', 'private']),
+          is_shared: faker.datatype.boolean(0.2),
+          is_org_shared: faker.datatype.boolean(0.1),
+        },
       };
     }
 
     if (action.includes('file')) {
       return {
-        entity_type: 'file',
-        id: faker.string.alphanumeric(11).toUpperCase(),
-        name: `${faker.word.adjective()}-${faker.word.noun()}.${faker.helpers.arrayElement(['pdf', 'docx', 'xlsx', 'png', 'zip'])}`,
-        filetype: faker.helpers.arrayElement(['pdf', 'docx', 'xlsx', 'png', 'zip']),
-        title: faker.lorem.words(3),
+        type: 'file',
+        file: {
+          id: faker.string.alphanumeric(11).toUpperCase(),
+          name: `${faker.word.adjective()}-${faker.word.noun()}.${faker.helpers.arrayElement(['pdf', 'docx', 'xlsx', 'png', 'zip'])}`,
+          filetype: faker.helpers.arrayElement(['pdf', 'docx', 'xlsx', 'png', 'zip']),
+          title: faker.lorem.words(3),
+        },
       };
     }
 
     if (action.includes('app')) {
       return {
-        entity_type: 'app',
-        id: faker.string.alphanumeric(11).toUpperCase(),
-        name: faker.helpers.arrayElement([
-          'GitHub',
-          'Jira',
-          'PagerDuty',
-          'Google Drive',
-          'Zoom',
-          'Asana',
-          'Datadog',
-          'Sentry',
-        ]),
-        is_distributed: faker.datatype.boolean(0.6),
-        is_directory_approved: faker.datatype.boolean(0.8),
-        is_workflow_app: false,
+        type: 'app',
+        app: {
+          id: faker.string.alphanumeric(11).toUpperCase(),
+          name: faker.helpers.arrayElement([
+            'GitHub',
+            'Jira',
+            'PagerDuty',
+            'Google Drive',
+            'Zoom',
+            'Asana',
+            'Datadog',
+            'Sentry',
+          ]),
+          is_distributed: faker.datatype.boolean(0.6),
+          is_directory_approved: faker.datatype.boolean(0.8),
+          is_workflow_app: false,
+        },
       };
     }
 
     // Default: user entity (login, logout, user_created, anomaly, role_change, etc.)
     return {
-      entity_type: 'user',
-      id: faker.string.alphanumeric(8),
-      name: `${targetEmployee.firstName} ${targetEmployee.lastName}`,
-      email: targetEmployee.email,
-      team: `T${faker.string.alphanumeric(8).toUpperCase()}`,
+      type: 'user',
+      user: {
+        id: faker.string.alphanumeric(8),
+        name: `${targetEmployee.firstName} ${targetEmployee.lastName}`,
+        email: targetEmployee.email,
+        team: `T${faker.string.alphanumeric(8).toUpperCase()}`,
+      },
     };
   }
 }

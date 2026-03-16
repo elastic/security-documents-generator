@@ -9,7 +9,7 @@ import { ComparisonThresholds } from '../metrics_comparison';
 export const compareKibanaMetrics = (
   baseline: BaselineMetrics,
   current: BaselineMetrics,
-  thresholds: ComparisonThresholds
+  thresholds: ComparisonThresholds,
 ): ComparisonResult[] => {
   const results: ComparisonResult[] = [];
 
@@ -20,8 +20,8 @@ export const compareKibanaMetrics = (
       baseline.metrics.kibana.eventLoop.delay.avg,
       current.metrics.kibana.eventLoop.delay.avg,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -29,8 +29,8 @@ export const compareKibanaMetrics = (
       baseline.metrics.kibana.eventLoop.delay.p50,
       current.metrics.kibana.eventLoop.delay.p50,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -38,22 +38,22 @@ export const compareKibanaMetrics = (
       baseline.metrics.kibana.eventLoop.delay.p95,
       current.metrics.kibana.eventLoop.delay.p95,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createInfoResult(
       'Kibana Event Loop Delay (p99)',
       baseline.metrics.kibana.eventLoop.delay.p99,
-      current.metrics.kibana.eventLoop.delay.p99
-    )
+      current.metrics.kibana.eventLoop.delay.p99,
+    ),
   );
   results.push(
     createInfoResult(
       'Kibana Event Loop Delay (max)',
       baseline.metrics.kibana.eventLoop.delay.max,
-      current.metrics.kibana.eventLoop.delay.max
-    )
+      current.metrics.kibana.eventLoop.delay.max,
+    ),
   );
   results.push(
     createResult(
@@ -61,8 +61,8 @@ export const compareKibanaMetrics = (
       baseline.metrics.kibana.eventLoop.utilization.avg,
       current.metrics.kibana.eventLoop.utilization.avg,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -70,8 +70,8 @@ export const compareKibanaMetrics = (
       baseline.metrics.kibana.eventLoop.utilization.peak,
       current.metrics.kibana.eventLoop.utilization.peak,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
 
   // Elasticsearch Client metrics
@@ -79,8 +79,8 @@ export const compareKibanaMetrics = (
     createInfoResult(
       'Kibana ES Client Active Sockets (avg)',
       baseline.metrics.kibana.elasticsearchClient.avgActiveSockets,
-      current.metrics.kibana.elasticsearchClient.avgActiveSockets
-    )
+      current.metrics.kibana.elasticsearchClient.avgActiveSockets,
+    ),
   );
   results.push(
     createResult(
@@ -88,8 +88,8 @@ export const compareKibanaMetrics = (
       baseline.metrics.kibana.elasticsearchClient.avgIdleSockets,
       current.metrics.kibana.elasticsearchClient.avgIdleSockets,
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -97,8 +97,8 @@ export const compareKibanaMetrics = (
       baseline.metrics.kibana.elasticsearchClient.peakQueuedRequests,
       current.metrics.kibana.elasticsearchClient.peakQueuedRequests,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
 
   // Response Times metrics
@@ -108,15 +108,15 @@ export const compareKibanaMetrics = (
       baseline.metrics.kibana.responseTimes.avg,
       current.metrics.kibana.responseTimes.avg,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createInfoResult(
       'Kibana Response Time (max)',
       baseline.metrics.kibana.responseTimes.max,
-      current.metrics.kibana.responseTimes.max
-    )
+      current.metrics.kibana.responseTimes.max,
+    ),
   );
 
   // Memory metrics
@@ -126,8 +126,8 @@ export const compareKibanaMetrics = (
       bytesToMB(baseline.metrics.kibana.memory.avgHeapBytes),
       bytesToMB(current.metrics.kibana.memory.avgHeapBytes),
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -135,8 +135,8 @@ export const compareKibanaMetrics = (
       bytesToMB(baseline.metrics.kibana.memory.peakHeapBytes),
       bytesToMB(current.metrics.kibana.memory.peakHeapBytes),
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -144,8 +144,8 @@ export const compareKibanaMetrics = (
       bytesToMB(baseline.metrics.kibana.memory.avgRssBytes),
       bytesToMB(current.metrics.kibana.memory.avgRssBytes),
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -153,8 +153,8 @@ export const compareKibanaMetrics = (
       bytesToMB(baseline.metrics.kibana.memory.peakRssBytes),
       bytesToMB(current.metrics.kibana.memory.peakRssBytes),
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
 
   // Request metrics
@@ -164,8 +164,8 @@ export const compareKibanaMetrics = (
       baseline.metrics.kibana.requests.total,
       current.metrics.kibana.requests.total,
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -173,8 +173,8 @@ export const compareKibanaMetrics = (
       baseline.metrics.kibana.requests.avgPerSecond,
       current.metrics.kibana.requests.avgPerSecond,
       false,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -182,8 +182,8 @@ export const compareKibanaMetrics = (
       baseline.metrics.kibana.requests.errorRate,
       current.metrics.kibana.requests.errorRate,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -191,8 +191,8 @@ export const compareKibanaMetrics = (
       baseline.metrics.kibana.requests.disconnects,
       current.metrics.kibana.requests.disconnects,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
 
   // OS Load metrics
@@ -202,8 +202,8 @@ export const compareKibanaMetrics = (
       baseline.metrics.kibana.osLoad.avg1m,
       current.metrics.kibana.osLoad.avg1m,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -211,8 +211,8 @@ export const compareKibanaMetrics = (
       baseline.metrics.kibana.osLoad.avg5m,
       current.metrics.kibana.osLoad.avg5m,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createResult(
@@ -220,15 +220,15 @@ export const compareKibanaMetrics = (
       baseline.metrics.kibana.osLoad.avg15m,
       current.metrics.kibana.osLoad.avg15m,
       true,
-      thresholds
-    )
+      thresholds,
+    ),
   );
   results.push(
     createInfoResult(
       'Kibana OS Load 1m (peak)',
       baseline.metrics.kibana.osLoad.peak1m,
-      current.metrics.kibana.osLoad.peak1m
-    )
+      current.metrics.kibana.osLoad.peak1m,
+    ),
   );
 
   return results;

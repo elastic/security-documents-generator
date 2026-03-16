@@ -31,7 +31,7 @@ export class CloudflareLogpushIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const httpDocs: IntegrationDocument[] = [];
@@ -62,13 +62,13 @@ export class CloudflareLogpushIntegration extends BaseIntegration {
     const subdomain = faker.helpers.arrayElement(zone.subdomains);
     const host = `${subdomain}.${zone.name}`;
     const method = faker.helpers.weightedArrayElement(
-      HTTP_METHODS.map((m) => ({ value: m.method, weight: m.weight }))
+      HTTP_METHODS.map((m) => ({ value: m.method, weight: m.weight })),
     );
     const path = faker.helpers.arrayElement(API_PATHS);
     const statusCode = isAttack
       ? faker.helpers.arrayElement([403, 429, 503])
       : faker.helpers.weightedArrayElement(
-          HTTP_STATUS_CODES.map((s) => ({ value: s.code, weight: s.weight }))
+          HTTP_STATUS_CODES.map((s) => ({ value: s.code, weight: s.weight })),
         );
     const clientIp = isAttack ? faker.helpers.arrayElement(ATTACKER_IPS) : faker.internet.ipv4();
     const clientCountry = isAttack

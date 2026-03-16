@@ -95,7 +95,7 @@ export class PingDirectoryIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
@@ -128,7 +128,7 @@ export class PingDirectoryIntegration extends BaseIntegration {
     employee: Employee,
     manager: Employee | undefined,
     org: Organization,
-    scimBaseUrl: string
+    scimBaseUrl: string,
   ): IntegrationDocument {
     const scimUserId = faker.string.uuid();
     const createdDate = faker.date

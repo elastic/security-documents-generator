@@ -53,7 +53,7 @@ export const generateCSVFile = async ({
     console.log(`A CSV file containing all of the privileged users was written to ${csvFilePath}`);
   } catch (e) {
     console.log(
-      'There was a problem writing the CSV file to the local directory. See details below.'
+      'There was a problem writing the CSV file to the local directory. See details below.',
     );
     console.error(e);
   }

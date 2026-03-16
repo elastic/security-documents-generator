@@ -148,8 +148,8 @@ Key patterns for `generateDocuments`:
 - Use `org.employees` to iterate over organization members
 - Use `correlationMap` to link identities across integrations (e.g. `correlationMap.oktaUserIdToEmployee`)
 - Use `this.getRandomTimestamp()` for realistic time distribution
-- Each document must include `'@timestamp'` and the correct `data_stream`, `event`, and integration-specific fields
-- Match the field structure from the reference sample events as closely as possible
+- Each document must include `'@timestamp'` and the correct `data_stream`
+- **Produce raw/pre-pipeline documents** -- see Step 3c below for the full rules
 - **Use stable Employee/Device fields for correlated identifiers** -- see Step 3b below for the full rules on `user.id`, `host.mac`, `host.ip`, etc.
 
 **Endpoint-specific guidance:**
@@ -170,44 +170,45 @@ Security. Never generate random identifiers (SIDs, UIDs, MACs, IPs) per event wi
 These fields are generated once in `org_data_generator.ts` and must be reused by every
 integration that references users:
 
-| Field             | Description                                                                 | Example                                          |
-| ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------ |
-| `userName`        | Primary user identifier across all integrations                             | `reese.doyle`                                    |
-| `email`           | Corporate email address                                                     | `reese.doyle@acmecrm.com`                        |
-| `windowsSid`      | Windows SID (shared domain prefix + per-employee RID)                       | `S-1-5-21-1199716861-1301547593-1626275133-1001` |
-| `unixUid`         | Unix UID (integer, starts at 1000)                                          | `1000`                                           |
-| `oktaUserId`      | Okta user ID                                                                | `00uAbCdEfGhIjKlMn`                              |
-| `entraIdUserId`   | Microsoft Entra ID (Azure AD) user UUID                                     | `a1b2c3d4-...`                                   |
-| `duoUserId`       | Cisco Duo user ID                                                           | `DUABCDEFGHIJKLMNOPQR`                           |
-| `onePasswordUuid` | 1Password member UUID                                                       | `a1b2c3d4-...`                                   |
-| `employeeNumber`  | HR employee number                                                          | `123456`                                         |
-| `githubUsername`   | GitHub username (Engineering + Executive only)                              | `reese-doyle`                                    |
+| Field             | Description                                           | Example                                          |
+| ----------------- | ----------------------------------------------------- | ------------------------------------------------ |
+| `userName`        | Primary user identifier across all integrations       | `reese.doyle`                                    |
+| `email`           | Corporate email address                               | `reese.doyle@acmecrm.com`                        |
+| `windowsSid`      | Windows SID (shared domain prefix + per-employee RID) | `S-1-5-21-1199716861-1301547593-1626275133-1001` |
+| `unixUid`         | Unix UID (integer, starts at 1000)                    | `1000`                                           |
+| `oktaUserId`      | Okta user ID                                          | `00uAbCdEfGhIjKlMn`                              |
+| `entraIdUserId`   | Microsoft Entra ID (Azure AD) user UUID               | `a1b2c3d4-...`                                   |
+| `duoUserId`       | Cisco Duo user ID                                     | `DUABCDEFGHIJKLMNOPQR`                           |
+| `onePasswordUuid` | 1Password member UUID                                 | `a1b2c3d4-...`                                   |
+| `employeeNumber`  | HR employee number                                    | `123456`                                         |
+| `githubUsername`  | GitHub username (Engineering + Executive only)        | `reese-doyle`                                    |
+| `gitlabUserId`    | GitLab numeric user ID (Engineering + Executive only) | `42518`                                          |
 
 #### Stable fields on Device
 
-| Field                | Description                                   | Example                            |
-| -------------------- | --------------------------------------------- | ---------------------------------- |
-| `id`                 | Device UUID, used as `host.id`                | `276e59a0-...`                     |
-| `macAddress`         | Stable MAC address (dash-separated)           | `8a-d3-02-ed-99-a2`               |
-| `ipAddress`          | Stable IPv4 address                           | `234.22.230.186`                   |
-| `crowdstrikeAgentId` | CrowdStrike Falcon agent ID                   | `e045e02b...`                      |
-| `crowdstrikeDeviceId`| CrowdStrike device ID                         | `efb573dc...`                      |
-| `serialNumber`       | Hardware serial number                        | `A1B2C3D4E5F6`                     |
+| Field                 | Description                         | Example             |
+| --------------------- | ----------------------------------- | ------------------- |
+| `id`                  | Device UUID, used as `host.id`      | `276e59a0-...`      |
+| `macAddress`          | Stable MAC address (dash-separated) | `8a-d3-02-ed-99-a2` |
+| `ipAddress`           | Stable IPv4 address                 | `234.22.230.186`    |
+| `crowdstrikeAgentId`  | CrowdStrike Falcon agent ID         | `e045e02b...`       |
+| `crowdstrikeDeviceId` | CrowdStrike device ID               | `efb573dc...`       |
+| `serialNumber`        | Hardware serial number              | `A1B2C3D4E5F6`      |
 
 #### Correlation rules for ECS fields
 
 When generating documents, map ECS fields to the stable Employee/Device values:
 
-| ECS Field      | Rule                                                                                                                                      |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `user.id`      | Windows: `employee.windowsSid`. Mac/Linux: `String(employee.unixUid)`. **Never** generate random SIDs/UIDs per event.                     |
-| `user.name`    | Always `employee.userName`.                                                                                                               |
-| `user.email`   | Always `employee.email`.                                                                                                                  |
-| `user.domain`  | Windows user-context: derive from employee (e.g. `employee.userName.split('.')[0].toUpperCase()`). Use `'NT AUTHORITY'` only for SYSTEM.   |
-| `host.id`      | Always `device.id`.                                                                                                                       |
-| `host.name`    | `${employee.userName}-${device.platform}` for employee devices.                                                                           |
-| `host.mac`     | Always `device.macAddress`. Convert separator as needed (dash for ECS/endpoint, colon for Jamf). **Never** call `faker.internet.mac()`.    |
-| `host.ip`      | Always `device.ipAddress` as the primary IP. **Never** call `faker.internet.ipv4()` for host IPs. Random IPs are OK for `source.ip`, `destination.ip`, or `external_ip`. |
+| ECS Field     | Rule                                                                                                                                                                     |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `user.id`     | Windows: `employee.windowsSid`. Mac/Linux: `String(employee.unixUid)`. **Never** generate random SIDs/UIDs per event.                                                    |
+| `user.name`   | Always `employee.userName`.                                                                                                                                              |
+| `user.email`  | Always `employee.email`.                                                                                                                                                 |
+| `user.domain` | Windows user-context: derive from employee (e.g. `employee.userName.split('.')[0].toUpperCase()`). Use `'NT AUTHORITY'` only for SYSTEM.                                 |
+| `host.id`     | Always `device.id`.                                                                                                                                                      |
+| `host.name`   | `${employee.userName}-${device.platform}` for employee devices.                                                                                                          |
+| `host.mac`    | Always `device.macAddress`. Convert separator as needed (dash for ECS/endpoint, colon for Jamf). **Never** call `faker.internet.mac()`.                                  |
+| `host.ip`     | Always `device.ipAddress` as the primary IP. **Never** call `faker.internet.ipv4()` for host IPs. Random IPs are OK for `source.ip`, `destination.ip`, or `external_ip`. |
 
 #### When to extend the CorrelationMap
 
@@ -219,6 +220,90 @@ extend the correlation infrastructure:
 3. Add a new `Map` entry to the `CorrelationMap` interface in `src/commands/org_data/types.ts`
 4. Populate it in `buildCorrelationMap()` in `src/commands/org_data/correlation.ts`
 5. Add it to `createEmptyCorrelationMap()` in `src/commands/org_data/integrations/base_integration.ts`
+
+### Step 3c: Produce Pre-Pipeline (Raw) Document Format
+
+**CRITICAL**: Documents generated by org-data integrations are indexed into Elasticsearch data streams that have ingest pipelines attached. The ingest pipeline transforms the raw input into ECS-compliant documents. Your generator must produce documents in the **raw format the pipeline expects**, NOT the final ECS format.
+
+#### Why this matters
+
+When a document is indexed to `logs-zoom.webhook-default`, the default ingest pipeline for that data stream runs automatically. If the generator produces a document that already has ECS fields like `event.action`, `user.email`, `source.ip`, etc., the pipeline will fail because it cannot find the raw fields it expects (e.g. `zoom.payload`, `message` with JSON, etc.). This results in `pipeline_error` documents.
+
+#### How to determine the raw format
+
+Before writing `generateDocuments()`, you MUST read the ingest pipeline YAML for each data stream:
+
+1. **Find the pipeline**: `packages/<package>/data_stream/<dataset>/elasticsearch/ingest_pipeline/default.yml`
+2. **Identify the input field**: Look for the first `json`, `rename`, `grok`, or `script` processor to determine what field the pipeline reads from. Common patterns:
+   - **`message` field** (most common): Pipeline does `message` → `event.original` → JSON parse. Generator must put raw API JSON in `message`.
+   - **`event.original` field**: Some pipelines read directly from `event.original`. Generator sets `event: { original: JSON.stringify(raw) }`.
+   - **Special top-level fields**: Some pipelines expect specific structures:
+     - Zoom: `zoom.event` + `zoom.payload`
+     - Auth0: `json.data` (object, not stringified)
+     - O365: `o365audit` (object)
+     - MongoDB Atlas org: `response` (object)
+     - ServiceNow: `message` + `_conf` (config object)
+3. **Check field naming**: Raw fields often use different casing than the final ECS output:
+   - BeyondInsight: CamelCase (`ActionType`, `AuditID`)
+   - LastPass: PascalCase (`Action`, `Username`, `IP_Address`)
+   - Island: camelCase (`allowedTenantsIds`, `createdDate`)
+   - CyberArk PAS: CamelCase in syslog wrapper (`IsoTimestamp`, `MessageID`)
+4. **Check date formats**: Different pipelines expect different timestamp formats:
+   - Mattermost: `yyyy-MM-dd HH:mm:ss.SSS Z`
+   - TI AbuseCH URL: `yyyy-MM-dd HH:mm:ss UTC`
+   - MongoDB Atlas: `ts.$date` (ISO8601)
+   - Most others: ISO8601
+5. **Check for sub-pipeline routing**: Some pipelines route to sub-pipelines based on field values (e.g., `event.action`, `_conf.table_name`, `log.logger`). Your raw document must include these routing fields.
+
+#### Reading an ingest pipeline
+
+When examining a pipeline YAML, look for these processor types:
+
+| Processor  | What to look for                                                                                    |
+| ---------- | --------------------------------------------------------------------------------------------------- |
+| `json`     | `field` (input) and `target_field` (output). The `field` value is what your document must provide.  |
+| `rename`   | What raw field becomes what ECS field. If `ignore_missing: true` is NOT set, the field is required. |
+| `date`     | `field` (source) and `formats` (expected format). Your raw data must use a matching format.         |
+| `grok`     | `field` (input) and `patterns`. Your raw data must match the grok pattern.                          |
+| `script`   | Check `ctx.*` references for required fields.                                                       |
+| `drop`     | `if` condition shows what fields must exist to avoid document drops.                                |
+| `pipeline` | Sub-pipeline routing. Check the `if` condition for routing fields.                                  |
+
+#### Document structure template
+
+```typescript
+// CORRECT: Raw pre-pipeline format
+return {
+  '@timestamp': timestamp,
+  message: JSON.stringify(rawApiPayload),
+  data_stream: { namespace: 'default', type: 'logs', dataset: '<package>.<dataset>' },
+} as IntegrationDocument;
+```
+
+#### What NOT to include
+
+Do NOT pre-set any fields that the ingest pipeline derives:
+
+- `event.action`, `event.category`, `event.type`, `event.kind`, `event.outcome`, `event.dataset`, `event.module`
+- `user.id`, `user.email`, `user.name`, `user.domain`
+- `source.ip`, `source.geo.*`
+- `destination.ip`, `destination.geo.*`
+- `related.ip`, `related.user`, `related.hosts`
+- `observer.vendor`, `observer.product`
+- `tags` (unless the pipeline expects them as input)
+- Integration-specific namespaced fields (e.g. `google_workspace.*`, `okta.*`, `zoom.*` in their final form)
+
+These are ALL populated by the pipeline from the raw input.
+
+#### Exceptions
+
+Some integrations do NOT have ingest pipelines or use non-standard flows:
+
+- **Entity analytics** (active_directory, entra_id, okta entityanalytics): Use the entity store format. These may include ECS fields directly since the pipeline is minimal or absent.
+- **Endpoint (Elastic Defend)**: Produces full ECS documents. The pipeline only does minor enrichment (geoip).
+- **Cloud Asset Inventory**: No ingest pipeline. Produces documents in the asset inventory format.
+
+When in doubt, always check the pipeline YAML first.
 
 ### Step 4: Register the Integration (New Integrations Only)
 
@@ -262,10 +347,10 @@ Each entry is an array of `DetectionRuleDefinition` objects:
 interface DetectionRuleDefinition {
   name: string;
   description: string;
-  query: string;                                           // KQL query
+  query: string; // KQL query
   severity: 'low' | 'medium' | 'high' | 'critical';
-  riskScore: number;                                       // 0-100
-  index: string[];                                         // e.g. ['logs-<package>.<dataset>-*']
+  riskScore: number; // 0-100
+  index: string[]; // e.g. ['logs-<package>.<dataset>-*']
   generateMatchingEvents: (count: number) => IntegrationDocument[];
 }
 ```
@@ -360,4 +445,4 @@ unaffected sections.
 | Endpoint package manifest | `/Users/johndoe/repos/endpoint-package/package/endpoint/manifest.yml` |
 | Endpoint data streams     | `/Users/johndoe/repos/endpoint-package/package/endpoint/data_stream/` |
 | Endpoint example events   | `/Users/johndoe/repos/endpoint-package/schemas/examples/v1/`          |
-| Existing endpoint samples | `src/commands/privileged_user_monitoring/sample_documents.ts`          |
+| Existing endpoint samples | `src/commands/privileged_user_monitoring/sample_documents.ts`         |

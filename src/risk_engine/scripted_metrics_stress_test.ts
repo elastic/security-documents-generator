@@ -26,7 +26,7 @@ export const stressTest = async (runs: number, opts: { outputFile?: string; page
   }
 
   console.log(
-    `Sequential execution with ${ms}ms delay completed. Sleeping 5s to allow ES to recover...`
+    `Sequential execution with ${ms}ms delay completed. Sleeping 5s to allow ES to recover...`,
   );
 };
 

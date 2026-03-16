@@ -97,7 +97,7 @@ export class OnePasswordIntegration extends BaseIntegration {
 
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap
+    _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const signinDocs: IntegrationDocument[] = [];
@@ -155,7 +155,6 @@ export class OnePasswordIntegration extends BaseIntegration {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
       data_stream: { namespace: 'default', type: 'logs', dataset: '1password.signin_attempts' },
-      tags: ['forwarded', '1password-signin_attempts', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 
@@ -163,7 +162,7 @@ export class OnePasswordIntegration extends BaseIntegration {
     const items =
       ITEM_CATEGORIES_BY_DEPT[employee.department] || ITEM_CATEGORIES_BY_DEPT['Operations'];
     const item = faker.helpers.weightedArrayElement(
-      items.map((i) => ({ value: i, weight: i.weight }))
+      items.map((i) => ({ value: i, weight: i.weight })),
     );
     const vault = this.pickVault(employee, org);
     const sourceIp = faker.internet.ipv4();
@@ -207,7 +206,6 @@ export class OnePasswordIntegration extends BaseIntegration {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
       data_stream: { namespace: 'default', type: 'logs', dataset: '1password.item_usages' },
-      tags: ['forwarded', '1password-item_usages', 'preserve_original_event'],
     } as IntegrationDocument;
   }
 
