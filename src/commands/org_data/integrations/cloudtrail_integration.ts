@@ -15,6 +15,7 @@ import {
   type CorrelationMap,
   type CloudAccount,
   type Employee,
+  type Host,
 } from '../types.ts';
 import { faker } from '@faker-js/faker';
 
@@ -53,6 +54,10 @@ const AWS_API_EVENTS: Record<string, { eventSource: string; events: string[] }> 
   KMS: {
     eventSource: 'kms.amazonaws.com',
     events: ['ListKeys', 'DescribeKey', 'ListAliases'],
+  },
+  SSM: {
+    eventSource: 'ssm.amazonaws.com',
+    events: ['StartSession', 'TerminateSession', 'ResumeSession'],
   },
 };
 
@@ -107,9 +112,11 @@ export class CloudTrailIntegration extends BaseIntegration {
     const documents: IntegrationDocument[] = [];
 
     // Get AWS accounts only
-    const _awsAccounts = org.cloudAccounts.filter((a) => a.provider === 'aws');
     const awsResources = org.cloudResources.filter((r) => r.provider === 'aws');
     const awsIamUsers = org.cloudIamUsers.filter((u) => u.provider === 'aws');
+
+    // Get AWS hosts for host.id correlation
+    const awsHosts = org.hosts.filter((h) => h.cloudProvider === 'aws');
 
     // Generate events for federated users (employees with AWS access)
     for (const iamUser of awsIamUsers) {
@@ -136,6 +143,22 @@ export class CloudTrailIntegration extends BaseIntegration {
         : undefined;
       if (employee) {
         documents.push(...this.generateConsoleLoginEvents(iamUser, employee, org));
+      }
+    }
+
+    // Generate SSM StartSession events for federated users accessing hosts
+    if (awsHosts.length > 0) {
+      const ssmUsers = faker.helpers.arrayElements(
+        federatedUsers,
+        Math.ceil(federatedUsers.length * 0.4),
+      );
+      for (const iamUser of ssmUsers) {
+        const employee = iamUser.oktaUserId
+          ? correlationMap.oktaUserIdToEmployee.get(iamUser.oktaUserId)
+          : undefined;
+        if (employee) {
+          documents.push(...this.generateStartSessionEvents(iamUser, employee, org, awsHosts));
+        }
       }
     }
 
@@ -286,6 +309,116 @@ export class CloudTrailIntegration extends BaseIntegration {
     }
 
     return events;
+  }
+
+  /**
+   * Generate SSM StartSession events (user accesses host)
+   */
+  private generateStartSessionEvents(
+    iamUser: CloudIamUser,
+    employee: Employee,
+    org: Organization,
+    awsHosts: Host[],
+  ): IntegrationDocument[] {
+    const events: IntegrationDocument[] = [];
+    const account = org.cloudAccounts.find((a) => a.id === iamUser.accountId);
+    const sessionCount = faker.number.int({ min: 1, max: 3 });
+
+    for (let i = 0; i < sessionCount; i++) {
+      const host = faker.helpers.arrayElement(awsHosts);
+      const timestamp = this.getRandomTimestamp(48);
+      const accessKeyId = this.generateTemporaryAccessKeyId();
+      const assumedRoleArn = `arn:aws:sts::${iamUser.accountId}:assumed-role/okta/${employee.email}`;
+
+      events.push(
+        this.createStartSessionEvent(
+          employee,
+          account!,
+          host,
+          assumedRoleArn,
+          timestamp,
+          accessKeyId,
+        ),
+      );
+    }
+
+    return events;
+  }
+
+  /**
+   * Create SSM StartSession event (user accesses host)
+   */
+  private createStartSessionEvent(
+    employee: Employee,
+    account: CloudAccount,
+    host: Host,
+    assumedRoleArn: string,
+    timestamp: string,
+    accessKeyId: string,
+  ): IntegrationDocument {
+    const eventId = faker.string.uuid();
+    const sourceIp = faker.internet.ipv4();
+    const sessionId = `${employee.email}-${faker.string.alphanumeric(8).toLowerCase()}`;
+    const region = host.region || faker.helpers.arrayElement(AWS_REGIONS);
+
+    const rawEvent = {
+      eventVersion: '1.08',
+      userIdentity: {
+        type: 'AssumedRole',
+        principalId: `${this.generateRoleId()}:${employee.email}`,
+        arn: assumedRoleArn,
+        accountId: account.id,
+        accessKeyId,
+        sessionContext: {
+          attributes: {
+            mfaAuthenticated: 'true',
+            creationDate: timestamp,
+          },
+          sessionIssuer: {
+            type: 'Role',
+            principalId: this.generateRoleId(),
+            arn: `arn:aws:iam::${account.id}:role/okta`,
+            accountId: account.id,
+            userName: 'okta',
+          },
+        },
+      },
+      eventTime: timestamp,
+      eventSource: 'ssm.amazonaws.com',
+      eventName: 'StartSession',
+      awsRegion: region,
+      sourceIPAddress: sourceIp,
+      userAgent: faker.helpers.arrayElement(AWS_USER_AGENTS),
+      requestParameters: {
+        target: host.id,
+      },
+      responseElements: {
+        sessionId,
+        tokenValue: 'REDACTED',
+        streamUrl: `wss://ssmmessages.${region}.amazonaws.com/v1/data-channel/${sessionId}`,
+      },
+      eventID: eventId,
+      readOnly: false,
+      eventType: 'AwsApiCall',
+      managementEvent: true,
+      recipientAccountId: account.id,
+    };
+
+    return {
+      '@timestamp': timestamp,
+      message: JSON.stringify(rawEvent),
+      event: {
+        dataset: 'aws.cloudtrail',
+        action: 'StartSession',
+        category: ['session'],
+        type: ['start'],
+        outcome: 'success',
+        kind: 'event',
+      },
+      data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
+      user: { entity: { id: assumedRoleArn } },
+      host: { id: host.id, name: host.name },
+    } as IntegrationDocument;
   }
 
   /**
