@@ -1,3 +1,4 @@
+import { log } from '../../utils/logger.ts';
 import { faker } from '@faker-js/faker';
 import fs from 'fs';
 import { getEsClient, getFileLineCount } from '../utils/indices.ts';
@@ -34,7 +35,7 @@ const STABLE_CHECKPOINT_THRESHOLD = 3;
 let stop = false;
 
 process.on('SIGINT', () => {
-  console.log('Caught interrupt signal (Ctrl + C), stopping...');
+  log.info('Caught interrupt signal (Ctrl + C), stopping...');
   stop = true;
 });
 
@@ -451,7 +452,7 @@ const countEntities = async (baseDomainName: string) => {
 
 const countEntitiesUntil = async (name: string, count: number) => {
   let total = 0;
-  console.log('Polling for entities...');
+  log.info('Polling for entities...');
   const progress = createProgressBar('entities', {
     format: 'Progress | {value}/{total} Entities',
   });
@@ -467,7 +468,7 @@ const countEntitiesUntil = async (name: string, count: number) => {
   progress.stop();
 
   if (stop) {
-    console.log('Process stopped before reaching the count.');
+    log.info('Process stopped before reaching the count.');
   }
 
   return total;
@@ -482,7 +483,7 @@ const waitForTransformToComplete = async (
   const startTime = Date.now();
   const pollInterval = 5000; // Check every 5 seconds
 
-  console.log(
+  log.info(
     `Waiting for transform ${transformId} to process ${expectedDocumentsProcessed} documents (timeout: ${timeoutMs / 1000 / 60} minutes)...`,
   );
 
@@ -534,14 +535,14 @@ const waitForTransformToComplete = async (
             checkpointStable
           ) {
             progress.stop();
-            console.log(
+            log.info(
               `\nTransform ${transformId} completed processing ${documentsProcessed} documents (checkpoint: ${currentCheckpoint})`,
             );
             return;
           }
         }
       } catch (error) {
-        console.warn(`\nError checking transform stats: ${error}`);
+        log.warn(`\nError checking transform stats: ${error}`);
       }
 
       await new Promise((resolve) => setTimeout(resolve, pollInterval));
@@ -561,7 +562,7 @@ const waitForTransformToComplete = async (
 
 const logClusterHealthEvery = (name: string, interval: number): (() => void) => {
   if (config.serverless) {
-    console.log('Skipping cluster health on serverless cluster');
+    log.info('Skipping cluster health on serverless cluster');
     return () => {};
   }
 
@@ -575,14 +576,14 @@ const logClusterHealthEvery = (name: string, interval: number): (() => void) => 
 
   const stream = fs.createWriteStream(logFile, { flags: 'a' });
 
-  const log = (message: string) => {
+  const writeToFile = (message: string) => {
     stream.write(`${new Date().toISOString()} - ${message}\n`);
   };
 
   const logClusterHealth = async () => {
     const esClient = getEsClient();
     const res = await esClient.cluster.health();
-    log(JSON.stringify(res));
+    writeToFile(JSON.stringify(res));
   };
 
   const int = setInterval(async () => {
@@ -615,7 +616,7 @@ const logTransformStatsEvery = (name: string, interval: number): (() => void) =>
 
   const stream = fs.createWriteStream(logFile, { flags: 'a' });
 
-  const log = (message: string) => {
+  const writeToFile = (message: string) => {
     stream.write(`${new Date().toISOString()} - ${message}\n`);
   };
 
@@ -626,7 +627,7 @@ const logTransformStatsEvery = (name: string, interval: number): (() => void) =>
         transform_id: transform,
       });
 
-      log(`Transform ${transform} stats: ${JSON.stringify(res)}`);
+      writeToFile(`Transform ${transform} stats: ${JSON.stringify(res)}`);
     }
   };
 
@@ -644,7 +645,7 @@ const logTransformStatsEvery = (name: string, interval: number): (() => void) =>
 
 const logNodeStatsEvery = (name: string, interval: number): (() => void) => {
   if (config.serverless) {
-    console.log('Skipping node stats on serverless cluster');
+    log.info('Skipping node stats on serverless cluster');
     return () => {};
   }
 
@@ -658,7 +659,7 @@ const logNodeStatsEvery = (name: string, interval: number): (() => void) => {
 
   const stream = fs.createWriteStream(logFile, { flags: 'a' });
 
-  const log = (message: string) => {
+  const writeToStream = (message: string) => {
     stream.write(`${new Date().toISOString()} - ${message}\n`);
   };
 
@@ -702,7 +703,7 @@ const logNodeStatsEvery = (name: string, interval: number): (() => void) => {
       },
     }));
 
-    log(JSON.stringify({ nodes: nodeStats }));
+    writeToStream(JSON.stringify({ nodes: nodeStats }));
   };
 
   const int = setInterval(async () => {
@@ -728,7 +729,7 @@ const logKibanaStatsEvery = (name: string, interval: number): (() => void) => {
 
   const stream = fs.createWriteStream(logFile, { flags: 'a' });
 
-  const log = (message: string) => {
+  const writeToStream = (message: string) => {
     stream.write(`${new Date().toISOString()} - ${message}\n`);
   };
 
@@ -777,9 +778,11 @@ const logKibanaStatsEvery = (name: string, interval: number): (() => void) => {
         },
       );
 
-      log(JSON.stringify(stats));
+      writeToStream(JSON.stringify(stats));
     } catch (error) {
-      log(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }));
+      writeToStream(
+        JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
+      );
     }
   };
 
@@ -812,10 +815,10 @@ export const createPerfDataFile = async ({
   const dist = getEntityDistribution(distribution);
   const entityCounts = calculateEntityCounts(entityCount, dist);
 
-  console.log(
+  log.info(
     `Creating performance data file ${name} with ${entityCount} entities and ${logsPerEntity} logs per entity. Starting at index ${startIndex}`,
   );
-  console.log(
+  log.info(
     `Distribution (${distribution}): ${entityCounts.user} users (${(dist.user * 100).toFixed(1)}%), ` +
       `${entityCounts.host} hosts (${(dist.host * 100).toFixed(1)}%), ` +
       `${entityCounts.service} services (${(dist.service * 100).toFixed(1)}%), ` +
@@ -823,11 +826,11 @@ export const createPerfDataFile = async ({
   );
 
   if (fs.existsSync(filePath)) {
-    console.log(`Data file ${name}.json already exists. Deleting...`);
+    log.info(`Data file ${name}.json already exists. Deleting...`);
     fs.unlinkSync(filePath);
   }
 
-  console.log(`Generating ${entityCount * logsPerEntity} logs...`);
+  log.info(`Generating ${entityCount * logsPerEntity} logs...`);
   const progress = createProgressBar('logs');
 
   progress.start(entityCount * logsPerEntity, 0);
@@ -938,7 +941,7 @@ export const createPerfDataFile = async ({
       });
 
       progress.stop();
-      console.log(`Data file ${filePath} created`);
+      log.info(`Data file ${filePath} created`);
     } catch (error) {
       // Ensure stream is closed even on error
       writeStream.destroy();
@@ -999,7 +1002,7 @@ export const uploadFile = async ({
       progress.increment();
     },
     onDrop: (doc) => {
-      console.log('Failed to index document:', doc);
+      log.error('Failed to index document:', doc);
       process.exit(1);
     },
   });
@@ -1026,46 +1029,46 @@ export const uploadPerfDataFile = async (
   const index = indexOverride || `logs-perftest.${name}-default`;
 
   if (deleteEntities) {
-    console.log('Deleting all entities...');
+    log.info('Deleting all entities...');
     await deleteAllEntities();
-    console.log('All entities deleted');
+    log.info('All entities deleted');
 
-    console.log('Deleting data stream...');
+    log.info('Deleting data stream...');
     await deleteDataStream(index);
-    console.log('Data stream deleted');
+    log.info('Data stream deleted');
 
-    console.log('Deleting logs index...');
+    log.info('Deleting logs index...');
     await deleteLogsIndex(index);
-    console.log('Logs index deleted');
+    log.info('Logs index deleted');
   }
   const filePath = getFilePath(name);
 
-  console.log(`Uploading performance data file ${name} to index ${index}`);
+  log.info(`Uploading performance data file ${name} to index ${index}`);
 
   if (!fs.existsSync(filePath)) {
-    console.log(`Data file ${name} does not exist`);
+    log.info(`Data file ${name} does not exist`);
     process.exit(1);
   }
 
-  console.log('initialising entity engines');
+  log.info('initialising entity engines');
   await initEntityEngineForEntityTypes(['host', 'user', 'service', 'generic']);
-  console.log('entity engines initialised');
+  log.info('entity engines initialised');
 
   const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
-  console.log(
+  log.info(
     `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`,
   );
   const startTime = Date.now();
 
   await uploadFile({ filePath, index, lineCount });
   const ingestTook = Date.now() - startTime;
-  console.log(`Data file ${name} uploaded to index ${index} in ${ingestTook}ms`);
+  log.info(`Data file ${name} uploaded to index ${index} in ${ingestTook}ms`);
 
   await countEntitiesUntil(name, entityCount);
 
   const tookTotal = Date.now() - startTime;
 
-  console.log(`Total time: ${tookTotal}ms`);
+  log.info(`Total time: ${tookTotal}ms`);
 };
 
 export const uploadPerfDataFileInterval = async (
@@ -1096,47 +1099,47 @@ export const uploadPerfDataFileInterval = async (
   const index = indexOverride ?? `logs-perftest.${name}-default`;
   const filePath = getFilePath(name);
 
-  console.log(
+  log.info(
     `Uploading performance data file ${name} every ${intervalMs}ms ${uploadCount} times to index ${index}`,
   );
 
   if (doDeleteEngines) {
-    console.log('Deleting all engines...');
+    log.info('Deleting all engines...');
     await deleteEngines();
-    console.log('All engines deleted');
+    log.info('All engines deleted');
   }
   if (deleteEntities) {
-    console.log('Deleting all entities...');
+    log.info('Deleting all entities...');
     await deleteAllEntities();
-    console.log('All entities deleted');
+    log.info('All entities deleted');
 
-    console.log('Deleting data stream...');
+    log.info('Deleting data stream...');
     await deleteDataStream(index);
-    console.log('Data stream deleted');
+    log.info('Data stream deleted');
 
-    console.log('Deleting logs index...');
+    log.info('Deleting logs index...');
     await deleteLogsIndex(index);
-    console.log('Logs index deleted');
+    log.info('Logs index deleted');
   }
 
   if (!fs.existsSync(filePath)) {
-    console.log(`Data file ${name} does not exist`);
+    log.info(`Data file ${name} does not exist`);
     process.exit(1);
   }
 
   // Initialize entity engines (required for both transform and no-transform modes
   // because we need to check entities in .entities.v1.latest* indices)
-  console.log('initialising entity engines');
+  log.info('initialising entity engines');
 
   await ensureSecurityDefaultDataView('default');
 
   await initEntityEngineForEntityTypes(['host', 'user', 'service', 'generic']);
 
-  console.log('entity engines initialised');
+  log.info('entity engines initialised');
 
   const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
 
-  console.log(
+  log.info(
     `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`,
   );
 
@@ -1166,7 +1169,7 @@ export const uploadPerfDataFileInterval = async (
       uploadCompleted = true;
     };
     const intervalS = intervalMs / 1000;
-    console.log(`Uploading ${i + 1} of ${uploadCount}, next upload in ${intervalS}s...`);
+    log.info(`Uploading ${i + 1} of ${uploadCount}, next upload in ${intervalS}s...`);
     previousUpload = previousUpload.then(() =>
       uploadFile({
         onComplete,
@@ -1201,7 +1204,7 @@ export const uploadPerfDataFileInterval = async (
   await previousUpload;
 
   const ingestTook = Date.now() - startTime;
-  console.log(`Data file ${name} uploaded to index ${index} in ${ingestTook}ms`);
+  log.info(`Data file ${name} uploaded to index ${index} in ${ingestTook}ms`);
 
   await countEntitiesUntil(name, entityCount * uploadCount);
 
@@ -1211,7 +1214,7 @@ export const uploadPerfDataFileInterval = async (
     // Generic transform processes ALL documents (host + user + service + generic)
     const totalDocumentsIngested = lineCount * uploadCount;
     const timeout = transformTimeoutMs ?? 1800000; // Default 30 minutes
-    console.log(
+    log.info(
       `Waiting for generic transform to process ${totalDocumentsIngested} documents (timeout: ${timeout / 1000 / 60} minutes)...`,
     );
     try {
@@ -1221,12 +1224,12 @@ export const uploadPerfDataFileInterval = async (
         timeout,
       );
     } catch (error) {
-      console.warn(
+      log.warn(
         `Warning: ${error instanceof Error ? error.message : 'Failed to wait for transform completion'}. Continuing...`,
       );
     }
   } else {
-    console.log('Skipping transform completion wait (--noTransforms mode)');
+    log.info('Skipping transform completion wait (--noTransforms mode)');
   }
 
   const tookTotal = Date.now() - startTime;
@@ -1236,5 +1239,5 @@ export const uploadPerfDataFileInterval = async (
   stopNodeStatsLogging();
   stopKibanaStatsLogging();
 
-  console.log(`Total time: ${tookTotal}ms`);
+  log.info(`Total time: ${tookTotal}ms`);
 };

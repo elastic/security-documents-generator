@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import { log } from './utils/logger.ts';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 
@@ -140,7 +141,7 @@ const getConfigFromEnv = (): Partial<ConfigType> | null => {
     if (!isNaN(offsetHours)) {
       envConfig.eventDateOffsetHours = offsetHours;
     } else {
-      console.warn(
+      log.warn(
         `Warning: EVENT_DATE_OFFSET_HOURS environment variable contains an invalid number ("${process.env.EVENT_DATE_OFFSET_HOURS}"). Ignoring this value.`,
       );
     }
@@ -203,7 +204,7 @@ const loadAndMergeConfig = (
       fileConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     } catch (error) {
       if (throwOnReadError) {
-        console.error(`Error reading ${CONFIG_FILE_NAME}:`, error);
+        log.error(`Error reading ${CONFIG_FILE_NAME}:`, error);
         process.exit(1);
       }
       // If file exists but can't be parsed, return empty config
@@ -241,10 +242,10 @@ export const getConfig = (): ConfigType => {
   const { mergedConfig, errors, envConfig } = loadAndMergeConfig(true);
 
   if (errors.length > 0) {
-    console.error(
+    log.error(
       `There was a config validation error. Fix issues below in your ${envConfig ? 'environment variables or ' : ''}${CONFIG_FILE_NAME} file, and try again.`,
     );
-    errors.forEach((err) => console.error(`  - ${err}`));
+    errors.forEach((err) => log.error(`  - ${err}`));
     process.exit(1);
   }
 

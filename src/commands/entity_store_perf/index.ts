@@ -1,5 +1,6 @@
 import { type Command } from 'commander';
 import { type CommandModule } from '../types.ts';
+import { log } from '../../utils/logger.ts';
 import { parseIntBase10, promptForFileSelection, wrapAction } from '../utils/cli_utils.ts';
 import {
   createPerfDataFile,
@@ -28,8 +29,8 @@ export const entityStorePerfCommands: CommandModule = {
         wrapAction(async (name, entityCount, logsPerEntity, startIndex, options) => {
           const distributionType = options.distribution as DistributionType;
           if (!ENTITY_DISTRIBUTIONS[distributionType]) {
-            console.error(`❌ Invalid distribution type: ${distributionType}`);
-            console.error(`   Available types: ${Object.keys(ENTITY_DISTRIBUTIONS).join(', ')}`);
+            log.error(`❌ Invalid distribution type: ${distributionType}`);
+            log.error(`   Available types: ${Object.keys(ENTITY_DISTRIBUTIONS).join(', ')}`);
             process.exit(1);
           }
           await createPerfDataFile({

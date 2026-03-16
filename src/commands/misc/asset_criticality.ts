@@ -1,5 +1,6 @@
 import { faker } from '@faker-js/faker';
 import { generateNewSeed } from '../../constants.ts';
+import { log } from '../../utils/logger.ts';
 import {
   assignAssetCriticalityToEntities,
   createRandomHost,
@@ -36,16 +37,16 @@ export const generateAssetCriticality = async ({
       field: 'user.name',
       space,
     });
-    console.log(`Assigned asset criticality to ${generatedUsers.length} users`);
+    log.info(`Assigned asset criticality to ${generatedUsers.length} users`);
     await assignAssetCriticalityToEntities({
       entities: generatedHosts,
       field: 'host.name',
       space,
     });
-    console.log(`Assigned asset criticality to ${generatedHosts.length} hosts`);
+    log.info(`Assigned asset criticality to ${generatedHosts.length} hosts`);
 
-    console.log('Finished generating asset criticality');
+    log.info('Finished generating asset criticality');
   } catch (error) {
-    console.log('Error: ', error);
+    log.error('Error: ', error);
   }
 };

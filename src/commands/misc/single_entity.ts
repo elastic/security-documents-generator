@@ -1,5 +1,6 @@
 import { confirm, input, select } from '@inquirer/prompts';
 import { resolve } from 'path';
+import { log } from '../../utils/logger.ts';
 import {
   createRandomUser,
   createRandomHost,
@@ -131,14 +132,14 @@ export const singleEntityCommand = async (options: SingleEntityCommandOptions = 
     const entityName = options.name ?? getDefaultEntityName(entityType);
 
     if (options.enableEntityStore !== false) {
-      console.log('Ensuring security default data view...');
+      log.info('Ensuring security default data view...');
       await ensureSecurityDefaultDataView(space);
-      console.log('Enabling entity store engines...');
+      log.info('Enabling entity store engines...');
       await initEntityEngineForEntityTypes(['user', 'host', 'service', 'generic'], space);
-      console.log('✅ Entity store enabled');
+      log.info('✅ Entity store enabled');
     }
 
-    console.log(`Creating ${entityType} entity "${entityName}"...`);
+    log.info(`Creating ${entityType} entity "${entityName}"...`);
     const eventsPerEntity = 10;
     const offsetHours = 1;
     const entity = await createAndIngestEntity(
@@ -147,14 +148,14 @@ export const singleEntityCommand = async (options: SingleEntityCommandOptions = 
       eventsPerEntity,
       offsetHours,
     );
-    console.log(`✅ Created ${entityType} entity "${entityName}" with ${eventsPerEntity} events`);
+    log.info(`✅ Created ${entityType} entity "${entityName}" with ${eventsPerEntity} events`);
 
     if (options.createRiskScore !== false) {
-      console.log('Creating match-all rule...');
+      log.info('Creating match-all rule...');
       await createRule({ space });
-      console.log('Rule created');
+      log.info('Rule created');
 
-      console.log('Generating events to create alerts...');
+      log.info('Generating events to create alerts...');
       const riskEvents = Array.from({ length: 20 }, () => {
         if (entityType === 'user') {
           return createRandomEventForUser(entity as ReturnType<typeof createRandomUser>, 1);
@@ -170,13 +171,13 @@ export const singleEntityCommand = async (options: SingleEntityCommandOptions = 
         }
       });
       await ingestSingleEntityEvents(riskEvents);
-      console.log('Events generated');
+      log.info('Events generated');
 
-      console.log('Enabling risk engine...');
+      log.info('Enabling risk engine...');
       await enableRiskScore(space);
-      console.log('Running risk engine...');
+      log.info('Running risk engine...');
       await scheduleRiskEngineNow(space);
-      console.log('✅ Risk score setup complete and risk engine run');
+      log.info('✅ Risk score setup complete and risk engine run');
     }
 
     return;
@@ -189,12 +190,12 @@ export const singleEntityCommand = async (options: SingleEntityCommandOptions = 
   });
 
   if (enableEntityStore) {
-    console.log('Ensuring security default data view...');
+    log.info('Ensuring security default data view...');
     await ensureSecurityDefaultDataView(space);
-    console.log('Enabling entity store engines...');
+    log.info('Enabling entity store engines...');
     // Enable engines for all entity types
     await initEntityEngineForEntityTypes(['user', 'host', 'service', 'generic'], space);
-    console.log('✅ Entity store enabled');
+    log.info('✅ Entity store enabled');
   }
 
   // Prompt for entity type
@@ -215,11 +216,11 @@ export const singleEntityCommand = async (options: SingleEntityCommandOptions = 
   });
 
   // Create entity with custom name and ingest events
-  console.log(`Creating ${entityType} entity "${entityName}"...`);
+  log.info(`Creating ${entityType} entity "${entityName}"...`);
   const eventsPerEntity = 10;
   const offsetHours = 1;
   const entity = await createAndIngestEntity(entityType, entityName, eventsPerEntity, offsetHours);
-  console.log(`✅ Created ${entityType} entity "${entityName}" with ${eventsPerEntity} events`);
+  log.info(`✅ Created ${entityType} entity "${entityName}" with ${eventsPerEntity} events`);
 
   // Track state
   let assetCriticalitySet: AssetCriticality | null = null;
@@ -266,7 +267,7 @@ export const singleEntityCommand = async (options: SingleEntityCommandOptions = 
     });
 
     if (action === 'exit') {
-      console.log('Exiting...');
+      log.info('Exiting...');
       break;
     }
 
@@ -291,7 +292,7 @@ export const singleEntityCommand = async (options: SingleEntityCommandOptions = 
         space,
       );
       assetCriticalitySet = criticality as AssetCriticality;
-      console.log(`✅ Set asset criticality to ${criticality} for ${entityName}`);
+      log.info(`✅ Set asset criticality to ${criticality} for ${entityName}`);
     }
 
     if (action === 'privileged') {
@@ -302,37 +303,37 @@ export const singleEntityCommand = async (options: SingleEntityCommandOptions = 
 
       if (isPrivileged) {
         // Remove privileged status by uploading an empty CSV
-        console.log('Removing privileged status by uploading empty CSV...');
+        log.info('Removing privileged status by uploading empty CSV...');
         const emptyCsvContent = '';
         await fsPromises.writeFile(csvFilePath, emptyCsvContent);
 
-        console.log('Enabling Privileged User Monitoring...');
+        log.info('Enabling Privileged User Monitoring...');
         await enablePrivmon(space);
-        console.log('Uploading empty CSV file...');
+        log.info('Uploading empty CSV file...');
         await uploadPrivmonCsv(csvFilePath, space);
         isPrivileged = false;
-        console.log(`✅ Removed privileged status for ${entityName}`);
+        log.info(`✅ Removed privileged status for ${entityName}`);
       } else {
         // Add privileged status
         const csvContent = `${entityName},admin\n`;
         await fsPromises.writeFile(csvFilePath, csvContent);
 
-        console.log('Enabling Privileged User Monitoring...');
+        log.info('Enabling Privileged User Monitoring...');
         await enablePrivmon(space);
-        console.log('Uploading CSV file...');
+        log.info('Uploading CSV file...');
         await uploadPrivmonCsv(csvFilePath, space);
         isPrivileged = true;
-        console.log(`✅ Added privileged status for ${entityName}`);
+        log.info(`✅ Added privileged status for ${entityName}`);
       }
     }
 
     if (action === 'risk_score') {
-      console.log('Creating match-all rule...');
+      log.info('Creating match-all rule...');
       await createRule({ space });
-      console.log('Rule created');
+      log.info('Rule created');
 
       // Generate some events to create alerts
-      console.log('Generating events to create alerts...');
+      log.info('Generating events to create alerts...');
       const riskEvents = Array.from({ length: 20 }, () => {
         if (entityType === 'user') {
           return createRandomEventForUser(entity as ReturnType<typeof createRandomUser>, 1);
@@ -348,20 +349,20 @@ export const singleEntityCommand = async (options: SingleEntityCommandOptions = 
         }
       });
       await ingestSingleEntityEvents(riskEvents);
-      console.log('Events generated');
+      log.info('Events generated');
 
-      console.log('Enabling risk engine...');
+      log.info('Enabling risk engine...');
       await enableRiskScore(space);
-      console.log('Running risk engine...');
+      log.info('Running risk engine...');
       await scheduleRiskEngineNow(space);
       riskScoreCreated = true;
-      console.log('✅ Risk score setup complete and risk engine run');
+      log.info('✅ Risk score setup complete and risk engine run');
     }
 
     if (action === 'run_engine') {
-      console.log('Running risk engine...');
+      log.info('Running risk engine...');
       await scheduleRiskEngineNow(space);
-      console.log('✅ Risk engine scheduled to run');
+      log.info('✅ Risk engine scheduled to run');
     }
   }
 };

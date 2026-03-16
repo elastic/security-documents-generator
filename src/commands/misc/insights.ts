@@ -1,5 +1,6 @@
 import { generateNewSeed } from '../../constants.ts';
 import { faker } from '@faker-js/faker';
+import { log } from '../../utils/logger.ts';
 import { ingest } from '../utils/indices.ts';
 import createVulnerabilities, {
   type CreateVulnerabilitiesParams,
@@ -44,7 +45,7 @@ export const generateAiInsights = async ({
     hostname: faker.internet.domainName(),
   }));
 
-  console.log('Installing cloud posture package');
+  log.info('Installing cloud posture package');
   await installPackage({ packageName: PACKAGE_TO_INSTALL, space });
 
   await ingest(VULNERABILITY_INDEX_NAME, generateDocs(usersData, space, createVulnerabilities));
@@ -60,12 +61,10 @@ export const generateAiInsights = async ({
   );
 
   if (generateAnomalies) {
-    console.log(`Generating anomalous behavior data with ML jobs`);
+    log.info(`Generating anomalous behavior data with ML jobs`);
     await generateAnomalousBehaviorDataWithMlJobs(space, records, generateAnomalyData);
   } else {
-    console.log(
-      'Skipping anomalous behavior ML job and data generation due to --no-anomalies flag',
-    );
+    log.info('Skipping anomalous behavior ML job and data generation due to --no-anomalies flag');
   }
 };
 

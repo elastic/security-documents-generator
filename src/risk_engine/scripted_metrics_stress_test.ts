@@ -1,5 +1,6 @@
 import { getEsClient } from '../commands/utils/indices.ts';
 import { getAlertIndex } from '../utils/index.ts';
+import { log } from '../utils/logger.ts';
 import { sleep } from '../utils/sleep.ts';
 
 type Report = Record<
@@ -11,21 +12,21 @@ export const stressTest = async (runs: number, opts: { outputFile?: string; page
   const ms = 250;
   const seqReport: Report = {};
 
-  console.log('\n--------------------------------------------------------------------\n');
-  console.log(`Starting sequential execution with ${ms}ms delay`);
+  log.info('\n--------------------------------------------------------------------\n');
+  log.info(`Starting sequential execution with ${ms}ms delay`);
 
   for (let i = 0; i < runs; i++) {
     await run(i + 1, opts.pageSize, seqReport);
-    console.log(`Run ${i + 1} of ${runs} completed. Sleeping ${ms}ms...`);
+    log.info(`Run ${i + 1} of ${runs} completed. Sleeping ${ms}ms...`);
     if (seqReport[i + 1].error) {
-      console.log('Sequential run failed at delay', ms);
-      console.log('Stopping further sequential tests.');
+      log.error('Sequential run failed at delay', ms);
+      log.info('Stopping further sequential tests.');
       return;
     }
     await sleep(ms);
   }
 
-  console.log(
+  log.info(
     `Sequential execution with ${ms}ms delay completed. Sleeping 5s to allow ES to recover...`,
   );
 };
@@ -37,11 +38,11 @@ const run = async (n: number, pageSize: number, report: Report) => {
   await esClient
     .search(query)
     .then(() => {
-      console.log(`Scripted Metrics query executed successfully in run ${n}`);
+      log.info(`Scripted Metrics query executed successfully in run ${n}`);
       report[n] = { ok: true };
     })
     .catch((e) => {
-      console.log(`Error executing Scripted Metrics query in run ${n}:`, e.message);
+      log.error(`Error executing Scripted Metrics query in run ${n}:`, e.message);
       report[n] = { error: e, query };
     });
 };

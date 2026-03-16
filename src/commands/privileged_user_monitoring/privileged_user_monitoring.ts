@@ -38,6 +38,7 @@ import { chunk } from 'lodash-es';
 import { ensureSpace } from '../../utils/index.ts';
 import { getMetadataKQL } from '../../utils/doc_metadata.ts';
 import { deleteDataStreamSafe } from '../shared/elasticsearch.ts';
+import { log } from '../../utils/logger.ts';
 
 //end point logs
 const endpointLogsDataStreamName = 'logs-endpoint.events.process-default';
@@ -103,7 +104,7 @@ const getSampleAdUsersLogs = (count: number) => {
   // implement here pls
   const adminCount = Math.round((50 / 100) * count);
   const nonAdminCount = Math.max(0, count - adminCount);
-  console.log(
+  log.info(
     `Generating ${adminCount} admin users and ${nonAdminCount} non-admin Active Directory users (total ${count})`,
   );
   const userDocs = Array.from({ length: nonAdminCount }, (_, i) => makeAdUserDoc(false, i));
@@ -115,7 +116,7 @@ const getSampleAdUsersLogs = (count: number) => {
 const getSampleOktaUsersLogs = (count: number) => {
   const adminCount = Math.round((50 / 100) * count);
   const nonAdminCount = Math.max(0, count - adminCount);
-  console.log(
+  log.info(
     `Generating ${adminCount} admin users and ${nonAdminCount} non-admin users (total ${count})`,
   );
   const adminDocs = Array.from({ length: adminCount }, () => makeDoc(true));
@@ -146,11 +147,11 @@ const getSampleOktaAuthenticationLogs = (users: User[]) => {
 
 const quickEnableRiskEngineAndRule = async (space: string) => {
   try {
-    console.log('Enabling risk engine and rule...');
+    log.info('Enabling risk engine and rule...');
     await createRule({ space, query: getMetadataKQL() });
     await enableRiskScore(space);
   } catch (e) {
-    console.log(e);
+    log.error('Failed to enable risk engine and rule', e instanceof Error ? e.stack : e);
   }
 };
 
@@ -168,7 +169,10 @@ const generatePrivilegedUserMonitoringData = async ({ users }: { users: User[] }
       ...getSampleOktaAuthenticationLogs(users),
     ]);
   } catch (e) {
-    console.log(e);
+    log.error(
+      'Failed to generate privileged user monitoring data',
+      e instanceof Error ? e.stack : e,
+    );
   }
 };
 
@@ -192,7 +196,7 @@ const generatePrivilegedUserIntegrationsSyncData = async ({
     await reinitializeDataStream(oktaLogsUsersDataStreamName, sampleDocuments);
     await reinitializeDataStream(oktaLogsEntityDataStreamName, sampleEntityDocuments);
   } catch (e) {
-    console.log(e);
+    log.error('Failed to generate privileged user integrations sync data:', e);
   }
 };
 
@@ -204,7 +208,7 @@ export const generateADPrivilegedUserMonitoringData = async ({
   try {
     await reinitializeDataStream(adLogsUsersDataStreamName, getSampleAdUsersLogs(usersCount));
   } catch (e) {
-    console.log(e);
+    log.error('Failed to generate AD privileged user monitoring data:', e);
   }
 };
 
@@ -230,7 +234,7 @@ const assignAssetCriticalityToUsers = async (opts: { users: User[]; space?: stri
   const { users, space } = opts;
   const chunks = chunk(users, 1000);
 
-  console.log(`Assigning asset criticality to ${users.length} users in ${chunks.length} chunks...`);
+  log.info(`Assigning asset criticality to ${users.length} users in ${chunks.length} chunks...`);
 
   const countMap: Record<AssetCriticality, number> = {
     unknown: 0,
@@ -258,36 +262,36 @@ const assignAssetCriticalityToUsers = async (opts: { users: User[]; space?: stri
     }
   }
 
-  console.log('Assigned asset criticality counts:', countMap);
+  log.info('Assigned asset criticality counts:', countMap);
 };
 
 const runEngineEveryMinute = async (space: string) => {
   let stop = false;
   process.on('SIGINT', function () {
-    console.log('Stopping risk engine scheduling...');
+    log.info('Stopping risk engine scheduling...');
     stop = true;
   });
 
   while (!stop) {
     try {
-      console.log('Scheduling risk engine to run now...');
+      log.info('Scheduling risk engine to run now...');
       await scheduleRiskEngineNow(space);
-      console.log('Scheduled risk engine, next run in 1 minute... (ctrl-c to stop)');
+      log.info('Scheduled risk engine, next run in 1 minute... (ctrl-c to stop)');
     } catch (e) {
-      console.log('Error scheduling risk engine run:', e);
+      log.error('Error scheduling risk engine run:', e);
     }
     await new Promise((r) => setTimeout(r, 60 * 1000));
   }
 };
 
 const installPadAndStartJobs = async (space: string) => {
-  console.log('Installing PAD...');
+  log.info('Installing PAD...');
   const padRes = await installPad(space);
-  console.log('PAD install response:', JSON.stringify(padRes));
+  log.info('PAD install response:', JSON.stringify(padRes));
 
-  console.log('Setting up pad-ml module...');
+  log.info('Setting up pad-ml module...');
   const mlRes = await setupPadMlModule(space);
-  console.log('PAD ML setup response:', JSON.stringify(mlRes));
+  log.info('PAD ML setup response:', JSON.stringify(mlRes));
 
   const datafeedIds =
     mlRes?.datafeeds
@@ -296,16 +300,16 @@ const installPadAndStartJobs = async (space: string) => {
       .map((job) => job.id) ?? [];
 
   if (datafeedIds.length > 0) {
-    console.log('Force starting PAD ML jobs:', datafeedIds);
+    log.info('Force starting PAD ML jobs:', datafeedIds);
     const first10DatafeedIds = datafeedIds.slice(0, 10);
     const startRes = await forceStartDatafeeds(first10DatafeedIds, space);
-    console.log('Force start response:', JSON.stringify(startRes));
+    log.info('Force start response:', JSON.stringify(startRes));
   } else {
-    console.log('No PAD ML jobs to start');
+    log.info('No PAD ML jobs to start');
   }
 
   const padStatus = await getPadStatus(space);
-  console.log('PAD status:', JSON.stringify(padStatus));
+  log.info('PAD status:', JSON.stringify(padStatus));
 };
 
 export const privmonCommand = async ({
@@ -317,7 +321,7 @@ export const privmonCommand = async ({
   userCount: number;
   space: string;
 }) => {
-  console.log('Starting Privileged User Monitoring data generation in space:', space);
+  log.info('Starting Privileged User Monitoring data generation in space:', space);
 
   await ensureSpace(space);
 
@@ -360,10 +364,10 @@ export const privmonCommand = async ({
     await installPadAndStartJobs(space);
   }
 
-  console.log('Privileged User Monitoring data generation complete.');
+  log.info('Privileged User Monitoring data generation complete.');
 
   if (options.includes(PRIVILEGED_USER_MONITORING_OPTIONS.riskEngineAndRule)) {
-    console.log('Scheduling risk engine to run every minute so risk scores are generated...');
+    log.info('Scheduling risk engine to run every minute so risk scores are generated...');
     await runEngineEveryMinute(space);
   }
 };

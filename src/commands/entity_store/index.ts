@@ -1,6 +1,7 @@
 import { type Command } from 'commander';
 import { type CommandModule } from '../types.ts';
 import { wrapAction } from '../utils/cli_utils.ts';
+import { log } from '../../utils/logger.ts';
 import {
   ENTITY_STORE_OPTIONS,
   ENTITY_MAINTAINERS_OPTIONS,
@@ -186,7 +187,7 @@ export const entityStoreCommands: CommandModule = {
           });
 
           if (selectedMaintainers.length === 0) {
-            console.log('No maintainers selected. Exiting.');
+            log.info('No maintainers selected. Exiting.');
             return;
           }
 

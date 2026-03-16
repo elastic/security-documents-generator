@@ -1,3 +1,4 @@
+import { log } from '../../utils/logger.ts';
 import { getEsClient, getFileLineCount } from '../utils/indices.ts';
 import { bulkUpsert } from '../shared/elasticsearch.ts';
 import {
@@ -60,9 +61,9 @@ const clearData = async () => {
       refresh: true,
     });
 
-    console.log('Deleted log documents: ', res.deleted, '❌');
+    log.info('Deleted log documents: ', res.deleted, '❌');
   } catch (err) {
-    console.log('Error: ', err);
+    log.error('Error: ', err);
     process.exit(1);
   }
 
@@ -76,9 +77,9 @@ const clearData = async () => {
       refresh: true,
     });
 
-    console.log('Deleted entity store documents: ', res1.deleted, '❌');
+    log.info('Deleted entity store documents: ', res1.deleted, '❌');
   } catch (err) {
-    console.log('Error: ', err);
+    log.error('Error: ', err);
     process.exit(1);
   }
 
@@ -92,9 +93,9 @@ const clearData = async () => {
       refresh: true,
     });
 
-    console.log('Deleted entity store history documents: ', res2.deleted, '❌');
+    log.info('Deleted entity store history documents: ', res2.deleted, '❌');
   } catch (err) {
-    console.log('Error: ', err);
+    log.error('Error: ', err);
     process.exit(1);
   }
 
@@ -110,9 +111,9 @@ const clearData = async () => {
       },
     });
 
-    console.log('Deleted alerts: ', res3.deleted, '❌');
+    log.info('Deleted alerts: ', res3.deleted, '❌');
   } catch (err) {
-    console.log('Error: ', err);
+    log.error('Error: ', err);
     process.exit(1);
   }
 };
@@ -147,7 +148,7 @@ const getEmailVariant = (email: string | string[], index: number): MaybeStringAr
     const [first, last] = name.split('.');
 
     if (!first || !last || !domain) {
-      console.log('Unexpected email format: ', email);
+      log.info('Unexpected email format: ', email);
       return email;
     }
     switch (getVariantType(index)) {
@@ -160,10 +161,10 @@ const getEmailVariant = (email: string | string[], index: number): MaybeStringAr
       case VARIANT_TYPES.REMOVE_LASTNAME:
         return `${first}@${domain}`;
     }
-    console.log('Unexpected variant type: ', getVariantType(index));
+    log.info('Unexpected variant type: ', getVariantType(index));
     return email;
   } catch (err) {
-    console.log(`Error creating email variant ${email}: `, err);
+    log.error(`Error creating email variant ${email}: `, err);
     process.exit(1);
   }
 };
@@ -183,7 +184,7 @@ const getTimeStamp = () => {
 const PACKAGES_TO_INSTALL = ['entityanalytics_okta', 'okta', 'system', 'entityanalytics_entra_id'];
 
 const installPackages = async (space: string) => {
-  console.log('Installing packages...');
+  log.info('Installing packages...');
   const progress = createProgressBar('packages', { clearOnComplete: true });
   progress.start(PACKAGES_TO_INSTALL.length, 0);
   await pMap(
@@ -262,12 +263,12 @@ const importLogData = async ({
     }
   };
 
-  console.log('Importing log data...');
+  log.info('Importing log data...');
   await importFile(filePath, lineToOperation);
 };
 
 const createOktaSystemComponentTemplate = async () => {
-  console.log('Creating okta system custom component template...');
+  log.info('Creating okta system custom component template...');
   await createComponentTemplate({
     name: 'logs-okta.system@custom',
     mappings: ECS_USER_MAPPINGS,
@@ -292,12 +293,12 @@ const importOktaSystemData = async ({
     };
     return [{ create: { _index: index } }, line];
   };
-  console.log('Importing Okta system data...');
+  log.info('Importing Okta system data...');
   await importFile(filePath, lineToOperation);
 };
 
 const createOktaUserComponentTemplate = async () => {
-  console.log('Creating okta user custom component template...');
+  log.info('Creating okta user custom component template...');
   await createComponentTemplate({
     name: 'logs-entityanalytics_okta.user@custom',
     mappings: ECS_USER_MAPPINGS,
@@ -305,7 +306,7 @@ const createOktaUserComponentTemplate = async () => {
 };
 
 const createEntraIdUserComponentTemplate = async () => {
-  console.log('Creating entra id user custom component template...');
+  log.info('Creating entra id user custom component template...');
   await createComponentTemplate({
     name: 'logs-entityanalytics_entra_id.user@custom',
     mappings: ECS_USER_MAPPINGS,
@@ -330,7 +331,7 @@ const importOktaUserData = async ({
     };
     return [{ create: { _index: index } }, line];
   };
-  console.log('Importing Okta user data...');
+  log.info('Importing Okta user data...');
   await importFile(filePath, lineToOperation);
 };
 
@@ -352,7 +353,7 @@ const importEntraIdUserData = async ({
     };
     return [{ create: { _index: index } }, line];
   };
-  console.log('Importing Entra ID user data...');
+  log.info('Importing Entra ID user data...');
   await importFile(filePath, lineToOperation);
 };
 
@@ -370,7 +371,7 @@ const createMatchAllRule = async (space: string) => {
   const rule = await getRule(RULE_ID, space);
 
   if (rule) {
-    console.log('Match all rule already exists.');
+    log.info('Match all rule already exists.');
     return;
   }
 
@@ -378,7 +379,7 @@ const createMatchAllRule = async (space: string) => {
     id: RULE_ID,
     space,
   });
-  console.log('Match all rule created.');
+  log.info('Match all rule created.');
 };
 
 const batchIndexDocsWithProgress = async (
@@ -393,7 +394,7 @@ const batchIndexDocsWithProgress = async (
       const res = await bulkUpsert({ documents: operations });
       if (res.errors) {
         progress.stop();
-        console.log('Failed to index documents' + JSON.stringify(res));
+        log.info('Failed to index documents' + JSON.stringify(res));
         process.exit(1);
       }
       progress.increment(operations.length / 2);
@@ -402,7 +403,7 @@ const batchIndexDocsWithProgress = async (
   );
 
   progress.stop();
-  console.log('Indexed ', docCount, '✅');
+  log.info('Indexed ', docCount, '✅');
 };
 
 export const setupEntityResolutionDemo = async ({
@@ -417,11 +418,11 @@ export const setupEntityResolutionDemo = async ({
   space: string;
 }) => {
   if (deleteData) {
-    console.log('Deleting existing demo data first...');
+    log.info('Deleting existing demo data first...');
     await clearData();
   }
 
-  console.log(`Setting up${mini ? ' mini' : ''} entity resolution demo...`);
+  log.info(`Setting up${mini ? ' mini' : ''} entity resolution demo...`);
   // create a rule which matches everything, handy for exploring all the different entity views
   await createMatchAllRule(space);
   // install the packages to get the mappings in place
@@ -437,7 +438,7 @@ export const setupEntityResolutionDemo = async ({
   await importOktaSystemData({ mini, keepEmails });
   await importOktaUserData({ mini, keepEmails });
   await importEntraIdUserData({ mini, keepEmails });
-  console.log(`
+  log.info(`
 Entity resolution demo setup complete. 
 
 Now go and install the model!

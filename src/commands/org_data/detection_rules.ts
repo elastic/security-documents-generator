@@ -4,6 +4,7 @@
  */
 
 import { faker } from '@faker-js/faker';
+import { log } from '../../utils/logger.ts';
 import { createRule } from '../../utils/kibana_api.ts';
 import { ingest } from '../utils/indices.ts';
 import { type IntegrationName } from './types.ts';
@@ -3135,12 +3136,12 @@ export async function createIntegrationDetectionRules(
 ): Promise<DetectionRuleResult[]> {
   const applicable = getApplicableIntegrations(enabledIntegrations);
   if (applicable.length === 0) {
-    console.log('No applicable integrations for detection rules.');
+    log.info('No applicable integrations for detection rules.');
     return [];
   }
 
-  console.log('\n--- Detection Rules ---');
-  console.log(`Creating detection rules for: ${applicable.join(', ')}`);
+  log.info('\n--- Detection Rules ---');
+  log.info(`Creating detection rules for: ${applicable.join(', ')}`);
 
   const results: DetectionRuleResult[] = [];
 
@@ -3169,15 +3170,15 @@ export async function createIntegrationDetectionRules(
           name: result.name,
           integration: integrationName,
         });
-        console.log(`  ✓ Created rule: ${ruleDef.name}`);
+        log.info(`  ✓ Created rule: ${ruleDef.name}`);
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Unknown error';
-        console.error(`  ✗ Failed to create rule "${ruleDef.name}": ${msg}`);
+        log.error(`  ✗ Failed to create rule "${ruleDef.name}": ${msg}`);
       }
     }
   }
 
-  console.log(`  Total rules created: ${results.length}`);
+  log.info(`  Total rules created: ${results.length}`);
   return results;
 }
 
@@ -3187,7 +3188,7 @@ export async function generateAndIndexMatchingEvents(
   const applicable = getApplicableIntegrations(enabledIntegrations);
   if (applicable.length === 0) return 0;
 
-  console.log('Generating matching events for detection rules...');
+  log.info('Generating matching events for detection rules...');
   const eventsPerRule = 5;
   let totalEvents = 0;
 
@@ -3211,14 +3212,14 @@ export async function generateAndIndexMatchingEvents(
   for (const [index, events] of eventsByIndex) {
     try {
       await ingest(index, events);
-      console.log(`  ✓ Indexed ${events.length} matching events to ${index}`);
+      log.info(`  ✓ Indexed ${events.length} matching events to ${index}`);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`  ✗ Failed to index events to ${index}: ${msg}`);
+      log.error(`  ✗ Failed to index events to ${index}: ${msg}`);
     }
   }
 
-  console.log(`  Total matching events indexed: ${totalEvents}`);
+  log.info(`  Total matching events indexed: ${totalEvents}`);
   return totalEvents;
 }
 
