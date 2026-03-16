@@ -10,7 +10,7 @@
     "start": "node src/index.ts",
     "lint": "eslint",
     "format": "prettier --write .",
-    "checks": "yarn typecheck && yarn lint && yarn prettier --check . || { echo \"‼️ run yarn fix to automatically fix issues ‼️\"; exit 1; }",
+    "checks": "./scripts/checks.sh",
     "fix": "yarn lint --fix && yarn prettier --write ."
   },
   "engines": {
