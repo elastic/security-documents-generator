@@ -31,7 +31,8 @@ import {
 const ENTITY_STORE_V2_SETTING_KEY = 'securitySolution:entityStoreEnableV2';
 const ENTITY_STORE_V2_POLL_TIMEOUT_MS = 60_000;
 const ENTITY_STORE_V2_POLL_INTERVAL_MS = 5_000;
-let httpsAgent: https.Agent | undefined;
+
+let insecureDispatcher: Agent | undefined;
 
 const getDispatcher = () => {
   const config = getConfig();
@@ -642,7 +643,7 @@ export const enableEntityStoreV2 = async (space: string = 'default'): Promise<vo
     },
     { apiVersion: '1' },
   );
-  console.log('Entity Store V2 feature flag posted, waiting for it to be active...');
+  log.info('Entity Store V2 feature flag posted, waiting for it to be active...');
 
   const deadline = Date.now() + ENTITY_STORE_V2_POLL_TIMEOUT_MS;
   while (Date.now() < deadline) {
@@ -654,7 +655,7 @@ export const enableEntityStoreV2 = async (space: string = 'default'): Promise<vo
       { apiVersion: '1' },
     );
     if (response?.settings?.[ENTITY_STORE_V2_SETTING_KEY]?.userValue === true) {
-      console.log('Entity Store V2 feature flag enabled and active');
+      log.info('Entity Store V2 feature flag enabled and active');
       return;
     }
     await new Promise((resolve) => setTimeout(resolve, ENTITY_STORE_V2_POLL_INTERVAL_MS));
@@ -672,7 +673,7 @@ export const installEntityStoreV2 = async (space: string = 'default'): Promise<v
   const installPath = `${spacePath}${ENTITY_STORE_V2_INSTALL_URL}?apiVersion=2`;
 
   await kibanaFetch(installPath, { method: 'POST', body: JSON.stringify({}) }, { apiVersion: '2' });
-  console.log('Entity Store V2 installed successfully');
+  log.info('Entity Store V2 installed successfully');
 };
 
 /**

@@ -12,7 +12,7 @@ import {
   initEntityEngineForEntityTypes,
   installEntityStoreV2,
   kibanaFetch,
-} from '../../utils/kibana_api';
+} from '../../utils/kibana_api.ts';
 import { get } from 'lodash-es';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -1046,9 +1046,9 @@ export const uploadPerfDataFile = async (
   const entityIndex = noTransforms ? ENTITY_INDEX_V2 : ENTITY_INDEX_V1;
 
   if (deleteEntities) {
-    console.log(`Deleting all entities (${noTransforms ? 'V2' : 'V1'})...`);
+    log.info(`Deleting all entities (${noTransforms ? 'V2' : 'V1'})...`);
     await deleteAllEntities(entityIndex);
-    console.log('All entities deleted');
+    log.info('All entities deleted');
 
     log.info('Deleting data stream...');
     await deleteDataStream(index);
@@ -1068,14 +1068,14 @@ export const uploadPerfDataFile = async (
   }
 
   if (noTransforms) {
-    console.log('Enabling Entity Store V2...');
+    log.info('Enabling Entity Store V2...');
     await enableEntityStoreV2('default');
     await installEntityStoreV2('default');
-    console.log('Entity Store V2 ready');
+    log.info('Entity Store V2 ready');
   } else {
-    console.log('initialising entity engines');
+    log.info('initialising entity engines');
     await initEntityEngineForEntityTypes(['host', 'user', 'service', 'generic']);
-    console.log('entity engines initialised');
+    log.info('entity engines initialised');
   }
 
   const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
@@ -1091,7 +1091,7 @@ export const uploadPerfDataFile = async (
   await countEntitiesUntil(name, entityCount, entityIndex);
 
   const tookTotal = Date.now() - startTime;
-  console.log(`Total time: ${tookTotal}ms`);
+  log.info(`Total time: ${tookTotal}ms`);
 };
 
 /**
@@ -1124,37 +1124,37 @@ const runUploadPerfDataIntervalV2 = async (
   const index = indexOverride ?? `logs-perftest.${name}-default`;
   const filePath = getFilePath(name);
 
-  console.log(
+  log.info(
     `Uploading performance data file ${name} every ${intervalMs}ms ${uploadCount} times to index ${index} (Entity Store V2)`,
   );
 
   if (deleteEntities) {
-    console.log('Deleting all entities (V2)...');
+    log.info('Deleting all entities (V2)...');
     await deleteAllEntities(ENTITY_INDEX_V2);
-    console.log('All entities deleted');
+    log.info('All entities deleted');
 
-    console.log('Deleting data stream...');
+    log.info('Deleting data stream...');
     await deleteDataStream(index);
-    console.log('Data stream deleted');
+    log.info('Data stream deleted');
 
-    console.log('Deleting logs index...');
+    log.info('Deleting logs index...');
     await deleteLogsIndex(index);
-    console.log('Logs index deleted');
+    log.info('Logs index deleted');
   }
 
   if (!fs.existsSync(filePath)) {
-    console.log(`Data file ${name} does not exist`);
+    log.info(`Data file ${name} does not exist`);
     process.exit(1);
   }
 
-  console.log('Enabling Entity Store V2...');
+  log.info('Enabling Entity Store V2...');
   await enableEntityStoreV2('default');
   await installEntityStoreV2('default');
-  console.log('Entity Store V2 ready');
+  log.info('Entity Store V2 ready');
 
   const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
 
-  console.log(
+  log.info(
     `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`,
   );
 
@@ -1173,7 +1173,7 @@ const runUploadPerfDataIntervalV2 = async (
       uploadCompleted = true;
     };
     const intervalS = intervalMs / 1000;
-    console.log(`Uploading ${i + 1} of ${uploadCount}, next upload in ${intervalS}s...`);
+    log.info(`Uploading ${i + 1} of ${uploadCount}, next upload in ${intervalS}s...`);
     previousUpload = previousUpload.then(() =>
       uploadFile({
         onComplete,
@@ -1205,17 +1205,17 @@ const runUploadPerfDataIntervalV2 = async (
   await previousUpload;
 
   const ingestTook = Date.now() - startTime;
-  console.log(`Data file ${name} uploaded to index ${index} in ${ingestTook}ms`);
+  log.info(`Data file ${name} uploaded to index ${index} in ${ingestTook}ms`);
 
   await countEntitiesUntil(name, entityCount * uploadCount, ENTITY_INDEX_V2);
 
-  console.log('Skipping transform completion wait (Entity Store V2 / ESQL mode)');
+  log.info('Skipping transform completion wait (Entity Store V2 / ESQL mode)');
 
   const tookTotal = Date.now() - startTime;
   stopHealthLogging();
   stopNodeStatsLogging();
   stopKibanaStatsLogging();
-  console.log(`Total time: ${tookTotal}ms`);
+  log.info(`Total time: ${tookTotal}ms`);
 };
 
 /**
@@ -1248,7 +1248,7 @@ const runUploadPerfDataIntervalV1 = async (
   const index = indexOverride ?? `logs-perftest.${name}-default`;
   const filePath = getFilePath(name);
 
-  console.log(
+  log.info(
     `Uploading performance data file ${name} every ${intervalMs}ms ${uploadCount} times to index ${index} (Entity Store V1)`,
   );
 
@@ -1258,9 +1258,9 @@ const runUploadPerfDataIntervalV1 = async (
     log.info('All engines deleted');
   }
   if (deleteEntities) {
-    console.log('Deleting all entities...');
+    log.info('Deleting all entities...');
     await deleteAllEntities(ENTITY_INDEX_V1);
-    console.log('All entities deleted');
+    log.info('All entities deleted');
 
     log.info('Deleting data stream...');
     await deleteDataStream(index);
@@ -1276,10 +1276,10 @@ const runUploadPerfDataIntervalV1 = async (
     process.exit(1);
   }
 
-  console.log('initialising entity engines');
+  log.info('initialising entity engines');
   await ensureSecurityDefaultDataView('default');
   await initEntityEngineForEntityTypes(['host', 'user', 'service', 'generic']);
-  console.log('entity engines initialised');
+  log.info('entity engines initialised');
 
   const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
 
@@ -1341,7 +1341,7 @@ const runUploadPerfDataIntervalV1 = async (
 
   const totalDocumentsIngested = lineCount * uploadCount;
   const timeout = transformTimeoutMs ?? 1800000;
-  console.log(
+  log.info(
     `Waiting for generic transform to process ${totalDocumentsIngested} documents (timeout: ${timeout / 1000 / 60} minutes)...`,
   );
   try {
@@ -1351,7 +1351,7 @@ const runUploadPerfDataIntervalV1 = async (
       timeout,
     );
   } catch (error) {
-    console.warn(
+    log.warn(
       `Warning: ${error instanceof Error ? error.message : 'Failed to wait for transform completion'}. Continuing...`,
     );
   }
@@ -1361,7 +1361,7 @@ const runUploadPerfDataIntervalV1 = async (
   stopTransformsLogging();
   stopNodeStatsLogging();
   stopKibanaStatsLogging();
-  console.log(`Total time: ${tookTotal}ms`);
+  log.info(`Total time: ${tookTotal}ms`);
 };
 
 export const uploadPerfDataFileInterval = async (
