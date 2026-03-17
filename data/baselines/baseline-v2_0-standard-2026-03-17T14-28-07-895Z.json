@@ -1,6 +1,6 @@
 {
-  "testName": "baseline-v2_0-standard",
-  "timestamp": "2026-03-16T08:51:56.261Z",
+  "testName": "baseline-v2_1-standard",
+  "timestamp": "2026-03-17T14:28:07.895Z",
   "testConfig": {
     "entityCount": 100000,
     "logsPerEntity": 10
@@ -28,17 +28,19 @@
       "max": 0
     },
     "cpu": {
-      "avg": 56.471311475409834,
-      "peak": 97,
+      "avg": 12.442276422764227,
+      "peak": 82,
       "avgPerNode": {
-        "instance-0000000000": 56.471311475409834
+        "instance-0000000000": 16.89268292682927,
+        "instance-0000000001": 20.2390243902439,
+        "tiebreaker-0000000002": 0.1951219512195122
       }
     },
     "memory": {
-      "avgHeapPercent": 48.96311475409836,
-      "peakHeapPercent": 85,
-      "avgHeapBytes": 1034453060.9836066,
-      "peakHeapBytes": 1784676352
+      "avgHeapPercent": 50.70081300813008,
+      "peakHeapPercent": 86,
+      "avgHeapBytes": 1191250968.6764228,
+      "peakHeapBytes": 3516923904
     },
     "throughput": {
       "avgDocumentsPerSecond": 0,
@@ -202,50 +204,50 @@
       "totalFailures": 0
     },
     "clusterHealth": {
-      "status": "yellow",
-      "avgActiveShards": 67,
-      "unassignedShards": 5
+      "status": "green",
+      "avgActiveShards": 118,
+      "unassignedShards": 0
     },
     "kibana": {
       "eventLoop": {
         "delay": {
-          "avg": 145.63327900000016,
+          "avg": 106.82387880487808,
           "p50": 10.084351,
-          "p95": 10.731519,
-          "p99": 60.915711,
-          "max": 747.634687
+          "p95": 10.706943,
+          "p99": 80.084991,
+          "max": 491.519999
         },
         "utilization": {
-          "avg": 0.08382378471292874,
-          "peak": 0.43881643983670926
+          "avg": 0.07217852709931269,
+          "peak": 0.3513982673397491
         }
       },
       "elasticsearchClient": {
-        "avgActiveSockets": 1.6885245901639345,
-        "avgIdleSockets": 12.114754098360656,
+        "avgActiveSockets": 1.2097560975609756,
+        "avgIdleSockets": 29.068292682926828,
         "peakQueuedRequests": 0
       },
       "responseTimes": {
-        "avg": 21.298896227928264,
-        "max": 305
+        "avg": 26.572959662288923,
+        "max": 4330
       },
       "memory": {
-        "avgHeapBytes": 666018955.4754099,
-        "peakHeapBytes": 761533312,
-        "avgRssBytes": 951039076.7213115,
-        "peakRssBytes": 1021788160
+        "avgHeapBytes": 700993641.7951219,
+        "peakHeapBytes": 926772496,
+        "avgRssBytes": 983685469.6585366,
+        "peakRssBytes": 1159991296
       },
       "requests": {
-        "total": 17,
-        "avgPerSecond": 0.06988464922016953,
-        "errorRate": 0.17076502732240434,
+        "total": 16,
+        "avgPerSecond": 0.07834688081480756,
+        "errorRate": 0,
         "disconnects": 0
       },
       "osLoad": {
-        "avg1m": 2.9220901639344246,
-        "avg5m": 2.8395901639344276,
-        "avg15m": 2.872786885245906,
-        "peak1m": 4.46
+        "avg1m": 1.4045853658536585,
+        "avg5m": 0.9874146341463423,
+        "avg15m": 0.8795609756097555,
+        "peak1m": 1.85
       }
     }
   }

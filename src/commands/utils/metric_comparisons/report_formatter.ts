@@ -67,6 +67,22 @@ export interface FormatComparisonReportOptions {
   noTransforms?: boolean;
 }
 
+function getSummaryForResults(results: ComparisonResult[]): {
+  improvements: number;
+  warnings: number;
+  degradations: number;
+  stable: number;
+  insufficientData: number;
+} {
+  return {
+    improvements: results.filter((r) => r.status === 'improvement').length,
+    warnings: results.filter((r) => r.status === 'warning').length,
+    degradations: results.filter((r) => r.status === 'degradation').length,
+    stable: results.filter((r) => r.status === 'stable').length,
+    insufficientData: results.filter((r) => r.status === 'insufficient').length,
+  };
+}
+
 /**
  * Format comparison report as a table
  */
@@ -77,36 +93,7 @@ export const formatComparisonReport = (
   const { noTransforms = false } = options;
   const lines: string[] = [];
 
-  lines.push('\n' + '='.repeat(100));
-  lines.push('PERFORMANCE COMPARISON REPORT');
-  lines.push('='.repeat(100));
-  lines.push(`Baseline: ${report.baselineName}`);
-  lines.push(`Current:  ${report.currentName}`);
-  lines.push(`Generated: ${report.timestamp}`);
-  lines.push('');
-  lines.push('SUMMARY:');
-  lines.push(`  ✅ Improvements: ${report.summary.improvements}`);
-  lines.push(`  ⚠️  Warnings: ${report.summary.warnings}`);
-  lines.push(`  ❌ Degradations: ${report.summary.degradations}`);
-  lines.push(`  ➖ Stable: ${report.summary.stable}`);
-  lines.push(`  📊 Insufficient Data: ${report.summary.insufficientData}`);
-  lines.push('');
-  lines.push('='.repeat(100));
-  lines.push('DETAILED METRICS');
-  lines.push('='.repeat(100));
-  lines.push('');
-
-  // Header
-  lines.push(
-    'Metric'.padEnd(45) +
-      'Baseline'.padStart(15) +
-      'Current'.padStart(15) +
-      'Diff %'.padStart(12) +
-      'Status'.padStart(20),
-  );
-  lines.push('-'.repeat(100));
-
-  // Group results by category
+  // Group results by category (build before summary so we can filter for noTransforms)
   const categories: Record<string, ComparisonResult[]> = {
     'Search Latency': report.results.filter(
       (r) => r.metric.startsWith('Search Latency') && !r.metric.includes(' - '),
@@ -150,6 +137,38 @@ export const formatComparisonReport = (
   const categoriesToShow = noTransforms
     ? Object.fromEntries(Object.entries(categories).filter(([key]) => V2_CATEGORY_KEYS.has(key)))
     : categories;
+
+  const displayedResults: ComparisonResult[] = noTransforms
+    ? Object.values(categoriesToShow).flat()
+    : report.results;
+  const summary = noTransforms ? getSummaryForResults(displayedResults) : report.summary;
+
+  lines.push('\n' + '='.repeat(100));
+  lines.push('PERFORMANCE COMPARISON REPORT');
+  lines.push('='.repeat(100));
+  lines.push(`Baseline: ${report.baselineName}`);
+  lines.push(`Current:  ${report.currentName}`);
+  lines.push(`Generated: ${report.timestamp}`);
+  lines.push('');
+  lines.push('SUMMARY:');
+  lines.push(`  ✅ Improvements: ${summary.improvements}`);
+  lines.push(`  ⚠️  Warnings: ${summary.warnings}`);
+  lines.push(`  ❌ Degradations: ${summary.degradations}`);
+  lines.push(`  ➖ Stable: ${summary.stable}`);
+  lines.push(`  📊 Insufficient Data: ${summary.insufficientData}`);
+  lines.push('');
+  lines.push('='.repeat(100));
+  lines.push('DETAILED METRICS');
+  lines.push('='.repeat(100));
+  lines.push('');
+  lines.push(
+    'Metric'.padEnd(45) +
+      'Baseline'.padStart(15) +
+      'Current'.padStart(15) +
+      'Diff %'.padStart(12) +
+      'Status'.padStart(20),
+  );
+  lines.push('-'.repeat(100));
 
   for (const [category, categoryResults] of Object.entries(categoriesToShow)) {
     if (categoryResults.length === 0) continue;
