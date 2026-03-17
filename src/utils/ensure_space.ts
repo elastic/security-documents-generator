@@ -1,4 +1,4 @@
-import { initializeSpace } from './initialize_space';
+import { initializeSpace } from './initialize_space.ts';
 
 export const DEFAULT_SPACE = 'default';
 

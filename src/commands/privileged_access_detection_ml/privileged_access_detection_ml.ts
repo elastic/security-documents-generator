@@ -2,8 +2,9 @@ import {
   createPrivilegedAccessDetectionSourceIndex,
   deleteSourceIndex,
   ingestIntoSourceIndex,
-} from './index_management';
-import { User, UserEventGenerator } from './event_generator';
+} from './index_management.ts';
+import { log } from '../../utils/logger.ts';
+import { type User, UserEventGenerator } from './event_generator.ts';
 
 const LOGS_LINUX_INDEX = 'logs-linux';
 
@@ -24,6 +25,6 @@ export const generatePrivilegedAccessDetectionData = async ({ users }: { users: 
     await createPrivilegedAccessDetectionSourceIndex(LOGS_LINUX_INDEX);
     await ingestIntoSourceIndex(LOGS_LINUX_INDEX, getAllPrivilegedAccessDetectionEvents(users));
   } catch (e) {
-    console.log(e);
+    log.error(e);
   }
 };

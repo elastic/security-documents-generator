@@ -1,18 +1,19 @@
-import { Command } from 'commander';
-import { CommandModule } from '../types';
-import { parseIntBase10, wrapAction } from '../utils/cli_utils';
+import { type Command } from 'commander';
+import { type CommandModule } from '../types.ts';
+import { parseIntBase10, wrapAction } from '../utils/cli_utils.ts';
 import {
   extractBaselineMetrics,
   saveBaseline,
   loadBaseline,
   listBaselines,
   loadBaselineWithPattern,
-} from '../utils/baseline_metrics';
+} from '../utils/baseline_metrics/index.ts';
+import { log } from '../../utils/logger.ts';
 import {
   compareMetrics,
   formatComparisonReport,
   buildComparisonThresholds,
-} from '../utils/metrics_comparison';
+} from '../utils/metrics_comparison.ts';
 
 export const baselineMetricsCommands: CommandModule = {
   register(program: Command) {
@@ -33,23 +34,23 @@ export const baselineMetricsCommands: CommandModule = {
             uploadCount: options.u,
             intervalMs: options.i,
           };
-          console.log(`Extracting baseline metrics from logs with prefix: ${logPrefix}`);
+          log.info(`Extracting baseline metrics from logs with prefix: ${logPrefix}`);
           const baseline = await extractBaselineMetrics(logPrefix, testConfig);
           if (options.n) {
             baseline.testName = options.n;
           }
           const filepath = saveBaseline(baseline);
-          console.log(`\n✅ Baseline created successfully!`);
-          console.log(`File: ${filepath}`);
-          console.log(`\nSummary:`);
-          console.log(`  Search Latency (avg): ${baseline.metrics.searchLatency.avg.toFixed(2)}ms`);
-          console.log(`  Intake Latency (avg): ${baseline.metrics.intakeLatency.avg.toFixed(2)}ms`);
-          console.log(`  CPU (avg): ${baseline.metrics.cpu.avg.toFixed(2)}%`);
-          console.log(`  Memory Heap (avg): ${baseline.metrics.memory.avgHeapPercent.toFixed(2)}%`);
-          console.log(
+          log.info(`\n✅ Baseline created successfully!`);
+          log.info(`File: ${filepath}`);
+          log.info(`\nSummary:`);
+          log.info(`  Search Latency (avg): ${baseline.metrics.searchLatency.avg.toFixed(2)}ms`);
+          log.info(`  Intake Latency (avg): ${baseline.metrics.intakeLatency.avg.toFixed(2)}ms`);
+          log.info(`  CPU (avg): ${baseline.metrics.cpu.avg.toFixed(2)}%`);
+          log.info(`  Memory Heap (avg): ${baseline.metrics.memory.avgHeapPercent.toFixed(2)}%`);
+          log.info(
             `  Throughput (avg): ${baseline.metrics.throughput.avgDocumentsPerSecond.toFixed(2)} docs/sec`,
           );
-          console.log(`  Errors: ${baseline.metrics.errors.totalFailures}`);
+          log.info(`  Errors: ${baseline.metrics.errors.totalFailures}`);
         }),
       );
 
@@ -59,19 +60,19 @@ export const baselineMetricsCommands: CommandModule = {
       .action(() => {
         const baselines = listBaselines();
         if (baselines.length === 0) {
-          console.log('No baselines found.');
+          log.info('No baselines found.');
           return;
         }
-        console.log(`\nFound ${baselines.length} baseline(s):\n`);
+        log.info(`\nFound ${baselines.length} baseline(s):\n`);
         baselines.forEach((filepath: string, index: number) => {
           try {
             const baseline = loadBaseline(filepath);
-            console.log(`${index + 1}. ${baseline.testName}`);
-            console.log(`   Timestamp: ${baseline.timestamp}`);
-            console.log(`   File: ${filepath}`);
-            console.log('');
+            log.info(`${index + 1}. ${baseline.testName}`);
+            log.info(`   Timestamp: ${baseline.timestamp}`);
+            log.info(`   File: ${filepath}`);
+            log.info('');
           } catch {
-            console.log(`${index + 1}. ${filepath} (error loading)`);
+            log.info(`${index + 1}. ${filepath} (error loading)`);
           }
         });
       });
@@ -101,7 +102,7 @@ export const baselineMetricsCommands: CommandModule = {
             uploadCount: options.u,
             intervalMs: options.i,
           };
-          console.log(`Extracting metrics from current run: ${currentLogPrefix}`);
+          log.info(`Extracting metrics from current run: ${currentLogPrefix}`);
           const current = await extractBaselineMetrics(currentLogPrefix, currentTestConfig);
           const thresholds = buildComparisonThresholds({
             degradationThreshold: options.degradationThreshold,
@@ -113,9 +114,7 @@ export const baselineMetricsCommands: CommandModule = {
             formatComparisonReport(report, { noTransforms: options.noTransforms === true }),
           );
           if (report.summary.degradations > 0) {
-            console.log(
-              `\n⚠️  Warning: ${report.summary.degradations} metric(s) show degradation.`,
-            );
+            log.info(`\n⚠️  Warning: ${report.summary.degradations} metric(s) show degradation.`);
             process.exit(1);
           }
         }),

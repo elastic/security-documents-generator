@@ -1,4 +1,5 @@
-import { version } from '../../package.json';
+import packageJson from '../../package.json' with { type: 'json' };
+const { version } = packageJson;
 import { faker } from '@faker-js/faker';
 
 const RUN_ID = faker.string.uuid();

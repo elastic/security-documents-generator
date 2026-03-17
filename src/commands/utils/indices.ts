@@ -1,11 +1,11 @@
 import { Client } from '@elastic/elasticsearch';
-import { ConfigType, getConfig } from '../../get_config';
-import { IndicesCreateRequest } from '@elastic/elasticsearch/lib/api/types';
+import { type ConfigType, getConfig } from '../../get_config.ts';
+import { type IndicesCreateRequest } from '@elastic/elasticsearch/lib/api/types';
 import { exec } from 'child_process';
-import { once } from 'lodash-es';
-import { bulkIngest } from '../shared/elasticsearch';
+import { bulkIngest } from '../shared/elasticsearch.ts';
+import { log } from '../../utils/logger.ts';
 
-export * from './create_agent_document';
+export * from './create_agent_document.ts';
 
 let esClient: Client;
 
@@ -26,7 +26,7 @@ export const getEsClient = () => {
   if (esClient) return esClient;
   const config = getConfig();
 
-  once(() => console.log('Elasticsearch node:', config.elastic.node));
+  log.info('Elasticsearch node:', config.elastic.node);
 
   esClient = new Client({
     node: config.elastic.node,
@@ -49,7 +49,7 @@ export const getFileLineCount = async (filePath: string): Promise<number> => {
       const count = parseInt(stdout.trim().split(' ')[0], 10);
 
       if (isNaN(count)) {
-        console.log(
+        log.error(
           `Failed to parse line count, line count: "${stdout}", split result: "${stdout.split(' ')}"`,
         );
         reject();
@@ -67,7 +67,7 @@ export const indexCheck = async (index: string, body?: Omit<IndicesCreateRequest
   const isExist = await client.indices.exists({ index: index });
   if (isExist) return;
 
-  console.log('Index does not exist, creating...');
+  log.info('Index does not exist, creating...');
 
   try {
     await client.indices.create({
@@ -77,9 +77,9 @@ export const indexCheck = async (index: string, body?: Omit<IndicesCreateRequest
       },
       ...body,
     });
-    console.log('Index created', index);
+    log.info('Index created', index);
   } catch (error) {
-    console.log('Index creation failed', JSON.stringify(error));
+    log.error('Index creation failed', error);
     throw error;
   }
 };

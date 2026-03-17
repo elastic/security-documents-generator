@@ -1,10 +1,11 @@
 import { faker } from '@faker-js/faker';
-import { getEsClient } from '../utils/indices';
-import moment from 'moment';
+import { getEsClient } from '../utils/indices.ts';
+import dayjs from 'dayjs';
+import { log } from '../../utils/logger.ts';
 import { chunk } from 'lodash-es';
-import { createRule, getAllRules, bulkDeleteRules } from '../../utils/kibana_api';
-import { bulkIngest } from '../shared/elasticsearch';
-import { EVENTS_INDEX, SMALL_CHUNK_SIZE } from '../../constants';
+import { createRule, getAllRules, bulkDeleteRules } from '../../utils/kibana_api.ts';
+import { bulkIngest } from '../shared/elasticsearch.ts';
+import { EVENTS_INDEX, SMALL_CHUNK_SIZE } from '../../constants.ts';
 
 interface Event {
   '@timestamp': string;
@@ -88,7 +89,7 @@ interface GapEvent {
 }
 
 const generateEvent = (from: number): Event => ({
-  '@timestamp': moment()
+  '@timestamp': dayjs()
     .subtract(faker.number.int({ min: 1, max: from }), 'h')
     .toISOString(),
   message: faker.lorem.sentence(),
@@ -132,8 +133,8 @@ const generateNonOverlappingGapEvents = (
   const maxSpaceBetweenGaps = Math.max(1, Math.floor(maxTimePerGap * 0.2)); // 20% of available time
 
   if (maxTimePerGap < 2) {
-    console.warn(
-      `Warning: Time window too small for ${gapCount} gaps. Each gap will be very short (${maxTimePerGap} minutes or less)`,
+    log.warn(
+      `Time window too small for ${gapCount} gaps. Each gap will be very short (${maxTimePerGap} minutes or less)`,
     );
   }
 
@@ -161,8 +162,8 @@ const generateNonOverlappingGapEvents = (
   // Convert minute-based gaps to actual gap events
   return gaps.map((gap) => {
     const gapDurationMs = (gap.end - gap.start) * 60 * 1000;
-    const gapEndTime = moment().subtract(gap.start, 'minutes');
-    const gapStartTime = moment().subtract(gap.end, 'minutes');
+    const gapEndTime = dayjs().subtract(gap.start, 'minutes');
+    const gapStartTime = dayjs().subtract(gap.end, 'minutes');
 
     const range = {
       gte: gapStartTime.toISOString(),
@@ -248,7 +249,7 @@ const deleteGapEvents = async () => {
   if (!client) throw new Error('Failed to get ES client');
 
   try {
-    console.log('Deleting gap events...');
+    log.info('Deleting gap events...');
     const response = await client.deleteByQuery({
       index: '.ds-.kibana-event-log-*',
       refresh: true,
@@ -259,10 +260,10 @@ const deleteGapEvents = async () => {
       },
     });
 
-    console.log(`Deleted ${response.deleted} gap events`);
+    log.info(`Deleted ${response.deleted} gap events`);
     return response.deleted;
   } catch (err) {
-    console.error('Error deleting gap events:', err);
+    log.error('Error deleting gap events:', err);
     throw err;
   }
 };
@@ -312,23 +313,23 @@ export const generateRulesAndAlerts = async (
 
   await Promise.all([ingestEvents(events), ingestGapEvents(gapEvents)]);
 
-  console.log(`Created ${ruleResults.length} rules`);
-  console.log(`Ingested ${events.length} events`);
-  console.log(`Generated ${gapEvents.length} gap events`);
+  log.info(`Created ${ruleResults.length} rules`);
+  log.info(`Ingested ${events.length} events`);
+  log.info(`Generated ${gapEvents.length} gap events`);
 
   return { rules: ruleResults, events, gapEvents };
 };
 
 export const deleteAllRules = async (space?: string) => {
-  console.log('Fetching all rules...');
+  log.info('Fetching all rules...');
   const { data: rules } = await getAllRules(space);
 
   if (rules.length === 0) {
-    console.log('No rules found to delete');
+    log.info('No rules found to delete');
     return;
   }
 
-  console.log(`Found ${rules.length} rules. Deleting...`);
+  log.info(`Found ${rules.length} rules. Deleting...`);
 
   // Using bulk delete with chunks of 100
   const ruleIds = rules.map((rule) => rule.id);
@@ -339,15 +340,15 @@ export const deleteAllRules = async (space?: string) => {
     for (const chunkIds of chunks) {
       await bulkDeleteRules(chunkIds, space);
       deletedCount += chunkIds.length;
-      console.log(`Progress: ${deletedCount}/${rules.length} rules deleted`);
+      log.info(`Progress: ${deletedCount}/${rules.length} rules deleted`);
     }
 
     // Delete gap events after rules are deleted
     await deleteGapEvents();
 
-    console.log(`Successfully deleted ${deletedCount} rules and their gap events`);
+    log.info(`Successfully deleted ${deletedCount} rules and their gap events`);
   } catch (err) {
-    console.error('Failed to delete rules:', JSON.stringify(err));
+    log.error('Failed to delete rules:', JSON.stringify(err));
     throw err;
   }
 };

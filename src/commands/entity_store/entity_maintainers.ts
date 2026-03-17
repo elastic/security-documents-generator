@@ -1,15 +1,16 @@
+import { log } from '../../utils/logger.ts';
 import { faker } from '@faker-js/faker';
 import { chunk } from 'lodash-es';
-import { getEsClient } from '../utils/indices';
-import { bulkIngest, bulkUpsert } from '../shared/elasticsearch';
+import { getEsClient } from '../utils/indices.ts';
+import { bulkIngest, bulkUpsert } from '../shared/elasticsearch.ts';
 import {
   getEntityStoreV2Index,
   ENTITY_MAINTAINERS_OPTIONS,
   DEFAULT_CHUNK_SIZE,
   type EntityMaintainerOption,
-} from '../../constants';
-import { getAlertIndex } from '../../utils';
-import createAlerts from '../../generators/create_alerts';
+} from '../../constants.ts';
+import { getAlertIndex } from '../../utils/index.ts';
+import createAlerts from '../../generators/create_alerts.ts';
 
 const RISK_LEVELS = ['Unknown', 'Low', 'Moderate', 'High', 'Critical'] as const;
 
@@ -560,7 +561,7 @@ export const generateEntityMaintainersData = async (opts: {
   const alertIndex = getAlertIndex(space);
   const riskScoreIndex = `risk-score.risk-score-${space}`;
 
-  console.log(`\nFetching Identity entities from Entity store V2 index...`);
+  log.info(`\nFetching Identity entities from Entity store V2 index...`);
   const userEntities = await fetchEntities(count, space, 'Identity');
   const hostEntities = await fetchEntities(count, space, 'Host');
 
@@ -570,13 +571,11 @@ export const generateEntityMaintainersData = async (opts: {
   ];
 
   if (entities.length === 0) {
-    console.log(
-      'No entities found in the entity store. Make sure the Entity Store V2 is populated.',
-    );
+    log.info('No entities found in the entity store. Make sure the Entity Store V2 is populated.');
     return;
   }
 
-  console.log(`Found ${entities.length} entities.\n`);
+  log.info(`Found ${entities.length} entities.\n`);
 
   const allUserEntityNames = entities
     .filter((e) => e.type === 'user')
@@ -592,7 +591,7 @@ export const generateEntityMaintainersData = async (opts: {
     const entityName = getEntityName(entity.entity);
 
     if (maintainers.includes(ENTITY_MAINTAINERS_OPTIONS.riskScore as EntityMaintainerOption)) {
-      console.log(`  Risk Score       -> ${entityName}`);
+      log.info(`  Risk Score       -> ${entityName}`);
       const inputs = generateRiskInputs(alertIndex);
       const { _riskMeta, ...riskFields } = generateRiskScoreFields(inputs);
       updateDoc = deepMerge(updateDoc, riskFields);
@@ -603,7 +602,7 @@ export const generateEntityMaintainersData = async (opts: {
     if (
       maintainers.includes(ENTITY_MAINTAINERS_OPTIONS.assetCriticality as EntityMaintainerOption)
     ) {
-      console.log(`  Asset Criticality -> ${entityName}`);
+      log.info(`  Asset Criticality -> ${entityName}`);
       updateDoc = deepMerge(updateDoc, generateAssetCriticalityFields());
     }
 
@@ -611,14 +610,14 @@ export const generateEntityMaintainersData = async (opts: {
       if (
         maintainers.includes(ENTITY_MAINTAINERS_OPTIONS.anomalyBehaviors as EntityMaintainerOption)
       ) {
-        console.log(`  Anomaly Behaviors -> ${entityName}`);
+        log.info(`  Anomaly Behaviors -> ${entityName}`);
         updateDoc = deepMerge(updateDoc, generateAnomalyBehaviorsFields());
       }
 
       if (
         maintainers.includes(ENTITY_MAINTAINERS_OPTIONS.relationships as EntityMaintainerOption)
       ) {
-        console.log(`  Relationships     -> ${entityName}`);
+        log.info(`  Relationships     -> ${entityName}`);
         updateDoc = deepMerge(
           updateDoc,
           generateRelationshipsFields(allUserEntityNames, entityName ?? undefined),
@@ -626,14 +625,14 @@ export const generateEntityMaintainersData = async (opts: {
       }
 
       if (maintainers.includes(ENTITY_MAINTAINERS_OPTIONS.watchlist as EntityMaintainerOption)) {
-        console.log(`  Watchlist         -> ${entityName}`);
+        log.info(`  Watchlist         -> ${entityName}`);
         const existingWatchlists = entity.entity._source?.entity?.attributes?.watchlists;
         updateDoc = deepMerge(updateDoc, generateWatchlistFields(existingWatchlists));
       }
     }
 
     if (maintainers.includes(ENTITY_MAINTAINERS_OPTIONS.snapshot as EntityMaintainerOption)) {
-      console.log(`  Snapshot          -> ${entityName}`);
+      log.info(`  Snapshot          -> ${entityName}`);
       const entitySnapshotOps = generateSnapshotBulkOps(entity.entity, updateDoc, space);
       await bulkUpsert({ documents: entitySnapshotOps, refresh: false });
     }
@@ -645,16 +644,16 @@ export const generateEntityMaintainersData = async (opts: {
   }
 
   if (bulkOps.length === 0) {
-    console.log('No updates to apply.');
+    log.info('No updates to apply.');
     return;
   }
 
-  console.log(`\nUpdating ${entities.length} entities...`);
+  log.info(`\nUpdating ${entities.length} entities...`);
   await chunkedBulkUpsert(bulkOps);
-  console.log(`Successfully updated ${entities.length} entities with maintainer data.`);
+  log.info(`Successfully updated ${entities.length} entities with maintainer data.`);
 
   if (riskScoreBulkOps.length > 0) {
-    console.log(
+    log.info(
       `\nIndexing ${riskScoreBulkOps.length} risk score documents into ${riskScoreIndex}...`,
     );
     await bulkIngest({
@@ -663,11 +662,11 @@ export const generateEntityMaintainersData = async (opts: {
       action: 'create',
       refresh: true,
     });
-    console.log(`Successfully indexed ${riskScoreBulkOps.length} risk score documents.`);
+    log.info(`Successfully indexed ${riskScoreBulkOps.length} risk score documents.`);
 
     const alertCount = alertBulkOps.length / 2;
-    console.log(`\nIndexing ${alertCount} alerts into ${alertIndex}...`);
+    log.info(`\nIndexing ${alertCount} alerts into ${alertIndex}...`);
     await chunkedBulkUpsert(alertBulkOps);
-    console.log(`Successfully indexed ${alertCount} alerts.`);
+    log.info(`Successfully indexed ${alertCount} alerts.`);
   }
 };

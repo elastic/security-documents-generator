@@ -3,7 +3,7 @@
  * Used for generating realistic cloud asset inventory data
  */
 
-import { CloudProvider } from '../types';
+import { type CloudProvider } from '../types.ts';
 
 export interface CloudResourceType {
   type: string;

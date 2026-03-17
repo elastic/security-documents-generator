@@ -1,4 +1,4 @@
-import { ComparisonReport, ComparisonResult } from '../metrics_comparison';
+import { type ComparisonReport, type ComparisonResult } from '../metrics_comparison.ts';
 
 /**
  * Helper function to determine appropriate decimal places

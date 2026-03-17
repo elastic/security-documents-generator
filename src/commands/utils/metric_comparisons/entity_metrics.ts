@@ -1,7 +1,7 @@
-import { BaselineMetrics } from '../baseline_metrics';
-import { ComparisonResult } from '../metrics_comparison';
-import { createResult } from './comparison_helpers';
-import { ComparisonThresholds } from '../metrics_comparison';
+import { type BaselineMetrics } from '../baseline_metrics/index.ts';
+import { type ComparisonResult } from '../metrics_comparison.ts';
+import { createResult } from './comparison_helpers.ts';
+import { type ComparisonThresholds } from '../metrics_comparison.ts';
 
 // Minimum number of samples required for reliable metric comparison
 // Increased to 10 for more reliable percentile calculations (especially p95)

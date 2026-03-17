@@ -1,13 +1,13 @@
 import { faker } from '@faker-js/faker';
-import createAlerts from '../generators/create_alerts';
+import createAlerts from '../generators/create_alerts.ts';
+import { log } from '../utils/logger.ts';
+import { ensureSpace, getAlertIndex } from '../utils/index.ts';
+import { sleep } from '../utils/sleep.ts';
+import { streamingBulkIngest } from '../commands/shared/elasticsearch.ts';
 
-import { ensureSpace, getAlertIndex } from '../utils';
-import { sleep } from '../utils/sleep';
-import { streamingBulkIngest } from '../commands/shared/elasticsearch';
-
-import { Command } from 'commander';
-import { parseIntBase10, wrapAction } from '../commands/utils/cli_utils';
-import { deleteAllAlerts } from '../commands/documents';
+import { type Command } from 'commander';
+import { parseIntBase10, wrapAction } from '../commands/utils/cli_utils.ts';
+import { deleteAllAlerts } from '../commands/documents/index.ts';
 
 export const ingestData = async (params: {
   batchMBytesSize: number;
@@ -24,7 +24,7 @@ export const ingestData = async (params: {
   let runs = Math.ceil((entityCount * alertsPerEntity) / alertsPerBatch);
 
   while (runs > 0) {
-    console.log(
+    log.info(
       `Ingesting batch, approx. ${alertsPerBatch} alerts (~${(
         (alertsPerBatch * bytesPerAlert) /
         (1024 * 1024)
@@ -45,7 +45,7 @@ export const ingestData = async (params: {
         return [{ create: { _index: index } }, { ...doc }];
       },
       onDrop: (doc) => {
-        console.log('Failed to index document:', doc);
+        log.error('Failed to index document:', doc);
         process.exit(1);
       },
     });
@@ -93,7 +93,7 @@ export const getCmd = (root: Command) => {
     .action(
       wrapAction(async (entityCount, options) => {
         if (!entityCount || entityCount <= 0) {
-          console.error('The number of entities must be a positive integer.');
+          log.error('The number of entities must be a positive integer.');
           process.exit(1);
         }
 
@@ -103,7 +103,7 @@ export const getCmd = (root: Command) => {
         const space = await ensureSpace(options.s);
 
         await deleteAllAlerts();
-        console.log(
+        log.info(
           `Ingesting data for ${entityCount} entities, ${alertsPerEntity} alerts each, in batches of ~${batchMBytesSize}MB every ${intervalMs}ms into space "${space}"...`,
         );
 

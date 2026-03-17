@@ -1,12 +1,13 @@
 import cliProgress from 'cli-progress';
 import { select } from '@inquirer/prompts';
+import { log } from '../../utils/logger.ts';
 
 export const parseIntBase10 = (input: string) => parseInt(input, 10);
 export const parseOptionInt = (input: string | undefined, fallback: number): number =>
   input ? parseIntBase10(input) : fallback;
 
 export function handleCommandError(error: unknown, message?: string): never {
-  console.error(message ?? 'Command failed:', error);
+  log.error(message ?? 'Command failed:', error);
   process.exit(1);
 }
 
@@ -44,7 +45,7 @@ export const createProgressBar = (
 
 export const promptForFileSelection = async (fileList: string[]) => {
   if (fileList.length === 0) {
-    console.log('No files to upload');
+    log.info('No files to upload');
     process.exit(1);
   }
 

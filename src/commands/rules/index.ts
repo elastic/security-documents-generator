@@ -1,7 +1,8 @@
-import { Command } from 'commander';
-import { CommandModule } from '../types';
-import { parseIntBase10, wrapAction } from '../utils/cli_utils';
-import { deleteAllRules, generateRulesAndAlerts } from './rules';
+import { type Command } from 'commander';
+import { type CommandModule } from '../types.ts';
+import { parseIntBase10, wrapAction } from '../utils/cli_utils.ts';
+import { log } from '../../utils/logger.ts';
+import { deleteAllRules, generateRulesAndAlerts } from './rules.ts';
 
 export const rulesCommands: CommandModule = {
   register(program: Command) {
@@ -20,10 +21,10 @@ export const rulesCommands: CommandModule = {
           const eventCount = parseIntBase10(options.events);
           const fromHours = parseIntBase10(options.from);
           const gaps = parseIntBase10(options.gaps);
-          console.log(`Generating ${ruleCount} rules and ${eventCount} events...`);
-          console.log(`Using interval: ${options.interval}`);
-          console.log(`Generating events from last ${fromHours} hours`);
-          console.log(`Generating ${gaps} gaps per rule`);
+          log.info(`Generating ${ruleCount} rules and ${eventCount} events...`);
+          log.info(`Using interval: ${options.interval}`);
+          log.info(`Generating events from last ${fromHours} hours`);
+          log.info(`Generating ${gaps} gaps per rule`);
           if (options.clean) {
             await deleteAllRules();
           }
@@ -32,7 +33,7 @@ export const rulesCommands: CommandModule = {
             from: fromHours,
             gapsPerRule: gaps,
           });
-          console.log('Successfully generated rules and events');
+          log.info('Successfully generated rules and events');
         }),
       );
 

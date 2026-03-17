@@ -1,4 +1,4 @@
-import { readFileSafely } from '../utils';
+import { readFileSafely } from '../utils.ts';
 
 /**
  * Parse Kibana stats log and extract metrics

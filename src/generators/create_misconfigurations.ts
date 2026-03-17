@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import moment from 'moment';
+import dayjs from 'dayjs';
 
 export interface CreateMisconfigurationsParams {
   username?: string;
@@ -12,7 +12,7 @@ export default function createMisconfigurations({
   hostname = 'host-1',
   space = 'default',
 }: CreateMisconfigurationsParams) {
-  const now = moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+  const now = dayjs().format('YYYY-MM-DDTHH:mm:ss.SSSZ');
   return {
     '@timestamp': now,
     agent: {

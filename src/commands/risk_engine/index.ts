@@ -1,13 +1,14 @@
-import { Command } from 'commander';
+import { type Command } from 'commander';
+import { log } from '../../utils/logger.ts';
 import fs from 'fs';
-import { CommandModule } from '../types';
-import { handleCommandError, parseIntBase10, wrapAction } from '../utils/cli_utils';
-import { deleteAllAlerts } from '../documents';
-import * as RiskEngine from '../../risk_engine/generate_perf_data';
-import * as RiskEngineIngest from '../../risk_engine/ingest';
-import { stressTest } from '../../risk_engine/esql_stress_test';
-import * as Pain from '../../risk_engine/scripted_metrics_stress_test';
-import { getRiskEnginePerfDataDir } from '../../utils/data_paths';
+import { type CommandModule } from '../types.ts';
+import { handleCommandError, parseIntBase10, wrapAction } from '../utils/cli_utils.ts';
+import { deleteAllAlerts } from '../documents/index.ts';
+import * as RiskEngine from '../../risk_engine/generate_perf_data.ts';
+import * as RiskEngineIngest from '../../risk_engine/ingest.ts';
+import { stressTest } from '../../risk_engine/esql_stress_test.ts';
+import * as Pain from '../../risk_engine/scripted_metrics_stress_test.ts';
+import { getRiskEnginePerfDataDir } from '../../utils/data_paths.ts';
 
 export const riskEngineCommands: CommandModule = {
   register(program: Command) {
@@ -19,7 +20,7 @@ export const riskEngineCommands: CommandModule = {
         wrapAction(async (options) => {
           const parallel = options.p || 1;
           await stressTest(parallel, { pageSize: 3500 });
-          console.log(`Completed stress test with ${parallel} parallel runs`);
+          log.info(`Completed stress test with ${parallel} parallel runs`);
         }),
       );
 
@@ -31,7 +32,7 @@ export const riskEngineCommands: CommandModule = {
         wrapAction(async (options) => {
           const runs = options.r || 1;
           await Pain.stressTest(runs, { pageSize: 3500 });
-          console.log(`Completed stress test with ${runs} runs`);
+          log.info(`Completed stress test with ${runs} runs`);
         }),
       );
 
@@ -74,7 +75,7 @@ export const riskEngineCommands: CommandModule = {
                     : 1000;
           const name = `${entityMagnitude || 'medium'}_${cardinality || 'mid'}Cardinality`;
           await RiskEngine.createPerfDataFile({ name, entityCount, alertsPerEntity });
-          console.log(`Finished ${name} dataset`);
+          log.info(`Finished ${name} dataset`);
         }),
       );
 
@@ -88,7 +89,7 @@ export const riskEngineCommands: CommandModule = {
           await deleteAllAlerts();
           const datasetPath = `${BASE}/${dataset}`;
           if (!fs.existsSync(datasetPath)) {
-            console.log(`Skipping ${dataset}, directory not found: ${datasetPath}`);
+            log.info(`Skipping ${dataset}, directory not found: ${datasetPath}`);
             return;
           }
           const files = fs
@@ -96,10 +97,10 @@ export const riskEngineCommands: CommandModule = {
             .filter((f) => f.endsWith('.json'))
             .sort();
           if (files.length === 0) {
-            console.log(`No JSON files found in ${datasetPath}, skipping.`);
+            log.info(`No JSON files found in ${datasetPath}, skipping.`);
             return;
           }
-          console.log(`Uploading dataset ${dataset} (${files.length} file(s))`);
+          log.info(`Uploading dataset ${dataset} (${files.length} file(s))`);
           for (const file of files) {
             const fullName = `${dataset}/${file.replace(/\.json$/, '')}`;
             try {
@@ -108,7 +109,7 @@ export const riskEngineCommands: CommandModule = {
               handleCommandError(e, `Failed uploading ${fullName}`);
             }
           }
-          console.log(`Finished uploading dataset ${dataset}`);
+          log.info(`Finished uploading dataset ${dataset}`);
         }),
       );
 

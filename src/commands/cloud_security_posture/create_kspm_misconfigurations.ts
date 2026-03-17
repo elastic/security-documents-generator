@@ -1,15 +1,15 @@
 import { faker } from '@faker-js/faker';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import {
   CSP_AGENT_VERSION,
-  KSPMDistribution,
+  type KSPMDistribution,
   KSPM_DISTRIBUTIONS,
   getRandomCisRule,
   getRandomResourceType,
   pickEvaluation,
-  KSPMCluster,
-} from './csp_utils';
-import type { BaseDocumentParams } from '../../types/document_params';
+  type KSPMCluster,
+} from './csp_utils.ts';
+import type { BaseDocumentParams } from '../../types/document_params.ts';
 
 export interface CreateKSPMMisconfigurationParams extends BaseDocumentParams {
   distribution: KSPMDistribution;
@@ -20,7 +20,7 @@ export default function createKSPMMisconfiguration({
   distribution,
   cluster,
 }: CreateKSPMMisconfigurationParams) {
-  const now = moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ');
+  const now = dayjs().format('YYYY-MM-DDTHH:mm:ss.SSSZ');
   const benchmark = KSPM_DISTRIBUTIONS[distribution];
   const ruleType = distribution === 'eks' ? 'eks' : 'k8s';
   const cisRule = getRandomCisRule(ruleType);

@@ -1,8 +1,8 @@
-import { Command } from 'commander';
-import { CommandModule } from '../types';
-import { parseIntBase10, wrapAction } from '../utils/cli_utils';
-import { runOrgData, runOrgDataQuick, getOrgDataHelp } from './org_data';
-import { getAvailableIntegrations } from './integrations';
+import { type Command } from 'commander';
+import { type CommandModule } from '../types.ts';
+import { parseIntBase10, wrapAction } from '../utils/cli_utils.ts';
+import { runOrgData, runOrgDataQuick, getOrgDataHelp } from './org_data.ts';
+import { getAvailableIntegrations } from './integrations/index.ts';
 
 export const orgDataCommands: CommandModule = {
   register(program: Command) {

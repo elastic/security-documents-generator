@@ -1,17 +1,18 @@
 {
   "name": "security-documents-generator",
   "version": "2.0.0",
-  "description": "",
+  "description": "Generate synthetic Security data for Elasticsearch and Kibana development, demos, and performance testing.",
   "main": "index.ts",
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "typecheck": "tsc --noEmit",
-    "start": "tsx src/index",
+    "typecheck": "tsc",
+    "start": "node src/index.ts",
     "lint": "eslint",
     "format": "prettier --write .",
-    "checks": "yarn typecheck && yarn lint && yarn prettier --check . || { echo \"‼️ run yarn fix to automatically fix issues ‼️\"; exit 1; }",
-    "fix": "yarn lint --fix && yarn prettier --write ."
+    "checks": "./scripts/checks.sh",
+    "fix": "yarn lint --fix && yarn prettier --write .",
+    "prepare": "husky"
   },
   "engines": {
     "node": "24.14.0",
@@ -25,30 +26,33 @@
     "@inquirer/prompts": "^8.0.0",
     "cli-progress": "^3.12.0",
     "commander": "^14.0.2",
+    "dayjs": "^1.11.20",
     "form-data": "^4.0.3",
-    "fp-ts": "^2.16.5",
     "globals": "^17.0.0",
-    "io-ts": "^2.2.21",
     "lodash-es": "^4.17.21",
-    "moment": "^2.29.4",
-    "node-fetch": "^3.3.1",
     "p-map": "^7.0.2",
-    "p-retry": "^7.1.1",
-    "readline": "^1.3.0",
-    "tsx": "^4.20.6",
-    "url-join": "^5.0.0",
-    "uuid": "^13.0.0"
+    "p-retry": "^7.1.1"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/cli-progress": "3.11.6",
     "@types/lodash-es": "4.17.12",
-    "esbuild": "0.27.3",
     "eslint": "10.0.2",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-check-file": "3.3.1",
+    "husky": "9.1.7",
+    "lint-staged": "16.4.0",
     "prettier": "3.8.1",
     "typescript": "5.9.3",
     "typescript-eslint": "8.57.0"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,js,yml,yaml}": [
+      "prettier --write"
+    ]
   }
 }
