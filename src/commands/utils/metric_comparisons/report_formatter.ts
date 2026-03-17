@@ -49,10 +49,32 @@ const formatValue = (value: number, metric: string, baseline: number, current: n
   return value.toFixed(decimalPlaces);
 };
 
+/** Categories included in V2 (no-transforms) report: CPU, Memory, Errors, Kibana only */
+const V2_CATEGORY_KEYS = new Set([
+  'CPU',
+  'Memory',
+  'Errors',
+  'Kibana Event Loop',
+  'Kibana ES Client',
+  'Kibana Response Times',
+  'Kibana Memory',
+  'Kibana Requests',
+  'Kibana OS Load',
+]);
+
+export interface FormatComparisonReportOptions {
+  /** When true (Entity Store V2 / ESQL), omit transform-related metrics */
+  noTransforms?: boolean;
+}
+
 /**
  * Format comparison report as a table
  */
-export const formatComparisonReport = (report: ComparisonReport): string => {
+export const formatComparisonReport = (
+  report: ComparisonReport,
+  options: FormatComparisonReportOptions = {},
+): string => {
+  const { noTransforms = false } = options;
   const lines: string[] = [];
 
   lines.push('\n' + '='.repeat(100));
@@ -125,7 +147,11 @@ export const formatComparisonReport = (report: ComparisonReport): string => {
     'Kibana OS Load': report.results.filter((r) => r.metric.startsWith('Kibana OS Load')),
   };
 
-  for (const [category, categoryResults] of Object.entries(categories)) {
+  const categoriesToShow = noTransforms
+    ? Object.fromEntries(Object.entries(categories).filter(([key]) => V2_CATEGORY_KEYS.has(key)))
+    : categories;
+
+  for (const [category, categoryResults] of Object.entries(categoriesToShow)) {
     if (categoryResults.length === 0) continue;
 
     lines.push(`\n${category}:`);

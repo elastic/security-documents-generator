@@ -129,7 +129,7 @@ export const loadBaselineWithPattern = (
       if (fs.existsSync(baselinePattern)) {
         baselinePath = baselinePattern;
         baseline = loadBaseline(baselinePath);
-        console.log(`Using baseline: ${baselinePath}`);
+        console.log(`Using baseline: ${path.basename(baselinePath)}`);
       } else {
         console.error(`❌ Baseline not found: ${baselinePattern}`);
         console.error(`   Tried pattern matching and direct path, but no matches found.`);
@@ -138,7 +138,9 @@ export const loadBaselineWithPattern = (
     } else {
       baselinePath = matchedPath;
       baseline = loadBaseline(baselinePath);
-      console.log(`Using baseline: ${baselinePath} (matched pattern: ${baselinePattern})`);
+      console.log(
+        `Using baseline: ${path.basename(baselinePath)} (matched pattern: ${baselinePattern})`,
+      );
     }
   } else {
     // Use latest baseline
@@ -149,7 +151,7 @@ export const loadBaselineWithPattern = (
     }
     baselinePath = baselines[0];
     baseline = loadBaseline(baselinePath);
-    console.log(`Using latest baseline: ${baselinePath}`);
+    console.log(`Using latest baseline: ${path.basename(baselinePath)}`);
   }
 
   return { baseline, path: baselinePath };
