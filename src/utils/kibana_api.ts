@@ -24,8 +24,13 @@ import {
   KIBANA_SETTINGS_URL,
   KIBANA_SETTINGS_INTERNAL_URL,
   ENTITY_STORE_ENTITIES_URL,
+  ENTITY_STORE_V2_INSTALL_URL,
   ML_GROUP_ID,
 } from '../constants.ts';
+
+const ENTITY_STORE_V2_SETTING_KEY = 'securitySolution:entityStoreEnableV2';
+const ENTITY_STORE_V2_POLL_TIMEOUT_MS = 60_000;
+const ENTITY_STORE_V2_POLL_INTERVAL_MS = 5_000;
 
 let insecureDispatcher: Agent | undefined;
 
@@ -616,6 +621,59 @@ export const updateKibanaSettings = async (settings: Record<string, unknown>) =>
     log.error('Failed to update Kibana settings:', error);
     throw error;
   }
+};
+
+function getEntityStoreV2SpacePath(space?: string): string {
+  return !space || space === 'default' ? '' : `/s/${space}`;
+}
+
+/**
+ * Enables Entity Store V2 feature flag and waits until it is active in Kibana.
+ * Uses the same APIs as ecp-synthetics-monitors (settings POST + poll).
+ */
+export const enableEntityStoreV2 = async (space: string = 'default'): Promise<void> => {
+  const spacePath = getEntityStoreV2SpacePath(space);
+  const settingsPath = `${spacePath}${KIBANA_SETTINGS_INTERNAL_URL}`;
+
+  await kibanaFetch<{ settings?: Record<string, unknown> }>(
+    settingsPath,
+    {
+      method: 'POST',
+      body: JSON.stringify({ changes: { [ENTITY_STORE_V2_SETTING_KEY]: true } }),
+    },
+    { apiVersion: '1' },
+  );
+  log.info('Entity Store V2 feature flag posted, waiting for it to be active...');
+
+  const deadline = Date.now() + ENTITY_STORE_V2_POLL_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const response = await kibanaFetch<{
+      settings?: { [key: string]: { userValue?: unknown } };
+    }>(
+      `${settingsPath}?query=${encodeURIComponent(ENTITY_STORE_V2_SETTING_KEY)}`,
+      { method: 'GET' },
+      { apiVersion: '1' },
+    );
+    if (response?.settings?.[ENTITY_STORE_V2_SETTING_KEY]?.userValue === true) {
+      log.info('Entity Store V2 feature flag enabled and active');
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, ENTITY_STORE_V2_POLL_INTERVAL_MS));
+  }
+  throw new Error(
+    `Entity Store V2 setting did not become active within ${ENTITY_STORE_V2_POLL_TIMEOUT_MS / 1000}s`,
+  );
+};
+
+/**
+ * Installs Entity Store V2 (ESQL-based). Uses the same API as ecp-synthetics-monitors.
+ */
+export const installEntityStoreV2 = async (space: string = 'default'): Promise<void> => {
+  const spacePath = getEntityStoreV2SpacePath(space);
+  const installPath = `${spacePath}${ENTITY_STORE_V2_INSTALL_URL}?apiVersion=2`;
+
+  await kibanaFetch(installPath, { method: 'POST', body: JSON.stringify({}) }, { apiVersion: '2' });
+  log.info('Entity Store V2 installed successfully');
 };
 
 /**

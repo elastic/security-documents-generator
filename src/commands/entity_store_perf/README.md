@@ -35,11 +35,13 @@ yarn start upload-perf-data [file] [--index <index>] [--delete]
 
 - `--index <index>`: Destination index override
 - `--delete`: Delete existing entities/data before upload
+- `--noTransforms`: Run Entity Store V2 / ESQL flow (enable V2, install V2, no transforms, v2 indices)
 
 ### Example
 
 ```bash
 yarn start upload-perf-data large --delete
+yarn start upload-perf-data large --delete --noTransforms
 ```
 
 ## `upload-perf-data-interval`
@@ -60,7 +62,7 @@ yarn start upload-perf-data-interval [file] [options]
 - `--deleteEngines`: Delete entity engines first
 - `--transformTimeout <minutes>`: Generic transform wait timeout (default: `30`)
 - `--samplingInterval <seconds>`: Metrics sampling interval (default: `5`)
-- `--noTransforms`: Skip transform wait and transform stats logging
+- `--noTransforms`: Run Entity Store V2 / ESQL flow (enable V2, install V2, no transforms, v2 indices). When set, the tool enables and installs Entity Store V2 via Kibana APIs and uses `.entities.v2.latest*` for entity delete/count; the default (no flag) runs the V1/transform flow.
 - `--index <index>`: Destination index override
 
 ### Examples

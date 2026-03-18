@@ -11,8 +11,8 @@ import {
 import { log } from '../../utils/logger.ts';
 import {
   compareMetrics,
-  formatComparisonReport,
   buildComparisonThresholds,
+  formatComparisonReport,
 } from '../utils/metrics_comparison.ts';
 
 export const baselineMetricsCommands: CommandModule = {
@@ -88,6 +88,10 @@ export const baselineMetricsCommands: CommandModule = {
       .option('--degradation-threshold <percent>', 'Degradation threshold percentage', parseFloat)
       .option('--warning-threshold <percent>', 'Warning threshold percentage', parseFloat)
       .option('--improvement-threshold <percent>', 'Improvement threshold percentage', parseFloat)
+      .option(
+        '--noTransforms',
+        'Entity Store V2 / ESQL mode: only show CPU, Memory, Errors, Kibana metrics',
+      )
       .description('Compare current run metrics against a baseline')
       .action(
         wrapAction(async (currentLogPrefix, options) => {
@@ -106,7 +110,7 @@ export const baselineMetricsCommands: CommandModule = {
             improvementThreshold: options.improvementThreshold,
           });
           const report = compareMetrics(baseline, current, thresholds);
-          log.info(formatComparisonReport(report));
+          log.info(formatComparisonReport(report, { noTransforms: options.noTransforms }));
           if (report.summary.degradations > 0) {
             log.info(`\n⚠️  Warning: ${report.summary.degradations} metric(s) show degradation.`);
             process.exit(1);
