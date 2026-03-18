@@ -9,7 +9,11 @@ import {
   loadBaselineWithPattern,
 } from '../utils/baseline_metrics/index.ts';
 import { log } from '../../utils/logger.ts';
-import { compareMetrics, buildComparisonThresholds } from '../utils/metrics_comparison.ts';
+import {
+  compareMetrics,
+  buildComparisonThresholds,
+  formatComparisonReport,
+} from '../utils/metrics_comparison.ts';
 
 export const baselineMetricsCommands: CommandModule = {
   register(program: Command) {
@@ -106,6 +110,7 @@ export const baselineMetricsCommands: CommandModule = {
             improvementThreshold: options.improvementThreshold,
           });
           const report = compareMetrics(baseline, current, thresholds);
+          log.info(formatComparisonReport(report, { noTransforms: options.noTransforms }));
           if (report.summary.degradations > 0) {
             log.info(`\n⚠️  Warning: ${report.summary.degradations} metric(s) show degradation.`);
             process.exit(1);
