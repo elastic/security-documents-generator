@@ -37,7 +37,7 @@
     "@eslint/js": "10.0.1",
     "@types/cli-progress": "3.11.6",
     "@types/lodash-es": "4.17.12",
-    "eslint": "10.0.2",
+    "eslint": "10.0.3",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-check-file": "3.3.1",
     "husky": "9.1.7",
