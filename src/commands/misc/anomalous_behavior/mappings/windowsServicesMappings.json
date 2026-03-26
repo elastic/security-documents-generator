@@ -6,12 +6,15 @@
         "code": { "type": "keyword" },
         "category": { "type": "keyword" },
         "type": { "type": "keyword" },
-        "action": { "type": "keyword" }
+        "action": { "type": "keyword" },
+        "module": { "type": "keyword" },
+        "outcome": { "type": "keyword" }
       }
     },
     "host": {
       "properties": {
         "name": { "type": "keyword" },
+        "id": { "type": "keyword" },
         "hostname": { "type": "keyword" },
         "os": {
           "properties": {
@@ -49,6 +52,12 @@
       }
     },
     "agent": { "properties": { "type": { "type": "keyword" }, "version": { "type": "keyword" } } },
-    "user": { "properties": { "name": { "type": "keyword" }, "domain": { "type": "keyword" } } }
+    "user": {
+      "properties": {
+        "name": { "type": "keyword" },
+        "domain": { "type": "keyword" },
+        "id": { "type": "keyword" }
+      }
+    }
   }
 }

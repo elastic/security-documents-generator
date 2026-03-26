@@ -96,6 +96,7 @@
     "earliest_record_timestamp": { "type": "date" },
     "empty_bucket_count": { "type": "long" },
     "event_count": { "type": "long" },
+    "event": { "properties": { "module": { "type": "keyword" } } },
     "examples": { "type": "text" },
     "exponential_average_bucket_processing_time_ms": { "type": "double" },
     "exponential_average_calculation_context": {
@@ -137,7 +138,7 @@
         "typical_point": { "type": "geo_point" }
       }
     },
-    "host": { "properties": { "name": { "type": "keyword" } } },
+    "host": { "properties": { "name": { "type": "keyword" }, "id": { "type": "keyword" } } },
     "influencer_field_name": { "type": "keyword" },
     "influencer_field_value": { "type": "keyword", "copy_to": ["all_field_values"] },
     "influencer_score": { "type": "double" },
@@ -240,6 +241,6 @@
     "total_partition_field_count": { "type": "long" },
     "total_search_time_ms": { "type": "double" },
     "typical": { "type": "double" },
-    "user": { "properties": { "name": { "type": "keyword" } } }
+    "user": { "properties": { "name": { "type": "keyword" }, "id": { "type": "keyword" } } }
   }
 }

@@ -13,6 +13,7 @@
     "source": { "properties": { "ip": { "type": "keyword" } } },
     "destination": { "properties": { "ip": { "type": "keyword" } } },
     "file": { "properties": { "size": { "type": "long" } } },
+    "event": { "properties": { "module": { "type": "keyword" } } },
     "influencers": {
       "type": "nested",
       "properties": {
