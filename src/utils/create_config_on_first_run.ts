@@ -1,6 +1,7 @@
 import { input, select } from '@inquirer/prompts';
 import fs from 'fs';
-import { configPath, ConfigType, hasValidConfig } from '../get_config';
+import { configPath, type ConfigType, hasValidConfig } from '../get_config.ts';
+import { log } from './logger.ts';
 
 export const createConfigFileOnFirstRun = async () => {
   // Check if we have a valid config from env vars or config.json
@@ -8,7 +9,7 @@ export const createConfigFileOnFirstRun = async () => {
     return;
   }
 
-  console.log(`
+  log.info(`
     Hi there! Looks like this is your first run 👋
 
     First we need to create a config file for you.
@@ -18,12 +19,12 @@ export const createConfigFileOnFirstRun = async () => {
   let username = '';
   let password = '';
 
-  const enum AuthMethod {
-    Basic = 'basic',
-    ApiKey = 'api_key',
-  }
+  const AuthMethod = {
+    Basic: 'basic',
+    ApiKey: 'api_key',
+  } as const;
 
-  const authMethod: AuthMethod = await select({
+  const authMethod = await select({
     choices: [
       { name: 'Basic Auth (username + password)', value: AuthMethod.Basic },
       { name: 'API Key', value: AuthMethod.ApiKey },
@@ -32,7 +33,7 @@ export const createConfigFileOnFirstRun = async () => {
     default: AuthMethod.Basic,
   });
 
-  if (authMethod === 'api_key') {
+  if (authMethod === AuthMethod.ApiKey) {
     apiKey = await input({
       message: 'Enter the API key',
       default: '',
@@ -77,7 +78,7 @@ export const createConfigFileOnFirstRun = async () => {
 
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 
-  console.log(`
+  log.info(`
     
     Config file created at ${configPath} 🎉
 

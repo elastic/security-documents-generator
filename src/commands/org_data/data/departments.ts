@@ -3,7 +3,7 @@
  * Based on realistic SaaS/CRM company structure
  */
 
-import { Department, DepartmentName } from '../types';
+import { type Department, type DepartmentName } from '../types.ts';
 
 /**
  * Department configuration with realistic distribution

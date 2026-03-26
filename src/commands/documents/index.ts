@@ -1,14 +1,14 @@
-import { Command } from 'commander';
-import { CommandModule } from '../types';
-import { ensureSpace } from '../../utils';
-import { parseIntBase10, parseOptionInt, wrapAction } from '../utils/cli_utils';
+import { type Command } from 'commander';
+import { type CommandModule } from '../types.ts';
+import { ensureSpace } from '../../utils/index.ts';
+import { parseIntBase10, parseOptionInt, wrapAction } from '../utils/cli_utils.ts';
 import {
   deleteAllAlerts,
   deleteAllEvents,
   generateAlerts,
   generateEvents,
   generateGraph,
-} from './documents';
+} from './documents.ts';
 
 export {
   deleteAllAlerts,
@@ -16,7 +16,7 @@ export {
   generateAlerts,
   generateEvents,
   generateGraph,
-} from './documents';
+} from './documents.ts';
 
 export const documentCommands: CommandModule = {
   register(program: Command) {

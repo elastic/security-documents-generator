@@ -10,8 +10,13 @@
  * API reference: https://developer.pingidentity.com/pingdirectory/directory-proxy-scim/user-profile-endpoints/get-read-search-users.html
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
-import { Organization, Employee, CorrelationMap } from '../types';
+import {
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import { log } from '../../../utils/logger.ts';
+import { type Organization, type Employee, type CorrelationMap } from '../types.ts';
 import { faker } from '@faker-js/faker';
 
 /** SCIM v2 schema URNs used by PingDirectory */
@@ -90,7 +95,7 @@ export class PingDirectoryIntegration extends BaseIntegration {
    * We skip Fleet installation entirely.
    */
   async install(_space: string = 'default'): Promise<void> {
-    console.log(`  ℹ ${this.displayName}: Custom integration — no Fleet package to install`);
+    log.info(`  ℹ ${this.displayName}: Custom integration — no Fleet package to install`);
   }
 
   generateDocuments(

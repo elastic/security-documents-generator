@@ -1,35 +1,40 @@
+import { log } from '../../utils/logger.ts';
 import { faker } from '@faker-js/faker';
-import { indexCheck, createAgentDocument } from '../utils/indices';
-import { bulkIngest, deleteAllByIndex } from '../shared/elasticsearch';
+import { indexCheck, createAgentDocument } from '../utils/indices.ts';
+import { bulkIngest, deleteAllByIndex } from '../shared/elasticsearch.ts';
 import { chunk, once } from 'lodash-es';
-import moment from 'moment';
-import auditbeatMappings from '../../mappings/auditbeat.json' assert { type: 'json' };
+import dayjs from 'dayjs';
+import auditbeatMappings from '../../mappings/auditbeat.json' with { type: 'json' };
 import {
   assignAssetCriticality,
   enableRiskScore,
   createRule,
   enrichEntityViaApi,
-  EntityEnrichment,
-} from '../../utils/kibana_api';
+  type EntityEnrichment,
+} from '../../utils/kibana_api.ts';
 import {
   AGENT_INDEX_NAME,
   ASSET_CRITICALITY,
-  AssetCriticality,
+  type AssetCriticality,
   DEFAULT_CHUNK_SIZE,
   ENTITY_STORE_OPTIONS,
   EVENT_INDEX_NAME,
   generateNewSeed,
-} from '../../constants';
-import { MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
-import { getConfig } from '../../get_config';
-import { ensureSpace } from '../../utils';
-import { EntityType } from '../../types/entities';
+} from '../../constants.ts';
+import { type MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
+import { getConfig } from '../../get_config.ts';
+import { ensureSpace } from '../../utils/index.ts';
+import { type EntityType } from '../../types/entities.ts';
+
+const logEventDateOffset = once((offset: number) =>
+  log.info(`Using event date offset: ${offset} hours`),
+);
 
 const getOffset = (offsetHours?: number) => {
   const config = getConfig();
 
   if (config.eventDateOffsetHours !== undefined) {
-    once(() => console.log(`Using event date offset: ${config.eventDateOffsetHours} hours`));
+    logEventDateOffset(config.eventDateOffsetHours);
 
     return config.eventDateOffsetHours;
   }
@@ -236,9 +241,7 @@ export const createRandomGenericEntity = (): GenericEntity => {
 };
 
 export const createRandomEventForHost = (host: Host, offsetHours?: number): HostEvent => ({
-  '@timestamp': moment()
-    .subtract(getOffset(offsetHours), 'h')
-    .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+  '@timestamp': dayjs().subtract(getOffset(offsetHours), 'h').format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
   message: `Host ${faker.hacker.phrase()}`,
   service: {
     type: 'system',
@@ -255,9 +258,7 @@ export const createRandomEventForHost = (host: Host, offsetHours?: number): Host
 });
 
 export const createRandomEventForUser = (user: User, offsetHours?: number): UserEvent => ({
-  '@timestamp': moment()
-    .subtract(getOffset(offsetHours), 'h')
-    .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+  '@timestamp': dayjs().subtract(getOffset(offsetHours), 'h').format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
   message: `User ${faker.hacker.phrase()}`,
   service: {
     type: 'system',
@@ -272,9 +273,7 @@ export const createRandomEventForService = (
   service: Service,
   offsetHours?: number,
 ): ServiceEvent => ({
-  '@timestamp': moment()
-    .subtract(getOffset(offsetHours), 'h')
-    .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+  '@timestamp': dayjs().subtract(getOffset(offsetHours), 'h').format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
   message: `Service ${faker.hacker.phrase()}`,
   service: {
     node: {
@@ -308,12 +307,10 @@ export const createRandomEventForGenericEntity = (
   const region = faker.helpers.arrayElement(regions);
 
   return {
-    '@timestamp': moment()
-      .subtract(getOffset(offsetHours), 'h')
-      .format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+    '@timestamp': dayjs().subtract(getOffset(offsetHours), 'h').format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
     message: `${service.subType} entity discovered`,
     event: {
-      ingested: moment().format('yyyy-MM-DDTHH:mm:ss.SSSSSSZ'),
+      ingested: dayjs().format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
       dataset: 'cloud_asset_inventory.asset_inventory',
       module: 'cloud_asset_inventory',
     },
@@ -510,8 +507,8 @@ export const enrichEntitiesViaApi = async (opts: {
 }) => {
   const { users, hosts, space } = opts;
 
-  console.log('Starting entity enrichment via API...');
-  console.log(`Enriching ${users.length} users and ${hosts.length} hosts`);
+  log.info('Starting entity enrichment via API...');
+  log.info(`Enriching ${users.length} users and ${hosts.length} hosts`);
 
   let successCount = 0;
   let errorCount = 0;
@@ -524,10 +521,10 @@ export const enrichEntitiesViaApi = async (opts: {
       successCount++;
     } catch (error) {
       errorCount++;
-      console.error(`Failed to enrich user ${user.name}:`, error);
+      log.error(`Failed to enrich user ${user.name}:`, error);
     }
   }
-  console.log(`Enriched ${successCount} users (${errorCount} errors)`);
+  log.info(`Enriched ${successCount} users (${errorCount} errors)`);
 
   successCount = 0;
   errorCount = 0;
@@ -540,12 +537,12 @@ export const enrichEntitiesViaApi = async (opts: {
       successCount++;
     } catch (error) {
       errorCount++;
-      console.error(`Failed to enrich host ${host.name}:`, error);
+      log.error(`Failed to enrich host ${host.name}:`, error);
     }
   }
-  console.log(`Enriched ${successCount} hosts (${errorCount} errors)`);
+  log.info(`Enriched ${successCount} hosts (${errorCount} errors)`);
 
-  console.log('Entity enrichment completed');
+  log.info('Entity enrichment completed');
 };
 
 /**
@@ -617,13 +614,13 @@ export const generateEntityStore = async ({
     const relational = matchUsersAndHosts(eventsForUsers, eventsForHosts);
 
     await ingestEvents(relational.users);
-    console.log('Users events ingested');
+    log.info('Users events ingested');
     await ingestEvents(relational.hosts);
-    console.log('Hosts events ingested');
+    log.info('Hosts events ingested');
     await ingestEvents(eventsForServices);
-    console.log('Services events ingested');
+    log.info('Services events ingested');
     await ingestEvents(eventsForGenericEntities);
-    console.log('Generic Entities events ingested');
+    log.info('Generic Entities events ingested');
 
     await ensureSpace(space);
 
@@ -633,33 +630,33 @@ export const generateEntityStore = async ({
         field: 'user.name',
         space,
       });
-      console.log('Assigned asset criticality to users');
+      log.info('Assigned asset criticality to users');
       await assignAssetCriticalityToEntities({
         entities: generatedHosts,
         field: 'host.name',
         space,
       });
-      console.log('Assigned asset criticality to hosts');
+      log.info('Assigned asset criticality to hosts');
     }
 
     if (options.includes(ENTITY_STORE_OPTIONS.riskEngine)) {
       await enableRiskScore(space);
-      console.log('Risk score enabled');
+      log.info('Risk score enabled');
     }
 
     if (options.includes(ENTITY_STORE_OPTIONS.rule)) {
       await createRule({ space });
-      console.log('Rule created');
+      log.info('Rule created');
     }
 
     if (options.includes(ENTITY_STORE_OPTIONS.agent)) {
       const agents = generatedHosts.map((host) => createAgentDocument({ hostname: host.name }));
       await ingestAgents(agents);
-      console.log('Agents ingested');
+      log.info('Agents ingested');
     }
 
     if (options.includes(ENTITY_STORE_OPTIONS.apiEnrichment)) {
-      console.log('Waiting for entity store to process entities before enrichment...');
+      log.info('Waiting for entity store to process entities before enrichment...');
       // Wait a bit for the entity store transforms to process the ingested events
       await new Promise((resolve) => setTimeout(resolve, 10000));
 
@@ -670,23 +667,23 @@ export const generateEntityStore = async ({
       });
     }
 
-    console.log('Finished generating entity store');
+    log.info('Finished generating entity store');
   } catch (error) {
-    console.log('Error: ', error);
+    log.error('Error: ', error);
   }
 };
 
 export const cleanEntityStore = async () => {
-  console.log('Deleting all entity-store data...');
+  log.info('Deleting all entity-store data...');
   try {
     await deleteAllByIndex({ index: EVENT_INDEX_NAME });
-    console.log('Deleted all events');
+    log.info('Deleted all events');
 
     await deleteAllByIndex({ index: '.asset-criticality.asset-criticality-default' });
-    console.log('Deleted asset criticality');
+    log.info('Deleted asset criticality');
   } catch (error) {
-    console.log('Failed to clean data');
-    console.log(error);
+    log.info('Failed to clean data');
+    log.error(error);
   }
 };
 

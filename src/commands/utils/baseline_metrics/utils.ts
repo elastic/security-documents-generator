@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { getBaselinesDir } from '../../../utils/data_paths';
+import { getBaselinesDir } from '../../../utils/data_paths.ts';
 
 export const BASELINES_DIR = getBaselinesDir();
 

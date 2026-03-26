@@ -2,18 +2,18 @@
 import { program } from 'commander';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { createConfigFileOnFirstRun } from './utils/create_config_on_first_run';
-import { documentCommands } from './commands/documents/index';
-import { riskEngineCommands } from './commands/risk_engine';
-import { entityStoreCommands } from './commands/entity_store/index';
-import { entityStorePerfCommands } from './commands/entity_store_perf/index';
-import { rulesCommands } from './commands/rules/index';
-import { privilegedUserMonitoringCommands } from './commands/privileged_user_monitoring';
-import { miscCommands } from './commands/misc';
-import { baselineMetricsCommands } from './commands/baseline_metrics';
-import { cloudSecurityPostureCommands } from './commands/generate_cloud_security_posture';
-import { orgDataCommands } from './commands/org_data/index';
-import { parseIntBase10 } from './commands/utils/cli_utils';
+import { createConfigFileOnFirstRun } from './utils/create_config_on_first_run.ts';
+import { documentCommands } from './commands/documents/index.ts';
+import { riskEngineCommands } from './commands/risk_engine/index.ts';
+import { entityStoreCommands } from './commands/entity_store/index.ts';
+import { entityStorePerfCommands } from './commands/entity_store_perf/index.ts';
+import { rulesCommands } from './commands/rules/index.ts';
+import { privilegedUserMonitoringCommands } from './commands/privileged_user_monitoring/index.ts';
+import { miscCommands } from './commands/misc/index.ts';
+import { baselineMetricsCommands } from './commands/baseline_metrics/index.ts';
+import { cloudSecurityPostureCommands } from './commands/generate_cloud_security_posture/index.ts';
+import { orgDataCommands } from './commands/org_data/index.ts';
+import { parseIntBase10 } from './commands/utils/cli_utils.ts';
 
 await createConfigFileOnFirstRun();
 

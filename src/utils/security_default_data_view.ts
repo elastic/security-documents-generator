@@ -1,4 +1,5 @@
-import { getDataView, createDataView } from './kibana_api';
+import { log } from './logger.ts';
+import { getDataView, createDataView } from './kibana_api.ts';
 
 type DataView = {
   id: string;
@@ -24,10 +25,10 @@ export const ensureSecurityDefaultDataView = async (space: string) => {
   const dataView = getDataViewInSpace(space);
   const existing = await getDataView(dataView.id, space);
   if (existing) {
-    console.log(`Data view ${dataView.id} already exists in space ${space}`);
+    log.info(`Data view ${dataView.id} already exists in space ${space}`);
     return;
   }
-  console.log(`Creating data view ${dataView.id} in space ${space}`);
+  log.info(`Creating data view ${dataView.id} in space ${space}`);
   await createDataView(dataView, space);
-  console.log(`Data view ${dataView.id} created in space ${space}`);
+  log.info(`Data view ${dataView.id} created in space ${space}`);
 };

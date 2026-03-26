@@ -1,0 +1,12 @@
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+  . "$HOME/.nvm/nvm.sh"
+elif [ -s "/opt/homebrew/opt/nvm/nvm.sh" ]; then
+  . "/opt/homebrew/opt/nvm/nvm.sh"
+fi
+
+if command -v nvm >/dev/null 2>&1; then
+  nvm use || true
+fi
+
+npx lint-staged
+npm run typecheck

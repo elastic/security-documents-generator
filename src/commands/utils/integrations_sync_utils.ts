@@ -2,9 +2,9 @@ import {
   AD_USERS_SAMPLE_ADMIN_DOCUMENT,
   AD_USERS_SAMPLE_DOCUMENT,
   OKTA_USERS_SAMPLE_DOCUMENT,
-} from '../privileged_user_monitoring/sample_documents';
-import { userNameAsEmail, userNameWhitespaceRemoved } from './sample_data_helpers';
-import { TimeWindows } from './time_windows';
+} from '../privileged_user_monitoring/sample_documents.ts';
+import { userNameAsEmail, userNameWhitespaceRemoved } from './sample_data_helpers.ts';
+import { TimeWindows } from './time_windows.ts';
 import { faker } from '@faker-js/faker';
 
 export const OKTA_ADMIN_USER_ROLES: string[] = [

@@ -1,10 +1,11 @@
 import pRetry from 'p-retry';
+import { log } from '../../../utils/logger.ts';
 import {
   setupMlModule,
   installIntegrationAndCreatePolicy,
   forceStartDatafeeds,
   getMlJobsSummary,
-} from '../../../utils/kibana_api';
+} from '../../../utils/kibana_api.ts';
 export const SECURITY_AUTH_MODULE = 'security_auth';
 export const SECURITY_AUTH_JOB_IDS = [
   'auth_rare_source_ip_for_a_user',
@@ -79,60 +80,60 @@ export const setupAnomalyMlModulesAndStartDatafeeds = async (
 ): Promise<void> => {
   try {
     // Security Auth (built-in, no Fleet integration)
-    console.log('Setting up ML module: security_auth');
+    log.info('Setting up ML module: security_auth');
     await setupMlModulesWithRetry(SECURITY_AUTH_MODULE, DEFAULT_INDEX_PATTERN, space);
   } catch (err) {
-    console.warn('Failed to setup Security Auth ML module:', err);
+    log.warn('Failed to setup Security Auth ML module:', err);
   }
 
   // PAD (requires Fleet integration)
   try {
-    console.log('Installing PAD integration and creating policy');
+    log.info('Installing PAD integration and creating policy');
     await installIntegrationAndCreatePolicy('pad', space);
-    console.log('Setting up ML module: pad-ml');
+    log.info('Setting up ML module: pad-ml');
     await setupMlModulesWithRetry(PAD_MODULE, DEFAULT_INDEX_PATTERN, space);
   } catch (err) {
-    console.warn('Failed to setup PAD ML module:', err);
+    log.warn('Failed to setup PAD ML module:', err);
   }
 
   // LMD (requires Fleet integration)
   try {
-    console.log('Installing LMD integration and creating policy');
+    log.info('Installing LMD integration and creating policy');
     await installIntegrationAndCreatePolicy('lmd', space);
-    console.log('Setting up ML module: lmd-ml');
+    log.info('Setting up ML module: lmd-ml');
     await setupMlModulesWithRetry(LMD_MODULE, DEFAULT_INDEX_PATTERN, space);
   } catch (err) {
-    console.warn('Failed to setup LMD ML module:', err);
+    log.warn('Failed to setup LMD ML module:', err);
   }
 
   // Security Packetbeat (built-in)
   try {
-    console.log('Setting up ML module: security_packetbeat');
+    log.info('Setting up ML module: security_packetbeat');
     await setupMlModulesWithRetry(SECURITY_PACKETBEAT_MODULE, DEFAULT_INDEX_PATTERN, space);
   } catch (err) {
-    console.warn('Failed to setup Security Packetbeat ML module:', err);
+    log.warn('Failed to setup Security Packetbeat ML module:', err);
   }
 
   // DED (requires Fleet integration)
   try {
-    console.log('Installing DED integration and creating policy');
+    log.info('Installing DED integration and creating policy');
     await installIntegrationAndCreatePolicy('ded', space);
-    console.log('Setting up ML module: ded-ml');
+    log.info('Setting up ML module: ded-ml');
     await setupMlModulesWithRetry(DED_MODULE, DEFAULT_INDEX_PATTERN, space);
   } catch (err) {
-    console.warn('Failed to setup DED ML module:', err);
+    log.warn('Failed to setup DED ML module:', err);
   }
 
   if (!generateAnomalyData) {
     // Start all datafeeds again so any that failed earlier can be retried together
-    console.log('Starting all anomaly job datafeeds');
+    log.info('Starting all anomaly job datafeeds');
     await forceStartDatafeeds(
       ALL_ANOMALY_JOB_IDS.map((id) => `datafeed-${id}`),
       space,
     );
-    console.log('ML modules setup and datafeeds started.');
+    log.info('ML modules setup and datafeeds started.');
   } else {
-    console.log(
+    log.info(
       'ML modules setup completed. Skipping datafeed start and anomaly record generation due to --no-anomaly-data flag.',
     );
   }
@@ -147,7 +148,7 @@ export const waitForAllJobsToStart = async (jobIds: string[], space?: string): P
   const timeoutMs = 5 * 60 * 1000; // 5 minutes in milliseconds
   const startTime = Date.now();
 
-  console.log(`Waiting for ${jobIds.length} job(s) to start: ${jobIds.join(', ')}`);
+  log.info(`Waiting for ${jobIds.length} job(s) to start: ${jobIds.join(', ')}`);
 
   await pRetry(
     async () => {
@@ -169,7 +170,7 @@ export const waitForAllJobsToStart = async (jobIds: string[], space?: string): P
         const missingJobIds = jobIds.filter((id) => !foundJobIds.includes(id));
         if (missingJobIds.length > 0) {
           const errorMsg = `Not all jobs found. Missing: ${missingJobIds.join(', ')}.`;
-          console.warn(errorMsg);
+          log.warn(errorMsg);
           throw new Error(errorMsg);
         }
       }
@@ -182,7 +183,7 @@ export const waitForAllJobsToStart = async (jobIds: string[], space?: string): P
 
       if (notStartedJobs.length > 0) {
         const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-        console.log(
+        log.info(
           `[${elapsedSeconds}s] Status: ${startedCount}/${
             jobs.length
           } jobs started. Waiting for: ${notStartedJobs.map((job) => job.id).join(', ')}`,
@@ -194,15 +195,15 @@ export const waitForAllJobsToStart = async (jobIds: string[], space?: string): P
       }
 
       const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-      console.log(`[${elapsedSeconds}s] All ${jobs.length} job(s) are now started!`);
+      log.info(`[${elapsedSeconds}s] All ${jobs.length} job(s) are now started!`);
       return jobs;
     },
     {
       retries: 10,
       onFailedAttempt: (error) => {
-        console.log(error);
+        log.info(error);
         const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-        console.log(
+        log.info(
           `[${elapsedSeconds}s] Retry attempt ${error.attemptNumber} failed. ${error.retriesLeft} retries left. Error: ${error}`,
         );
       },

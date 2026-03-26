@@ -3,15 +3,24 @@
  * Generates audit log documents for the github.audit data stream
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
-import { Organization, CorrelationMap, Employee, GitHubRepo } from '../types';
+import {
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import {
+  type Organization,
+  type CorrelationMap,
+  type Employee,
+  type GitHubRepo,
+} from '../types.ts';
 import { faker } from '@faker-js/faker';
 import {
   GITHUB_AUDIT_ACTIONS,
   GITHUB_TRANSPORT_PROTOCOLS,
   DEPT_ACTION_WEIGHTS,
   BRANCH_NAMES,
-} from '../data/github_data';
+} from '../data/github_data.ts';
 
 /**
  * GitHub Integration

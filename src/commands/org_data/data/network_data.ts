@@ -2,7 +2,7 @@
  * Network security related static data for Cloudflare and Zscaler integrations
  */
 
-import { DepartmentName } from '../types';
+import { type DepartmentName } from '../types.ts';
 
 /**
  * Cloudflare edge colocations (data centers)

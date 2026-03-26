@@ -1,9 +1,10 @@
 /* eslint-disable no-useless-escape */
-import { getEsClient } from '../commands/utils/indices';
+import { getEsClient } from '../commands/utils/indices.ts';
+import { log } from '../utils/logger.ts';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { getAlertIndex } from '../utils';
-import { sleep } from '../utils/sleep';
+import { getAlertIndex } from '../utils/index.ts';
+import { sleep } from '../utils/sleep.ts';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Report = Record<number, { ok?: any; error?: any; delay?: number }>;
@@ -19,8 +20,8 @@ export const stressTest = async (runs: number, opts: { outputFile?: string; page
   const delays = [250, 500, 1000];
   const seqReport: Report = {};
   for (const ms of delays) {
-    console.log('\n--------------------------------------------------------------------\n');
-    console.log(`Starting sequential execution with ${ms}ms delay`);
+    log.info('\n--------------------------------------------------------------------\n');
+    log.info(`Starting sequential execution with ${ms}ms delay`);
 
     for (let i = 0; i < runs; i++) {
       await run(
@@ -31,29 +32,29 @@ export const stressTest = async (runs: number, opts: { outputFile?: string; page
         },
         seqReport,
       );
-      console.log(`Run ${i + 1} of ${runs} completed. Sleeping ${ms}ms...`);
+      log.info(`Run ${i + 1} of ${runs} completed. Sleeping ${ms}ms...`);
       await sleep(ms);
     }
 
-    console.log(
+    log.info(
       `Sequential execution with ${ms}ms delay completed. Sleeping 5s to allow ES to recover...`,
     );
 
     if (Object.values(seqReport).every((r) => r.ok)) {
-      console.log('All sequential runs were successful at delay', ms);
-      console.log('Stopping further sequential tests.');
+      log.info('All sequential runs were successful at delay', ms);
+      log.info('Stopping further sequential tests.');
       break;
     }
     await sleep(5000);
   }
 
-  console.log('Sequential execution completed');
+  log.info('Sequential execution completed');
 
   const entityTypesNo = 3;
   const batches = Math.floor(runs / entityTypesNo);
   const multiReport: Report = {};
-  console.log('\n--------------------------------------------------------------------\n');
-  console.log(
+  log.info('\n--------------------------------------------------------------------\n');
+  log.info(
     `Starting parallel execution with ${entityTypesNo} parallel runs, total ${batches} batches...`,
   );
   for (let i = 0; i < batches; i++) {
@@ -70,7 +71,7 @@ export const stressTest = async (runs: number, opts: { outputFile?: string; page
       ),
     );
 
-    console.log(`Batch ${i + 1} of ${batches} completed`);
+    log.info(`Batch ${i + 1} of ${batches} completed`);
     await sleep(2000);
   }
 
@@ -80,14 +81,14 @@ export const stressTest = async (runs: number, opts: { outputFile?: string; page
     const reportsDirectory = path.dirname(seqFile);
     await fs.mkdir(reportsDirectory, { recursive: true });
     await fs.writeFile(seqFile, JSON.stringify(seqReport, null, 2), 'utf8');
-    console.log('Sequential results written to', seqFile);
+    log.info('Sequential results written to', seqFile);
 
     const multiFile =
       opts?.outputFile ?? path.join(process.cwd(), `reports/esql_multi_stress_results.json`);
     await fs.writeFile(multiFile, JSON.stringify(multiReport, null, 2), 'utf8');
-    console.log('Parallel results written to', multiFile);
+    log.info('Parallel results written to', multiFile);
   } catch (e) {
-    console.log('Failed to write results file:', e);
+    log.info('Failed to write results file:', e);
   }
 };
 export const run = async (
@@ -132,20 +133,20 @@ export const run = async (
         | LIMIT ${params.pageSize}
         
 `;
-  // console.log(query);
+  // log.info(query);
   await client.esql
     .query({ query })
     .then((response) => {
-      console.log(`Esql query executed successfully in run ${n}`);
-      console.log('Results found:', response.values.length);
-      console.log('Sample result:', JSON.stringify(response.values[0]));
+      log.info(`Esql query executed successfully in run ${n}`);
+      log.info('Results found:', response.values.length);
+      log.info('Sample result:', JSON.stringify(response.values[0]));
       report[n] = {
         ok: { scoresCalculated: response.values.length, rangeClause, query },
       };
     })
     .catch((e) => {
-      console.log(`Error executing ESQL query in run ${n}:`, e.message);
-      console.log('Query was:', query);
+      log.info(`Error executing ESQL query in run ${n}:`, e.message);
+      log.info('Query was:', query);
       report[n] = { error: e };
     });
 };
@@ -193,8 +194,8 @@ export const getPagination = async (params: { pageSize: number }) => {
   const client = getEsClient();
 
   const response = await client.search(query).catch((e) => {
-    console.error(`Error executing composite query: ${e.message}`);
+    log.error(`Error executing composite query: ${e.message}`);
   });
-  console.log(response?.aggregations?.entities);
+  log.info(response?.aggregations?.entities);
   return response?.aggregations?.entities;
 };

@@ -10,8 +10,8 @@ import {
   promptForNumericInputs,
   promptForSelection,
   promptForTextInput,
-} from '../utils/interactive_prompts';
-import { ensureSpace } from '../../utils';
+} from '../utils/interactive_prompts.ts';
+import { ensureSpace } from '../../utils/index.ts';
 
 export const entityStoreCommands: CommandModule = {
   register(program: Command) {
@@ -159,7 +159,7 @@ export const entityStoreCommands: CommandModule = {
           });
 
           if (selectedMaintainers.length === 0) {
-            console.log('No maintainers selected. Exiting.');
+            log.info('No maintainers selected. Exiting.');
             return;
           }
 

@@ -3,10 +3,14 @@
  * Generates host inventory and alert/detection documents
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
-import { Organization, CorrelationMap, Employee, Device } from '../types';
+import {
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import { type Organization, type CorrelationMap, type Employee, type Device } from '../types.ts';
 import { faker } from '@faker-js/faker';
-import { MALWARE_HASHES } from '../data/threat_intel_data';
+import { MALWARE_HASHES } from '../data/threat_intel_data.ts';
 
 /**
  * MITRE ATT&CK tactics and techniques for alerts
