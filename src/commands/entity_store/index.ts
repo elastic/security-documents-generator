@@ -135,12 +135,21 @@ export const entityStoreCommands: CommandModule = {
       )
       .option('--space <space>', 'Kibana space ID', 'default')
       .option('--quick', 'Run all maintainers for 10000 entities without prompts')
+      .option('--exclude-wl', 'Exclude watchlists when running with --quick', false)
       .action(
-        wrapAction(async ({ space, quick }: { space: string; quick?: boolean }) => {
+        wrapAction(async ({ space, quick, excludeWl }: { space: string; quick?: boolean; excludeWl?: boolean }) => {
           if (quick) {
+            const allMaintainers = Object.values(
+              ENTITY_MAINTAINERS_OPTIONS,
+            ) as EntityMaintainerOption[];
+            const maintainers = excludeWl
+              ? allMaintainers.filter(
+                  (maintainer) => maintainer !== ('watchlist' as EntityMaintainerOption),
+                )
+              : allMaintainers;
             await generateEntityMaintainersData({
               count: 10000,
-              maintainers: Object.values(ENTITY_MAINTAINERS_OPTIONS) as EntityMaintainerOption[],
+              maintainers,
               space,
             });
             return;
@@ -168,11 +177,11 @@ export const entityStoreCommands: CommandModule = {
                 value: ENTITY_MAINTAINERS_OPTIONS.relationships,
                 checked: true,
               },
-              {
+              /*{
                 name: 'Watchlist',
                 value: ENTITY_MAINTAINERS_OPTIONS.watchlist,
                 checked: true,
-              },
+              },*/
               {
                 name: 'Snapshot (30-day history)',
                 value: ENTITY_MAINTAINERS_OPTIONS.snapshot,
