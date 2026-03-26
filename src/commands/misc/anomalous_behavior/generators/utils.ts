@@ -23,10 +23,7 @@ const getEventModule = (): string => faker.helpers.arrayElement(EVENT_MODULES);
 // known job IDs, and leave all others unchanged so they continue to match the
 // actual installed job IDs (for example PAD/LMD/DED jobs that do not yet have
 // V2 variants).
-const JOB_IDS_WITH_EA_V2_SUFFIX = new Set<string>([
-  'security_auth',
-  'packetbeat',
-]);
+const JOB_IDS_WITH_EA_V2_SUFFIX = new Set<string>(['security_auth', 'packetbeat']);
 
 export const applyV2Fields = (record: Record<string, unknown>): Record<string, unknown> => {
   const result = { ...record };
