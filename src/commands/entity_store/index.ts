@@ -144,7 +144,7 @@ export const entityStoreCommands: CommandModule = {
             ) as EntityMaintainerOption[];
             const maintainers = excludeWl
               ? allMaintainers.filter(
-                  (maintainer) => maintainer !== ('watchlist' as EntityMaintainerOption),
+                  (maintainer) => maintainer !== ENTITY_MAINTAINERS_OPTIONS.watchlist,
                 )
               : allMaintainers;
             await generateEntityMaintainersData({
