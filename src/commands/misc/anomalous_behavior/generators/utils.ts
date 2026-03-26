@@ -19,12 +19,22 @@ const EVENT_MODULES = ['okta', 'entra_id', 'microsoft_365', 'active_directory'] 
 
 const getEventModule = (): string => faker.helpers.arrayElement(EVENT_MODULES);
 
+// Only certain jobs have V2 IDs that use the `_ea` suffix. We translate those
+// known job IDs, and leave all others unchanged so they continue to match the
+// actual installed job IDs (for example PAD/LMD/DED jobs that do not yet have
+// V2 variants).
+const JOB_IDS_WITH_EA_V2_SUFFIX = new Set<string>([
+  'security_auth',
+  'packetbeat',
+]);
+
 export const applyV2Fields = (record: Record<string, unknown>): Record<string, unknown> => {
   const result = { ...record };
   const eventModule = getEventModule();
 
-  if (typeof result['job_id'] === 'string') {
-    result['job_id'] = `${result['job_id']}_ea`;
+  const jobId = result['job_id'];
+  if (typeof jobId === 'string' && JOB_IDS_WITH_EA_V2_SUFFIX.has(jobId)) {
+    result['job_id'] = `${jobId}_ea`;
   }
 
   const userNames = result['user.name'] as string[] | undefined;
