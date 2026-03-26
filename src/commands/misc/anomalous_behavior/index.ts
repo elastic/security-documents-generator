@@ -187,6 +187,6 @@ export const generateAnomalousBehaviorDataWithMlJobs = async (
 
   if (!generateAnomalyData) {
     await generateAnomalousBehaviorRecords(recordCount, v2);
-    await waitForAllJobsToStart(v2 ? ALL_ANOMALY_JOB_IDS_V2 : ALL_ANOMALY_JOB_IDS, v2, space);
+    await waitForAllJobsToStart(v2 ? ALL_ANOMALY_JOB_IDS_V2 : ALL_ANOMALY_JOB_IDS, space);
   }
 };

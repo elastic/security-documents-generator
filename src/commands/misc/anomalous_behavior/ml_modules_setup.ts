@@ -161,11 +161,7 @@ const isJobStarted = (jobState: string, datafeedState: string): boolean => {
   return enabledStates.includes(jobState) && enabledStates.includes(datafeedState);
 };
 
-export const waitForAllJobsToStart = async (
-  jobIds: string[],
-  v2: boolean,
-  space?: string,
-): Promise<void> => {
+export const waitForAllJobsToStart = async (jobIds: string[], space?: string): Promise<void> => {
   const timeoutMs = 5 * 60 * 1000; // 5 minutes in milliseconds
   const startTime = Date.now();
 
@@ -225,7 +221,7 @@ export const waitForAllJobsToStart = async (
     {
       retries: 10,
       onFailedAttempt: (error) => {
-        log.info(JSON.stringify(error));
+        log.info(error);
         const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
         log.info(
           `[${elapsedSeconds}s] Retry attempt ${error.attemptNumber} failed. ${error.retriesLeft} retries left. Error: ${error}`,
