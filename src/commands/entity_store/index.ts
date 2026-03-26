@@ -177,11 +177,11 @@ export const entityStoreCommands: CommandModule = {
                 value: ENTITY_MAINTAINERS_OPTIONS.relationships,
                 checked: true,
               },
-              /*{
+              {
                 name: 'Watchlist',
                 value: ENTITY_MAINTAINERS_OPTIONS.watchlist,
                 checked: true,
-              },*/
+              },
               {
                 name: 'Snapshot (30-day history)',
                 value: ENTITY_MAINTAINERS_OPTIONS.snapshot,
