@@ -13,6 +13,12 @@ export const SECURITY_AUTH_JOB_IDS = [
   'auth_rare_user',
   'auth_rare_hour_for_a_user',
 ];
+export const SECURITY_AUTH_JOB_IDS_V2 = [
+  'auth_rare_source_ip_for_a_user_ea',
+  'suspicious_login_activity_ea',
+  'auth_rare_user_ea',
+  'auth_rare_hour_for_a_user_ea',
+];
 
 export const PAD_MODULE = 'pad-ml';
 export const PAD_JOB_IDS = [
@@ -28,6 +34,7 @@ export const LMD_JOB_IDS = [
 
 export const SECURITY_PACKETBEAT_MODULE = 'security_packetbeat';
 export const SECURITY_PACKETBEAT_JOB_IDS = ['packetbeat_rare_server_domain'];
+export const SECURITY_PACKETBEAT_JOB_IDS_V2 = ['packetbeat_rare_server_domain_ea'];
 
 export const DED_MODULE = 'ded-ml';
 export const DED_JOB_IDS = [
@@ -43,6 +50,14 @@ export const ALL_ANOMALY_JOB_IDS = [
   ...LMD_JOB_IDS,
   ...SECURITY_PACKETBEAT_JOB_IDS,
   ...DED_JOB_IDS,
+];
+
+export const ALL_ANOMALY_JOB_IDS_V2 = [
+  ...SECURITY_AUTH_JOB_IDS_V2,
+  ...PAD_JOB_IDS, // wait for https://github.com/elastic/integrations/pull/17626
+  ...LMD_JOB_IDS, // wait for https://github.com/elastic/integrations/pull/17626
+  ...SECURITY_PACKETBEAT_JOB_IDS_V2,
+  ...DED_JOB_IDS, // wait for https://github.com/elastic/integrations/pull/17626
 ];
 
 const DEFAULT_INDEX_PATTERN = 'ecs_compliant,auditbeat-*,winlogbeat-*';
@@ -77,6 +92,7 @@ const setupMlModulesWithRetry = (moduleId: string, indexPatternName: string, spa
 export const setupAnomalyMlModulesAndStartDatafeeds = async (
   space: string,
   generateAnomalyData: boolean,
+  v2: boolean,
 ): Promise<void> => {
   try {
     // Security Auth (built-in, no Fleet integration)
@@ -127,8 +143,9 @@ export const setupAnomalyMlModulesAndStartDatafeeds = async (
   if (!generateAnomalyData) {
     // Start all datafeeds again so any that failed earlier can be retried together
     log.info('Starting all anomaly job datafeeds');
+    const jobIds = v2 ? ALL_ANOMALY_JOB_IDS_V2 : ALL_ANOMALY_JOB_IDS;
     await forceStartDatafeeds(
-      ALL_ANOMALY_JOB_IDS.map((id) => `datafeed-${id}`),
+      jobIds.map((id) => `datafeed-${id}`),
       space,
     );
     log.info('ML modules setup and datafeeds started.');
@@ -150,6 +167,9 @@ export const waitForAllJobsToStart = async (jobIds: string[], space?: string): P
 
   log.info(`Waiting for ${jobIds.length} job(s) to start: ${jobIds.join(', ')}`);
 
+  // wait for https://github.com/elastic/integrations/pull/17626
+  // const jobIdsToUse = v2 ? jobIds.map((id) => `${id}_ea`) : jobIds;
+  const jobIdsToUse = jobIds;
   await pRetry(
     async () => {
       // Check if we've exceeded the timeout
@@ -158,7 +178,7 @@ export const waitForAllJobsToStart = async (jobIds: string[], space?: string): P
         throw new Error(`waitForAllJobsToStart exceeded timeout of ${timeoutMs}ms`);
       }
 
-      const jobs = (await getMlJobsSummary(jobIds, space)) as Array<{
+      const jobs = (await getMlJobsSummary(jobIdsToUse, space)) as Array<{
         id: string;
         jobState: string;
         datafeedState: string;
@@ -167,7 +187,7 @@ export const waitForAllJobsToStart = async (jobIds: string[], space?: string): P
       // Check if all jobs are found
       if (jobs.length !== jobIds.length) {
         const foundJobIds = jobs.map((job) => job.id);
-        const missingJobIds = jobIds.filter((id) => !foundJobIds.includes(id));
+        const missingJobIds = jobIdsToUse.filter((id) => !foundJobIds.includes(id));
         if (missingJobIds.length > 0) {
           const errorMsg = `Not all jobs found. Missing: ${missingJobIds.join(', ')}.`;
           log.warn(errorMsg);
@@ -177,7 +197,7 @@ export const waitForAllJobsToStart = async (jobIds: string[], space?: string): P
 
       // Check if all the jobs we care about are started
       const notStartedJobs = jobs.filter(
-        (job) => jobIds.includes(job.id) && !isJobStarted(job.jobState, job.datafeedState),
+        (job) => jobIdsToUse.includes(job.id) && !isJobStarted(job.jobState, job.datafeedState),
       );
       const startedCount = jobs.length - notStartedJobs.length;
 

@@ -31,6 +31,7 @@ export const miscCommands: CommandModule = {
         '--no-anomaly-data',
         'create entity data and ML modules without starting datafeeds or generating anomalous behavior records',
       )
+      .option('--v2', 'generate v2 ML anomaly data with user.id, host.id, and event.module fields')
       .description(
         'Generate vulnerabilities, misconfigurations, ML jobs, and anomalous behavior for entities.',
       )
@@ -49,6 +50,7 @@ export const miscCommands: CommandModule = {
             space,
             generateAnomalies,
             generateAnomalyData,
+            v2: options.v2 ?? false,
           });
         }),
       );

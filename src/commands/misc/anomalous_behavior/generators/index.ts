@@ -4,3 +4,4 @@ export { generateLmdRecords } from './lmd_documents.ts';
 export { generateDedRecords } from './ded_documents.ts';
 export { generatePacketbeatRecords } from './packetbeat_documents.ts';
 export { generateSourceData } from './source_documents.ts';
+export { applyV2Fields } from './utils.ts';
