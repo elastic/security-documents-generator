@@ -106,5 +106,8 @@ export const ENTITY_STORE_ENTITIES_URL = (entityType: 'user' | 'host') =>
 export const KIBANA_SETTINGS_URL = '/api/kibana/settings';
 export const KIBANA_SETTINGS_INTERNAL_URL = '/internal/kibana/settings';
 
+// Entity Store V2 (ESQL) internal API
+export const ENTITY_STORE_V2_INSTALL_URL = '/internal/security/entity_store/install';
+
 // ML module group used by Security
 export const ML_GROUP_ID = 'security';

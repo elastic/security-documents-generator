@@ -32,8 +32,15 @@ export interface UserFields {
     roles?: string[];
     name: string;
     id?: string;
-    email?: string[];
+    email?: string | string[];
     hash?: string[];
+    entity?: { id: string };
+  };
+  /** Event metadata for UEBA postAggFilter (e.g. IAM so user entities are kept after LOOKUP) */
+  event?: {
+    kind?: string;
+    category?: string;
+    type?: string;
   };
 }
 
