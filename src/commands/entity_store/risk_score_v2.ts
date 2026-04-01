@@ -501,9 +501,8 @@ const waitForMaintainerRun = async (space: string, maintainerId: string = 'risk-
   throw new Error(`Timed out waiting for maintainer "${maintainerId}" run`);
 };
 
-const applyCriticality = async (entityIds: string[], space: string) => {
+const applyCriticality = async (entityIds: string[], space: string, concurrency: number) => {
   const levels = ['low_impact', 'medium_impact', 'high_impact', 'extreme_impact'] as const;
-  const concurrency = 5;
   log.info(`Applying criticality to ${entityIds.length} entities (concurrency=${concurrency})...`);
   let processed = 0;
   for (let i = 0; i < entityIds.length; i += concurrency) {
@@ -539,10 +538,14 @@ const createWatchlistsForRun = async (space: string) => {
   ]);
 };
 
-const applyWatchlists = async (entityIds: string[], watchlistIds: string[], space: string) => {
+const applyWatchlists = async (
+  entityIds: string[],
+  watchlistIds: string[],
+  space: string,
+  concurrency: number,
+) => {
   const targetCount = Math.max(1, Math.floor(entityIds.length * 0.4));
   const selected = faker.helpers.arrayElements(entityIds, targetCount);
-  const concurrency = 5;
   log.info(
     `Applying watchlists to ${selected.length}/${entityIds.length} entities (watchlists=${watchlistIds.length}, concurrency=${concurrency})...`,
   );
@@ -611,26 +614,7 @@ const reportRiskSummary = async ({
 }) => {
   const client = getEsClient();
   const riskIndex = `risk-score.risk-score-${space}`;
-  const riskSearch = await client.search({
-    index: riskIndex,
-    size: 1000,
-    query: { match_all: {} },
-    sort: [{ '@timestamp': { order: 'desc' } }],
-  });
-
-  const docs = riskSearch.hits.hits.map((hit) => hit._source as Record<string, unknown>);
-  const watchlistModifierDocs = docs.filter((doc) => {
-    const risk = ((doc.user as Record<string, unknown>)?.risk ??
-      (doc.host as Record<string, unknown>)?.risk ??
-      {}) as Record<string, unknown>;
-    const modifiers = (risk.modifiers as Array<Record<string, unknown>> | undefined) ?? [];
-    return modifiers.some((m) => m.type === 'watchlist');
-  }).length;
-
-  const total =
-    typeof riskSearch.hits.total === 'number'
-      ? riskSearch.hits.total
-      : (riskSearch.hits.total?.value ?? docs.length);
+  const total = await getRiskScoreDocCount(space);
   const entityCount = await getEntityStoreDocCount(space);
   const riskDelta = Math.max(0, total - baselineRiskScoreCount);
   const entityDelta = Math.max(0, entityCount - baselineEntityCount);
@@ -646,7 +630,6 @@ const reportRiskSummary = async ({
       `Risk score delta lower than expected for this run (${riskDelta}/${expectedRiskDelta}). This can happen when existing score docs are updated in-place or scoring configuration limits entity types.`,
     );
   }
-  log.info(`Docs with watchlist modifiers: ${watchlistModifierDocs}`);
 
   const uniqueEntityIds = [...new Set(entityIds)];
   if (uniqueEntityIds.length === 0) {
@@ -699,8 +682,27 @@ const reportRiskSummary = async ({
         minimum_should_match: 1,
       },
     },
-    _source: ['host.name', 'host.risk', 'user.name', 'user.risk'],
+    _source: [
+      'host.name',
+      'host.risk.calculated_score_norm',
+      'host.risk.calculated_level',
+      'host.risk.modifiers',
+      'user.name',
+      'user.risk.calculated_score_norm',
+      'user.risk.calculated_level',
+      'user.risk.modifiers',
+    ],
   });
+
+  const riskDocs = riskResponse.hits.hits.map((hit) => hit._source as Record<string, unknown>);
+  const watchlistModifierDocs = riskDocs.filter((doc) => {
+    const risk = ((doc.user as Record<string, unknown>)?.risk ??
+      (doc.host as Record<string, unknown>)?.risk ??
+      {}) as Record<string, unknown>;
+    const modifiers = (risk.modifiers as Array<Record<string, unknown>> | undefined) ?? [];
+    return modifiers.some((m) => m.type === 'watchlist');
+  }).length;
+  log.info(`Docs with watchlist modifiers: ${watchlistModifierDocs}`);
 
   const riskById = new Map<string, { score: string; level: string }>();
   for (const hit of riskResponse.hits.hits) {
@@ -756,7 +758,7 @@ const reportRiskSummary = async ({
   ].join(' | ');
   const separator = `${'-'.repeat(idWidth)}-+-${'-'.repeat(scoreWidth)}-+-${'-'.repeat(levelWidth)}-+-${'-'.repeat(critWidth)}-+-${'-'.repeat(watchWidth)}`;
 
-  const maxRows = 200;
+  const maxRows = 100;
   const rowsToPrint = rows.slice(0, maxRows);
   log.info(`Risk docs matched for seeded IDs: ${riskById.size}/${rows.length}`);
   log.info(
@@ -939,6 +941,7 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   const alertsPerEntity = perf ? 50 : parseOptionInt(options.alertsPerEntity, 5);
   const offsetHours = parseOptionInt(options.offsetHours, 1);
   const eventIndex = options.eventIndex || config.eventIndex || 'logs-testlogs-default';
+  const modifierConcurrency = perf ? 20 : 5;
 
   log.info(
     `Starting risk-score-v2 in space "${space}" with seedSource=${seedSource}, kinds=${entityKinds.join(',')}, idp_users=${usersCount}, local_users=${localUsersCount}, hosts=${hostsCount}, services=${servicesCount}, alertsPerEntity=${alertsPerEntity}, eventIndex=${eventIndex}`,
@@ -1016,10 +1019,12 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   log.info(
     `Forcing log extraction for [${[...extractionTypes].join(', ')}] from ${fromDateISO} to ${toDateISO}...`,
   );
-  for (const extractionType of extractionTypes) {
-    log.info(`Requesting force log extraction for "${extractionType}"...`);
-    await forceLogExtraction(extractionType, { fromDateISO, toDateISO, space });
-  }
+  await Promise.all(
+    [...extractionTypes].map(async (extractionType) => {
+      log.info(`Requesting force log extraction for "${extractionType}"...`);
+      await forceLogExtraction(extractionType, { fromDateISO, toDateISO, space });
+    }),
+  );
   await waitForExpectedEntityIds({ space, expectedEntityIds: expectedNewEntityIds });
 
   if (options.watchlists !== false) {
@@ -1030,11 +1035,12 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
       allEntityIds,
       watchlists.map((w) => w.id),
       space,
+      modifierConcurrency,
     );
   }
 
   if (options.criticality !== false) {
-    await applyCriticality(allEntityIds, space);
+    await applyCriticality(allEntityIds, space, modifierConcurrency);
   }
 
   if (options.alerts !== false) {
