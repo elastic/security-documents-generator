@@ -466,7 +466,10 @@ function* buildAlertOpChunks({
   }
 }
 
-const waitForMaintainerRun = async (space: string, maintainerId: string = 'risk-score') => {
+const waitForMaintainerRun = async (
+  space: string,
+  maintainerId: string = 'risk-score',
+): Promise<{ runs: number; taskStatus: string; settled: boolean }> => {
   let baselineRuns: number;
   try {
     const baseline = await getEntityMaintainers(space, [maintainerId]);
@@ -498,14 +501,18 @@ const waitForMaintainerRun = async (space: string, maintainerId: string = 'risk-
           log.info(
             `Maintainer "${maintainerId}" appears settled (taskStatus=${settleMaintainer?.taskStatus ?? 'unknown'}).`,
           );
-          return maintainer.runs;
+          return {
+            runs: maintainer.runs,
+            taskStatus: settleMaintainer?.taskStatus ?? maintainer.taskStatus,
+            settled: true,
+          };
         }
         await sleep(2000);
       }
       log.warn(
         `Maintainer "${maintainerId}" still reports taskStatus=started after short settle wait; continuing with summary.`,
       );
-      return maintainer.runs;
+      return { runs: maintainer.runs, taskStatus: maintainer.taskStatus, settled: false };
     }
     const now = Date.now();
     if (now - lastHeartbeat >= 10_000) {
@@ -650,6 +657,43 @@ const formatCell = (value: string, width: number): string => {
   return `${value.slice(0, width - 3)}...`;
 };
 
+const ANSI = {
+  reset: '\x1b[0m',
+  bold: '\x1b[1m',
+  cyan: '\x1b[36m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  red: '\x1b[31m',
+} as const;
+
+const colorize = (message: string, color: keyof typeof ANSI): string => {
+  if (!process.stdout.isTTY) {
+    return message;
+  }
+  return `${ANSI.bold}${ANSI[color]}${message}${ANSI.reset}`;
+};
+
+const colorizeRiskLevel = (paddedCell: string, level: string): string => {
+  const normalized = level.trim().toLowerCase();
+  if (normalized === 'high' || normalized === 'critical') {
+    return colorize(paddedCell, 'red');
+  }
+  if (normalized === 'moderate' || normalized === 'medium') {
+    return colorize(paddedCell, 'yellow');
+  }
+  if (normalized === 'low') {
+    return colorize(paddedCell, 'green');
+  }
+  return paddedCell;
+};
+
+const formatDurationMs = (ms: number): string => {
+  if (ms < 1000) {
+    return `${ms}ms`;
+  }
+  return `${(ms / 1000).toFixed(2)}s`;
+};
+
 const normalizeWatchlists = (value: unknown): string[] => {
   if (Array.isArray(value)) {
     return value.filter((item): item is string => typeof item === 'string');
@@ -672,7 +716,7 @@ const reportRiskSummary = async ({
   baselineEntityCount: number;
   expectedRiskDelta: number;
   entityIds: string[];
-}) => {
+}): Promise<{ missingRiskDocs: number; totalEntities: number }> => {
   const client = getEsClient();
   const riskIndex = `risk-score.risk-score-${space}`;
   const total = await getRiskScoreDocCount(space);
@@ -694,7 +738,7 @@ const reportRiskSummary = async ({
 
   const uniqueEntityIds = [...new Set(entityIds)];
   if (uniqueEntityIds.length === 0) {
-    return;
+    return { missingRiskDocs: 0, totalEntities: 0 };
   }
 
   const entityIndex = `.entities.v2.latest.security_${space}`;
@@ -831,7 +875,10 @@ const reportRiskSummary = async ({
 
   const maxRows = 100;
   const rowsToPrint = rows.slice(0, maxRows);
-  log.info(`Risk docs matched for seeded IDs: ${riskById.size}/${rows.length}`);
+  // eslint-disable-next-line no-console
+  console.log(
+    colorize(`📊 Risk docs matched for seeded IDs: ${riskById.size}/${rows.length}`, 'cyan'),
+  );
   log.info(
     `Entity scorecard (${rows.length} seeded entities${rows.length > maxRows ? `, showing first ${maxRows}` : ''}):`,
   );
@@ -842,11 +889,12 @@ const reportRiskSummary = async ({
   printLine(header);
   printLine(separator);
   for (const row of rowsToPrint) {
+    const levelCell = formatCell(row.level, levelWidth);
     printLine(
       [
         formatCell(row.id, idWidth),
         formatCell(row.score, scoreWidth),
-        formatCell(row.level, levelWidth),
+        colorizeRiskLevel(levelCell, row.level),
         formatCell(row.criticality, critWidth),
         formatCell(String(row.watchlistsCount), watchWidth),
       ].join(' | '),
@@ -866,6 +914,10 @@ const reportRiskSummary = async ({
   } else {
     log.info(`All ${rows.length}/${rows.length} seeded entities have risk score docs.`);
   }
+  return {
+    missingRiskDocs: missingRiskDocIds.length,
+    totalEntities: rows.length,
+  };
 };
 
 const getRiskScoreDocCount = async (space: string): Promise<number> => {
@@ -982,6 +1034,17 @@ const waitForExpectedEntityIds = async ({
 };
 
 export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
+  const overallStartMs = Date.now();
+  const stageTimings: Array<{ stage: string; ms: number }> = [];
+  const runTimedStage = async <T>(stage: string, fn: () => Promise<T>): Promise<T> => {
+    const startMs = Date.now();
+    const result = await fn();
+    const elapsedMs = Date.now() - startMs;
+    stageTimings.push({ stage, ms: elapsedMs });
+    log.info(`Stage complete: ${stage} (${formatDurationMs(elapsedMs)})`);
+    return result;
+  };
+
   const space = await ensureSpace(options.space ?? 'default');
   const config = getConfig();
   const perf = Boolean(options.perf);
@@ -1019,9 +1082,11 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   );
 
   if (options.setup !== false) {
-    await ensureSecurityDefaultDataView(space);
-    await enableEntityStoreV2(space);
-    await installEntityStoreV2(space);
+    await runTimedStage('setup', async () => {
+      await ensureSecurityDefaultDataView(space);
+      await enableEntityStoreV2(space);
+      await installEntityStoreV2(space);
+    });
   }
 
   const baselineEntityCount = await getEntityStoreDocCount(space);
@@ -1070,16 +1135,18 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   const hostEvents = buildHostEvents(hosts, offsetHours);
   const localUserEvents = buildLocalUserEvents(localUsers, offsetHours);
   const serviceEvents = buildServiceEvents(services, offsetHours);
-  const sourceIngestAction = await ensureEventTarget(eventIndex);
-  log.info(
-    `Ingesting ${userEvents.length + hostEvents.length + localUserEvents.length + serviceEvents.length} source events into "${eventIndex}" (bulk action=${sourceIngestAction})...`,
-  );
-  await bulkIngest({
-    index: eventIndex,
-    documents: [...userEvents, ...hostEvents, ...localUserEvents, ...serviceEvents],
-    action: sourceIngestAction,
+  await runTimedStage('source_ingest', async () => {
+    const sourceIngestAction = await ensureEventTarget(eventIndex);
+    log.info(
+      `Ingesting ${userEvents.length + hostEvents.length + localUserEvents.length + serviceEvents.length} source events into "${eventIndex}" (bulk action=${sourceIngestAction})...`,
+    );
+    await bulkIngest({
+      index: eventIndex,
+      documents: [...userEvents, ...hostEvents, ...localUserEvents, ...serviceEvents],
+      action: sourceIngestAction,
+    });
+    log.info('Source event ingest complete.');
   });
-  log.info('Source event ingest complete.');
 
   const fromDateISO = new Date(Date.now() - (offsetHours + 4) * 60 * 60 * 1000).toISOString();
   const toDateISO = new Date(Date.now() + 5 * 60 * 1000).toISOString();
@@ -1088,16 +1155,18 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
     extractionTypes.add('user');
   if (entityKinds.includes('host')) extractionTypes.add('host');
   if (entityKinds.includes('service')) extractionTypes.add('service');
-  log.info(
-    `Forcing log extraction for [${[...extractionTypes].join(', ')}] from ${fromDateISO} to ${toDateISO}...`,
-  );
-  await Promise.all(
-    [...extractionTypes].map(async (extractionType) => {
-      log.info(`Requesting force log extraction for "${extractionType}"...`);
-      await forceLogExtraction(extractionType, { fromDateISO, toDateISO, space });
-    }),
-  );
-  await waitForExpectedEntityIds({ space, expectedEntityIds: expectedNewEntityIds });
+  await runTimedStage('extract_entities', async () => {
+    log.info(
+      `Forcing log extraction for [${[...extractionTypes].join(', ')}] from ${fromDateISO} to ${toDateISO}...`,
+    );
+    await Promise.all(
+      [...extractionTypes].map(async (extractionType) => {
+        log.info(`Requesting force log extraction for "${extractionType}"...`);
+        await forceLogExtraction(extractionType, { fromDateISO, toDateISO, space });
+      }),
+    );
+    await waitForExpectedEntityIds({ space, expectedEntityIds: expectedNewEntityIds });
+  });
 
   let watchlistIds: string[] = [];
   if (options.watchlists !== false) {
@@ -1108,60 +1177,95 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   }
 
   if (options.watchlists !== false || options.criticality !== false) {
-    const modifierEntityIds = allEntityIds.filter(
-      (entityId) => toModifierEntityType(entityId) !== null,
-    );
-    const assignments = buildEntityModifierAssignments({
-      entityIds: modifierEntityIds,
-      watchlistIds,
-      applyCriticality: options.criticality !== false,
-    });
-    await applyEntityModifiers({
-      assignments,
-      totalEntities: allEntityIds.length,
-      space,
-      batchSize: modifierBulkBatchSize,
+    await runTimedStage('apply_modifiers', async () => {
+      const modifierEntityIds = allEntityIds.filter(
+        (entityId) => toModifierEntityType(entityId) !== null,
+      );
+      const assignments = buildEntityModifierAssignments({
+        entityIds: modifierEntityIds,
+        watchlistIds,
+        applyCriticality: options.criticality !== false,
+      });
+      await applyEntityModifiers({
+        assignments,
+        totalEntities: allEntityIds.length,
+        space,
+        batchSize: modifierBulkBatchSize,
+      });
     });
   }
 
   if (options.alerts !== false) {
-    log.info('Generating and indexing alerts for seeded entities...');
-    const totalAlerts =
-      (users.length + localUsers.length + hosts.length + services.length) * alertsPerEntity;
-    const maxOperationsPerChunk = 5000 * 2;
-    const totalOperations = totalAlerts * 2;
-    const totalChunks =
-      totalOperations > 0 ? Math.ceil(totalOperations / maxOperationsPerChunk) : 0;
-    log.info(
-      `Alert bulk indexing: total_operations=${totalOperations}, chunk_size=${maxOperationsPerChunk}, chunks=${totalChunks}`,
-    );
-    let chunkIndex = 0;
-    for (const chunkOps of buildAlertOpChunks({
-      idpUsers: users,
-      localUsers,
-      hosts,
-      services,
-      alertsPerEntity,
-      space,
-      maxOperationsPerChunk,
-    })) {
-      chunkIndex += 1;
-      await bulkUpsert({ documents: chunkOps });
-      log.info(`Alert bulk indexing progress: chunk ${chunkIndex}/${totalChunks}`);
-    }
-    log.info('Alert indexing stage complete.');
+    await runTimedStage('index_alerts', async () => {
+      log.info('Generating and indexing alerts for seeded entities...');
+      const totalAlerts =
+        (users.length + localUsers.length + hosts.length + services.length) * alertsPerEntity;
+      const maxOperationsPerChunk = 5000 * 2;
+      const totalOperations = totalAlerts * 2;
+      const totalChunks =
+        totalOperations > 0 ? Math.ceil(totalOperations / maxOperationsPerChunk) : 0;
+      log.info(
+        `Alert bulk indexing: total_operations=${totalOperations}, chunk_size=${maxOperationsPerChunk}, chunks=${totalChunks}`,
+      );
+      let chunkIndex = 0;
+      for (const chunkOps of buildAlertOpChunks({
+        idpUsers: users,
+        localUsers,
+        hosts,
+        services,
+        alertsPerEntity,
+        space,
+        maxOperationsPerChunk,
+      })) {
+        chunkIndex += 1;
+        await bulkUpsert({ documents: chunkOps });
+        log.info(`Alert bulk indexing progress: chunk ${chunkIndex}/${totalChunks}`);
+      }
+      log.info('Alert indexing stage complete.');
+    });
   }
 
-  await initEntityMaintainers(space);
-  await waitForMaintainerRun(space, 'risk-score');
+  const maintainerOutcome = await runTimedStage('run_maintainer', async () => {
+    await initEntityMaintainers(space);
+    return waitForMaintainerRun(space, 'risk-score');
+  });
+  log.info(
+    `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
+  );
   log.info(
     'Maintainer run requested once. Collecting risk summary directly (without strict risk-score count gating).',
   );
-  await reportRiskSummary({
-    space,
-    baselineRiskScoreCount,
-    baselineEntityCount,
-    expectedRiskDelta: Math.max(1, expectedNewEntityIds.length),
-    entityIds: allEntityIds,
-  });
+  const summary = await runTimedStage('report_summary', async () =>
+    reportRiskSummary({
+      space,
+      baselineRiskScoreCount,
+      baselineEntityCount,
+      expectedRiskDelta: Math.max(1, expectedNewEntityIds.length),
+      entityIds: allEntityIds,
+    }),
+  );
+  if (summary.totalEntities > 0 && summary.missingRiskDocs === 0) {
+    // eslint-disable-next-line no-console
+    console.log(
+      colorize(
+        `✅ PASS: Risk docs present for all ${summary.totalEntities} seeded entities.`,
+        'green',
+      ),
+    );
+  } else {
+    // eslint-disable-next-line no-console
+    console.log(
+      colorize(
+        `⚠️ WARN: Missing risk docs for ${summary.missingRiskDocs}/${summary.totalEntities} seeded entities.`,
+        'yellow',
+      ),
+    );
+  }
+  if (stageTimings.length > 0) {
+    log.info(
+      `Stage timings: ${stageTimings.map((timing) => `${timing.stage}=${formatDurationMs(timing.ms)}`).join(', ')}`,
+    );
+  }
+  const totalRuntimeMs = Date.now() - overallStartMs;
+  log.info(`Total runtime: ${formatDurationMs(totalRuntimeMs)}.`);
 };
