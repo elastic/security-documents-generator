@@ -17,6 +17,7 @@ import {
   promptForTextInput,
 } from '../utils/interactive_prompts.ts';
 import { ensureSpace } from '../../utils/index.ts';
+import { riskScoreV2Command } from './risk_score_v2.ts';
 
 export const entityStoreCommands: CommandModule = {
   register(program: Command) {
@@ -204,6 +205,41 @@ export const entityStoreCommands: CommandModule = {
             maintainers: selectedMaintainers,
             space,
           });
+        }),
+      );
+
+    program
+      .command('risk-score-v2')
+      .description('End-to-end Entity Store V2 risk score test command')
+      .option(
+        '--entity-kinds <kinds>',
+        'comma-separated kinds: host,idp_user,local_user,service (default: host,idp_user)',
+      )
+      .option('--users <n>', 'number of user entities (default 10)')
+      .option('--hosts <n>', 'number of host entities (default 10)')
+      .option('--local-users <n>', 'number of local user entities when local_user kind is enabled')
+      .option('--services <n>', 'number of service entities when service kind is enabled')
+      .option('--alerts-per-entity <n>', 'number of alerts per entity (default 5)')
+      .option('--space <space>', 'space to use', 'default')
+      .option('--event-index <index>', 'event index to ingest source documents into')
+      .option('--seed-source <source>', 'entity seed source: basic|org (default basic)')
+      .option(
+        '--org-size <size>',
+        'org size when --seed-source org: john_doe|small|medium|enterprise (default small)',
+      )
+      .option(
+        '--org-productivity-suite <suite>',
+        'productivity suite when --seed-source org: microsoft|google (default microsoft)',
+      )
+      .option('--offset-hours <n>', 'event timestamp offset in hours (default 1)')
+      .option('--perf', 'scale preset: 1000 users, 1000 hosts, 50 alerts each', false)
+      .option('--no-setup', 'skip entity store V2 setup')
+      .option('--no-criticality', 'skip asset criticality assignment')
+      .option('--no-watchlists', 'skip watchlist creation and assignment')
+      .option('--no-alerts', 'skip alert generation')
+      .action(
+        wrapAction(async (options) => {
+          await riskScoreV2Command(options);
         }),
       );
   },

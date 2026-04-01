@@ -108,6 +108,16 @@ export const KIBANA_SETTINGS_INTERNAL_URL = '/internal/kibana/settings';
 
 // Entity Store V2 (ESQL) internal API
 export const ENTITY_STORE_V2_INSTALL_URL = '/internal/security/entity_store/install';
+export const ENTITY_STORE_V2_FORCE_LOG_EXTRACTION_URL = (entityType: 'user' | 'host' | 'service') =>
+  `/internal/security/entity_store/${entityType}/force_log_extraction`;
+export const ENTITY_STORE_V2_CRUD_URL = (entityType: 'user' | 'host') =>
+  `/internal/security/entity_store/entities/${entityType}`;
+export const ENTITY_MAINTAINERS_INIT_URL =
+  '/internal/security/entity_store/entity_maintainers/init';
+export const ENTITY_MAINTAINERS_URL = '/internal/security/entity_store/entity_maintainers';
+export const ENTITY_MAINTAINERS_RUN_URL = (id: string) =>
+  `/internal/security/entity_store/entity_maintainers/run/${id}`;
+export const WATCHLISTS_URL = '/api/entity_analytics/watchlists';
 
 // ML module group used by Security
 export const ML_GROUP_ID = 'security';

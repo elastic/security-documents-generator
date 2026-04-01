@@ -17,7 +17,35 @@ export const logBulkErrors = (result: BulkResponse, context: string): void => {
   if (!result.errors) {
     return;
   }
-  const failedItems = result.items?.filter((item) => 'error' in item && item.error);
+  const failedItems =
+    result.items
+      ?.map((item) => {
+        const op = Object.keys(item)[0] as keyof typeof item;
+        const opResult = item[op] as
+          | {
+              _index?: string;
+              status?: number;
+              error?: { type?: string; reason?: string; caused_by?: { reason?: string } };
+            }
+          | undefined;
+        if (!opResult?.error) {
+          return null;
+        }
+        return {
+          operation: op,
+          index: opResult._index,
+          status: opResult.status,
+          type: opResult.error.type,
+          reason: opResult.error.reason,
+          cause: opResult.error.caused_by?.reason,
+        };
+      })
+      .filter(Boolean) ?? [];
+
+  if (failedItems.length === 0) {
+    log.warn(`${context} Bulk response had errors=true, but no item-level errors were parsed.`);
+    return;
+  }
   log.error(context, failedItems);
 };
 

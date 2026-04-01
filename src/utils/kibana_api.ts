@@ -4,6 +4,7 @@ import { log } from './logger.ts';
 import { faker } from '@faker-js/faker';
 import fs from 'fs';
 import FormData from 'form-data';
+import { Client } from '@elastic/elasticsearch';
 import {
   RISK_SCORE_SCORES_URL,
   RISK_SCORE_ENGINE_INIT_URL,
@@ -25,6 +26,12 @@ import {
   KIBANA_SETTINGS_INTERNAL_URL,
   ENTITY_STORE_ENTITIES_URL,
   ENTITY_STORE_V2_INSTALL_URL,
+  ENTITY_STORE_V2_FORCE_LOG_EXTRACTION_URL,
+  ENTITY_MAINTAINERS_INIT_URL,
+  ENTITY_MAINTAINERS_URL,
+  ENTITY_MAINTAINERS_RUN_URL,
+  WATCHLISTS_URL,
+  ENTITY_STORE_V2_CRUD_URL,
   ML_GROUP_ID,
 } from '../constants.ts';
 
@@ -33,6 +40,7 @@ const ENTITY_STORE_V2_POLL_TIMEOUT_MS = 60_000;
 const ENTITY_STORE_V2_POLL_INTERVAL_MS = 5_000;
 
 let insecureDispatcher: Agent | undefined;
+let elasticClient: Client | undefined;
 
 const getDispatcher = () => {
   const config = getConfig();
@@ -43,6 +51,27 @@ const getDispatcher = () => {
     return insecureDispatcher;
   }
   return undefined;
+};
+
+const getElasticClient = () => {
+  if (elasticClient) {
+    return elasticClient;
+  }
+
+  const config = getConfig();
+  elasticClient = new Client({
+    node: config.elastic.node,
+    auth:
+      'apiKey' in config.elastic
+        ? { apiKey: config.elastic.apiKey }
+        : {
+            username: config.elastic.username,
+            password: config.elastic.password,
+          },
+    ...(config.allowSelfSignedCerts && { tls: { rejectUnauthorized: false } }),
+  });
+
+  return elasticClient;
 };
 
 const joinUrl = (...parts: string[]) =>
@@ -56,6 +85,7 @@ export const buildKibanaUrl = (opts: { path: string; space?: string }) => {
 };
 
 type ResponseError = Error & { statusCode: number; responseData: unknown };
+type ErrorWithCause = Error & { cause?: unknown };
 
 const getAuthorizationHeader = () => {
   const config = getConfig();
@@ -75,6 +105,27 @@ const throwResponseError = (message: string, statusCode: number, response: unkno
   throw error;
 };
 
+const formatCauseDetails = (error: unknown): string => {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+
+  const details: string[] = [error.message];
+  const causeRecord = error as ErrorWithCause & {
+    code?: string;
+    errno?: number | string;
+    address?: string;
+    port?: number;
+  };
+
+  if (causeRecord.code) details.push(`code=${causeRecord.code}`);
+  if (causeRecord.errno !== undefined) details.push(`errno=${String(causeRecord.errno)}`);
+  if (causeRecord.address) details.push(`address=${causeRecord.address}`);
+  if (causeRecord.port !== undefined) details.push(`port=${String(causeRecord.port)}`);
+
+  return details.join(', ');
+};
+
 export const kibanaFetch = async <T>(
   path: string,
   params: object,
@@ -86,6 +137,7 @@ export const kibanaFetch = async <T>(
 ): Promise<T> => {
   const { ignoreStatuses, apiVersion = '1', space } = opts;
   const url = buildKibanaUrl({ path, space });
+  const method = ((params as { method?: string }).method ?? 'GET').toUpperCase();
   const ignoreStatusesArray = Array.isArray(ignoreStatuses) ? ignoreStatuses : [ignoreStatuses];
   const headers = new Headers();
   headers.append('Content-Type', 'application/json');
@@ -94,11 +146,18 @@ export const kibanaFetch = async <T>(
 
   headers.set('x-elastic-internal-origin', 'kibana');
   headers.set('elastic-api-version', apiVersion);
-  const result = await fetch(url, {
-    headers: headers,
-    ...params,
-    dispatcher: getDispatcher(),
-  } as RequestInit);
+  let result: Response;
+  try {
+    result = await fetch(url, {
+      headers: headers,
+      ...params,
+      dispatcher: getDispatcher(),
+    } as RequestInit);
+  } catch (error) {
+    const details = formatCauseDetails(error);
+    const message = `Network request failed for ${method} ${url}. Details: ${details}. Check Kibana URL, credentials, and whether Kibana is running.`;
+    throw new Error(message, { cause: error });
+  }
   const rawResponse = await result.text();
   // log response status
   let data: unknown;
@@ -108,12 +167,14 @@ export const kibanaFetch = async <T>(
     data = { message: rawResponse };
   }
   if (!data || typeof data !== 'object') {
-    throw new Error();
+    throw new Error(
+      `Unexpected non-object response from ${method} ${url}. Raw response: ${rawResponse.slice(0, 500)}`,
+    );
   }
 
   if (result.status >= 400 && !ignoreStatusesArray.includes(result.status)) {
     throwResponseError(
-      `Failed to fetch data from ${url}, status: ${result.status}`,
+      `Request failed for ${method} ${url}, status: ${result.status}`,
       result.status,
       data,
     );
@@ -674,6 +735,327 @@ export const installEntityStoreV2 = async (space: string = 'default'): Promise<v
 
   await kibanaFetch(installPath, { method: 'POST', body: JSON.stringify({}) }, { apiVersion: '2' });
   log.info('Entity Store V2 installed successfully');
+};
+
+export const forceLogExtraction = async (
+  entityType: 'user' | 'host' | 'service',
+  {
+    fromDateISO,
+    toDateISO,
+    space = 'default',
+  }: { fromDateISO: string; toDateISO: string; space?: string },
+) => {
+  const spacePath = getEntityStoreV2SpacePath(space);
+  const path = `${spacePath}${ENTITY_STORE_V2_FORCE_LOG_EXTRACTION_URL(entityType)}`;
+  return kibanaFetch(
+    path,
+    {
+      method: 'POST',
+      body: JSON.stringify({ fromDateISO, toDateISO }),
+    },
+    { apiVersion: '2' },
+  );
+};
+
+export const initEntityMaintainers = async (space: string = 'default') => {
+  const spacePath = getEntityStoreV2SpacePath(space);
+  const path = `${spacePath}${ENTITY_MAINTAINERS_INIT_URL}?apiVersion=2`;
+  return kibanaFetch(
+    path,
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    },
+    { apiVersion: '2' },
+  );
+};
+
+export interface EntityMaintainerStatus {
+  id: string;
+  runs: number;
+  taskStatus: string;
+}
+
+export const getEntityMaintainers = async (space: string = 'default', ids?: string[]) => {
+  const spacePath = getEntityStoreV2SpacePath(space);
+  const query = new URLSearchParams();
+  query.set('apiVersion', '2');
+  if (ids && ids.length > 0) {
+    query.set('ids', ids.join(','));
+  }
+  const path = `${spacePath}${ENTITY_MAINTAINERS_URL}?${query.toString()}`;
+
+  return kibanaFetch<{ maintainers: EntityMaintainerStatus[] }>(
+    path,
+    { method: 'GET' },
+    { apiVersion: '2' },
+  );
+};
+
+export const runEntityMaintainer = async (maintainerId: string, space: string = 'default') => {
+  const spacePath = getEntityStoreV2SpacePath(space);
+  const path = `${spacePath}${ENTITY_MAINTAINERS_RUN_URL(maintainerId)}?apiVersion=2`;
+  return kibanaFetch(
+    path,
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    },
+    { apiVersion: '2' },
+  );
+};
+
+export const waitForEntityStoreEntities = async ({
+  expectedCount,
+  space = 'default',
+  timeoutMs = 120000,
+}: {
+  expectedCount: number;
+  space?: string;
+  timeoutMs?: number;
+}) => {
+  const index = `.entities.v2.latest.security_${space}`;
+  const deadline = Date.now() + timeoutMs;
+  const client = getElasticClient();
+  let lastTotal = -1;
+  let lastHost = -1;
+  let lastIdentity = -1;
+  let lastIdentityIdp = -1;
+  let lastIdentityLocal = -1;
+  let lastService = -1;
+
+  while (Date.now() < deadline) {
+    try {
+      const response = await client.search({
+        index,
+        size: 0,
+        query: { match_all: {} },
+        aggs: {
+          entity_types: {
+            terms: {
+              field: 'entity.type',
+              size: 10,
+            },
+          },
+          identity_split: {
+            filters: {
+              filters: {
+                idp: {
+                  bool: {
+                    filter: [{ term: { 'entity.type': 'Identity' } }],
+                    must_not: [{ wildcard: { 'entity.id': '*@local' } }],
+                  },
+                },
+                local: {
+                  bool: {
+                    filter: [
+                      { term: { 'entity.type': 'Identity' } },
+                      { wildcard: { 'entity.id': '*@local' } },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const total =
+        typeof response.hits.total === 'number'
+          ? response.hits.total
+          : (response.hits.total?.value ?? 0);
+      const buckets =
+        (
+          response.aggregations as
+            | { entity_types?: { buckets?: Array<{ key: string; doc_count: number }> } }
+            | undefined
+        )?.entity_types?.buckets ?? [];
+      const hostCount = buckets.find((b) => b.key === 'Host')?.doc_count ?? 0;
+      const identityCount = buckets.find((b) => b.key === 'Identity')?.doc_count ?? 0;
+      const serviceCount = buckets.find((b) => b.key === 'Service')?.doc_count ?? 0;
+      const identityBuckets = (
+        response.aggregations as
+          | {
+              identity_split?: {
+                buckets?: {
+                  idp?: { doc_count?: number };
+                  local?: { doc_count?: number };
+                };
+              };
+            }
+          | undefined
+      )?.identity_split?.buckets;
+      const identityIdpCount = identityBuckets?.idp?.doc_count ?? 0;
+      const identityLocalCount = identityBuckets?.local?.doc_count ?? 0;
+
+      if (
+        total !== lastTotal ||
+        hostCount !== lastHost ||
+        identityCount !== lastIdentity ||
+        identityIdpCount !== lastIdentityIdp ||
+        identityLocalCount !== lastIdentityLocal ||
+        serviceCount !== lastService
+      ) {
+        log.info(
+          `Entity store progress (${index}): total=${total}, Host=${hostCount}, Identity=${identityCount} (idp=${identityIdpCount}, local=${identityLocalCount}), Service=${serviceCount}, expected>=${expectedCount}`,
+        );
+        lastTotal = total;
+        lastHost = hostCount;
+        lastIdentity = identityCount;
+        lastIdentityIdp = identityIdpCount;
+        lastIdentityLocal = identityLocalCount;
+        lastService = serviceCount;
+      }
+
+      if (total >= expectedCount) {
+        return total;
+      }
+    } catch (error) {
+      log.info(
+        `Entity store progress (${index}): waiting for index/aggregation to be available (${String(error)})`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
+
+  let finalDetails = '';
+  try {
+    const finalResponse = await client.search({
+      index,
+      size: 0,
+      query: { match_all: {} },
+      aggs: {
+        entity_types: {
+          terms: {
+            field: 'entity.type',
+            size: 10,
+          },
+        },
+        identity_split: {
+          filters: {
+            filters: {
+              idp: {
+                bool: {
+                  filter: [{ term: { 'entity.type': 'Identity' } }],
+                  must_not: [{ wildcard: { 'entity.id': '*@local' } }],
+                },
+              },
+              local: {
+                bool: {
+                  filter: [
+                    { term: { 'entity.type': 'Identity' } },
+                    { wildcard: { 'entity.id': '*@local' } },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    const finalTotal =
+      typeof finalResponse.hits.total === 'number'
+        ? finalResponse.hits.total
+        : (finalResponse.hits.total?.value ?? 0);
+    const buckets =
+      (
+        finalResponse.aggregations as
+          | { entity_types?: { buckets?: Array<{ key: string; doc_count: number }> } }
+          | undefined
+      )?.entity_types?.buckets ?? [];
+    const hostCount = buckets.find((b) => b.key === 'Host')?.doc_count ?? 0;
+    const identityCount = buckets.find((b) => b.key === 'Identity')?.doc_count ?? 0;
+    const serviceCount = buckets.find((b) => b.key === 'Service')?.doc_count ?? 0;
+    const identityBuckets = (
+      finalResponse.aggregations as
+        | {
+            identity_split?: {
+              buckets?: {
+                idp?: { doc_count?: number };
+                local?: { doc_count?: number };
+              };
+            };
+          }
+        | undefined
+    )?.identity_split?.buckets;
+    const identityIdpCount = identityBuckets?.idp?.doc_count ?? 0;
+    const identityLocalCount = identityBuckets?.local?.doc_count ?? 0;
+    finalDetails = ` Final counts: total=${finalTotal}, Host=${hostCount}, Identity=${identityCount} (idp=${identityIdpCount}, local=${identityLocalCount}), Service=${serviceCount}.`;
+  } catch {
+    // no-op; keep base error
+  }
+
+  throw new Error(
+    `Timed out waiting for entity store entities in ${index}. Expected >= ${expectedCount}.${finalDetails} Check that user/host source events are extractable and entity engines are healthy.`,
+  );
+};
+
+export const waitForRiskScores = async ({
+  expectedCount,
+  space = 'default',
+  timeoutMs = 120000,
+}: {
+  expectedCount: number;
+  space?: string;
+  timeoutMs?: number;
+}) => {
+  const index = `risk-score.risk-score-${space}`;
+  const deadline = Date.now() + timeoutMs;
+  const client = getElasticClient();
+
+  while (Date.now() < deadline) {
+    try {
+      const response = await client.count({ index });
+      if (response.count >= expectedCount) {
+        return response.count;
+      }
+    } catch {
+      // keep polling while backing resources initialize
+    }
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
+
+  throw new Error(`Timed out waiting for risk scores in ${index}`);
+};
+
+export const createWatchlist = async ({
+  name,
+  riskModifier,
+  space = 'default',
+}: {
+  name: string;
+  riskModifier: number;
+  space?: string;
+}) => {
+  return kibanaFetch<{ id: string; name: string }>(
+    WATCHLISTS_URL,
+    {
+      method: 'POST',
+      body: JSON.stringify({ name, riskModifier }),
+    },
+    { apiVersion: API_VERSIONS.public.v1, space },
+  );
+};
+
+export const forceUpdateEntityViaCrud = async ({
+  entityType,
+  body,
+  space = 'default',
+}: {
+  entityType: 'user' | 'host';
+  body: Record<string, unknown>;
+  space?: string;
+}) => {
+  const spacePath = getEntityStoreV2SpacePath(space);
+  const path = `${spacePath}${ENTITY_STORE_V2_CRUD_URL(entityType)}?apiVersion=2&force=true`;
+  return kibanaFetch(
+    path,
+    {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    },
+    { apiVersion: '2' },
+  );
 };
 
 /**
