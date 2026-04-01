@@ -108,6 +108,18 @@ const printGraphSummaryViews = ({
   graph: RelationshipGraphState;
   maxRows?: number;
 }) => {
+  const token = (text: string, color: 'green' | 'yellow' | 'cyan') => {
+    if (!process.stdout.isTTY) return text;
+    const code = color === 'green' ? '\x1b[32m' : color === 'yellow' ? '\x1b[33m' : '\x1b[36m';
+    return `${code}${text}\x1b[0m`;
+  };
+  const resolutionLabel = token('resolution', 'yellow');
+  const ownsLabel = token('owns', 'green');
+  const leftArrow = token('<-', 'yellow');
+  const rightArrow = token('->', 'green');
+  const contributesArrow = token('<=', 'cyan');
+  const plusToken = token('+', 'cyan');
+
   // eslint-disable-next-line no-console
   console.log(colorize('🕸️ Relationships only', 'cyan'));
   if (graph.resolutionGroups.length === 0) {
@@ -118,7 +130,9 @@ const printGraphSummaryViews = ({
     console.log(`  resolution groups: ${graph.resolutionGroups.length}`);
     for (const [index, group] of graph.resolutionGroups.slice(0, maxRows).entries()) {
       // eslint-disable-next-line no-console
-      console.log(`    [${index + 1}] ${group.targetId} <- ${summarizeList(group.aliasIds, 4)}`);
+      console.log(
+        `    [${index + 1}] ${group.targetId} ${leftArrow} ${summarizeList(group.aliasIds, 4)}`,
+      );
     }
     if (graph.resolutionGroups.length > maxRows) {
       // eslint-disable-next-line no-console
@@ -136,7 +150,7 @@ const printGraphSummaryViews = ({
     console.log(`  ownership edges: ${graph.ownershipEdges.length}`);
     for (const [index, edge] of graph.ownershipEdges.slice(0, maxRows).entries()) {
       // eslint-disable-next-line no-console
-      console.log(`    [${index + 1}] ${edge.sourceId} -> ${edge.targetId}`);
+      console.log(`    [${index + 1}] ${edge.sourceId} ${rightArrow} ${edge.targetId}`);
     }
     if (graph.ownershipEdges.length > maxRows) {
       // eslint-disable-next-line no-console
@@ -169,7 +183,12 @@ const printGraphSummaryViews = ({
         .filter((edge) => edge.targetId === targetId)
         .map((edge) => edge.sourceId);
       // eslint-disable-next-line no-console
-      console.log(`    ${targetId} <= owns(${summarizeList([...new Set(contributors)], 4)})`);
+      console.log(
+        `    ${targetId} ${contributesArrow} ${ownsLabel}(${summarizeList(
+          [...new Set(contributors)],
+          4,
+        )})`,
+      );
     }
     return;
   }
@@ -186,7 +205,7 @@ const printGraphSummaryViews = ({
     ];
     // eslint-disable-next-line no-console
     console.log(
-      `    [${index + 1}] ${targetId} <= resolution(${aliases.length} aliases: ${summarizeList(aliases, 3)}) + owns(${ownershipContributors.length}: ${summarizeList(ownershipContributors, 3)})`,
+      `    [${index + 1}] ${targetId} ${contributesArrow} ${resolutionLabel}(${aliases.length} aliases: ${summarizeList(aliases, 3)}) ${plusToken} ${ownsLabel}(${ownershipContributors.length}: ${summarizeList(ownershipContributors, 3)})`,
     );
   }
   if (groupTargets.length > maxRows) {
