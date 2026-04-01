@@ -501,34 +501,6 @@ const waitForMaintainerRun = async (space: string, maintainerId: string = 'risk-
   throw new Error(`Timed out waiting for maintainer "${maintainerId}" run`);
 };
 
-const applyCriticality = async (entityIds: string[], space: string, concurrency: number) => {
-  const levels = ['low_impact', 'medium_impact', 'high_impact', 'extreme_impact'] as const;
-  log.info(`Applying criticality to ${entityIds.length} entities (concurrency=${concurrency})...`);
-  let processed = 0;
-  for (let i = 0; i < entityIds.length; i += concurrency) {
-    const batch = entityIds.slice(i, i + concurrency);
-    await Promise.all(
-      batch.map(async (entityId) => {
-        const entityType = entityId.startsWith('user:') ? 'user' : 'host';
-        const criticality = faker.helpers.arrayElement(levels);
-        await forceUpdateEntityViaCrud({
-          entityType,
-          space,
-          body: {
-            entity: { id: entityId },
-            asset: { criticality },
-          },
-        });
-      }),
-    );
-    processed += batch.length;
-    if (processed % 10 === 0 || processed === entityIds.length) {
-      log.info(`Criticality progress: ${processed}/${entityIds.length}`);
-    }
-  }
-  log.info('Criticality assignment complete.');
-};
-
 const createWatchlistsForRun = async (space: string) => {
   const suffix = Date.now();
   return Promise.all([
@@ -538,48 +510,100 @@ const createWatchlistsForRun = async (space: string) => {
   ]);
 };
 
-const applyWatchlists = async (
-  entityIds: string[],
-  watchlistIds: string[],
-  space: string,
-  concurrency: number,
-) => {
-  const targetCount = Math.max(1, Math.floor(entityIds.length * 0.4));
-  const selected = faker.helpers.arrayElements(entityIds, targetCount);
+const CRITICALITY_LEVELS = [
+  'low_impact',
+  'medium_impact',
+  'high_impact',
+  'extreme_impact',
+] as const;
+type CriticalityLevel = (typeof CRITICALITY_LEVELS)[number];
+type EntityModifierAssignment = { criticality?: CriticalityLevel; watchlists?: string[] };
+
+const buildEntityModifierAssignments = ({
+  entityIds,
+  watchlistIds,
+  applyCriticality: applyCriticalityFlag,
+}: {
+  entityIds: string[];
+  watchlistIds: string[];
+  applyCriticality: boolean;
+}): Map<string, EntityModifierAssignment> => {
+  const assignments = new Map<string, EntityModifierAssignment>();
+  if (applyCriticalityFlag) {
+    for (const entityId of entityIds) {
+      assignments.set(entityId, {
+        criticality: faker.helpers.arrayElement(CRITICALITY_LEVELS),
+      });
+    }
+  }
+
+  if (watchlistIds.length > 0) {
+    const targetCount = Math.max(1, Math.floor(entityIds.length * 0.4));
+    const selected = faker.helpers.arrayElements(entityIds, targetCount);
+    for (const entityId of selected) {
+      const memberships = faker.helpers.arrayElements(
+        watchlistIds,
+        faker.number.int({ min: 1, max: 2 }),
+      );
+      assignments.set(entityId, {
+        ...(assignments.get(entityId) ?? {}),
+        watchlists: memberships,
+      });
+    }
+  }
+
+  return assignments;
+};
+
+const applyEntityModifiers = async ({
+  assignments,
+  totalEntities,
+  space,
+  concurrency,
+}: {
+  assignments: Map<string, EntityModifierAssignment>;
+  totalEntities: number;
+  space: string;
+  concurrency: number;
+}) => {
+  if (assignments.size === 0) {
+    return;
+  }
+
+  const entries = [...assignments.entries()];
+  const withCriticality = entries.filter(([, assignment]) => assignment.criticality).length;
+  const withWatchlists = entries.filter(([, assignment]) => assignment.watchlists?.length).length;
   log.info(
-    `Applying watchlists to ${selected.length}/${entityIds.length} entities (watchlists=${watchlistIds.length}, concurrency=${concurrency})...`,
+    `Applying entity modifiers to ${entries.length}/${totalEntities} entities (criticality=${withCriticality}, watchlists=${withWatchlists}, concurrency=${concurrency})...`,
   );
 
   let processed = 0;
-  for (let i = 0; i < selected.length; i += concurrency) {
-    const batch = selected.slice(i, i + concurrency);
+  for (let i = 0; i < entries.length; i += concurrency) {
+    const batch = entries.slice(i, i + concurrency);
     await Promise.all(
-      batch.map(async (entityId) => {
+      batch.map(async ([entityId, assignment]) => {
         const entityType = entityId.startsWith('user:') ? 'user' : 'host';
-        const memberships = faker.helpers.arrayElements(
-          watchlistIds,
-          faker.number.int({ min: 1, max: 2 }),
-        );
         await forceUpdateEntityViaCrud({
           entityType,
           space,
           body: {
             entity: {
               id: entityId,
-              attributes: {
-                watchlists: memberships,
-              },
+              ...(assignment.watchlists
+                ? { attributes: { watchlists: assignment.watchlists } }
+                : {}),
             },
+            ...(assignment.criticality ? { asset: { criticality: assignment.criticality } } : {}),
           },
         });
       }),
     );
     processed += batch.length;
-    if (processed % 10 === 0 || processed === selected.length) {
-      log.info(`Watchlist progress: ${processed}/${selected.length}`);
+    if (processed % 10 === 0 || processed === entries.length) {
+      log.info(`Modifier update progress: ${processed}/${entries.length}`);
     }
   }
-  log.info('Watchlist assignment complete.');
+  log.info('Entity modifier assignment complete.');
 };
 
 const formatCell = (value: string, width: number): string => {
@@ -1027,20 +1051,26 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   );
   await waitForExpectedEntityIds({ space, expectedEntityIds: expectedNewEntityIds });
 
+  let watchlistIds: string[] = [];
   if (options.watchlists !== false) {
     log.info('Creating watchlists...');
     const watchlists = await createWatchlistsForRun(space);
     log.info(`Created ${watchlists.length} watchlists.`);
-    await applyWatchlists(
-      allEntityIds,
-      watchlists.map((w) => w.id),
-      space,
-      modifierConcurrency,
-    );
+    watchlistIds = watchlists.map((w) => w.id);
   }
 
-  if (options.criticality !== false) {
-    await applyCriticality(allEntityIds, space, modifierConcurrency);
+  if (options.watchlists !== false || options.criticality !== false) {
+    const assignments = buildEntityModifierAssignments({
+      entityIds: allEntityIds,
+      watchlistIds,
+      applyCriticality: options.criticality !== false,
+    });
+    await applyEntityModifiers({
+      assignments,
+      totalEntities: allEntityIds.length,
+      space,
+      concurrency: modifierConcurrency,
+    });
   }
 
   if (options.alerts !== false) {
