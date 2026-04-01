@@ -26,6 +26,9 @@ import {
   ENTITY_STORE_ENTITIES_URL,
   ENTITY_STORE_V2_INSTALL_URL,
   ENTITY_STORE_V2_FORCE_LOG_EXTRACTION_URL,
+  ENTITY_STORE_V2_RESOLUTION_GROUP_URL,
+  ENTITY_STORE_V2_RESOLUTION_LINK_URL,
+  ENTITY_STORE_V2_RESOLUTION_UNLINK_URL,
   ENTITY_MAINTAINERS_INIT_URL,
   ENTITY_MAINTAINERS_URL,
   ENTITY_MAINTAINERS_RUN_URL,
@@ -780,6 +783,83 @@ export const runEntityMaintainer = async (maintainerId: string, space: string = 
     },
     { apiVersion: '2' },
   );
+};
+
+export interface ResolutionLinkResponse {
+  linked: string[];
+  skipped: string[];
+  target_id: string;
+}
+
+export interface ResolutionUnlinkResponse {
+  unlinked: string[];
+  skipped: string[];
+}
+
+export interface ResolutionGroupResponse {
+  target: Record<string, unknown>;
+  aliases: Array<Record<string, unknown>>;
+  group_size: number;
+}
+
+export const linkResolutionEntities = async ({
+  targetId,
+  entityIds,
+  space = 'default',
+}: {
+  targetId: string;
+  entityIds: string[];
+  space?: string;
+}) => {
+  const spacePath = getEntityStoreV2SpacePath(space);
+  const path = `${spacePath}${ENTITY_STORE_V2_RESOLUTION_LINK_URL}?apiVersion=2`;
+  return kibanaFetch<ResolutionLinkResponse>(
+    path,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        target_id: targetId,
+        entity_ids: entityIds,
+      }),
+    },
+    { apiVersion: '2' },
+  );
+};
+
+export const unlinkResolutionEntities = async ({
+  entityIds,
+  space = 'default',
+}: {
+  entityIds: string[];
+  space?: string;
+}) => {
+  const spacePath = getEntityStoreV2SpacePath(space);
+  const path = `${spacePath}${ENTITY_STORE_V2_RESOLUTION_UNLINK_URL}?apiVersion=2`;
+  return kibanaFetch<ResolutionUnlinkResponse>(
+    path,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        entity_ids: entityIds,
+      }),
+    },
+    { apiVersion: '2' },
+  );
+};
+
+export const getResolutionGroup = async ({
+  entityId,
+  space = 'default',
+}: {
+  entityId: string;
+  space?: string;
+}) => {
+  const spacePath = getEntityStoreV2SpacePath(space);
+  const query = new URLSearchParams();
+  query.set('apiVersion', '2');
+  query.set('entity_id', entityId);
+  const path = `${spacePath}${ENTITY_STORE_V2_RESOLUTION_GROUP_URL}?${query.toString()}`;
+  return kibanaFetch<ResolutionGroupResponse>(path, { method: 'GET' }, { apiVersion: '2' });
 };
 
 export const createWatchlist = async ({

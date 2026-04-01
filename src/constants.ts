@@ -111,6 +111,12 @@ export const ENTITY_STORE_V2_INSTALL_URL = '/internal/security/entity_store/inst
 export const ENTITY_STORE_V2_FORCE_LOG_EXTRACTION_URL = (entityType: 'user' | 'host' | 'service') =>
   `/internal/security/entity_store/${entityType}/force_log_extraction`;
 export const ENTITY_STORE_V2_CRUD_BULK_URL = '/internal/security/entity_store/entities/bulk';
+export const ENTITY_STORE_V2_RESOLUTION_LINK_URL =
+  '/internal/security/entity_store/resolution/link';
+export const ENTITY_STORE_V2_RESOLUTION_UNLINK_URL =
+  '/internal/security/entity_store/resolution/unlink';
+export const ENTITY_STORE_V2_RESOLUTION_GROUP_URL =
+  '/internal/security/entity_store/resolution/group';
 export const ENTITY_MAINTAINERS_INIT_URL =
   '/internal/security/entity_store/entity_maintainers/init';
 export const ENTITY_MAINTAINERS_URL = '/internal/security/entity_store/entity_maintainers';

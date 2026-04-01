@@ -11,10 +11,13 @@ import {
   enableEntityStoreV2,
   forceLogExtraction,
   forceBulkUpdateEntitiesViaCrud,
+  getResolutionGroup,
   getEntityMaintainers,
   initEntityMaintainers,
   installEntityStoreV2,
+  linkResolutionEntities,
   runEntityMaintainer,
+  unlinkResolutionEntities,
 } from '../../utils/kibana_api.ts';
 import { log } from '../../utils/logger.ts';
 import { sleep } from '../../utils/sleep.ts';
@@ -45,6 +48,13 @@ type RiskScoreV2Options = {
   orgSize?: string;
   orgProductivitySuite?: string;
   followOn?: boolean;
+  phase2?: boolean;
+  resolution?: boolean;
+  propagation?: boolean;
+  resolutionGroupRate?: string;
+  avgAliasesPerTarget?: string;
+  ownershipEdgeRate?: string;
+  tablePageSize?: string;
 };
 
 type SeededUser = { userName: string; userId: string; userEmail: string };
@@ -57,8 +67,13 @@ type RiskSummaryRow = {
   id: string;
   score: string;
   level: string;
+  scoreType: string;
   criticality: string;
   watchlistsCount: number;
+  resolutionTarget: string;
+  resolutionAliases: number;
+  ownershipLinks: number;
+  relatedEntities: number;
 };
 type RiskSnapshot = {
   rows: RiskSummaryRow[];
@@ -66,6 +81,118 @@ type RiskSnapshot = {
   totalEntityDocs: number;
   riskDocsMatched: number;
   watchlistModifierDocs: number;
+};
+type ResolutionGroupAssignment = {
+  targetId: string;
+  aliasIds: string[];
+};
+type OwnershipEdge = {
+  sourceId: string;
+  targetId: string;
+};
+type RelationshipGraphState = {
+  resolutionGroups: ResolutionGroupAssignment[];
+  ownershipEdges: OwnershipEdge[];
+};
+
+const summarizeList = (items: string[], max: number = 6): string => {
+  if (items.length === 0) return '-';
+  if (items.length <= max) return items.join(', ');
+  return `${items.slice(0, max).join(', ')}, ... (+${items.length - max} more)`;
+};
+
+const printGraphSummaryViews = ({
+  graph,
+  maxRows = 20,
+}: {
+  graph: RelationshipGraphState;
+  maxRows?: number;
+}) => {
+  // eslint-disable-next-line no-console
+  console.log(colorize('🕸️ Relationships only', 'cyan'));
+  if (graph.resolutionGroups.length === 0) {
+    // eslint-disable-next-line no-console
+    console.log('  resolution links: none');
+  } else {
+    // eslint-disable-next-line no-console
+    console.log(`  resolution groups: ${graph.resolutionGroups.length}`);
+    for (const [index, group] of graph.resolutionGroups.slice(0, maxRows).entries()) {
+      // eslint-disable-next-line no-console
+      console.log(`    [${index + 1}] ${group.targetId} <- ${summarizeList(group.aliasIds, 4)}`);
+    }
+    if (graph.resolutionGroups.length > maxRows) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `    ... ${graph.resolutionGroups.length - maxRows} additional resolution groups hidden`,
+      );
+    }
+  }
+
+  if (graph.ownershipEdges.length === 0) {
+    // eslint-disable-next-line no-console
+    console.log('  ownership edges: none');
+  } else {
+    // eslint-disable-next-line no-console
+    console.log(`  ownership edges: ${graph.ownershipEdges.length}`);
+    for (const [index, edge] of graph.ownershipEdges.slice(0, maxRows).entries()) {
+      // eslint-disable-next-line no-console
+      console.log(`    [${index + 1}] ${edge.sourceId} -> ${edge.targetId}`);
+    }
+    if (graph.ownershipEdges.length > maxRows) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `    ... ${graph.ownershipEdges.length - maxRows} additional ownership edges hidden`,
+      );
+    }
+  }
+
+  // eslint-disable-next-line no-console
+  console.log(colorize('🧮 Scoring view (resolution + ownership)', 'cyan'));
+  if (graph.resolutionGroups.length === 0 && graph.ownershipEdges.length === 0) {
+    // eslint-disable-next-line no-console
+    console.log('  no relationship data available');
+    return;
+  }
+
+  const resolutionByTarget = new Map<string, string[]>();
+  for (const group of graph.resolutionGroups) {
+    resolutionByTarget.set(group.targetId, group.aliasIds);
+  }
+  const groupTargets = [...resolutionByTarget.keys()];
+
+  if (groupTargets.length === 0) {
+    // eslint-disable-next-line no-console
+    console.log('  no resolution groups; scoring uses direct ownership edges only');
+    const uniqueOwnershipTargets = [...new Set(graph.ownershipEdges.map((edge) => edge.targetId))];
+    for (const targetId of uniqueOwnershipTargets.slice(0, maxRows)) {
+      const contributors = graph.ownershipEdges
+        .filter((edge) => edge.targetId === targetId)
+        .map((edge) => edge.sourceId);
+      // eslint-disable-next-line no-console
+      console.log(`    ${targetId} <= owns(${summarizeList([...new Set(contributors)], 4)})`);
+    }
+    return;
+  }
+
+  for (const [index, targetId] of groupTargets.slice(0, maxRows).entries()) {
+    const aliases = resolutionByTarget.get(targetId) ?? [];
+    const members = new Set([targetId, ...aliases]);
+    const ownershipContributors = [
+      ...new Set(
+        graph.ownershipEdges
+          .filter((edge) => members.has(edge.targetId))
+          .map((edge) => edge.sourceId),
+      ),
+    ];
+    // eslint-disable-next-line no-console
+    console.log(
+      `    [${index + 1}] ${targetId} <= resolution(${aliases.length} aliases: ${summarizeList(aliases, 3)}) + owns(${ownershipContributors.length}: ${summarizeList(ownershipContributors, 3)})`,
+    );
+  }
+  if (groupTargets.length > maxRows) {
+    // eslint-disable-next-line no-console
+    console.log(`    ... ${groupTargets.length - maxRows} additional scoring groups hidden`);
+  }
 };
 type RiskDocSummary = {
   entityId: string;
@@ -374,6 +501,169 @@ const getAllEntityIds = ({
   ...hosts.map(toHostEuid),
   ...services.map(toServiceEuid),
 ];
+
+const groupByEntityType = (entityIds: string[]): Record<ModifierEntityType, string[]> => {
+  const grouped: Record<ModifierEntityType, string[]> = { user: [], host: [], service: [] };
+  for (const entityId of entityIds) {
+    const type = toModifierEntityType(entityId);
+    if (type) {
+      grouped[type].push(entityId);
+    }
+  }
+  return grouped;
+};
+
+const chunk = <T>(items: T[], size: number): T[][] => {
+  if (size <= 0) return [items];
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+};
+
+const buildRelationshipGraph = ({
+  entityIds,
+  enableResolution,
+  enablePropagation,
+  resolutionGroupRate,
+  avgAliasesPerTarget,
+  ownershipEdgeRate,
+}: {
+  entityIds: string[];
+  enableResolution: boolean;
+  enablePropagation: boolean;
+  resolutionGroupRate: number;
+  avgAliasesPerTarget: number;
+  ownershipEdgeRate: number;
+}): RelationshipGraphState => {
+  const grouped = groupByEntityType(entityIds);
+  const resolutionGroups: ResolutionGroupAssignment[] = [];
+  if (enableResolution) {
+    for (const ids of Object.values(grouped)) {
+      if (ids.length < 2) continue;
+      const shuffled = faker.helpers.shuffle(ids);
+      const targetCount = Math.max(1, Math.floor(shuffled.length * resolutionGroupRate));
+      const targets = shuffled.slice(0, Math.min(targetCount, shuffled.length));
+      const aliasesPool = shuffled.slice(targets.length);
+      let aliasCursor = 0;
+      for (const targetId of targets) {
+        if (aliasCursor >= aliasesPool.length) break;
+        const aliasesPerTarget = Math.max(1, Math.floor(avgAliasesPerTarget));
+        const aliasIds = aliasesPool.slice(aliasCursor, aliasCursor + aliasesPerTarget);
+        aliasCursor += aliasIds.length;
+        if (aliasIds.length > 0) {
+          resolutionGroups.push({ targetId, aliasIds });
+        }
+      }
+    }
+  }
+
+  const ownershipEdges: OwnershipEdge[] = [];
+  if (enablePropagation) {
+    const candidateSources = [...grouped.host, ...grouped.service];
+    if (candidateSources.length > 0 && grouped.user.length > 0) {
+      const targetUsers = faker.helpers.shuffle(grouped.user);
+      for (const sourceId of candidateSources) {
+        if (faker.number.float({ min: 0, max: 1, fractionDigits: 4 }) > ownershipEdgeRate) continue;
+        const targetId = targetUsers[faker.number.int({ min: 0, max: targetUsers.length - 1 })];
+        ownershipEdges.push({ sourceId, targetId });
+      }
+    }
+  }
+
+  return { resolutionGroups, ownershipEdges };
+};
+
+const applyRelationshipGraph = async ({
+  graph,
+  space,
+}: {
+  graph: RelationshipGraphState;
+  space: string;
+}) => {
+  const maxResolutionBatchSize = 1000;
+  for (const group of graph.resolutionGroups) {
+    for (const aliases of chunk(group.aliasIds, maxResolutionBatchSize)) {
+      if (aliases.length === 0) continue;
+      const response = await linkResolutionEntities({
+        targetId: group.targetId,
+        entityIds: aliases,
+        space,
+      });
+      log.info(
+        `Resolution link: target=${group.targetId}, linked=${response.linked.length}, skipped=${response.skipped.length}`,
+      );
+    }
+  }
+
+  if (graph.ownershipEdges.length === 0) {
+    return;
+  }
+
+  const bySource = new Map<string, string[]>();
+  for (const edge of graph.ownershipEdges) {
+    bySource.set(edge.sourceId, [...(bySource.get(edge.sourceId) ?? []), edge.targetId]);
+  }
+
+  const entities: Array<{ type: ModifierEntityType; doc: Record<string, unknown> }> = [];
+  for (const [sourceId, targets] of bySource.entries()) {
+    const type = toModifierEntityType(sourceId);
+    if (!type) continue;
+    entities.push({
+      type,
+      doc: {
+        entity: {
+          id: sourceId,
+          relationships: {
+            owns: [...new Set(targets)],
+          },
+        },
+      },
+    });
+  }
+
+  for (const entityBatch of chunk(entities, 200)) {
+    await forceBulkUpdateEntitiesViaCrud({ entities: entityBatch, space });
+  }
+};
+
+const clearRelationshipGraph = async ({
+  entityIds,
+  space,
+}: {
+  entityIds: string[];
+  space: string;
+}) => {
+  for (const ids of chunk(entityIds, 1000)) {
+    if (ids.length === 0) continue;
+    const response = await unlinkResolutionEntities({ entityIds: ids, space });
+    log.info(
+      `Resolution unlink: unlinked=${response.unlinked.length}, skipped=${response.skipped.length}`,
+    );
+  }
+
+  const entities: Array<{ type: ModifierEntityType; doc: Record<string, unknown> }> = [];
+  for (const id of entityIds) {
+    const type = toModifierEntityType(id);
+    if (!type) continue;
+    entities.push({
+      type,
+      doc: {
+        entity: {
+          id,
+          relationships: {
+            owns: [],
+          },
+        },
+      },
+    });
+  }
+
+  for (const entityBatch of chunk(entities, 200)) {
+    await forceBulkUpdateEntitiesViaCrud({ entities: entityBatch, space });
+  }
+};
 
 const forceExtractExpectedEntities = async ({
   space,
@@ -846,21 +1136,41 @@ const collectRiskSnapshot = async ({
 
   const entityById = new Map<
     string,
-    { entityType: string; criticality: string; watchlists: string[] }
+    {
+      entityType: string;
+      criticality: string;
+      watchlists: string[];
+      resolutionTarget: string;
+      ownershipLinks: number;
+    }
   >();
+  const aliasCountByTarget = new Map<string, number>();
   for (const hit of entityResponse.hits.hits) {
     const source = hit._source as
       | {
-          entity?: { id?: string; type?: string; attributes?: { watchlists?: string[] } };
+          entity?: {
+            id?: string;
+            type?: string;
+            attributes?: { watchlists?: string[] };
+            relationships?: { resolution?: { resolved_to?: unknown }; owns?: unknown };
+          };
           asset?: { criticality?: string };
         }
       | undefined;
     const id = source?.entity?.id;
     if (!id) continue;
+    const resolvedTo =
+      normalizeWatchlists(source?.entity?.relationships?.resolution?.resolved_to)[0] ?? '-';
+    const owns = normalizeWatchlists(source?.entity?.relationships?.owns);
+    if (resolvedTo !== '-') {
+      aliasCountByTarget.set(resolvedTo, (aliasCountByTarget.get(resolvedTo) ?? 0) + 1);
+    }
     entityById.set(id, {
       entityType: source.entity?.type ?? 'unknown',
       criticality: source.asset?.criticality ?? '-',
       watchlists: normalizeWatchlists(source?.entity?.attributes?.watchlists),
+      resolutionTarget: resolvedTo,
+      ownershipLinks: owns.length,
     });
   }
 
@@ -890,7 +1200,13 @@ const collectRiskSnapshot = async ({
       'service.name',
       'service.risk.calculated_score_norm',
       'service.risk.calculated_level',
+      'service.risk.score_type',
+      'service.risk.related_entities',
       'service.risk.modifiers',
+      'host.risk.score_type',
+      'host.risk.related_entities',
+      'user.risk.score_type',
+      'user.risk.related_entities',
     ],
   });
 
@@ -903,21 +1219,39 @@ const collectRiskSnapshot = async ({
     return modifiers.some((m) => m.type === 'watchlist');
   }).length;
 
-  const riskById = new Map<string, { score: string; level: string }>();
+  const riskById = new Map<
+    string,
+    { score: string; level: string; scoreType: string; relatedEntities: number }
+  >();
   for (const hit of riskResponse.hits.hits) {
     const source = hit._source as
       | {
           host?: {
             name?: string;
-            risk?: { calculated_score_norm?: number; calculated_level?: string };
+            risk?: {
+              calculated_score_norm?: number;
+              calculated_level?: string;
+              score_type?: string;
+              related_entities?: unknown[];
+            };
           };
           user?: {
             name?: string;
-            risk?: { calculated_score_norm?: number; calculated_level?: string };
+            risk?: {
+              calculated_score_norm?: number;
+              calculated_level?: string;
+              score_type?: string;
+              related_entities?: unknown[];
+            };
           };
           service?: {
             name?: string;
-            risk?: { calculated_score_norm?: number; calculated_level?: string };
+            risk?: {
+              calculated_score_norm?: number;
+              calculated_level?: string;
+              score_type?: string;
+              related_entities?: unknown[];
+            };
           };
         }
       | undefined;
@@ -930,6 +1264,8 @@ const collectRiskSnapshot = async ({
           ? risk.calculated_score_norm.toFixed(2)
           : '-',
       level: risk.calculated_level ?? '-',
+      scoreType: typeof risk.score_type === 'string' ? risk.score_type : '-',
+      relatedEntities: Array.isArray(risk.related_entities) ? risk.related_entities.length : 0,
     });
   }
 
@@ -938,8 +1274,13 @@ const collectRiskSnapshot = async ({
       id,
       score: riskById.get(id)?.score ?? '-',
       level: riskById.get(id)?.level ?? '-',
+      scoreType: riskById.get(id)?.scoreType ?? '-',
       criticality: entityById.get(id)?.criticality ?? '-',
       watchlistsCount: entityById.get(id)?.watchlists.length ?? 0,
+      resolutionTarget: entityById.get(id)?.resolutionTarget ?? '-',
+      resolutionAliases: aliasCountByTarget.get(id) ?? 0,
+      ownershipLinks: entityById.get(id)?.ownershipLinks ?? 0,
+      relatedEntities: riskById.get(id)?.relatedEntities ?? 0,
     })),
     totalRiskDocs,
     totalEntityDocs,
@@ -948,21 +1289,38 @@ const collectRiskSnapshot = async ({
   };
 };
 
-const printRiskRows = async (rows: RiskSummaryRow[], riskDocsMatched: number): Promise<void> => {
+const printRiskRows = async ({
+  rows,
+  riskDocsMatched,
+  pageSize = 20,
+}: {
+  rows: RiskSummaryRow[];
+  riskDocsMatched: number;
+  pageSize?: number;
+}): Promise<void> => {
   const idWidth = 66;
   const scoreWidth = 7;
+  const scoreTypeWidth = 10;
   const levelWidth = 8;
   const critWidth = 14;
   const watchWidth = 5;
-  const pageSize = 20;
+  const relTargetWidth = 22;
+  const aliasWidth = 5;
+  const ownsWidth = 4;
+  const relatedWidth = 4;
   const header = [
     formatCell('Entity ID', idWidth),
     formatCell('Score', scoreWidth),
+    formatCell('Type', scoreTypeWidth),
     formatCell('Lvl', levelWidth),
     formatCell('Criticality', critWidth),
     formatCell('WL', watchWidth),
+    formatCell('Res.Target', relTargetWidth),
+    formatCell('Ali', aliasWidth),
+    formatCell('Own', ownsWidth),
+    formatCell('Rel', relatedWidth),
   ].join(' | ');
-  const separator = `${'-'.repeat(idWidth)}-+-${'-'.repeat(scoreWidth)}-+-${'-'.repeat(levelWidth)}-+-${'-'.repeat(critWidth)}-+-${'-'.repeat(watchWidth)}`;
+  const separator = `${'-'.repeat(idWidth)}-+-${'-'.repeat(scoreWidth)}-+-${'-'.repeat(scoreTypeWidth)}-+-${'-'.repeat(levelWidth)}-+-${'-'.repeat(critWidth)}-+-${'-'.repeat(watchWidth)}-+-${'-'.repeat(relTargetWidth)}-+-${'-'.repeat(aliasWidth)}-+-${'-'.repeat(ownsWidth)}-+-${'-'.repeat(relatedWidth)}`;
 
   // eslint-disable-next-line no-console
   console.log(
@@ -983,9 +1341,14 @@ const printRiskRows = async (rows: RiskSummaryRow[], riskDocsMatched: number): P
         [
           formatCell(row.id, idWidth),
           formatCell(row.score, scoreWidth),
+          formatCell(row.scoreType, scoreTypeWidth),
           colorizeRiskLevel(levelCell, row.level),
           formatCell(row.criticality, critWidth),
           formatCell(String(row.watchlistsCount), watchWidth),
+          formatCell(row.resolutionTarget, relTargetWidth),
+          formatCell(String(row.resolutionAliases), aliasWidth),
+          formatCell(String(row.ownershipLinks), ownsWidth),
+          formatCell(String(row.relatedEntities), relatedWidth),
         ].join(' | '),
       );
     }
@@ -1007,9 +1370,14 @@ const printRiskRows = async (rows: RiskSummaryRow[], riskDocsMatched: number): P
         [
           formatCell(row.id, idWidth),
           formatCell(row.score, scoreWidth),
+          formatCell(row.scoreType, scoreTypeWidth),
           colorizeRiskLevel(levelCell, row.level),
           formatCell(row.criticality, critWidth),
           formatCell(String(row.watchlistsCount), watchWidth),
+          formatCell(row.resolutionTarget, relTargetWidth),
+          formatCell(String(row.resolutionAliases), aliasWidth),
+          formatCell(String(row.ownershipLinks), ownsWidth),
+          formatCell(String(row.relatedEntities), relatedWidth),
         ].join(' | '),
       );
     }
@@ -1093,12 +1461,14 @@ const reportRiskSummary = async ({
   baselineEntityCount,
   expectedRiskDelta,
   entityIds,
+  pageSize,
 }: {
   space: string;
   baselineRiskScoreCount: number;
   baselineEntityCount: number;
   expectedRiskDelta: number;
   entityIds: string[];
+  pageSize: number;
 }): Promise<{ missingRiskDocs: number; totalEntities: number; snapshot: RiskSnapshot }> => {
   const snapshot = await collectRiskSnapshot({ space, entityIds });
   const riskDelta = Math.max(0, snapshot.totalRiskDocs - baselineRiskScoreCount);
@@ -1117,7 +1487,7 @@ const reportRiskSummary = async ({
   }
 
   log.info(`Docs with watchlist modifiers: ${snapshot.watchlistModifierDocs}`);
-  await printRiskRows(snapshot.rows, snapshot.riskDocsMatched);
+  await printRiskRows({ rows: snapshot.rows, riskDocsMatched: snapshot.riskDocsMatched, pageSize });
   const result = printSnapshotResult(snapshot);
   return { ...result, snapshot };
 };
@@ -1139,15 +1509,25 @@ const printBeforeAfterComparison = ({
       id,
       score: '-',
       level: '-',
+      scoreType: '-',
       criticality: '-',
       watchlistsCount: 0,
+      resolutionTarget: '-',
+      resolutionAliases: 0,
+      ownershipLinks: 0,
+      relatedEntities: 0,
     };
     const afterRow = afterById.get(id) ?? {
       id,
       score: '-',
       level: '-',
+      scoreType: '-',
       criticality: '-',
       watchlistsCount: 0,
+      resolutionTarget: '-',
+      resolutionAliases: 0,
+      ownershipLinks: 0,
+      relatedEntities: 0,
     };
     const beforeScore = toNumericScore(beforeRow.score);
     const afterScore = toNumericScore(afterRow.score);
@@ -1163,11 +1543,26 @@ const printBeforeAfterComparison = ({
       afterCriticality: afterRow.criticality,
       beforeWatchlistsCount: beforeRow.watchlistsCount,
       afterWatchlistsCount: afterRow.watchlistsCount,
+      beforeScoreType: beforeRow.scoreType,
+      afterScoreType: afterRow.scoreType,
+      beforeResolutionTarget: beforeRow.resolutionTarget,
+      afterResolutionTarget: afterRow.resolutionTarget,
+      beforeResolutionAliases: beforeRow.resolutionAliases,
+      afterResolutionAliases: afterRow.resolutionAliases,
+      beforeOwnershipLinks: beforeRow.ownershipLinks,
+      afterOwnershipLinks: afterRow.ownershipLinks,
+      beforeRelatedEntities: beforeRow.relatedEntities,
+      afterRelatedEntities: afterRow.relatedEntities,
       scoreTransition: `${beforeRow.score}->${afterRow.score}`,
       delta,
       levelTransition: `${beforeRow.level}->${afterRow.level}`,
+      scoreTypeTransition: `${beforeRow.scoreType}->${afterRow.scoreType}`,
+      resolutionTransition: `${beforeRow.resolutionTarget}->${afterRow.resolutionTarget}`,
       criticalityTransition: `${beforeRow.criticality}->${afterRow.criticality}`,
       watchlistTransition: `${beforeRow.watchlistsCount}->${afterRow.watchlistsCount}`,
+      aliasTransition: `${beforeRow.resolutionAliases}->${afterRow.resolutionAliases}`,
+      ownershipTransition: `${beforeRow.ownershipLinks}->${afterRow.ownershipLinks}`,
+      relatedTransition: `${beforeRow.relatedEntities}->${afterRow.relatedEntities}`,
     };
   });
   const changedRows = deltaRows.filter((row) => {
@@ -1175,25 +1570,40 @@ const printBeforeAfterComparison = ({
       row.beforeScore !== row.afterScore ||
       row.beforeLevel !== row.afterLevel ||
       row.beforeCriticality !== row.afterCriticality ||
-      row.beforeWatchlistsCount !== row.afterWatchlistsCount
+      row.beforeWatchlistsCount !== row.afterWatchlistsCount ||
+      row.beforeScoreType !== row.afterScoreType ||
+      row.beforeResolutionTarget !== row.afterResolutionTarget ||
+      row.beforeResolutionAliases !== row.afterResolutionAliases ||
+      row.beforeOwnershipLinks !== row.afterOwnershipLinks ||
+      row.beforeRelatedEntities !== row.afterRelatedEntities
     );
   });
 
-  const idWidth = 52;
+  const idWidth = 40;
   const scoreWidth = 17;
+  const typeWidth = 12;
   const deltaWidth = 7;
-  const levelWidth = 17;
-  const critWidth = 27;
+  const levelWidth = 15;
+  const relWidth = 17;
+  const critWidth = 21;
   const wlWidth = 9;
+  const aliasWidth = 8;
+  const ownWidth = 7;
+  const relEntWidth = 7;
   const header = [
     formatCell('Entity ID', idWidth),
     formatCell('Score b->a', scoreWidth),
+    formatCell('Type b->a', typeWidth),
     formatCell('Delta', deltaWidth),
     formatCell('Lvl b->a', levelWidth),
+    formatCell('Res b->a', relWidth),
     formatCell('Crit b->a', critWidth),
     formatCell('WL b->a', wlWidth),
+    formatCell('Ali b->a', aliasWidth),
+    formatCell('Own b->a', ownWidth),
+    formatCell('Rel b->a', relEntWidth),
   ].join(' | ');
-  const separator = `${'-'.repeat(idWidth)}-+-${'-'.repeat(scoreWidth)}-+-${'-'.repeat(deltaWidth)}-+-${'-'.repeat(levelWidth)}-+-${'-'.repeat(critWidth)}-+-${'-'.repeat(wlWidth)}`;
+  const separator = `${'-'.repeat(idWidth)}-+-${'-'.repeat(scoreWidth)}-+-${'-'.repeat(typeWidth)}-+-${'-'.repeat(deltaWidth)}-+-${'-'.repeat(levelWidth)}-+-${'-'.repeat(relWidth)}-+-${'-'.repeat(critWidth)}-+-${'-'.repeat(wlWidth)}-+-${'-'.repeat(aliasWidth)}-+-${'-'.repeat(ownWidth)}-+-${'-'.repeat(relEntWidth)}`;
   // eslint-disable-next-line no-console
   console.log(colorize(`🔄 Before/After (${actionTitle})`, 'cyan'));
   if (changedRows.length === 0) {
@@ -1219,10 +1629,15 @@ const printBeforeAfterComparison = ({
       [
         formatCell(row.id, idWidth),
         formatCell(row.scoreTransition, scoreWidth),
+        formatCell(row.scoreTypeTransition, typeWidth),
         colorizeDelta(deltaCell, row.delta),
         levelCell,
+        formatCell(row.resolutionTransition, relWidth),
         formatCell(row.criticalityTransition, critWidth),
         formatCell(row.watchlistTransition, wlWidth),
+        formatCell(row.aliasTransition, aliasWidth),
+        formatCell(row.ownershipTransition, ownWidth),
+        formatCell(row.relatedTransition, relEntWidth),
       ].join(' | '),
     );
   }
@@ -1569,6 +1984,12 @@ type FollowOnAction =
   | 'export_risk_docs'
   | 'refresh_table'
   | 'run_maintainer_and_refresh'
+  | 'graph_summary'
+  | 'link_aliases'
+  | 'unlink_entities'
+  | 'ownership_mutate'
+  | 'clear_relationships'
+  | 'reapply_relationships'
   | 'exit';
 
 type TrackedEntitySelection =
@@ -1702,6 +2123,15 @@ const printSingleEntityState = async ({
   const snapshot = await collectRiskSnapshot({ space, entityIds: [selection.euid] });
   const row = snapshot.rows[0];
   const alertCount = await countAlertsForSelection({ space, selection });
+  let resolutionGroupSize = 0;
+  let resolutionAliases = 0;
+  try {
+    const resolutionGroup = await getResolutionGroup({ entityId: selection.euid, space });
+    resolutionGroupSize = resolutionGroup.group_size;
+    resolutionAliases = resolutionGroup.aliases.length;
+  } catch {
+    // Some entities may not participate in resolution; keep defaults.
+  }
   if (!row) {
     log.warn(`No current risk/entity state found for "${selection.euid}".`);
     return;
@@ -1710,7 +2140,7 @@ const printSingleEntityState = async ({
   console.log(colorize(`🎯 Single entity state: ${selection.euid}`, 'cyan'));
   // eslint-disable-next-line no-console
   console.log(
-    `  score=${row.score}, level=${row.level}, criticality=${row.criticality}, watchlists=${row.watchlistsCount}, alerts=${alertCount}`,
+    `  score=${row.score}, score_type=${row.scoreType}, level=${row.level}, criticality=${row.criticality}, watchlists=${row.watchlistsCount}, alerts=${alertCount}, resolved_to=${row.resolutionTarget}, aliases=${row.resolutionAliases}, owns=${row.ownershipLinks}, related=${row.relatedEntities}, resolution_group_size=${resolutionGroupSize}, resolution_group_aliases=${resolutionAliases}`,
   );
 };
 
@@ -1813,7 +2243,15 @@ const fetchRiskDocsForEntityIds = async ({
   return grouped;
 };
 
-const promptFollowOnAction = async (): Promise<FollowOnAction> => {
+const promptFollowOnAction = async ({
+  phase2Enabled,
+  resolutionEnabled,
+  propagationEnabled,
+}: {
+  phase2Enabled: boolean;
+  resolutionEnabled: boolean;
+  propagationEnabled: boolean;
+}): Promise<FollowOnAction> => {
   const optionsText = [
     `${ANSI.bold}Choose a follow-on action:${ANSI.reset}`,
     formatFollowOnOption('r', 'reset to zero (wipe seeded alerts, re-run maintainer)'),
@@ -1826,6 +2264,22 @@ const promptFollowOnAction = async (): Promise<FollowOnAction> => {
     formatFollowOnOption('x', 'export risk-score docs to file'),
     formatFollowOnOption('f', 'refresh table (no data changes)'),
     formatFollowOnOption('u', 'run maintainer and refresh table'),
+    ...(phase2Enabled
+      ? [
+          formatFollowOnOption('g', 'graph summary (resolution groups + ownership edges)'),
+          ...(resolutionEnabled
+            ? [
+                formatFollowOnOption('l', 'link aliases to a resolution target'),
+                formatFollowOnOption('k', 'unlink entities from resolution groups'),
+              ]
+            : []),
+          ...(propagationEnabled
+            ? [formatFollowOnOption('o', 'mutate ownership relationships')]
+            : []),
+          formatFollowOnOption('c', 'clear all relationships'),
+          formatFollowOnOption('d', 'reapply default relationships'),
+        ]
+      : []),
     formatFollowOnOption('q', 'exit'),
   ].join('\n');
 
@@ -1879,12 +2333,38 @@ const promptFollowOnAction = async (): Promise<FollowOnAction> => {
       log.info('Selected [u] run maintainer and refresh table.');
       return 'run_maintainer_and_refresh';
     }
+    if (answer === 'g') {
+      log.info('Selected [g] graph summary.');
+      return 'graph_summary';
+    }
+    if (answer === 'l') {
+      log.info('Selected [l] link aliases.');
+      return 'link_aliases';
+    }
+    if (answer === 'k') {
+      log.info('Selected [k] unlink entities.');
+      return 'unlink_entities';
+    }
+    if (answer === 'o') {
+      log.info('Selected [o] ownership mutate.');
+      return 'ownership_mutate';
+    }
+    if (answer === 'c') {
+      log.info('Selected [c] clear relationships.');
+      return 'clear_relationships';
+    }
+    if (answer === 'd') {
+      log.info('Selected [d] reapply relationships.');
+      return 'reapply_relationships';
+    }
     if (answer === 'q') {
       log.info('Selected [q] exit.');
       return 'exit';
     }
 
-    log.warn(`Invalid option "${answer}". Please enter one of: r, p, m, a, e, t, v, x, f, u, q.`);
+    log.warn(
+      `Invalid option "${answer}". Please enter one of: r, p, m, a, e, t, v, x, f, u, g, l, k, o, c, d, q.`,
+    );
   }
 };
 
@@ -1903,6 +2383,14 @@ const runFollowOnActionLoop = async ({
   enableWatchlists,
   alertsPerEntity,
   modifierBulkBatchSize,
+  pageSize,
+  phase2Enabled,
+  resolutionEnabled,
+  propagationEnabled,
+  resolutionGroupRate,
+  avgAliasesPerTarget,
+  ownershipEdgeRate,
+  relationshipGraph,
   runTimedStage,
 }: {
   space: string;
@@ -1919,6 +2407,14 @@ const runFollowOnActionLoop = async ({
   enableWatchlists: boolean;
   alertsPerEntity: number;
   modifierBulkBatchSize: number;
+  pageSize: number;
+  phase2Enabled: boolean;
+  resolutionEnabled: boolean;
+  propagationEnabled: boolean;
+  resolutionGroupRate: number;
+  avgAliasesPerTarget: number;
+  ownershipEdgeRate: number;
+  relationshipGraph: RelationshipGraphState;
   runTimedStage: <T>(stage: string, fn: () => Promise<T>) => Promise<T>;
 }) => {
   let trackedUsers = [...users];
@@ -1928,12 +2424,20 @@ const runFollowOnActionLoop = async ({
   let trackedWatchlistIds = [...watchlistIds];
   let trackedEntityIds = [...new Set(entityIds)];
   let lastChangedEntityIds: string[] = [];
+  let trackedRelationshipGraph: RelationshipGraphState = {
+    resolutionGroups: [...relationshipGraph.resolutionGroups],
+    ownershipEdges: [...relationshipGraph.ownershipEdges],
+  };
 
   while (true) {
     log.info(
       `Current entity pool: idp_users=${trackedUsers.length}, local_users=${trackedLocalUsers.length}, hosts=${trackedHosts.length}, services=${trackedServices.length}, total=${trackedEntityIds.length}`,
     );
-    const action = await promptFollowOnAction();
+    const action = await promptFollowOnAction({
+      phase2Enabled,
+      resolutionEnabled,
+      propagationEnabled,
+    });
 
     if (action === 'exit') {
       log.info('Exiting follow-on action loop.');
@@ -2118,6 +2622,25 @@ const runFollowOnActionLoop = async ({
           });
         }
 
+        if (phase2Enabled && expectedNewEntityIds.length > 0) {
+          await runTimedStage('follow_on_expand_apply_relationships', async () => {
+            const expandedGraph = buildRelationshipGraph({
+              entityIds: [...trackedEntityIds, ...expectedNewEntityIds],
+              enableResolution: resolutionEnabled,
+              enablePropagation: propagationEnabled,
+              resolutionGroupRate,
+              avgAliasesPerTarget,
+              ownershipEdgeRate,
+            });
+            await clearRelationshipGraph({
+              entityIds: [...trackedEntityIds, ...expectedNewEntityIds],
+              space,
+            });
+            await applyRelationshipGraph({ graph: expandedGraph, space });
+            trackedRelationshipGraph = expandedGraph;
+          });
+        }
+
         await runTimedStage('follow_on_expand_alerts', async () =>
           indexAlertsForSeededEntities({
             users: newUsers,
@@ -2168,7 +2691,7 @@ const runFollowOnActionLoop = async ({
 
         const tweakActionRaw = await input({
           message:
-            'Single-entity action: [c] criticality, [w] watchlists, [z] reset alerts->zero, [l] add alerts',
+            'Single-entity action: [c] criticality, [w] watchlists, [z] reset alerts->zero, [l] add alerts, [y] set resolution target, [h] set ownership target',
           default: 'c',
         });
         const tweakAction = tweakActionRaw.trim().toLowerCase();
@@ -2308,6 +2831,69 @@ const runFollowOnActionLoop = async ({
           log.info(
             `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
           );
+        } else if (tweakAction === 'y') {
+          const targetId = (
+            await input({
+              message: 'Resolution target entity ID (blank to clear resolution link)',
+              default: '',
+            })
+          ).trim();
+          await runTimedStage('follow_on_tweak_single_resolution', async () => {
+            await unlinkResolutionEntities({ entityIds: [selection.euid], space });
+            if (targetId && targetId !== selection.euid) {
+              await linkResolutionEntities({
+                targetId,
+                entityIds: [selection.euid],
+                space,
+              });
+            }
+          });
+          const maintainerOutcome = await runRiskMaintainerOnce({
+            space,
+            runTimedStage,
+            stage: 'follow_on_tweak_single_resolution_run_maintainer',
+          });
+          log.info(
+            `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
+          );
+        } else if (tweakAction === 'h') {
+          const targetId = (
+            await input({
+              message: 'Ownership target entity ID (blank to clear ownership links)',
+              default: '',
+            })
+          ).trim();
+          const entityType = toModifierEntityType(selection.euid);
+          if (!entityType) {
+            log.warn(`Entity type for "${selection.euid}" does not support relationship updates.`);
+          } else {
+            await runTimedStage('follow_on_tweak_single_ownership', async () => {
+              await forceBulkUpdateEntitiesViaCrud({
+                entities: [
+                  {
+                    type: entityType,
+                    doc: {
+                      entity: {
+                        id: selection.euid,
+                        relationships: {
+                          owns: targetId ? [targetId] : [],
+                        },
+                      },
+                    },
+                  },
+                ],
+                space,
+              });
+            });
+            const maintainerOutcome = await runRiskMaintainerOnce({
+              space,
+              runTimedStage,
+              stage: 'follow_on_tweak_single_ownership_run_maintainer',
+            });
+            log.info(
+              `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
+            );
+          }
         } else {
           log.warn(`Invalid single-entity action "${tweakAction}". No changes applied.`);
         }
@@ -2376,6 +2962,11 @@ const runFollowOnActionLoop = async ({
         default: 'n',
       });
       const format = formatRaw.trim().toLowerCase() === 'j' ? 'json' : 'ndjson';
+      const includeRelRaw = await input({
+        message: 'Include relationship context from entity docs? [y/N]',
+        default: 'n',
+      });
+      const includeRelationshipContext = includeRelRaw.trim().toLowerCase() === 'y';
       const outDirRaw = await input({
         message: 'Output directory',
         default: 'tmp/risk-score-v2/exports',
@@ -2399,6 +2990,22 @@ const runFollowOnActionLoop = async ({
           source: doc.source,
         })),
       );
+      if (includeRelationshipContext && records.length > 0) {
+        const snapshot = await collectRiskSnapshot({ space, entityIds: targetEntityIds });
+        const rowById = new Map(snapshot.rows.map((row) => [row.id, row]));
+        for (const record of records) {
+          const row = rowById.get(record.entity_id);
+          if (!row) continue;
+          Object.assign(record, {
+            relationship_context: {
+              resolution_target: row.resolutionTarget,
+              resolution_aliases: row.resolutionAliases,
+              ownership_links: row.ownershipLinks,
+              related_entities: row.relatedEntities,
+            },
+          });
+        }
+      }
 
       await fs.mkdir(outDir, { recursive: true });
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -2425,6 +3032,210 @@ const runFollowOnActionLoop = async ({
       );
     } else if (action === 'refresh_table') {
       log.info('Refreshing summary table without mutating alerts, modifiers, or entities.');
+    } else if (action === 'graph_summary') {
+      if (!phase2Enabled) {
+        log.warn('Phase2 graph actions are disabled. Re-run with --phase2.');
+      } else {
+        const sampledIds = trackedEntityIds.slice(0, 3);
+        const sampledGroups = await Promise.all(
+          sampledIds.map(async (entityId) => {
+            try {
+              const group = await getResolutionGroup({ entityId, space });
+              return `${entityId}:${group.group_size}`;
+            } catch {
+              return `${entityId}:n/a`;
+            }
+          }),
+        );
+        log.info(
+          `Graph summary: resolution_groups=${trackedRelationshipGraph.resolutionGroups.length}, ownership_edges=${trackedRelationshipGraph.ownershipEdges.length}, sample_group_sizes=[${sampledGroups.join(', ')}]`,
+        );
+        printGraphSummaryViews({ graph: trackedRelationshipGraph, maxRows: pageSize });
+      }
+    } else if (action === 'link_aliases') {
+      if (!phase2Enabled || !resolutionEnabled) {
+        log.warn('Resolution linking is disabled. Re-run with --phase2 --resolution.');
+      } else if (trackedEntityIds.length < 2) {
+        log.warn('Not enough tracked entities to create resolution links.');
+      } else {
+        const targetId = (
+          await input({
+            message: 'Resolution target entity ID',
+            default: trackedEntityIds[0] ?? '',
+          })
+        ).trim();
+        const aliasCsv = await input({
+          message: 'Alias entity IDs (comma-separated)',
+          default: trackedEntityIds.slice(1, 3).join(','),
+        });
+        const aliasIds = [
+          ...new Set(
+            aliasCsv
+              .split(',')
+              .map((id) => id.trim())
+              .filter(Boolean),
+          ),
+        ].filter((id) => id !== targetId);
+        if (!targetId || aliasIds.length === 0) {
+          log.warn('Target and at least one alias are required.');
+        } else {
+          await runTimedStage('follow_on_link_aliases', async () => {
+            for (const ids of chunk(aliasIds, 1000)) {
+              const response = await linkResolutionEntities({ targetId, entityIds: ids, space });
+              log.info(
+                `Resolution link: target=${targetId}, linked=${response.linked.length}, skipped=${response.skipped.length}`,
+              );
+            }
+          });
+          trackedRelationshipGraph.resolutionGroups.push({ targetId, aliasIds });
+          const maintainerOutcome = await runRiskMaintainerOnce({
+            space,
+            runTimedStage,
+            stage: 'follow_on_link_aliases_run_maintainer',
+          });
+          log.info(
+            `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
+          );
+        }
+      }
+    } else if (action === 'unlink_entities') {
+      if (!phase2Enabled || !resolutionEnabled) {
+        log.warn('Resolution unlink is disabled. Re-run with --phase2 --resolution.');
+      } else {
+        const entityIdsRaw = await input({
+          message: 'Entity IDs to unlink (comma-separated)',
+          default: trackedEntityIds.slice(0, 2).join(','),
+        });
+        const entityIdsToUnlink = [
+          ...new Set(
+            entityIdsRaw
+              .split(',')
+              .map((id) => id.trim())
+              .filter(Boolean),
+          ),
+        ];
+        if (entityIdsToUnlink.length === 0) {
+          log.warn('No entity IDs provided for unlink.');
+        } else {
+          await runTimedStage('follow_on_unlink_entities', async () => {
+            for (const ids of chunk(entityIdsToUnlink, 1000)) {
+              const response = await unlinkResolutionEntities({ entityIds: ids, space });
+              log.info(
+                `Resolution unlink: unlinked=${response.unlinked.length}, skipped=${response.skipped.length}`,
+              );
+            }
+          });
+          trackedRelationshipGraph.resolutionGroups = trackedRelationshipGraph.resolutionGroups.map(
+            (group) => ({
+              targetId: group.targetId,
+              aliasIds: group.aliasIds.filter((aliasId) => !entityIdsToUnlink.includes(aliasId)),
+            }),
+          );
+          const maintainerOutcome = await runRiskMaintainerOnce({
+            space,
+            runTimedStage,
+            stage: 'follow_on_unlink_entities_run_maintainer',
+          });
+          log.info(
+            `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
+          );
+        }
+      }
+    } else if (action === 'ownership_mutate') {
+      if (!phase2Enabled || !propagationEnabled) {
+        log.warn('Ownership mutation is disabled. Re-run with --phase2 --propagation.');
+      } else {
+        const sourceId = (
+          await input({
+            message: 'Ownership source entity ID (host/service recommended)',
+            default: trackedHosts[0] ? toHostEuid(trackedHosts[0]) : (trackedEntityIds[0] ?? ''),
+          })
+        ).trim();
+        const targetId = (
+          await input({
+            message: 'Ownership target entity ID',
+            default: trackedUsers[0] ? toUserEuid(trackedUsers[0]) : (trackedEntityIds[0] ?? ''),
+          })
+        ).trim();
+        const sourceType = toModifierEntityType(sourceId);
+        if (!sourceId || !targetId || !sourceType) {
+          log.warn('Valid source and target IDs are required for ownership mutation.');
+        } else {
+          await runTimedStage('follow_on_ownership_mutate', async () => {
+            await forceBulkUpdateEntitiesViaCrud({
+              entities: [
+                {
+                  type: sourceType,
+                  doc: {
+                    entity: {
+                      id: sourceId,
+                      relationships: {
+                        owns: [targetId],
+                      },
+                    },
+                  },
+                },
+              ],
+              space,
+            });
+          });
+          trackedRelationshipGraph.ownershipEdges = trackedRelationshipGraph.ownershipEdges.filter(
+            (edge) => edge.sourceId !== sourceId,
+          );
+          trackedRelationshipGraph.ownershipEdges.push({ sourceId, targetId });
+          const maintainerOutcome = await runRiskMaintainerOnce({
+            space,
+            runTimedStage,
+            stage: 'follow_on_ownership_mutate_run_maintainer',
+          });
+          log.info(
+            `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
+          );
+        }
+      }
+    } else if (action === 'clear_relationships') {
+      if (!phase2Enabled) {
+        log.warn('Relationship operations are disabled. Re-run with --phase2.');
+      } else {
+        await runTimedStage('follow_on_clear_relationships', async () =>
+          clearRelationshipGraph({ entityIds: trackedEntityIds, space }),
+        );
+        trackedRelationshipGraph = { resolutionGroups: [], ownershipEdges: [] };
+        const maintainerOutcome = await runRiskMaintainerOnce({
+          space,
+          runTimedStage,
+          stage: 'follow_on_clear_relationships_run_maintainer',
+        });
+        log.info(
+          `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
+        );
+      }
+    } else if (action === 'reapply_relationships') {
+      if (!phase2Enabled) {
+        log.warn('Relationship operations are disabled. Re-run with --phase2.');
+      } else {
+        const rebuiltGraph = buildRelationshipGraph({
+          entityIds: trackedEntityIds,
+          enableResolution: resolutionEnabled,
+          enablePropagation: propagationEnabled,
+          resolutionGroupRate,
+          avgAliasesPerTarget,
+          ownershipEdgeRate,
+        });
+        await runTimedStage('follow_on_reapply_relationships', async () => {
+          await clearRelationshipGraph({ entityIds: trackedEntityIds, space });
+          await applyRelationshipGraph({ graph: rebuiltGraph, space });
+        });
+        trackedRelationshipGraph = rebuiltGraph;
+        const maintainerOutcome = await runRiskMaintainerOnce({
+          space,
+          runTimedStage,
+          stage: 'follow_on_reapply_relationships_run_maintainer',
+        });
+        log.info(
+          `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
+        );
+      }
     }
 
     const after = await collectRiskSnapshot({ space, entityIds: trackedEntityIds });
@@ -2452,7 +3263,7 @@ const runFollowOnActionLoop = async ({
       }
     }
     lastChangedEntityIds = printBeforeAfterComparison({ actionTitle: action, before, after });
-    await printRiskRows(after.rows, after.riskDocsMatched);
+    await printRiskRows({ rows: after.rows, riskDocsMatched: after.riskDocsMatched, pageSize });
     printSnapshotResult(after);
   }
 };
@@ -2500,10 +3311,23 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   const offsetHours = parseOptionInt(options.offsetHours, 1);
   const eventIndex = options.eventIndex || config.eventIndex || 'logs-testlogs-default';
   const modifierBulkBatchSize = perf ? 500 : 200;
+  const phase2Enabled = options.phase2 !== false;
+  const resolutionEnabled = phase2Enabled && options.resolution !== false;
+  const propagationEnabled = phase2Enabled && options.propagation !== false;
+  const resolutionGroupRate = Math.min(
+    0.9,
+    Math.max(0.01, Number.parseFloat(options.resolutionGroupRate ?? '0.2')),
+  );
+  const avgAliasesPerTarget = Math.max(1, parseOptionInt(options.avgAliasesPerTarget, 2));
+  const ownershipEdgeRate = Math.min(
+    1,
+    Math.max(0, Number.parseFloat(options.ownershipEdgeRate ?? '0.3')),
+  );
+  const pageSize = Math.max(10, parseOptionInt(options.tablePageSize, phase2Enabled ? 30 : 20));
   const followOnEnabled = options.followOn ?? process.stdout.isTTY;
 
   log.info(
-    `Starting risk-score-v2 in space "${space}" with seedSource=${seedSource}, kinds=${entityKinds.join(',')}, idp_users=${usersCount}, local_users=${localUsersCount}, hosts=${hostsCount}, services=${servicesCount}, alertsPerEntity=${alertsPerEntity}, eventIndex=${eventIndex}`,
+    `Starting risk-score-v2 in space "${space}" with seedSource=${seedSource}, kinds=${entityKinds.join(',')}, idp_users=${usersCount}, local_users=${localUsersCount}, hosts=${hostsCount}, services=${servicesCount}, alertsPerEntity=${alertsPerEntity}, eventIndex=${eventIndex}, phase2=${phase2Enabled}, resolution=${resolutionEnabled}, propagation=${propagationEnabled}`,
   );
 
   if (options.setup !== false) {
@@ -2577,6 +3401,28 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
     });
   });
 
+  let relationshipGraph: RelationshipGraphState = { resolutionGroups: [], ownershipEdges: [] };
+  if (phase2Enabled) {
+    relationshipGraph = buildRelationshipGraph({
+      entityIds: uniqueEntityIds,
+      enableResolution: resolutionEnabled,
+      enablePropagation: propagationEnabled,
+      resolutionGroupRate,
+      avgAliasesPerTarget,
+      ownershipEdgeRate,
+    });
+    await runTimedStage('apply_relationships', async () => {
+      if (
+        relationshipGraph.resolutionGroups.length === 0 &&
+        relationshipGraph.ownershipEdges.length === 0
+      ) {
+        log.info('Phase2 relationships enabled but no relationship rows generated; continuing.');
+        return;
+      }
+      await applyRelationshipGraph({ graph: relationshipGraph, space });
+    });
+  }
+
   let watchlistIds: string[] = [];
   if (options.watchlists !== false) {
     log.info('Creating watchlists...');
@@ -2635,6 +3481,7 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
       baselineEntityCount,
       expectedRiskDelta: Math.max(1, expectedNewEntityIds.length),
       entityIds: allEntityIds,
+      pageSize,
     }),
   );
   if (followOnEnabled && process.stdout.isTTY) {
@@ -2653,6 +3500,14 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
       enableWatchlists: options.watchlists !== false,
       alertsPerEntity,
       modifierBulkBatchSize,
+      pageSize,
+      phase2Enabled,
+      resolutionEnabled,
+      propagationEnabled,
+      resolutionGroupRate,
+      avgAliasesPerTarget,
+      ownershipEdgeRate,
+      relationshipGraph,
       runTimedStage,
     });
   } else if (followOnEnabled && !process.stdout.isTTY) {
