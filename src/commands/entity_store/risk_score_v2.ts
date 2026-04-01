@@ -15,11 +15,13 @@ import {
   runEntityMaintainer,
 } from '../../utils/kibana_api.ts';
 import { log } from '../../utils/logger.ts';
+import { sleep } from '../../utils/sleep.ts';
 import createAlerts from '../../generators/create_alerts.ts';
 import { type MappingTypeMapping } from '@elastic/elasticsearch/lib/api/types';
 import { getConfig } from '../../get_config.ts';
 import { generateOrgData } from '../org_data/org_data_generator.ts';
 import type { OrganizationSize, ProductivitySuite } from '../org_data/types.ts';
+import { parseOptionInt } from '../utils/cli_utils.ts';
 
 type RiskScoreV2Options = {
   users?: string;
@@ -47,11 +49,6 @@ type SeededLocalUser = { userName: string; hostId: string; hostName: string };
 type SeededService = { serviceName: string };
 type EntityKind = 'host' | 'idp_user' | 'local_user' | 'service';
 type SeedSource = 'basic' | 'org';
-
-const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const parseIntOption = (value: string | undefined, fallback: number): number =>
-  value ? parseInt(value, 10) : fallback;
 
 const SUPPORTED_ENTITY_KINDS: EntityKind[] = ['host', 'idp_user', 'local_user', 'service'];
 const SUPPORTED_SEED_SOURCES: SeedSource[] = ['basic', 'org'];
@@ -922,25 +919,25 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   const usersCount = entityKinds.includes('idp_user')
     ? perf
       ? 1000
-      : parseIntOption(options.users, 10)
+      : parseOptionInt(options.users, 10)
     : 0;
   const hostsCount = entityKinds.includes('host')
     ? perf
       ? 1000
-      : parseIntOption(options.hosts, 10)
+      : parseOptionInt(options.hosts, 10)
     : 0;
   const localUsersCount = entityKinds.includes('local_user')
     ? perf
       ? 1000
-      : parseIntOption(options.localUsers, 10)
+      : parseOptionInt(options.localUsers, 10)
     : 0;
   const servicesCount = entityKinds.includes('service')
     ? perf
       ? 1000
-      : parseIntOption(options.services, 10)
+      : parseOptionInt(options.services, 10)
     : 0;
-  const alertsPerEntity = perf ? 50 : parseIntOption(options.alertsPerEntity, 5);
-  const offsetHours = parseIntOption(options.offsetHours, 1);
+  const alertsPerEntity = perf ? 50 : parseOptionInt(options.alertsPerEntity, 5);
+  const offsetHours = parseOptionInt(options.offsetHours, 1);
   const eventIndex = options.eventIndex || config.eventIndex || 'logs-testlogs-default';
 
   log.info(
