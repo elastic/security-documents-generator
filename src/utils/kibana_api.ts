@@ -806,7 +806,7 @@ export const forceUpdateEntityViaCrud = async ({
   body,
   space = 'default',
 }: {
-  entityType: 'user' | 'host';
+  entityType: 'user' | 'host' | 'service';
   body: Record<string, unknown>;
   space?: string;
 }) => {

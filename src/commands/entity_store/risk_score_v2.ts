@@ -169,7 +169,7 @@ const seedLocalUsers = (count: number, hosts: SeededHost[]): SeededLocalUser[] =
   Array.from({ length: count }, (_, i) => {
     const host = hosts[i % hosts.length] ?? seedHosts(1)[0];
     return {
-      userName: `risk-v2-local-user-${i}-${faker.internet.username()}`,
+      userName: `rv2lu-${i}-${faker.string.alphanumeric(4).toLowerCase()}`,
       hostId: host.hostId,
       hostName: host.hostName,
     };
@@ -234,8 +234,9 @@ const seedFromOrgData = ({
   const fallbackHosts = hosts.length > 0 ? hosts : seedHosts(Math.max(1, localUsersCount));
   const orgLocalUsers: SeededLocalUser[] = org.employees.map((employee, i) => {
     const host = fallbackHosts[i % fallbackHosts.length];
+    const token = compactSeedToken(employee.userName || employee.email, 'user');
     return {
-      userName: employee.userName,
+      userName: `rv2lu-${i}-${token}`,
       hostName: host.hostName,
       hostId: host.hostId,
     };
@@ -537,10 +538,11 @@ const CRITICALITY_LEVELS = [
 ] as const;
 type CriticalityLevel = (typeof CRITICALITY_LEVELS)[number];
 type EntityModifierAssignment = { criticality?: CriticalityLevel; watchlists?: string[] };
-type ModifierEntityType = 'user' | 'host';
+type ModifierEntityType = 'user' | 'host' | 'service';
 const toModifierEntityType = (entityId: string): ModifierEntityType | null => {
   if (entityId.startsWith('user:')) return 'user';
   if (entityId.startsWith('host:')) return 'host';
+  if (entityId.startsWith('service:')) return 'service';
   return null;
 };
 
