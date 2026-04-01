@@ -30,7 +30,7 @@ import {
   ENTITY_MAINTAINERS_URL,
   ENTITY_MAINTAINERS_RUN_URL,
   WATCHLISTS_URL,
-  ENTITY_STORE_V2_CRUD_URL,
+  ENTITY_STORE_V2_CRUD_BULK_URL,
   ML_GROUP_ID,
 } from '../constants.ts';
 
@@ -801,22 +801,23 @@ export const createWatchlist = async ({
   );
 };
 
-export const forceUpdateEntityViaCrud = async ({
-  entityType,
-  body,
+export const forceBulkUpdateEntitiesViaCrud = async ({
+  entities,
   space = 'default',
 }: {
-  entityType: 'user' | 'host' | 'service';
-  body: Record<string, unknown>;
+  entities: Array<{
+    type: 'user' | 'host' | 'service';
+    doc: Record<string, unknown>;
+  }>;
   space?: string;
 }) => {
   const spacePath = getEntityStoreV2SpacePath(space);
-  const path = `${spacePath}${ENTITY_STORE_V2_CRUD_URL(entityType)}?apiVersion=2&force=true`;
-  return kibanaFetch(
+  const path = `${spacePath}${ENTITY_STORE_V2_CRUD_BULK_URL}?apiVersion=2&force=true`;
+  return kibanaFetch<{ ok: boolean; errors?: unknown[] }>(
     path,
     {
       method: 'PUT',
-      body: JSON.stringify(body),
+      body: JSON.stringify({ entities }),
     },
     { apiVersion: '2' },
   );

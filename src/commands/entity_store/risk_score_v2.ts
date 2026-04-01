@@ -8,7 +8,7 @@ import {
   createWatchlist,
   enableEntityStoreV2,
   forceLogExtraction,
-  forceUpdateEntityViaCrud,
+  forceBulkUpdateEntitiesViaCrud,
   getEntityMaintainers,
   initEntityMaintainers,
   installEntityStoreV2,
@@ -586,12 +586,12 @@ const applyEntityModifiers = async ({
   assignments,
   totalEntities,
   space,
-  concurrency,
+  batchSize,
 }: {
   assignments: Map<string, EntityModifierAssignment>;
   totalEntities: number;
   space: string;
-  concurrency: number;
+  batchSize: number;
 }) => {
   if (assignments.size === 0) {
     return;
@@ -601,33 +601,40 @@ const applyEntityModifiers = async ({
   const withCriticality = entries.filter(([, assignment]) => assignment.criticality).length;
   const withWatchlists = entries.filter(([, assignment]) => assignment.watchlists?.length).length;
   log.info(
-    `Applying entity modifiers to ${entries.length}/${totalEntities} entities (criticality=${withCriticality}, watchlists=${withWatchlists}, concurrency=${concurrency})...`,
+    `Applying entity modifiers to ${entries.length}/${totalEntities} entities (criticality=${withCriticality}, watchlists=${withWatchlists}, bulk_batch_size=${batchSize})...`,
   );
 
   let processed = 0;
-  for (let i = 0; i < entries.length; i += concurrency) {
-    const batch = entries.slice(i, i + concurrency);
-    await Promise.all(
-      batch.map(async ([entityId, assignment]) => {
-        const entityType = toModifierEntityType(entityId);
-        if (!entityType) {
-          return;
-        }
-        await forceUpdateEntityViaCrud({
-          entityType,
-          space,
-          body: {
-            entity: {
-              id: entityId,
-              ...(assignment.watchlists
-                ? { attributes: { watchlists: assignment.watchlists } }
-                : {}),
-            },
-            ...(assignment.criticality ? { asset: { criticality: assignment.criticality } } : {}),
+  for (let i = 0; i < entries.length; i += batchSize) {
+    const batch = entries.slice(i, i + batchSize);
+    const entities: Array<{ type: ModifierEntityType; doc: Record<string, unknown> }> = [];
+    for (const [entityId, assignment] of batch) {
+      const entityType = toModifierEntityType(entityId);
+      if (!entityType) {
+        continue;
+      }
+      entities.push({
+        type: entityType,
+        doc: {
+          entity: {
+            id: entityId,
+            ...(assignment.watchlists ? { attributes: { watchlists: assignment.watchlists } } : {}),
           },
-        });
-      }),
-    );
+          ...(assignment.criticality ? { asset: { criticality: assignment.criticality } } : {}),
+        },
+      });
+    }
+
+    if (entities.length > 0) {
+      const response = await forceBulkUpdateEntitiesViaCrud({ entities, space });
+      if (response.errors && response.errors.length > 0) {
+        log.warn(
+          `Bulk modifier update reported ${response.errors.length} error(s) for batch ${
+            Math.floor(i / batchSize) + 1
+          }: ${JSON.stringify(response.errors).slice(0, 1000)}`,
+        );
+      }
+    }
     processed += batch.length;
     if (processed % 10 === 0 || processed === entries.length) {
       log.info(`Modifier update progress: ${processed}/${entries.length}`);
@@ -1005,7 +1012,7 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   const alertsPerEntity = perf ? 50 : parseOptionInt(options.alertsPerEntity, 5);
   const offsetHours = parseOptionInt(options.offsetHours, 1);
   const eventIndex = options.eventIndex || config.eventIndex || 'logs-testlogs-default';
-  const modifierConcurrency = perf ? 20 : 5;
+  const modifierBulkBatchSize = perf ? 500 : 200;
 
   log.info(
     `Starting risk-score-v2 in space "${space}" with seedSource=${seedSource}, kinds=${entityKinds.join(',')}, idp_users=${usersCount}, local_users=${localUsersCount}, hosts=${hostsCount}, services=${servicesCount}, alertsPerEntity=${alertsPerEntity}, eventIndex=${eventIndex}`,
@@ -1113,7 +1120,7 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
       assignments,
       totalEntities: allEntityIds.length,
       space,
-      concurrency: modifierConcurrency,
+      batchSize: modifierBulkBatchSize,
     });
   }
 
