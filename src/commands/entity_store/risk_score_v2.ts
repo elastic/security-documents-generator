@@ -3,6 +3,8 @@ import auditbeatMappings from '../../mappings/auditbeat.json' with { type: 'json
 import { bulkIngest, bulkUpsert } from '../shared/elasticsearch.ts';
 import { getEsClient } from '../utils/indices.ts';
 import { ensureSpace, getAlertIndex } from '../../utils/index.ts';
+import fs from 'fs/promises';
+import path from 'path';
 import { ensureSecurityDefaultDataView } from '../../utils/security_default_data_view.ts';
 import {
   createWatchlist,
@@ -22,6 +24,7 @@ import { getConfig } from '../../get_config.ts';
 import { generateOrgData } from '../org_data/org_data_generator.ts';
 import type { OrganizationSize, ProductivitySuite } from '../org_data/types.ts';
 import { parseOptionInt } from '../utils/cli_utils.ts';
+import { checkbox, input, select } from '@inquirer/prompts';
 
 type RiskScoreV2Options = {
   users?: string;
@@ -41,6 +44,7 @@ type RiskScoreV2Options = {
   seedSource?: string;
   orgSize?: string;
   orgProductivitySuite?: string;
+  followOn?: boolean;
 };
 
 type SeededUser = { userName: string; userId: string; userEmail: string };
@@ -49,6 +53,29 @@ type SeededLocalUser = { userName: string; hostId: string; hostName: string };
 type SeededService = { serviceName: string };
 type EntityKind = 'host' | 'idp_user' | 'local_user' | 'service';
 type SeedSource = 'basic' | 'org';
+type RiskSummaryRow = {
+  id: string;
+  score: string;
+  level: string;
+  criticality: string;
+  watchlistsCount: number;
+};
+type RiskSnapshot = {
+  rows: RiskSummaryRow[];
+  totalRiskDocs: number;
+  totalEntityDocs: number;
+  riskDocsMatched: number;
+  watchlistModifierDocs: number;
+};
+type RiskDocSummary = {
+  entityId: string;
+  timestamp: string;
+  score: number | null;
+  level: string;
+  scoreType: string;
+  calculationRunId: string;
+  source: Record<string, unknown>;
+};
 
 const SUPPORTED_ENTITY_KINDS: EntityKind[] = ['host', 'idp_user', 'local_user', 'service'];
 const SUPPORTED_SEED_SOURCES: SeedSource[] = ['basic', 'org'];
@@ -148,36 +175,41 @@ const compactSeedToken = (value: string, fallback: string): string => {
   return (normalized || fallback).slice(0, 4);
 };
 
-const seedUsers = (count: number): SeededUser[] =>
+const seedUsers = (count: number, startAt: number = 0): SeededUser[] =>
   Array.from({ length: count }, (_, i) => {
+    const index = startAt + i;
     const suffix = faker.string.alphanumeric(4).toLowerCase();
-    const userName = `rv2u-${i}-${suffix}`;
+    const userName = `rv2u-${index}-${suffix}`;
     return {
       userName,
-      userId: `risk-v2-user-id-${i}-${faker.string.alphanumeric(6)}`,
+      userId: `risk-v2-user-id-${index}-${faker.string.alphanumeric(6)}`,
       userEmail: `${userName}@example.com`,
     };
   });
 
-const seedHosts = (count: number): SeededHost[] =>
+const seedHosts = (count: number, startAt: number = 0): SeededHost[] =>
   Array.from({ length: count }, (_, i) => ({
-    hostName: `risk-v2-host-${i}-${faker.internet.domainWord()}`,
-    hostId: `risk-v2-host-id-${i}-${faker.string.alphanumeric(8).toLowerCase()}`,
+    hostName: `risk-v2-host-${startAt + i}-${faker.internet.domainWord()}`,
+    hostId: `risk-v2-host-id-${startAt + i}-${faker.string.alphanumeric(8).toLowerCase()}`,
   }));
 
-const seedLocalUsers = (count: number, hosts: SeededHost[]): SeededLocalUser[] =>
+const seedLocalUsers = (
+  count: number,
+  hosts: SeededHost[],
+  startAt: number = 0,
+): SeededLocalUser[] =>
   Array.from({ length: count }, (_, i) => {
     const host = hosts[i % hosts.length] ?? seedHosts(1)[0];
     return {
-      userName: `rv2lu-${i}-${faker.string.alphanumeric(4).toLowerCase()}`,
+      userName: `rv2lu-${startAt + i}-${faker.string.alphanumeric(4).toLowerCase()}`,
       hostId: host.hostId,
       hostName: host.hostName,
     };
   });
 
-const seedServices = (count: number): SeededService[] =>
+const seedServices = (count: number, startAt: number = 0): SeededService[] =>
   Array.from({ length: count }, (_, i) => ({
-    serviceName: `risk-v2-service-${i}-${faker.internet.domainWord()}`,
+    serviceName: `risk-v2-service-${startAt + i}-${faker.internet.domainWord()}`,
   }));
 
 const topUpToCount = <T>(items: T[], count: number, factory: (remaining: number) => T[]): T[] => {
@@ -326,11 +358,61 @@ const buildServiceEvents = (services: SeededService[], offsetHours: number) => {
   }));
 };
 
+const getAllEntityIds = ({
+  users,
+  localUsers,
+  hosts,
+  services,
+}: {
+  users: SeededUser[];
+  localUsers: SeededLocalUser[];
+  hosts: SeededHost[];
+  services: SeededService[];
+}): string[] => [
+  ...users.map(toUserEuid),
+  ...localUsers.map((user) => `user:${user.userName}@${user.hostId}@local`),
+  ...hosts.map(toHostEuid),
+  ...services.map(toServiceEuid),
+];
+
+const forceExtractExpectedEntities = async ({
+  space,
+  entityKinds,
+  expectedEntityIds,
+  offsetHours,
+}: {
+  space: string;
+  entityKinds: EntityKind[];
+  expectedEntityIds: string[];
+  offsetHours: number;
+}) => {
+  const fromDateISO = new Date(Date.now() - (offsetHours + 4) * 60 * 60 * 1000).toISOString();
+  const toDateISO = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+  const extractionTypes = new Set<'user' | 'host' | 'service'>();
+  if (entityKinds.includes('idp_user') || entityKinds.includes('local_user'))
+    extractionTypes.add('user');
+  if (entityKinds.includes('host')) extractionTypes.add('host');
+  if (entityKinds.includes('service')) extractionTypes.add('service');
+
+  log.info(
+    `Forcing log extraction for [${[...extractionTypes].join(', ')}] from ${fromDateISO} to ${toDateISO}...`,
+  );
+  await Promise.all(
+    [...extractionTypes].map(async (extractionType) => {
+      log.info(`Requesting force log extraction for "${extractionType}"...`);
+      await forceLogExtraction(extractionType, { fromDateISO, toDateISO, space });
+    }),
+  );
+  await waitForExpectedEntityIds({ space, expectedEntityIds });
+};
+
 const appendAlertOp = (ops: unknown[], alertIndex: string, alert: unknown) => {
   const id = (alert as Record<string, unknown>)['kibana.alert.uuid'] as string;
   ops.push({ create: { _index: alertIndex, _id: id } });
   ops.push(alert);
 };
+
+const ALERT_TARGET_ENTITY_ID_FIELD = 'labels.risk_v2_target_entity_id';
 
 function* buildAlertOpChunks({
   hosts,
@@ -364,6 +446,7 @@ function* buildAlertOpChunks({
           'event.category': ['iam'],
           'event.type': ['user'],
           'user.email': user.userEmail,
+          [ALERT_TARGET_ENTITY_ID_FIELD]: toUserEuid(user),
         },
         {
           userName: user.userName,
@@ -393,6 +476,7 @@ function* buildAlertOpChunks({
           'user.name': user.userName,
           'host.id': user.hostId,
           'host.name': user.hostName,
+          [ALERT_TARGET_ENTITY_ID_FIELD]: `user:${user.userName}@${user.hostId}@local`,
         },
         {
           userName: user.userName,
@@ -418,6 +502,7 @@ function* buildAlertOpChunks({
           'kibana.alert.risk_score': riskScore,
           'kibana.alert.rule.risk_score': riskScore,
           'kibana.alert.rule.parameters': { description: 'risk v2 test', risk_score: riskScore },
+          [ALERT_TARGET_ENTITY_ID_FIELD]: toHostEuid(host),
         },
         {
           hostName: host.hostName,
@@ -446,6 +531,7 @@ function* buildAlertOpChunks({
           'service.name': service.serviceName,
           'event.kind': 'event',
           'event.category': 'network',
+          [ALERT_TARGET_ENTITY_ID_FIELD]: toServiceEuid(service),
         },
         {
           userName: `service-alert-user-${i}`,
@@ -687,6 +773,20 @@ const colorizeRiskLevel = (paddedCell: string, level: string): string => {
   return paddedCell;
 };
 
+const colorizeDelta = (paddedCell: string, delta: string): string => {
+  const value = Number.parseFloat(delta);
+  if (!Number.isFinite(value)) {
+    return paddedCell;
+  }
+  if (value < 0) {
+    return colorize(paddedCell, 'red');
+  }
+  if (value > 0) {
+    return colorize(paddedCell, 'green');
+  }
+  return paddedCell;
+};
+
 const formatDurationMs = (ms: number): string => {
   if (ms < 1000) {
     return `${ms}ms`;
@@ -704,41 +804,32 @@ const normalizeWatchlists = (value: unknown): string[] => {
   return [];
 };
 
-const reportRiskSummary = async ({
+const toNumericScore = (value: string): number | null => {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const collectRiskSnapshot = async ({
   space,
-  baselineRiskScoreCount,
-  baselineEntityCount,
-  expectedRiskDelta,
   entityIds,
 }: {
   space: string;
-  baselineRiskScoreCount: number;
-  baselineEntityCount: number;
-  expectedRiskDelta: number;
   entityIds: string[];
-}): Promise<{ missingRiskDocs: number; totalEntities: number }> => {
+}): Promise<RiskSnapshot> => {
   const client = getEsClient();
   const riskIndex = `risk-score.risk-score-${space}`;
-  const total = await getRiskScoreDocCount(space);
-  const entityCount = await getEntityStoreDocCount(space);
-  const riskDelta = Math.max(0, total - baselineRiskScoreCount);
-  const entityDelta = Math.max(0, entityCount - baselineEntityCount);
-
-  log.info(
-    `Run summary (${space}): entities ${baselineEntityCount} -> ${entityCount} (delta +${entityDelta})`,
-  );
-  log.info(
-    `Run summary (${space}): risk scores ${baselineRiskScoreCount} -> ${total} (delta +${riskDelta})`,
-  );
-  if (riskDelta < expectedRiskDelta) {
-    log.warn(
-      `Risk score delta lower than expected for this run (${riskDelta}/${expectedRiskDelta}). This can happen when existing score docs are updated in-place or scoring configuration limits entity types.`,
-    );
-  }
-
   const uniqueEntityIds = [...new Set(entityIds)];
+  const totalRiskDocs = await getRiskScoreDocCount(space);
+  const totalEntityDocs = await getEntityStoreDocCount(space);
+
   if (uniqueEntityIds.length === 0) {
-    return { missingRiskDocs: 0, totalEntities: 0 };
+    return {
+      rows: [],
+      totalRiskDocs,
+      totalEntityDocs,
+      riskDocsMatched: 0,
+      watchlistModifierDocs: 0,
+    };
   }
 
   const entityIndex = `.entities.v2.latest.security_${space}`;
@@ -766,11 +857,10 @@ const reportRiskSummary = async ({
       | undefined;
     const id = source?.entity?.id;
     if (!id) continue;
-    const watchlists = normalizeWatchlists(source?.entity?.attributes?.watchlists);
     entityById.set(id, {
       entityType: source.entity?.type ?? 'unknown',
       criticality: source.asset?.criticality ?? '-',
-      watchlists,
+      watchlists: normalizeWatchlists(source?.entity?.attributes?.watchlists),
     });
   }
 
@@ -812,7 +902,6 @@ const reportRiskSummary = async ({
     const modifiers = (risk.modifiers as Array<Record<string, unknown>> | undefined) ?? [];
     return modifiers.some((m) => m.type === 'watchlist');
   }).length;
-  log.info(`Docs with watchlist modifiers: ${watchlistModifierDocs}`);
 
   const riskById = new Map<string, { score: string; level: string }>();
   for (const hit of riskResponse.hits.hits) {
@@ -832,10 +921,7 @@ const reportRiskSummary = async ({
           };
         }
       | undefined;
-    const hostId = source?.host?.name;
-    const userId = source?.user?.name;
-    const serviceId = source?.service?.name;
-    const id = hostId ?? userId ?? serviceId;
+    const id = source?.host?.name ?? source?.user?.name ?? source?.service?.name;
     const risk = source?.host?.risk ?? source?.user?.risk ?? source?.service?.risk;
     if (!id || !risk || riskById.has(id)) continue;
     riskById.set(id, {
@@ -847,23 +933,28 @@ const reportRiskSummary = async ({
     });
   }
 
-  const rows = uniqueEntityIds.map((id) => {
-    const entity = entityById.get(id);
-    const risk = riskById.get(id);
-    return {
+  return {
+    rows: uniqueEntityIds.map((id) => ({
       id,
-      score: risk?.score ?? '-',
-      level: risk?.level ?? '-',
-      criticality: entity?.criticality ?? '-',
-      watchlistsCount: entity?.watchlists?.length ?? 0,
-    };
-  });
+      score: riskById.get(id)?.score ?? '-',
+      level: riskById.get(id)?.level ?? '-',
+      criticality: entityById.get(id)?.criticality ?? '-',
+      watchlistsCount: entityById.get(id)?.watchlists.length ?? 0,
+    })),
+    totalRiskDocs,
+    totalEntityDocs,
+    riskDocsMatched: riskById.size,
+    watchlistModifierDocs,
+  };
+};
 
+const printRiskRows = async (rows: RiskSummaryRow[], riskDocsMatched: number): Promise<void> => {
   const idWidth = 66;
   const scoreWidth = 7;
   const levelWidth = 8;
   const critWidth = 14;
   const watchWidth = 5;
+  const pageSize = 20;
   const header = [
     formatCell('Entity ID', idWidth),
     formatCell('Score', scoreWidth),
@@ -873,51 +964,285 @@ const reportRiskSummary = async ({
   ].join(' | ');
   const separator = `${'-'.repeat(idWidth)}-+-${'-'.repeat(scoreWidth)}-+-${'-'.repeat(levelWidth)}-+-${'-'.repeat(critWidth)}-+-${'-'.repeat(watchWidth)}`;
 
-  const maxRows = 100;
-  const rowsToPrint = rows.slice(0, maxRows);
   // eslint-disable-next-line no-console
   console.log(
-    colorize(`📊 Risk docs matched for seeded IDs: ${riskById.size}/${rows.length}`, 'cyan'),
+    colorize(`📊 Risk docs matched for seeded IDs: ${riskDocsMatched}/${rows.length}`, 'cyan'),
   );
-  log.info(
-    `Entity scorecard (${rows.length} seeded entities${rows.length > maxRows ? `, showing first ${maxRows}` : ''}):`,
-  );
+  log.info(`Entity scorecard (${rows.length} seeded entities):`);
   const printLine = (line: string) => {
     // eslint-disable-next-line no-console
     console.log(line);
   };
-  printLine(header);
-  printLine(separator);
-  for (const row of rowsToPrint) {
-    const levelCell = formatCell(row.level, levelWidth);
-    printLine(
-      [
-        formatCell(row.id, idWidth),
-        formatCell(row.score, scoreWidth),
-        colorizeRiskLevel(levelCell, row.level),
-        formatCell(row.criticality, critWidth),
-        formatCell(String(row.watchlistsCount), watchWidth),
-      ].join(' | '),
+
+  if (!process.stdout.isTTY || rows.length <= pageSize) {
+    printLine(header);
+    printLine(separator);
+    for (const row of rows) {
+      const levelCell = formatCell(row.level, levelWidth);
+      printLine(
+        [
+          formatCell(row.id, idWidth),
+          formatCell(row.score, scoreWidth),
+          colorizeRiskLevel(levelCell, row.level),
+          formatCell(row.criticality, critWidth),
+          formatCell(String(row.watchlistsCount), watchWidth),
+        ].join(' | '),
+      );
+    }
+    return;
+  }
+
+  let page = 0;
+  const totalPages = Math.ceil(rows.length / pageSize);
+  while (true) {
+    const start = page * pageSize;
+    const end = Math.min(start + pageSize, rows.length);
+    const pageRows = rows.slice(start, end);
+
+    printLine(header);
+    printLine(separator);
+    for (const row of pageRows) {
+      const levelCell = formatCell(row.level, levelWidth);
+      printLine(
+        [
+          formatCell(row.id, idWidth),
+          formatCell(row.score, scoreWidth),
+          colorizeRiskLevel(levelCell, row.level),
+          formatCell(row.criticality, critWidth),
+          formatCell(String(row.watchlistsCount), watchWidth),
+        ].join(' | '),
+      );
+    }
+
+    log.info(
+      `Scorecard page ${page + 1}/${totalPages} (rows ${start + 1}-${end} of ${rows.length}).`,
     );
+    const canNext = page < totalPages - 1;
+    const canPrev = page > 0;
+    const navHint =
+      canPrev && canNext
+        ? '[n] next, [p] previous, [q] continue'
+        : canNext
+          ? '[n] next, [q] continue'
+          : canPrev
+            ? '[p] previous, [q] continue'
+            : '[q] continue';
+    const nav = (
+      await input({
+        message: `Table navigation: ${navHint}`,
+        default: 'q',
+      })
+    )
+      .trim()
+      .toLowerCase();
+
+    if (nav === 'n' && canNext) {
+      page += 1;
+      continue;
+    }
+    if (nav === 'p' && canPrev) {
+      page -= 1;
+      continue;
+    }
+    if (nav === 'q' || nav === '') {
+      break;
+    }
+    log.warn(`Invalid table navigation "${nav}" for this page.`);
   }
-  if (rows.length > maxRows) {
-    log.info(`... truncated ${rows.length - maxRows} additional entities from scorecard output.`);
-  }
-  const missingRiskDocIds = rows
+};
+
+const printSnapshotResult = (
+  snapshot: RiskSnapshot,
+): { missingRiskDocs: number; totalEntities: number } => {
+  const missingRiskDocIds = snapshot.rows
     .filter((row) => row.score === '-' && row.level === '-')
     .map((row) => row.id);
   if (missingRiskDocIds.length > 0) {
     const preview = missingRiskDocIds.slice(0, 5).join(', ');
     log.warn(
-      `Missing risk score docs for ${missingRiskDocIds.length}/${rows.length} seeded entities. Missing examples: ${preview}${missingRiskDocIds.length > 5 ? ', ...' : ''}`,
+      `Missing risk score docs for ${missingRiskDocIds.length}/${snapshot.rows.length} seeded entities. Missing examples: ${preview}${missingRiskDocIds.length > 5 ? ', ...' : ''}`,
     );
   } else {
-    log.info(`All ${rows.length}/${rows.length} seeded entities have risk score docs.`);
+    log.info(
+      `All ${snapshot.rows.length}/${snapshot.rows.length} seeded entities have risk score docs.`,
+    );
   }
-  return {
-    missingRiskDocs: missingRiskDocIds.length,
-    totalEntities: rows.length,
-  };
+  if (snapshot.rows.length > 0 && missingRiskDocIds.length === 0) {
+    // eslint-disable-next-line no-console
+    console.log(
+      colorize(
+        `✅ PASS: Risk docs present for all ${snapshot.rows.length} seeded entities.`,
+        'green',
+      ),
+    );
+  } else {
+    // eslint-disable-next-line no-console
+    console.log(
+      colorize(
+        `⚠️ WARN: Missing risk docs for ${missingRiskDocIds.length}/${snapshot.rows.length} seeded entities.`,
+        'yellow',
+      ),
+    );
+  }
+  return { missingRiskDocs: missingRiskDocIds.length, totalEntities: snapshot.rows.length };
+};
+
+const reportRiskSummary = async ({
+  space,
+  baselineRiskScoreCount,
+  baselineEntityCount,
+  expectedRiskDelta,
+  entityIds,
+}: {
+  space: string;
+  baselineRiskScoreCount: number;
+  baselineEntityCount: number;
+  expectedRiskDelta: number;
+  entityIds: string[];
+}): Promise<{ missingRiskDocs: number; totalEntities: number; snapshot: RiskSnapshot }> => {
+  const snapshot = await collectRiskSnapshot({ space, entityIds });
+  const riskDelta = Math.max(0, snapshot.totalRiskDocs - baselineRiskScoreCount);
+  const entityDelta = Math.max(0, snapshot.totalEntityDocs - baselineEntityCount);
+
+  log.info(
+    `Run summary (${space}): entities ${baselineEntityCount} -> ${snapshot.totalEntityDocs} (delta +${entityDelta})`,
+  );
+  log.info(
+    `Run summary (${space}): risk scores ${baselineRiskScoreCount} -> ${snapshot.totalRiskDocs} (delta +${riskDelta})`,
+  );
+  if (riskDelta < expectedRiskDelta) {
+    log.warn(
+      `Risk score delta lower than expected for this run (${riskDelta}/${expectedRiskDelta}). This can happen when existing score docs are updated in-place or scoring configuration limits entity types.`,
+    );
+  }
+
+  log.info(`Docs with watchlist modifiers: ${snapshot.watchlistModifierDocs}`);
+  await printRiskRows(snapshot.rows, snapshot.riskDocsMatched);
+  const result = printSnapshotResult(snapshot);
+  return { ...result, snapshot };
+};
+
+const printBeforeAfterComparison = ({
+  actionTitle,
+  before,
+  after,
+}: {
+  actionTitle: string;
+  before: RiskSnapshot;
+  after: RiskSnapshot;
+}): string[] => {
+  const beforeById = new Map(before.rows.map((row) => [row.id, row]));
+  const afterById = new Map(after.rows.map((row) => [row.id, row]));
+  const allIds = [...new Set([...beforeById.keys(), ...afterById.keys()])];
+  const deltaRows = allIds.map((id) => {
+    const beforeRow = beforeById.get(id) ?? {
+      id,
+      score: '-',
+      level: '-',
+      criticality: '-',
+      watchlistsCount: 0,
+    };
+    const afterRow = afterById.get(id) ?? {
+      id,
+      score: '-',
+      level: '-',
+      criticality: '-',
+      watchlistsCount: 0,
+    };
+    const beforeScore = toNumericScore(beforeRow.score);
+    const afterScore = toNumericScore(afterRow.score);
+    const delta =
+      beforeScore !== null && afterScore !== null ? (afterScore - beforeScore).toFixed(2) : '-';
+    return {
+      id,
+      beforeScore: beforeRow.score,
+      afterScore: afterRow.score,
+      beforeLevel: beforeRow.level,
+      afterLevel: afterRow.level,
+      beforeCriticality: beforeRow.criticality,
+      afterCriticality: afterRow.criticality,
+      beforeWatchlistsCount: beforeRow.watchlistsCount,
+      afterWatchlistsCount: afterRow.watchlistsCount,
+      scoreTransition: `${beforeRow.score}->${afterRow.score}`,
+      delta,
+      levelTransition: `${beforeRow.level}->${afterRow.level}`,
+      criticalityTransition: `${beforeRow.criticality}->${afterRow.criticality}`,
+      watchlistTransition: `${beforeRow.watchlistsCount}->${afterRow.watchlistsCount}`,
+    };
+  });
+  const changedRows = deltaRows.filter((row) => {
+    return (
+      row.beforeScore !== row.afterScore ||
+      row.beforeLevel !== row.afterLevel ||
+      row.beforeCriticality !== row.afterCriticality ||
+      row.beforeWatchlistsCount !== row.afterWatchlistsCount
+    );
+  });
+
+  const idWidth = 52;
+  const scoreWidth = 17;
+  const deltaWidth = 7;
+  const levelWidth = 17;
+  const critWidth = 27;
+  const wlWidth = 9;
+  const header = [
+    formatCell('Entity ID', idWidth),
+    formatCell('Score b->a', scoreWidth),
+    formatCell('Delta', deltaWidth),
+    formatCell('Lvl b->a', levelWidth),
+    formatCell('Crit b->a', critWidth),
+    formatCell('WL b->a', wlWidth),
+  ].join(' | ');
+  const separator = `${'-'.repeat(idWidth)}-+-${'-'.repeat(scoreWidth)}-+-${'-'.repeat(deltaWidth)}-+-${'-'.repeat(levelWidth)}-+-${'-'.repeat(critWidth)}-+-${'-'.repeat(wlWidth)}`;
+  // eslint-disable-next-line no-console
+  console.log(colorize(`🔄 Before/After (${actionTitle})`, 'cyan'));
+  if (changedRows.length === 0) {
+    log.info('No entity changes detected between snapshots.');
+    return [];
+  }
+  // eslint-disable-next-line no-console
+  console.log(header);
+  // eslint-disable-next-line no-console
+  console.log(separator);
+  const maxRows = 100;
+  for (const row of changedRows.slice(0, maxRows)) {
+    const afterLevel = row.afterLevel ?? '-';
+    const beforeLevel = row.beforeLevel ?? '-';
+    const beforeLevelWidth = Math.floor((levelWidth - 2) / 2);
+    const afterLevelWidth = levelWidth - 2 - beforeLevelWidth;
+    const beforeLevelCell = formatCell(beforeLevel, beforeLevelWidth);
+    const afterLevelCell = formatCell(afterLevel, afterLevelWidth);
+    const levelCell = `${colorizeRiskLevel(beforeLevelCell, beforeLevel)}->${colorizeRiskLevel(afterLevelCell, afterLevel)}`;
+    const deltaCell = formatCell(row.delta, deltaWidth);
+    // eslint-disable-next-line no-console
+    console.log(
+      [
+        formatCell(row.id, idWidth),
+        formatCell(row.scoreTransition, scoreWidth),
+        colorizeDelta(deltaCell, row.delta),
+        levelCell,
+        formatCell(row.criticalityTransition, critWidth),
+        formatCell(row.watchlistTransition, wlWidth),
+      ].join(' | '),
+    );
+  }
+  if (changedRows.length > maxRows) {
+    log.info(
+      `... truncated ${changedRows.length - maxRows} additional changed entities from comparison output.`,
+    );
+  }
+
+  const topMovers = changedRows
+    .map((row) => ({ ...row, absDelta: Math.abs(toNumericScore(row.delta) ?? 0) }))
+    .sort((a, b) => b.absDelta - a.absDelta)
+    .slice(0, 5)
+    .filter((row) => row.absDelta > 0);
+  if (topMovers.length > 0) {
+    log.info(`Top score changes: ${topMovers.map((row) => `${row.id}(${row.delta})`).join(', ')}`);
+  } else {
+    log.info('Top score changes: no score delta detected.');
+  }
+  return changedRows.map((row) => row.id);
 };
 
 const getRiskScoreDocCount = async (space: string): Promise<number> => {
@@ -1033,6 +1358,1105 @@ const waitForExpectedEntityIds = async ({
   );
 };
 
+const indexAlertsForSeededEntities = async ({
+  users,
+  localUsers,
+  hosts,
+  services,
+  alertsPerEntity,
+  space,
+}: {
+  users: SeededUser[];
+  localUsers: SeededLocalUser[];
+  hosts: SeededHost[];
+  services: SeededService[];
+  alertsPerEntity: number;
+  space: string;
+}) => {
+  log.info('Generating and indexing alerts for seeded entities...');
+  const totalAlerts =
+    (users.length + localUsers.length + hosts.length + services.length) * alertsPerEntity;
+  const maxOperationsPerChunk = 5000 * 2;
+  const totalOperations = totalAlerts * 2;
+  const totalChunks = totalOperations > 0 ? Math.ceil(totalOperations / maxOperationsPerChunk) : 0;
+  log.info(
+    `Alert bulk indexing: total_operations=${totalOperations}, chunk_size=${maxOperationsPerChunk}, chunks=${totalChunks}`,
+  );
+  let chunkIndex = 0;
+  for (const chunkOps of buildAlertOpChunks({
+    idpUsers: users,
+    localUsers,
+    hosts,
+    services,
+    alertsPerEntity,
+    space,
+    maxOperationsPerChunk,
+  })) {
+    chunkIndex += 1;
+    await bulkUpsert({ documents: chunkOps });
+    log.info(`Alert bulk indexing progress: chunk ${chunkIndex}/${totalChunks}`);
+  }
+  log.info('Alert indexing stage complete.');
+};
+
+const deleteAlertsForSeededEntities = async ({
+  space,
+  users,
+  localUsers,
+  hosts,
+  services,
+}: {
+  space: string;
+  users: SeededUser[];
+  localUsers: SeededLocalUser[];
+  hosts: SeededHost[];
+  services: SeededService[];
+}) => {
+  const client = getEsClient();
+  const alertIndex = getAlertIndex(space);
+  const shouldQueries: Array<Record<string, unknown>> = [];
+  if (users.length > 0) {
+    shouldQueries.push({ terms: { 'user.email': users.map((u) => u.userEmail) } });
+  }
+  if (localUsers.length > 0) {
+    shouldQueries.push({ terms: { 'user.name': localUsers.map((u) => u.userName) } });
+  }
+  if (hosts.length > 0) {
+    shouldQueries.push({ terms: { 'host.id': hosts.map((h) => h.hostId) } });
+  }
+  if (services.length > 0) {
+    shouldQueries.push({ terms: { 'service.name': services.map((s) => s.serviceName) } });
+  }
+  if (shouldQueries.length === 0) {
+    log.info('No seeded entities available for alert cleanup.');
+    return;
+  }
+  log.info(`Deleting alerts tied to seeded entities from "${alertIndex}"...`);
+  try {
+    const response = await client.deleteByQuery({
+      index: alertIndex,
+      refresh: true,
+      ignore_unavailable: true,
+      conflicts: 'proceed',
+      query: {
+        bool: {
+          should: shouldQueries,
+          minimum_should_match: 1,
+        },
+      },
+    });
+    log.info(`Deleted ${response.deleted ?? 0} alerts for seeded entities.`);
+  } catch (error) {
+    const statusCode = (error as { meta?: { statusCode?: number } }).meta?.statusCode;
+    if (statusCode === 404) {
+      log.info(`Alert index "${alertIndex}" not found; nothing to delete.`);
+      return;
+    }
+    throw error;
+  }
+};
+
+const clearEntityModifiers = async ({
+  entityIds,
+  space,
+  batchSize,
+}: {
+  entityIds: string[];
+  space: string;
+  batchSize: number;
+}) => {
+  const assignments = new Map<string, EntityModifierAssignment>();
+  for (const entityId of entityIds) {
+    const entityType = toModifierEntityType(entityId);
+    if (!entityType) continue;
+    assignments.set(entityId, { watchlists: [] });
+  }
+
+  const entries = [...assignments.entries()];
+  for (let i = 0; i < entries.length; i += batchSize) {
+    const batch = entries.slice(i, i + batchSize);
+    const entities: Array<{ type: ModifierEntityType; doc: Record<string, unknown> }> = [];
+    for (const [entityId, assignment] of batch) {
+      const entityType = toModifierEntityType(entityId);
+      if (!entityType) continue;
+      entities.push({
+        type: entityType,
+        doc: {
+          entity: {
+            id: entityId,
+            attributes: { watchlists: assignment.watchlists ?? [] },
+          },
+          asset: { criticality: null },
+        },
+      });
+    }
+    if (entities.length > 0) {
+      await forceBulkUpdateEntitiesViaCrud({ entities, space });
+    }
+  }
+  log.info('Requested clearing of entity modifiers (watchlists + criticality).');
+};
+
+const runRiskMaintainerOnce = async ({
+  space,
+  runTimedStage,
+  stage,
+}: {
+  space: string;
+  runTimedStage: <T>(stage: string, fn: () => Promise<T>) => Promise<T>;
+  stage: string;
+}) =>
+  runTimedStage(stage, async () => {
+    await initEntityMaintainers(space);
+    return waitForMaintainerRun(space, 'risk-score');
+  });
+
+const countSeededAlertsByEntityKind = async ({
+  space,
+  users,
+  localUsers,
+  hosts,
+  services,
+}: {
+  space: string;
+  users: SeededUser[];
+  localUsers: SeededLocalUser[];
+  hosts: SeededHost[];
+  services: SeededService[];
+}): Promise<{
+  idpUserAlerts: number;
+  localUserAlerts: number;
+  hostAlerts: number;
+  serviceAlerts: number;
+}> => {
+  const client = getEsClient();
+  const alertIndex = getAlertIndex(space);
+  const safeCount = async (query: Record<string, unknown>): Promise<number> => {
+    try {
+      const response = await client.count({
+        index: alertIndex,
+        ignore_unavailable: true,
+        query,
+      });
+      return response.count;
+    } catch {
+      return 0;
+    }
+  };
+
+  const [idpUserAlerts, localUserAlerts, hostAlerts, serviceAlerts] = await Promise.all([
+    users.length > 0 ? safeCount({ terms: { 'user.email': users.map((u) => u.userEmail) } }) : 0,
+    localUsers.length > 0
+      ? safeCount({ terms: { 'user.name': localUsers.map((u) => u.userName) } })
+      : 0,
+    hosts.length > 0 ? safeCount({ terms: { 'host.id': hosts.map((h) => h.hostId) } }) : 0,
+    services.length > 0
+      ? safeCount({ terms: { 'service.name': services.map((s) => s.serviceName) } })
+      : 0,
+  ]);
+
+  return { idpUserAlerts, localUserAlerts, hostAlerts, serviceAlerts };
+};
+
+type FollowOnAction =
+  | 'reset_to_zero'
+  | 'post_more_alerts'
+  | 'remove_modifiers'
+  | 'reapply_modifiers'
+  | 'add_more_entities'
+  | 'tweak_single_entity'
+  | 'view_single_risk_doc'
+  | 'export_risk_docs'
+  | 'refresh_table'
+  | 'run_maintainer_and_refresh'
+  | 'exit';
+
+type TrackedEntitySelection =
+  | { kind: 'idp_user'; user: SeededUser; euid: string }
+  | { kind: 'local_user'; user: SeededLocalUser; euid: string }
+  | { kind: 'host'; host: SeededHost; euid: string }
+  | { kind: 'service'; service: SeededService; euid: string };
+
+const formatMenuKey = (key: string): string =>
+  process.stdout.isTTY ? `${ANSI.bold}${key}${ANSI.reset}` : key;
+
+const formatFollowOnOption = (key: string, description: string): string =>
+  `  [${formatMenuKey(key)}] ${description}`;
+
+const resolveTrackedEntitySelection = ({
+  entityId,
+  users,
+  localUsers,
+  hosts,
+  services,
+}: {
+  entityId: string;
+  users: SeededUser[];
+  localUsers: SeededLocalUser[];
+  hosts: SeededHost[];
+  services: SeededService[];
+}): TrackedEntitySelection | null => {
+  const idpUser = users.find((user) => toUserEuid(user) === entityId);
+  if (idpUser) return { kind: 'idp_user', user: idpUser, euid: entityId };
+
+  const localUser = localUsers.find(
+    (user) => `user:${user.userName}@${user.hostId}@local` === entityId,
+  );
+  if (localUser) return { kind: 'local_user', user: localUser, euid: entityId };
+
+  const host = hosts.find((h) => toHostEuid(h) === entityId);
+  if (host) return { kind: 'host', host, euid: entityId };
+
+  const service = services.find((s) => toServiceEuid(s) === entityId);
+  if (service) return { kind: 'service', service, euid: entityId };
+
+  return null;
+};
+
+const getSelectionAlertQuery = (selection: TrackedEntitySelection): Record<string, unknown> => {
+  const legacyQuery = (() => {
+    switch (selection.kind) {
+      case 'idp_user':
+        return { term: { 'user.email': selection.user.userEmail } };
+      case 'local_user':
+        return {
+          bool: {
+            must: [
+              { term: { 'user.name': selection.user.userName } },
+              { term: { 'host.id': selection.user.hostId } },
+            ],
+          },
+        };
+      case 'host':
+        return { term: { 'host.id': selection.host.hostId } };
+      case 'service':
+        return { term: { 'service.name': selection.service.serviceName } };
+    }
+  })();
+
+  // Prefer explicit per-alert target marker; keep legacy matcher for older generated alerts.
+  return {
+    bool: {
+      should: [{ term: { [ALERT_TARGET_ENTITY_ID_FIELD]: selection.euid } }, legacyQuery],
+      minimum_should_match: 1,
+    },
+  };
+};
+
+const countAlertsForSelection = async ({
+  space,
+  selection,
+}: {
+  space: string;
+  selection: TrackedEntitySelection;
+}): Promise<number> => {
+  const client = getEsClient();
+  const alertIndex = getAlertIndex(space);
+  try {
+    const response = await client.count({
+      index: alertIndex,
+      ignore_unavailable: true,
+      query: getSelectionAlertQuery(selection),
+    });
+    return response.count;
+  } catch {
+    return 0;
+  }
+};
+
+const deleteAlertsForSelection = async ({
+  space,
+  selection,
+}: {
+  space: string;
+  selection: TrackedEntitySelection;
+}) => {
+  const client = getEsClient();
+  const alertIndex = getAlertIndex(space);
+  try {
+    const response = await client.deleteByQuery({
+      index: alertIndex,
+      refresh: true,
+      ignore_unavailable: true,
+      conflicts: 'proceed',
+      query: getSelectionAlertQuery(selection),
+    });
+    log.info(`Deleted ${response.deleted ?? 0} alerts for entity "${selection.euid}".`);
+  } catch (error) {
+    const statusCode = (error as { meta?: { statusCode?: number } }).meta?.statusCode;
+    if (statusCode === 404) {
+      log.info(`Alert index "${alertIndex}" not found; nothing to delete.`);
+      return;
+    }
+    throw error;
+  }
+};
+
+const printSingleEntityState = async ({
+  space,
+  selection,
+}: {
+  space: string;
+  selection: TrackedEntitySelection;
+}) => {
+  const snapshot = await collectRiskSnapshot({ space, entityIds: [selection.euid] });
+  const row = snapshot.rows[0];
+  const alertCount = await countAlertsForSelection({ space, selection });
+  if (!row) {
+    log.warn(`No current risk/entity state found for "${selection.euid}".`);
+    return;
+  }
+  // eslint-disable-next-line no-console
+  console.log(colorize(`🎯 Single entity state: ${selection.euid}`, 'cyan'));
+  // eslint-disable-next-line no-console
+  console.log(
+    `  score=${row.score}, level=${row.level}, criticality=${row.criticality}, watchlists=${row.watchlistsCount}, alerts=${alertCount}`,
+  );
+};
+
+const fetchSingleEntityModifierState = async ({
+  space,
+  entityId,
+}: {
+  space: string;
+  entityId: string;
+}): Promise<{ criticality: string; watchlists: string[] }> => {
+  const client = getEsClient();
+  const entityIndex = `.entities.v2.latest.security_${space}`;
+  try {
+    const response = await client.search({
+      index: entityIndex,
+      size: 1,
+      query: {
+        term: {
+          'entity.id': entityId,
+        },
+      },
+      _source: ['asset.criticality', 'entity.attributes.watchlists'],
+    });
+    const source = response.hits.hits[0]?._source as
+      | { asset?: { criticality?: string }; entity?: { attributes?: { watchlists?: unknown } } }
+      | undefined;
+    return {
+      criticality: source?.asset?.criticality ?? '-',
+      watchlists: normalizeWatchlists(source?.entity?.attributes?.watchlists),
+    };
+  } catch {
+    return { criticality: '-', watchlists: [] };
+  }
+};
+
+const fetchRiskDocsForEntityIds = async ({
+  space,
+  entityIds,
+  maxDocsPerEntity,
+}: {
+  space: string;
+  entityIds: string[];
+  maxDocsPerEntity: number;
+}): Promise<Map<string, RiskDocSummary[]>> => {
+  const uniqueEntityIds = [...new Set(entityIds)];
+  const grouped = new Map<string, RiskDocSummary[]>();
+  if (uniqueEntityIds.length === 0) {
+    return grouped;
+  }
+
+  const client = getEsClient();
+  const riskIndex = `risk-score.risk-score-${space}`;
+  const response = await client.search({
+    index: riskIndex,
+    size: Math.max(100, uniqueEntityIds.length * Math.max(1, maxDocsPerEntity) * 4),
+    sort: [{ '@timestamp': { order: 'desc' } }],
+    query: {
+      bool: {
+        should: [
+          { terms: { 'host.name': uniqueEntityIds } },
+          { terms: { 'user.name': uniqueEntityIds } },
+          { terms: { 'service.name': uniqueEntityIds } },
+        ],
+        minimum_should_match: 1,
+      },
+    },
+  });
+
+  for (const hit of response.hits.hits) {
+    const source = (hit._source ?? {}) as {
+      '@timestamp'?: string;
+      host?: { name?: string; risk?: Record<string, unknown> };
+      user?: { name?: string; risk?: Record<string, unknown> };
+      service?: { name?: string; risk?: Record<string, unknown> };
+    };
+    const entityId = source.host?.name ?? source.user?.name ?? source.service?.name;
+    if (!entityId || !uniqueEntityIds.includes(entityId)) {
+      continue;
+    }
+    const risk = source.host?.risk ?? source.user?.risk ?? source.service?.risk ?? {};
+    const entries = grouped.get(entityId) ?? [];
+    if (entries.length >= maxDocsPerEntity) {
+      continue;
+    }
+    entries.push({
+      entityId,
+      timestamp: source['@timestamp'] ?? '-',
+      score:
+        typeof risk.calculated_score_norm === 'number'
+          ? (risk.calculated_score_norm as number)
+          : null,
+      level: typeof risk.calculated_level === 'string' ? (risk.calculated_level as string) : '-',
+      scoreType: typeof risk.score_type === 'string' ? (risk.score_type as string) : '-',
+      calculationRunId:
+        typeof risk.calculation_run_id === 'string' ? (risk.calculation_run_id as string) : '-',
+      source: source as unknown as Record<string, unknown>,
+    });
+    grouped.set(entityId, entries);
+  }
+  return grouped;
+};
+
+const promptFollowOnAction = async (): Promise<FollowOnAction> => {
+  const optionsText = [
+    `${ANSI.bold}Choose a follow-on action:${ANSI.reset}`,
+    formatFollowOnOption('r', 'reset to zero (wipe seeded alerts, re-run maintainer)'),
+    formatFollowOnOption('p', 'post more alerts (same seeded entities)'),
+    formatFollowOnOption('m', 'remove modifiers (clear watchlists + criticality)'),
+    formatFollowOnOption('a', 're-apply modifiers (new watchlists + criticality)'),
+    formatFollowOnOption('e', 'expand entities (add more users/hosts/local-users/services)'),
+    formatFollowOnOption('t', 'tweak single entity (criticality/watchlists/reset/add alerts)'),
+    formatFollowOnOption('v', 'view single risk-score doc(s)'),
+    formatFollowOnOption('x', 'export risk-score docs to file'),
+    formatFollowOnOption('f', 'refresh table (no data changes)'),
+    formatFollowOnOption('u', 'run maintainer and refresh table'),
+    formatFollowOnOption('q', 'exit'),
+  ].join('\n');
+
+  while (true) {
+    const answer = (
+      await input({
+        message: optionsText,
+        default: 'q',
+      })
+    )
+      .trim()
+      .toLowerCase();
+
+    if (answer === 'r') {
+      log.info('Selected [r] reset to zero.');
+      return 'reset_to_zero';
+    }
+    if (answer === 'p') {
+      log.info('Selected [p] post more alerts.');
+      return 'post_more_alerts';
+    }
+    if (answer === 'm') {
+      log.info('Selected [m] remove modifiers.');
+      return 'remove_modifiers';
+    }
+    if (answer === 'a') {
+      log.info('Selected [a] re-apply modifiers.');
+      return 'reapply_modifiers';
+    }
+    if (answer === 'e') {
+      log.info('Selected [e] expand entities.');
+      return 'add_more_entities';
+    }
+    if (answer === 't') {
+      log.info('Selected [t] tweak single entity.');
+      return 'tweak_single_entity';
+    }
+    if (answer === 'v') {
+      log.info('Selected [v] view single risk-score doc(s).');
+      return 'view_single_risk_doc';
+    }
+    if (answer === 'x') {
+      log.info('Selected [x] export risk-score docs to file.');
+      return 'export_risk_docs';
+    }
+    if (answer === 'f') {
+      log.info('Selected [f] refresh table (no data changes).');
+      return 'refresh_table';
+    }
+    if (answer === 'u') {
+      log.info('Selected [u] run maintainer and refresh table.');
+      return 'run_maintainer_and_refresh';
+    }
+    if (answer === 'q') {
+      log.info('Selected [q] exit.');
+      return 'exit';
+    }
+
+    log.warn(`Invalid option "${answer}". Please enter one of: r, p, m, a, e, t, v, x, f, u, q.`);
+  }
+};
+
+const runFollowOnActionLoop = async ({
+  space,
+  entityIds,
+  users,
+  localUsers,
+  hosts,
+  services,
+  watchlistIds,
+  entityKinds,
+  eventIndex,
+  offsetHours,
+  enableCriticality,
+  enableWatchlists,
+  alertsPerEntity,
+  modifierBulkBatchSize,
+  runTimedStage,
+}: {
+  space: string;
+  entityIds: string[];
+  users: SeededUser[];
+  localUsers: SeededLocalUser[];
+  hosts: SeededHost[];
+  services: SeededService[];
+  watchlistIds: string[];
+  entityKinds: EntityKind[];
+  eventIndex: string;
+  offsetHours: number;
+  enableCriticality: boolean;
+  enableWatchlists: boolean;
+  alertsPerEntity: number;
+  modifierBulkBatchSize: number;
+  runTimedStage: <T>(stage: string, fn: () => Promise<T>) => Promise<T>;
+}) => {
+  let trackedUsers = [...users];
+  let trackedLocalUsers = [...localUsers];
+  let trackedHosts = [...hosts];
+  let trackedServices = [...services];
+  let trackedWatchlistIds = [...watchlistIds];
+  let trackedEntityIds = [...new Set(entityIds)];
+  let lastChangedEntityIds: string[] = [];
+
+  while (true) {
+    log.info(
+      `Current entity pool: idp_users=${trackedUsers.length}, local_users=${trackedLocalUsers.length}, hosts=${trackedHosts.length}, services=${trackedServices.length}, total=${trackedEntityIds.length}`,
+    );
+    const action = await promptFollowOnAction();
+
+    if (action === 'exit') {
+      log.info('Exiting follow-on action loop.');
+      return;
+    }
+
+    const before = await collectRiskSnapshot({ space, entityIds: trackedEntityIds });
+    log.info(`Captured baseline snapshot for action "${action}".`);
+
+    if (action === 'reset_to_zero') {
+      await runTimedStage('follow_on_reset_delete_alerts', async () =>
+        deleteAlertsForSeededEntities({
+          space,
+          users: trackedUsers,
+          localUsers: trackedLocalUsers,
+          hosts: trackedHosts,
+          services: trackedServices,
+        }),
+      );
+      const maintainerOutcome = await runRiskMaintainerOnce({
+        space,
+        runTimedStage,
+        stage: 'follow_on_reset_run_maintainer',
+      });
+      log.info(
+        `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
+      );
+    } else if (action === 'post_more_alerts') {
+      const extraAlertsRaw = await input({
+        message: 'Additional alerts per entity',
+        default: String(alertsPerEntity),
+      });
+      const extraAlerts = Math.max(1, parseOptionInt(extraAlertsRaw, alertsPerEntity));
+      await runTimedStage('follow_on_post_alerts', async () =>
+        indexAlertsForSeededEntities({
+          users: trackedUsers,
+          localUsers: trackedLocalUsers,
+          hosts: trackedHosts,
+          services: trackedServices,
+          alertsPerEntity: extraAlerts,
+          space,
+        }),
+      );
+      const maintainerOutcome = await runRiskMaintainerOnce({
+        space,
+        runTimedStage,
+        stage: 'follow_on_post_alerts_run_maintainer',
+      });
+      log.info(
+        `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
+      );
+    } else if (action === 'remove_modifiers') {
+      await runTimedStage('follow_on_remove_modifiers', async () =>
+        clearEntityModifiers({
+          entityIds: trackedEntityIds,
+          space,
+          batchSize: modifierBulkBatchSize,
+        }),
+      );
+      const maintainerOutcome = await runRiskMaintainerOnce({
+        space,
+        runTimedStage,
+        stage: 'follow_on_remove_modifiers_run_maintainer',
+      });
+      log.info(
+        `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
+      );
+    } else if (action === 'reapply_modifiers') {
+      await runTimedStage('follow_on_reapply_modifiers', async () => {
+        const watchlists = await createWatchlistsForRun(space);
+        trackedWatchlistIds = watchlists.map((w) => w.id);
+        const reassignments = buildEntityModifierAssignments({
+          entityIds: trackedEntityIds,
+          watchlistIds: trackedWatchlistIds,
+          applyCriticality: true,
+        });
+        await applyEntityModifiers({
+          assignments: reassignments,
+          totalEntities: trackedEntityIds.length,
+          space,
+          batchSize: modifierBulkBatchSize,
+        });
+      });
+      const maintainerOutcome = await runRiskMaintainerOnce({
+        space,
+        runTimedStage,
+        stage: 'follow_on_reapply_modifiers_run_maintainer',
+      });
+      log.info(
+        `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
+      );
+    } else if (action === 'add_more_entities') {
+      const [addUsersRaw, addLocalUsersRaw, addHostsRaw, addServicesRaw, addAlertsRaw] =
+        await Promise.all([
+          input({ message: 'Add IdP users', default: '0' }),
+          input({ message: 'Add local users', default: '0' }),
+          input({ message: 'Add hosts', default: '0' }),
+          input({ message: 'Add services', default: '0' }),
+          input({ message: 'Alerts per NEW entity', default: String(alertsPerEntity) }),
+        ]);
+
+      const addUsers = Math.max(0, parseOptionInt(addUsersRaw, 0));
+      const addLocalUsers = Math.max(0, parseOptionInt(addLocalUsersRaw, 0));
+      const addHosts = Math.max(0, parseOptionInt(addHostsRaw, 0));
+      const addServices = Math.max(0, parseOptionInt(addServicesRaw, 0));
+      const addAlertsPerEntity = Math.max(1, parseOptionInt(addAlertsRaw, alertsPerEntity));
+
+      if (addUsers + addLocalUsers + addHosts + addServices === 0) {
+        log.info('No additional entities requested. Skipping expansion action.');
+      } else {
+        const newUsers = seedUsers(addUsers, trackedUsers.length);
+        const newHosts = seedHosts(addHosts, trackedHosts.length);
+        const hostPool = [...trackedHosts, ...newHosts];
+        const newLocalUsers = seedLocalUsers(
+          addLocalUsers,
+          hostPool.length > 0 ? hostPool : seedHosts(1),
+          trackedLocalUsers.length,
+        );
+        const newServices = seedServices(addServices, trackedServices.length);
+
+        const newEntityIds = getAllEntityIds({
+          users: newUsers,
+          localUsers: newLocalUsers,
+          hosts: newHosts,
+          services: newServices,
+        });
+        const expectedNewEntityIds = newEntityIds.filter((id) => !trackedEntityIds.includes(id));
+
+        const addedKinds: EntityKind[] = [];
+        if (addUsers > 0) addedKinds.push('idp_user');
+        if (addLocalUsers > 0) addedKinds.push('local_user');
+        if (addHosts > 0) addedKinds.push('host');
+        if (addServices > 0) addedKinds.push('service');
+        const extractionKinds = addedKinds.length > 0 ? addedKinds : entityKinds;
+
+        await runTimedStage('follow_on_expand_source_ingest', async () => {
+          const sourceIngestAction = await ensureEventTarget(eventIndex);
+          const userEvents = buildUserEvents(newUsers, offsetHours);
+          const hostEvents = buildHostEvents(newHosts, offsetHours);
+          const localUserEvents = buildLocalUserEvents(newLocalUsers, offsetHours);
+          const serviceEvents = buildServiceEvents(newServices, offsetHours);
+          const docs = [...userEvents, ...hostEvents, ...localUserEvents, ...serviceEvents];
+          log.info(
+            `Ingesting ${docs.length} expansion source events into "${eventIndex}" (bulk action=${sourceIngestAction})...`,
+          );
+          await bulkIngest({
+            index: eventIndex,
+            documents: docs,
+            action: sourceIngestAction,
+          });
+        });
+
+        await runTimedStage('follow_on_expand_extract_entities', async () =>
+          forceExtractExpectedEntities({
+            space,
+            entityKinds: extractionKinds,
+            expectedEntityIds: expectedNewEntityIds,
+            offsetHours,
+          }),
+        );
+
+        if ((enableCriticality || enableWatchlists) && expectedNewEntityIds.length > 0) {
+          await runTimedStage('follow_on_expand_apply_modifiers', async () => {
+            if (enableWatchlists && trackedWatchlistIds.length === 0) {
+              const created = await createWatchlistsForRun(space);
+              trackedWatchlistIds = created.map((w) => w.id);
+            }
+            const modifierEntityIds = expectedNewEntityIds.filter(
+              (entityId) => toModifierEntityType(entityId) !== null,
+            );
+            const assignments = buildEntityModifierAssignments({
+              entityIds: modifierEntityIds,
+              watchlistIds: enableWatchlists ? trackedWatchlistIds : [],
+              applyCriticality: enableCriticality,
+            });
+            await applyEntityModifiers({
+              assignments,
+              totalEntities: trackedEntityIds.length + expectedNewEntityIds.length,
+              space,
+              batchSize: modifierBulkBatchSize,
+            });
+          });
+        }
+
+        await runTimedStage('follow_on_expand_alerts', async () =>
+          indexAlertsForSeededEntities({
+            users: newUsers,
+            localUsers: newLocalUsers,
+            hosts: newHosts,
+            services: newServices,
+            alertsPerEntity: addAlertsPerEntity,
+            space,
+          }),
+        );
+
+        trackedUsers = [...trackedUsers, ...newUsers];
+        trackedHosts = [...trackedHosts, ...newHosts];
+        trackedLocalUsers = [...trackedLocalUsers, ...newLocalUsers];
+        trackedServices = [...trackedServices, ...newServices];
+        trackedEntityIds = [...new Set([...trackedEntityIds, ...newEntityIds])];
+
+        const maintainerOutcome = await runRiskMaintainerOnce({
+          space,
+          runTimedStage,
+          stage: 'follow_on_expand_run_maintainer',
+        });
+        log.info(
+          `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
+        );
+      }
+    } else if (action === 'tweak_single_entity') {
+      const entityIdInput = await input({
+        message: 'Entity ID to tweak (exact match)',
+        default: trackedEntityIds[0] ?? '',
+      });
+      const selectedEntityId = entityIdInput.trim();
+      const selection = resolveTrackedEntitySelection({
+        entityId: selectedEntityId,
+        users: trackedUsers,
+        localUsers: trackedLocalUsers,
+        hosts: trackedHosts,
+        services: trackedServices,
+      });
+      if (!selection) {
+        log.warn(`Entity "${selectedEntityId}" is not in the tracked entity pool.`);
+      } else {
+        await printSingleEntityState({ space, selection });
+        const modifierState = await fetchSingleEntityModifierState({
+          space,
+          entityId: selection.euid,
+        });
+
+        const tweakActionRaw = await input({
+          message:
+            'Single-entity action: [c] criticality, [w] watchlists, [z] reset alerts->zero, [l] add alerts',
+          default: 'c',
+        });
+        const tweakAction = tweakActionRaw.trim().toLowerCase();
+
+        if (tweakAction === 'c') {
+          const currentCriticality = modifierState.criticality;
+          const selectedCriticality = await select({
+            message: `Select criticality (current: ${currentCriticality})`,
+            choices: [
+              { name: `Keep current (${currentCriticality})`, value: '__keep__' },
+              { name: 'None (clear criticality)', value: '__none__' },
+              ...CRITICALITY_LEVELS.map((level) => ({
+                name: `${level}${level === currentCriticality ? ' (current)' : ''}`,
+                value: level,
+              })),
+            ],
+            default: '__keep__',
+          });
+
+          if (selectedCriticality === '__keep__') {
+            log.info('Criticality unchanged.');
+          } else {
+            const entityType = toModifierEntityType(selection.euid);
+            if (!entityType) {
+              log.warn(`Entity type for "${selection.euid}" does not support modifier updates.`);
+            } else {
+              const criticality: CriticalityLevel | null =
+                selectedCriticality === '__none__'
+                  ? null
+                  : (selectedCriticality as CriticalityLevel);
+              await runTimedStage('follow_on_tweak_criticality', async () => {
+                await forceBulkUpdateEntitiesViaCrud({
+                  entities: [
+                    {
+                      type: entityType,
+                      doc: {
+                        entity: { id: selection.euid },
+                        asset: { criticality },
+                      },
+                    },
+                  ],
+                  space,
+                });
+              });
+              const maintainerOutcome = await runRiskMaintainerOnce({
+                space,
+                runTimedStage,
+                stage: 'follow_on_tweak_criticality_run_maintainer',
+              });
+              log.info(
+                `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
+              );
+            }
+          }
+        } else if (tweakAction === 'w') {
+          if (trackedWatchlistIds.length === 0) {
+            const created = await createWatchlistsForRun(space);
+            trackedWatchlistIds = created.map((w) => w.id);
+            log.info(`No existing watchlists; created ${trackedWatchlistIds.length} for tweaking.`);
+          }
+          const currentWatchlists = modifierState.watchlists;
+          const availableWatchlistIds = [
+            ...new Set([...trackedWatchlistIds, ...currentWatchlists]),
+          ];
+          const selectedWatchlists = await checkbox({
+            message: `Select watchlists (current: ${currentWatchlists.length ? currentWatchlists.join(', ') : 'none'})`,
+            choices: availableWatchlistIds.map((id) => ({
+              name: `${id}${currentWatchlists.includes(id) ? ' (current)' : ''}`,
+              value: id,
+              checked: currentWatchlists.includes(id),
+            })),
+          });
+
+          const nextWatchlists = selectedWatchlists;
+          const entityType = toModifierEntityType(selection.euid);
+          if (!entityType) {
+            log.warn(`Entity type for "${selection.euid}" does not support modifier updates.`);
+          } else {
+            await runTimedStage('follow_on_tweak_watchlists', async () => {
+              await forceBulkUpdateEntitiesViaCrud({
+                entities: [
+                  {
+                    type: entityType,
+                    doc: {
+                      entity: {
+                        id: selection.euid,
+                        attributes: { watchlists: nextWatchlists },
+                      },
+                    },
+                  },
+                ],
+                space,
+              });
+            });
+            const maintainerOutcome = await runRiskMaintainerOnce({
+              space,
+              runTimedStage,
+              stage: 'follow_on_tweak_watchlists_run_maintainer',
+            });
+            log.info(
+              `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
+            );
+          }
+        } else if (tweakAction === 'z') {
+          await runTimedStage('follow_on_tweak_single_reset_delete_alerts', async () =>
+            deleteAlertsForSelection({ space, selection }),
+          );
+          const maintainerOutcome = await runRiskMaintainerOnce({
+            space,
+            runTimedStage,
+            stage: 'follow_on_tweak_single_reset_run_maintainer',
+          });
+          log.info(
+            `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
+          );
+        } else if (tweakAction === 'l') {
+          const extraAlertsRaw = await input({
+            message: 'Additional alerts for this entity',
+            default: '5',
+          });
+          const extraAlerts = Math.max(1, parseOptionInt(extraAlertsRaw, 5));
+          await runTimedStage('follow_on_tweak_single_add_alerts', async () => {
+            await indexAlertsForSeededEntities({
+              users: selection.kind === 'idp_user' ? [selection.user] : [],
+              localUsers: selection.kind === 'local_user' ? [selection.user] : [],
+              hosts: selection.kind === 'host' ? [selection.host] : [],
+              services: selection.kind === 'service' ? [selection.service] : [],
+              alertsPerEntity: extraAlerts,
+              space,
+            });
+          });
+          const maintainerOutcome = await runRiskMaintainerOnce({
+            space,
+            runTimedStage,
+            stage: 'follow_on_tweak_single_add_alerts_run_maintainer',
+          });
+          log.info(
+            `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
+          );
+        } else {
+          log.warn(`Invalid single-entity action "${tweakAction}". No changes applied.`);
+        }
+      }
+    } else if (action === 'view_single_risk_doc') {
+      const entityIdInput = await input({
+        message: 'Entity ID to inspect',
+        default: trackedEntityIds[0] ?? '',
+      });
+      const selectedEntityId = entityIdInput.trim();
+      if (!selectedEntityId) {
+        log.warn('No entity ID provided.');
+      } else {
+        const docCountRaw = await input({
+          message: 'Latest docs to show',
+          default: '1',
+        });
+        const docCount = Math.max(1, parseOptionInt(docCountRaw, 1));
+        const docsByEntity = await fetchRiskDocsForEntityIds({
+          space,
+          entityIds: [selectedEntityId],
+          maxDocsPerEntity: docCount,
+        });
+        const docs = docsByEntity.get(selectedEntityId) ?? [];
+        if (docs.length === 0) {
+          log.warn(`No risk score docs found for "${selectedEntityId}".`);
+        } else {
+          // eslint-disable-next-line no-console
+          console.log(colorize(`🔍 Risk docs for ${selectedEntityId}`, 'cyan'));
+          docs.forEach((doc, idx) => {
+            // eslint-disable-next-line no-console
+            console.log(
+              `  [${idx + 1}] ts=${doc.timestamp} score=${doc.score ?? '-'} level=${doc.level} score_type=${doc.scoreType} run_id=${doc.calculationRunId}`,
+            );
+          });
+          const showFullRaw = await input({
+            message: 'Show full source JSON? [y/N]',
+            default: 'n',
+          });
+          if (showFullRaw.trim().toLowerCase() === 'y') {
+            for (const doc of docs) {
+              // eslint-disable-next-line no-console
+              console.log(JSON.stringify(doc.source, null, 2));
+            }
+          }
+        }
+      }
+    } else if (action === 'export_risk_docs') {
+      const scopeRaw = await input({
+        message: 'Export scope: [t] tracked entities, [c] changed entities',
+        default: 't',
+      });
+      const scope = scopeRaw.trim().toLowerCase();
+      const targetEntityIds =
+        scope === 'c' && lastChangedEntityIds.length > 0 ? lastChangedEntityIds : trackedEntityIds;
+      if (scope === 'c' && lastChangedEntityIds.length === 0) {
+        log.warn('No changed entities available yet; falling back to tracked entities.');
+      }
+      const docsPerEntityRaw = await input({
+        message: 'Max docs per entity',
+        default: '1',
+      });
+      const docsPerEntity = Math.max(1, parseOptionInt(docsPerEntityRaw, 1));
+      const formatRaw = await input({
+        message: 'Format: [n] ndjson, [j] json',
+        default: 'n',
+      });
+      const format = formatRaw.trim().toLowerCase() === 'j' ? 'json' : 'ndjson';
+      const outDirRaw = await input({
+        message: 'Output directory',
+        default: 'tmp/risk-score-v2/exports',
+      });
+      const outDir = outDirRaw.trim() || 'tmp/risk-score-v2/exports';
+
+      const docsByEntity = await fetchRiskDocsForEntityIds({
+        space,
+        entityIds: targetEntityIds,
+        maxDocsPerEntity: docsPerEntity,
+      });
+      const records = [...docsByEntity.entries()].flatMap(([entityId, docs]) =>
+        docs.map((doc, idx) => ({
+          entity_id: entityId,
+          doc_index: idx + 1,
+          timestamp: doc.timestamp,
+          score: doc.score,
+          level: doc.level,
+          score_type: doc.scoreType,
+          calculation_run_id: doc.calculationRunId,
+          source: doc.source,
+        })),
+      );
+
+      await fs.mkdir(outDir, { recursive: true });
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filePath = path.resolve(
+        outDir,
+        `risk-docs-${space}-${timestamp}.${format === 'json' ? 'json' : 'ndjson'}`,
+      );
+      const payload =
+        format === 'json'
+          ? `${JSON.stringify(records, null, 2)}\n`
+          : `${records.map((record) => JSON.stringify(record)).join('\n')}\n`;
+      await fs.writeFile(filePath, payload, 'utf8');
+      log.info(
+        `Exported ${records.length} risk doc(s) for ${docsByEntity.size} entity(ies) to ${filePath}`,
+      );
+    } else if (action === 'run_maintainer_and_refresh') {
+      const maintainerOutcome = await runRiskMaintainerOnce({
+        space,
+        runTimedStage,
+        stage: 'follow_on_run_maintainer_and_refresh',
+      });
+      log.info(
+        `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
+      );
+    } else if (action === 'refresh_table') {
+      log.info('Refreshing summary table without mutating alerts, modifiers, or entities.');
+    }
+
+    const after = await collectRiskSnapshot({ space, entityIds: trackedEntityIds });
+    if (action === 'reset_to_zero') {
+      const alertCounts = await countSeededAlertsByEntityKind({
+        space,
+        users: trackedUsers,
+        localUsers: trackedLocalUsers,
+        hosts: trackedHosts,
+        services: trackedServices,
+      });
+      log.info(
+        `Post-reset seeded alert counts: idp_user=${alertCounts.idpUserAlerts}, local_user=${alertCounts.localUserAlerts}, host=${alertCounts.hostAlerts}, service=${alertCounts.serviceAlerts}`,
+      );
+
+      const lingeringServiceScores = after.rows.filter((row) => {
+        if (!row.id.startsWith('service:')) return false;
+        const score = toNumericScore(row.score);
+        return score !== null && score > 0;
+      });
+      if (lingeringServiceScores.length > 0) {
+        log.warn(
+          `Reset diagnostic: ${lingeringServiceScores.length} service entities remain non-zero after alert cleanup + maintainer run. This suggests service score recalculation may not be zeroing stale docs in the current maintainer behavior.`,
+        );
+      }
+    }
+    lastChangedEntityIds = printBeforeAfterComparison({ actionTitle: action, before, after });
+    await printRiskRows(after.rows, after.riskDocsMatched);
+    printSnapshotResult(after);
+  }
+};
+
 export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   const overallStartMs = Date.now();
   const stageTimings: Array<{ stage: string; ms: number }> = [];
@@ -1076,6 +2500,7 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   const offsetHours = parseOptionInt(options.offsetHours, 1);
   const eventIndex = options.eventIndex || config.eventIndex || 'logs-testlogs-default';
   const modifierBulkBatchSize = perf ? 500 : 200;
+  const followOnEnabled = options.followOn ?? process.stdout.isTTY;
 
   log.info(
     `Starting risk-score-v2 in space "${space}" with seedSource=${seedSource}, kinds=${entityKinds.join(',')}, idp_users=${usersCount}, local_users=${localUsersCount}, hosts=${hostsCount}, services=${servicesCount}, alertsPerEntity=${alertsPerEntity}, eventIndex=${eventIndex}`,
@@ -1118,12 +2543,7 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
       ? seeded.localUsers
       : seedLocalUsers(localUsersCount, hosts.length > 0 ? hosts : seedHosts(1));
   const services = seeded.services;
-  const allEntityIds = [
-    ...users.map(toUserEuid),
-    ...localUsers.map((user) => `user:${user.userName}@${user.hostId}@local`),
-    ...hosts.map(toHostEuid),
-    ...services.map(toServiceEuid),
-  ];
+  const allEntityIds = getAllEntityIds({ users, localUsers, hosts, services });
   const uniqueEntityIds = [...new Set(allEntityIds)];
   const baselinePresentEntityIds = await getPresentEntityIds(space, uniqueEntityIds);
   const expectedNewEntityIds = uniqueEntityIds.filter((id) => !baselinePresentEntityIds.has(id));
@@ -1148,24 +2568,13 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
     log.info('Source event ingest complete.');
   });
 
-  const fromDateISO = new Date(Date.now() - (offsetHours + 4) * 60 * 60 * 1000).toISOString();
-  const toDateISO = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-  const extractionTypes = new Set<'user' | 'host' | 'service'>();
-  if (entityKinds.includes('idp_user') || entityKinds.includes('local_user'))
-    extractionTypes.add('user');
-  if (entityKinds.includes('host')) extractionTypes.add('host');
-  if (entityKinds.includes('service')) extractionTypes.add('service');
   await runTimedStage('extract_entities', async () => {
-    log.info(
-      `Forcing log extraction for [${[...extractionTypes].join(', ')}] from ${fromDateISO} to ${toDateISO}...`,
-    );
-    await Promise.all(
-      [...extractionTypes].map(async (extractionType) => {
-        log.info(`Requesting force log extraction for "${extractionType}"...`);
-        await forceLogExtraction(extractionType, { fromDateISO, toDateISO, space });
-      }),
-    );
-    await waitForExpectedEntityIds({ space, expectedEntityIds: expectedNewEntityIds });
+    await forceExtractExpectedEntities({
+      space,
+      entityKinds,
+      expectedEntityIds: expectedNewEntityIds,
+      offsetHours,
+    });
   });
 
   let watchlistIds: string[] = [];
@@ -1196,38 +2605,22 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   }
 
   if (options.alerts !== false) {
-    await runTimedStage('index_alerts', async () => {
-      log.info('Generating and indexing alerts for seeded entities...');
-      const totalAlerts =
-        (users.length + localUsers.length + hosts.length + services.length) * alertsPerEntity;
-      const maxOperationsPerChunk = 5000 * 2;
-      const totalOperations = totalAlerts * 2;
-      const totalChunks =
-        totalOperations > 0 ? Math.ceil(totalOperations / maxOperationsPerChunk) : 0;
-      log.info(
-        `Alert bulk indexing: total_operations=${totalOperations}, chunk_size=${maxOperationsPerChunk}, chunks=${totalChunks}`,
-      );
-      let chunkIndex = 0;
-      for (const chunkOps of buildAlertOpChunks({
-        idpUsers: users,
+    await runTimedStage('index_alerts', async () =>
+      indexAlertsForSeededEntities({
+        users,
         localUsers,
         hosts,
         services,
         alertsPerEntity,
         space,
-        maxOperationsPerChunk,
-      })) {
-        chunkIndex += 1;
-        await bulkUpsert({ documents: chunkOps });
-        log.info(`Alert bulk indexing progress: chunk ${chunkIndex}/${totalChunks}`);
-      }
-      log.info('Alert indexing stage complete.');
-    });
+      }),
+    );
   }
 
-  const maintainerOutcome = await runTimedStage('run_maintainer', async () => {
-    await initEntityMaintainers(space);
-    return waitForMaintainerRun(space, 'risk-score');
+  const maintainerOutcome = await runRiskMaintainerOnce({
+    space,
+    runTimedStage,
+    stage: 'run_maintainer',
   });
   log.info(
     `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
@@ -1235,7 +2628,7 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   log.info(
     'Maintainer run requested once. Collecting risk summary directly (without strict risk-score count gating).',
   );
-  const summary = await runTimedStage('report_summary', async () =>
+  await runTimedStage('report_summary', async () =>
     reportRiskSummary({
       space,
       baselineRiskScoreCount,
@@ -1244,22 +2637,30 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
       entityIds: allEntityIds,
     }),
   );
-  if (summary.totalEntities > 0 && summary.missingRiskDocs === 0) {
-    // eslint-disable-next-line no-console
-    console.log(
-      colorize(
-        `✅ PASS: Risk docs present for all ${summary.totalEntities} seeded entities.`,
-        'green',
-      ),
+  if (followOnEnabled && process.stdout.isTTY) {
+    await runFollowOnActionLoop({
+      space,
+      entityIds: allEntityIds,
+      users,
+      localUsers,
+      hosts,
+      services,
+      watchlistIds,
+      entityKinds,
+      eventIndex,
+      offsetHours,
+      enableCriticality: options.criticality !== false,
+      enableWatchlists: options.watchlists !== false,
+      alertsPerEntity,
+      modifierBulkBatchSize,
+      runTimedStage,
+    });
+  } else if (followOnEnabled && !process.stdout.isTTY) {
+    log.info(
+      'Follow-on actions requested, but output is non-interactive (non-TTY). Skipping menu.',
     );
   } else {
-    // eslint-disable-next-line no-console
-    console.log(
-      colorize(
-        `⚠️ WARN: Missing risk docs for ${summary.missingRiskDocs}/${summary.totalEntities} seeded entities.`,
-        'yellow',
-      ),
-    );
+    log.info('Follow-on menu disabled (--no-follow-on).');
   }
   if (stageTimings.length > 0) {
     log.info(

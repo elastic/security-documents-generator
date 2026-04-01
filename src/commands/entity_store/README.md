@@ -58,3 +58,36 @@ Clean Entity Store data and related generated artifacts.
 ```bash
 yarn start clean-entity-store
 ```
+
+## `risk-score-v2`
+
+End-to-end Entity Store V2 risk scoring test flow with optional interactive follow-on actions.
+
+### Usage
+
+```bash
+yarn start risk-score-v2 [options]
+```
+
+### Common options
+
+- `--entity-kinds <kinds>`: `host,idp_user,local_user,service`
+- `--users <n>`, `--hosts <n>`, `--local-users <n>`, `--services <n>`
+- `--alerts-per-entity <n>`
+- `--seed-source <source>`: `basic|org`
+- `--perf`: high-volume preset
+- `--no-setup`, `--no-criticality`, `--no-watchlists`, `--no-alerts`
+- `--follow-on` / `--no-follow-on`: enable or skip interactive post-run action menu
+
+### Follow-on actions
+
+After the initial summary (TTY mode), you can choose:
+
+- reset to zero (delete seeded alerts, rerun maintainer)
+- post more alerts (same seeded entities, rerun maintainer)
+- remove modifiers (clear watchlists and criticality, rerun maintainer)
+- re-apply modifiers (new watchlists and criticality, rerun maintainer)
+- refresh table (no data mutations; re-read latest risk/entity docs)
+- run maintainer and refresh table (no data mutations beyond maintainer recalculation)
+
+Each action prints a compact before/after comparison table with score and modifier deltas.

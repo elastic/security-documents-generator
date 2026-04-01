@@ -237,6 +237,8 @@ export const entityStoreCommands: CommandModule = {
       .option('--no-criticality', 'skip asset criticality assignment')
       .option('--no-watchlists', 'skip watchlist creation and assignment')
       .option('--no-alerts', 'skip alert generation')
+      .option('--follow-on', 'enable interactive follow-on actions after initial summary')
+      .option('--no-follow-on', 'disable interactive follow-on actions')
       .action(
         wrapAction(async (options) => {
           await riskScoreV2Command(options);
