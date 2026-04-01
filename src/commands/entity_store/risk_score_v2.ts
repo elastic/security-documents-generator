@@ -56,7 +56,7 @@ const SUPPORTED_ORG_SIZES: OrganizationSize[] = ['john_doe', 'small', 'medium', 
 const SUPPORTED_PRODUCTIVITY_SUITES: ProductivitySuite[] = ['microsoft', 'google'];
 
 const parseEntityKinds = (value?: string): EntityKind[] => {
-  const rawKinds = (value ?? 'host,idp_user')
+  const rawKinds = (value ?? 'host,idp_user,local_user,service')
     .split(',')
     .map((k) => k.trim())
     .filter(Boolean);
@@ -141,6 +141,7 @@ const ensureEventTarget = async (eventIndex: string): Promise<'index' | 'create'
 
 const toUserEuid = (user: SeededUser) => `user:${user.userEmail}@okta`;
 const toHostEuid = (host: SeededHost) => `host:${host.hostId}`;
+const toServiceEuid = (service: SeededService) => `service:${service.serviceName}`;
 
 const compactSeedToken = (value: string, fallback: string): string => {
   const normalized = value.replace(/[^a-z0-9]/gi, '').toLowerCase();
@@ -324,13 +325,20 @@ const buildServiceEvents = (services: SeededService[], offsetHours: number) => {
   }));
 };
 
-const buildAlertOps = ({
+const appendAlertOp = (ops: unknown[], alertIndex: string, alert: unknown) => {
+  const id = (alert as Record<string, unknown>)['kibana.alert.uuid'] as string;
+  ops.push({ create: { _index: alertIndex, _id: id } });
+  ops.push(alert);
+};
+
+function* buildAlertOpChunks({
   hosts,
   idpUsers,
   localUsers,
   services,
   alertsPerEntity,
   space,
+  maxOperationsPerChunk,
 }: {
   hosts: SeededHost[];
   idpUsers: SeededUser[];
@@ -338,9 +346,10 @@ const buildAlertOps = ({
   services: SeededService[];
   alertsPerEntity: number;
   space: string;
-}): unknown[] => {
+  maxOperationsPerChunk: number;
+}): Generator<unknown[]> {
   const alertIndex = getAlertIndex(space);
-  const docs: unknown[] = [];
+  let ops: unknown[] = [];
 
   for (const user of idpUsers) {
     for (let i = 0; i < alertsPerEntity; i++) {
@@ -363,9 +372,11 @@ const buildAlertOps = ({
           space,
         },
       );
-      const id = (alert as Record<string, unknown>)['kibana.alert.uuid'] as string;
-      docs.push({ create: { _index: alertIndex, _id: id } });
-      docs.push(alert);
+      appendAlertOp(ops, alertIndex, alert);
+      if (ops.length >= maxOperationsPerChunk) {
+        yield ops;
+        ops = [];
+      }
     }
   }
 
@@ -390,9 +401,11 @@ const buildAlertOps = ({
           space,
         },
       );
-      const id = (alert as Record<string, unknown>)['kibana.alert.uuid'] as string;
-      docs.push({ create: { _index: alertIndex, _id: id } });
-      docs.push(alert);
+      appendAlertOp(ops, alertIndex, alert);
+      if (ops.length >= maxOperationsPerChunk) {
+        yield ops;
+        ops = [];
+      }
     }
   }
 
@@ -413,9 +426,11 @@ const buildAlertOps = ({
           space,
         },
       );
-      const id = (alert as Record<string, unknown>)['kibana.alert.uuid'] as string;
-      docs.push({ create: { _index: alertIndex, _id: id } });
-      docs.push(alert);
+      appendAlertOp(ops, alertIndex, alert);
+      if (ops.length >= maxOperationsPerChunk) {
+        yield ops;
+        ops = [];
+      }
     }
   }
 
@@ -437,14 +452,18 @@ const buildAlertOps = ({
           space,
         },
       );
-      const id = (alert as Record<string, unknown>)['kibana.alert.uuid'] as string;
-      docs.push({ create: { _index: alertIndex, _id: id } });
-      docs.push(alert);
+      appendAlertOp(ops, alertIndex, alert);
+      if (ops.length >= maxOperationsPerChunk) {
+        yield ops;
+        ops = [];
+      }
     }
   }
 
-  return docs;
-};
+  if (ops.length > 0) {
+    yield ops;
+  }
+}
 
 const waitForMaintainerRun = async (space: string, maintainerId: string = 'risk-score') => {
   let baselineRuns: number;
@@ -518,6 +537,12 @@ const CRITICALITY_LEVELS = [
 ] as const;
 type CriticalityLevel = (typeof CRITICALITY_LEVELS)[number];
 type EntityModifierAssignment = { criticality?: CriticalityLevel; watchlists?: string[] };
+type ModifierEntityType = 'user' | 'host';
+const toModifierEntityType = (entityId: string): ModifierEntityType | null => {
+  if (entityId.startsWith('user:')) return 'user';
+  if (entityId.startsWith('host:')) return 'host';
+  return null;
+};
 
 const buildEntityModifierAssignments = ({
   entityIds,
@@ -582,7 +607,10 @@ const applyEntityModifiers = async ({
     const batch = entries.slice(i, i + concurrency);
     await Promise.all(
       batch.map(async ([entityId, assignment]) => {
-        const entityType = entityId.startsWith('user:') ? 'user' : 'host';
+        const entityType = toModifierEntityType(entityId);
+        if (!entityType) {
+          return;
+        }
         await forceUpdateEntityViaCrud({
           entityType,
           space,
@@ -702,6 +730,7 @@ const reportRiskSummary = async ({
         should: [
           { terms: { 'host.name': uniqueEntityIds } },
           { terms: { 'user.name': uniqueEntityIds } },
+          { terms: { 'service.name': uniqueEntityIds } },
         ],
         minimum_should_match: 1,
       },
@@ -715,6 +744,10 @@ const reportRiskSummary = async ({
       'user.risk.calculated_score_norm',
       'user.risk.calculated_level',
       'user.risk.modifiers',
+      'service.name',
+      'service.risk.calculated_score_norm',
+      'service.risk.calculated_level',
+      'service.risk.modifiers',
     ],
   });
 
@@ -740,12 +773,17 @@ const reportRiskSummary = async ({
             name?: string;
             risk?: { calculated_score_norm?: number; calculated_level?: string };
           };
+          service?: {
+            name?: string;
+            risk?: { calculated_score_norm?: number; calculated_level?: string };
+          };
         }
       | undefined;
     const hostId = source?.host?.name;
     const userId = source?.user?.name;
-    const id = hostId ?? userId;
-    const risk = source?.host?.risk ?? source?.user?.risk;
+    const serviceId = source?.service?.name;
+    const id = hostId ?? userId ?? serviceId;
+    const risk = source?.host?.risk ?? source?.user?.risk ?? source?.service?.risk;
     if (!id || !risk || riskById.has(id)) continue;
     riskById.set(id, {
       score:
@@ -1010,6 +1048,7 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
     ...users.map(toUserEuid),
     ...localUsers.map((user) => `user:${user.userName}@${user.hostId}@local`),
     ...hosts.map(toHostEuid),
+    ...services.map(toServiceEuid),
   ];
   const uniqueEntityIds = [...new Set(allEntityIds)];
   const baselinePresentEntityIds = await getPresentEntityIds(space, uniqueEntityIds);
@@ -1060,8 +1099,11 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   }
 
   if (options.watchlists !== false || options.criticality !== false) {
+    const modifierEntityIds = allEntityIds.filter(
+      (entityId) => toModifierEntityType(entityId) !== null,
+    );
     const assignments = buildEntityModifierAssignments({
-      entityIds: allEntityIds,
+      entityIds: modifierEntityIds,
       watchlistIds,
       applyCriticality: options.criticality !== false,
     });
@@ -1075,24 +1117,28 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
 
   if (options.alerts !== false) {
     log.info('Generating and indexing alerts for seeded entities...');
-    const ops = buildAlertOps({
+    const totalAlerts =
+      (users.length + localUsers.length + hosts.length + services.length) * alertsPerEntity;
+    const maxOperationsPerChunk = 5000 * 2;
+    const totalOperations = totalAlerts * 2;
+    const totalChunks =
+      totalOperations > 0 ? Math.ceil(totalOperations / maxOperationsPerChunk) : 0;
+    log.info(
+      `Alert bulk indexing: total_operations=${totalOperations}, chunk_size=${maxOperationsPerChunk}, chunks=${totalChunks}`,
+    );
+    let chunkIndex = 0;
+    for (const chunkOps of buildAlertOpChunks({
       idpUsers: users,
       localUsers,
       hosts,
       services,
       alertsPerEntity,
       space,
-    });
-    const chunkSize = 5000 * 2;
-    const totalChunks = Math.ceil(ops.length / chunkSize);
-    log.info(
-      `Alert bulk indexing: total_operations=${ops.length}, chunk_size=${chunkSize}, chunks=${totalChunks}`,
-    );
-    for (let i = 0; i < ops.length; i += chunkSize) {
-      await bulkUpsert({ documents: ops.slice(i, i + chunkSize) });
-      log.info(
-        `Alert bulk indexing progress: chunk ${Math.floor(i / chunkSize) + 1}/${totalChunks}`,
-      );
+      maxOperationsPerChunk,
+    })) {
+      chunkIndex += 1;
+      await bulkUpsert({ documents: chunkOps });
+      log.info(`Alert bulk indexing progress: chunk ${chunkIndex}/${totalChunks}`);
     }
     log.info('Alert indexing stage complete.');
   }

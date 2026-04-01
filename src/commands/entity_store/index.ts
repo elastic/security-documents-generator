@@ -213,7 +213,7 @@ export const entityStoreCommands: CommandModule = {
       .description('End-to-end Entity Store V2 risk score test command')
       .option(
         '--entity-kinds <kinds>',
-        'comma-separated kinds: host,idp_user,local_user,service (default: host,idp_user)',
+        'comma-separated kinds: host,idp_user,local_user,service (default: host,idp_user,local_user,service)',
       )
       .option('--users <n>', 'number of user entities (default 10)')
       .option('--hosts <n>', 'number of host entities (default 10)')
