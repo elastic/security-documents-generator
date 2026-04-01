@@ -70,6 +70,7 @@ type RiskSummaryRow = {
   score: string;
   level: string;
   scoreType: string;
+  alertsCount: number;
   criticality: string;
   watchlistsCount: number;
   resolutionTarget: string;
@@ -91,6 +92,9 @@ type ResolutionScoreRow = {
   score: string;
   level: string;
   relatedEntities: number;
+  resolvedAlertsCount: number;
+  resolvedCriticality: string;
+  resolvedWatchlistsCount: number;
   calculationRunId: string;
   timestamp: string;
 };
@@ -137,9 +141,31 @@ const summarizeList = (items: string[], max: number = 6): string => {
 
 const printGraphSummaryViews = ({
   graph,
+  scoreByEntityId,
+  resolutionScoreByEntityId,
   maxRows = 20,
 }: {
   graph: RelationshipGraphState;
+  scoreByEntityId?: Map<
+    string,
+    {
+      score: string;
+      level: string;
+      alertsCount: number;
+      criticality: string;
+      watchlistsCount: number;
+    }
+  >;
+  resolutionScoreByEntityId?: Map<
+    string,
+    {
+      score: string;
+      level: string;
+      resolvedAlertsCount: number;
+      criticality: string;
+      watchlistsCount: number;
+    }
+  >;
   maxRows?: number;
 }) => {
   const token = (text: string, color: 'green' | 'yellow' | 'cyan') => {
@@ -151,11 +177,64 @@ const printGraphSummaryViews = ({
   const ownsLabel = token('owns', 'green');
   const leftArrow = token('<-', 'yellow');
   const rightArrow = token('->', 'green');
-  const contributesArrow = token('<=', 'cyan');
+  const upRightArrow = token('⤴', 'cyan');
   const plusToken = token('+', 'cyan');
+  const printTreeItems = ({ items, indent }: { items: string[]; indent: string }) => {
+    if (items.length === 0) {
+      // eslint-disable-next-line no-console
+      console.log(`${indent}└─ -`);
+      return;
+    }
+    for (const [index, item] of items.entries()) {
+      const branch = index === items.length - 1 ? '└─' : '├─';
+      // eslint-disable-next-line no-console
+      console.log(`${indent}${branch} ${item}`);
+    }
+  };
+  const shortenCriticality = (criticality: string): string => {
+    const normalized = criticality.trim().toLowerCase();
+    if (!normalized || normalized === '-') return '-';
+    if (normalized === 'extreme_impact') return 'extreme';
+    if (normalized === 'high_impact') return 'high';
+    if (normalized === 'medium_impact') return 'medium';
+    if (normalized === 'low_impact') return 'low';
+    return normalized;
+  };
+  const formatBaseTag = (entityId: string): string => {
+    const base = scoreByEntityId?.get(entityId);
+    const hasBase = Boolean(base && base.score !== '-' && base.level !== '-');
+    if (!hasBase) return '';
+    return colorizeRiskLevel(
+      `[${base?.score}/${base?.level} alerts:${base?.alertsCount ?? 0} crit:${shortenCriticality(base?.criticality ?? '-')} wlists:${base?.watchlistsCount ?? 0}]`,
+      base?.level ?? '-',
+    );
+  };
+  const formatResolvedTag = (entityId: string): string => {
+    const resolved = resolutionScoreByEntityId?.get(entityId);
+    const hasResolved = Boolean(resolved && resolved.score !== '-' && resolved.level !== '-');
+    if (!hasResolved) return '';
+    return colorizeRiskLevel(
+      `[resolved:${resolved?.score}/${resolved?.level} alerts:${resolved?.resolvedAlertsCount ?? 0} crit:${shortenCriticality(resolved?.criticality ?? '-')} wlists:${resolved?.watchlistsCount ?? 0}]`,
+      resolved?.level ?? '-',
+    );
+  };
+  const formatEntityWithScore = (entityId: string): string => {
+    const baseTag = formatBaseTag(entityId);
+    const resolutionTag = formatResolvedTag(entityId);
+    if (!baseTag && !resolutionTag) {
+      return entityId;
+    }
+    return `${entityId} ${[baseTag, resolutionTag].filter(Boolean).join(' ')}`.trim();
+  };
 
   // eslint-disable-next-line no-console
   console.log(colorize('🕸️ Relationships only', 'cyan'));
+  // eslint-disable-next-line no-console
+  console.log(
+    '  legend: [score/level alerts:<count> crit:<criticality> wlists:<watchlists>] [resolved:score/level alerts:<count> crit:<criticality> wlists:<watchlists>]',
+  );
+  // eslint-disable-next-line no-console
+  console.log(`  flow: ${upRightArrow} contributors into target score`);
   if (graph.resolutionGroups.length === 0) {
     // eslint-disable-next-line no-console
     console.log('  resolution links: none');
@@ -163,10 +242,12 @@ const printGraphSummaryViews = ({
     // eslint-disable-next-line no-console
     console.log(`  resolution groups: ${graph.resolutionGroups.length}`);
     for (const [index, group] of graph.resolutionGroups.slice(0, maxRows).entries()) {
+      const formattedAliases = group.aliasIds.map((aliasId) => formatEntityWithScore(aliasId));
       // eslint-disable-next-line no-console
-      console.log(
-        `    [${index + 1}] ${group.targetId} ${leftArrow} ${summarizeList(group.aliasIds, 4)}`,
-      );
+      console.log(`    [${index + 1}] ${formatEntityWithScore(group.targetId)}`);
+      // eslint-disable-next-line no-console
+      console.log(`      └─ ${resolutionLabel} ${leftArrow} aliases`);
+      printTreeItems({ items: formattedAliases, indent: '         ' });
     }
     if (graph.resolutionGroups.length > maxRows) {
       // eslint-disable-next-line no-console
@@ -184,7 +265,9 @@ const printGraphSummaryViews = ({
     console.log(`  ownership edges: ${graph.ownershipEdges.length}`);
     for (const [index, edge] of graph.ownershipEdges.slice(0, maxRows).entries()) {
       // eslint-disable-next-line no-console
-      console.log(`    [${index + 1}] ${edge.sourceId} ${rightArrow} ${edge.targetId}`);
+      console.log(`    [${index + 1}] ${formatEntityWithScore(edge.sourceId)}`);
+      // eslint-disable-next-line no-console
+      console.log(`      └─ ${ownsLabel} ${rightArrow} ${formatEntityWithScore(edge.targetId)}`);
     }
     if (graph.ownershipEdges.length > maxRows) {
       // eslint-disable-next-line no-console
@@ -216,13 +299,14 @@ const printGraphSummaryViews = ({
       const contributors = graph.ownershipEdges
         .filter((edge) => edge.targetId === targetId)
         .map((edge) => edge.sourceId);
-      // eslint-disable-next-line no-console
-      console.log(
-        `    ${targetId} ${contributesArrow} ${ownsLabel}(${summarizeList(
-          [...new Set(contributors)],
-          4,
-        )})`,
+      const formattedContributors = [...new Set(contributors)].map((id) =>
+        formatEntityWithScore(id),
       );
+      // eslint-disable-next-line no-console
+      console.log(`    ${formatEntityWithScore(targetId)}`);
+      // eslint-disable-next-line no-console
+      console.log(`      └─ ${upRightArrow} ${ownsLabel}(${formattedContributors.length})`);
+      printTreeItems({ items: formattedContributors, indent: '         ' });
     }
     return;
   }
@@ -237,10 +321,28 @@ const printGraphSummaryViews = ({
           .map((edge) => edge.sourceId),
       ),
     ];
+    const formattedAliases = aliases.map((aliasId) => formatEntityWithScore(aliasId));
+    const formattedOwnershipContributors = ownershipContributors.map((id) =>
+      formatEntityWithScore(id),
+    );
+    const resolutionTag = formatResolvedTag(targetId);
+    const baseTag = formatBaseTag(targetId);
     // eslint-disable-next-line no-console
     console.log(
-      `    [${index + 1}] ${targetId} ${contributesArrow} ${resolutionLabel}(${aliases.length} aliases: ${summarizeList(aliases, 3)}) ${plusToken} ${ownsLabel}(${ownershipContributors.length}: ${summarizeList(ownershipContributors, 3)})`,
+      `    [${index + 1}] ${resolutionLabel} score ${upRightArrow} ${targetId} ${resolutionTag || '[resolved:-]'}`,
     );
+    // eslint-disable-next-line no-console
+    console.log(`      ├─ base target features`);
+    // eslint-disable-next-line no-console
+    console.log(`      │  └─ ${targetId} ${baseTag || '[base:-]'}`);
+    // eslint-disable-next-line no-console
+    console.log(`      ├─ ${upRightArrow} ${resolutionLabel} aliases (${aliases.length})`);
+    printTreeItems({ items: formattedAliases, indent: '      │  ' });
+    // eslint-disable-next-line no-console
+    console.log(
+      `      └─ ${plusToken} ${ownsLabel} contributors (${ownershipContributors.length})`,
+    );
+    printTreeItems({ items: formattedOwnershipContributors, indent: '         ' });
   }
   if (groupTargets.length > maxRows) {
     // eslint-disable-next-line no-console
@@ -1546,26 +1648,32 @@ const collectRiskSnapshot = async ({
       'host.risk.calculated_score_norm',
       'host.risk.calculated_level',
       'host.risk.calculation_run_id',
+      'host.risk.category_1_count',
       'host.risk.id_value',
       'host.risk.modifiers',
       'user.name',
       'user.risk.calculated_score_norm',
       'user.risk.calculated_level',
       'user.risk.calculation_run_id',
+      'user.risk.category_1_count',
       'user.risk.id_value',
       'user.risk.modifiers',
       'service.name',
       'service.risk.calculated_score_norm',
       'service.risk.calculated_level',
       'service.risk.calculation_run_id',
+      'service.risk.category_1_count',
       'service.risk.id_value',
       'service.risk.score_type',
       'service.risk.related_entities',
       'service.risk.modifiers',
       'host.risk.score_type',
       'host.risk.related_entities',
+      'host.risk.category_1_count',
       'user.risk.score_type',
       'user.risk.related_entities',
+      'user.risk.category_1_count',
+      'service.risk.category_1_count',
     ],
   });
 
@@ -1619,6 +1727,8 @@ const collectRiskSnapshot = async ({
       'host.risk.score_type',
       'host.risk.related_entities',
       'host.risk.calculation_run_id',
+      'host.risk.category_1_count',
+      'host.risk.modifiers',
       'user.name',
       'user.risk.id_value',
       'user.risk.calculated_score_norm',
@@ -1626,6 +1736,8 @@ const collectRiskSnapshot = async ({
       'user.risk.score_type',
       'user.risk.related_entities',
       'user.risk.calculation_run_id',
+      'user.risk.category_1_count',
+      'user.risk.modifiers',
       'service.name',
       'service.risk.id_value',
       'service.risk.calculated_score_norm',
@@ -1633,6 +1745,8 @@ const collectRiskSnapshot = async ({
       'service.risk.score_type',
       'service.risk.related_entities',
       'service.risk.calculation_run_id',
+      'service.risk.category_1_count',
+      'service.risk.modifiers',
     ],
   });
 
@@ -1647,7 +1761,13 @@ const collectRiskSnapshot = async ({
 
   const riskById = new Map<
     string,
-    { score: string; level: string; scoreType: string; relatedEntities: number }
+    {
+      score: string;
+      level: string;
+      scoreType: string;
+      relatedEntities: number;
+      alertsCount: number;
+    }
   >();
   const resolutionRowsByKey = new Map<string, ResolutionScoreRow>();
   for (const hit of riskResponse.hits.hits) {
@@ -1663,6 +1783,7 @@ const collectRiskSnapshot = async ({
               score_type?: string;
               related_entities?: unknown[];
               calculation_run_id?: string;
+              category_1_count?: number;
             };
           };
           user?: {
@@ -1674,6 +1795,7 @@ const collectRiskSnapshot = async ({
               score_type?: string;
               related_entities?: unknown[];
               calculation_run_id?: string;
+              category_1_count?: number;
             };
           };
           service?: {
@@ -1685,6 +1807,7 @@ const collectRiskSnapshot = async ({
               score_type?: string;
               related_entities?: unknown[];
               calculation_run_id?: string;
+              category_1_count?: number;
             };
           };
         }
@@ -1708,6 +1831,7 @@ const collectRiskSnapshot = async ({
       level: risk.calculated_level ?? '-',
       scoreType,
       relatedEntities: Array.isArray(risk.related_entities) ? risk.related_entities.length : 0,
+      alertsCount: typeof risk.category_1_count === 'number' ? risk.category_1_count : 0,
     });
   }
 
@@ -1717,6 +1841,7 @@ const collectRiskSnapshot = async ({
       score: riskById.get(id)?.score ?? '-',
       level: riskById.get(id)?.level ?? '-',
       scoreType: riskById.get(id)?.scoreType ?? '-',
+      alertsCount: riskById.get(id)?.alertsCount ?? 0,
       criticality: entityById.get(id)?.criticality ?? '-',
       watchlistsCount: entityById.get(id)?.watchlists.length ?? 0,
       resolutionTarget: entityById.get(id)?.resolutionTarget ?? '-',
@@ -1742,6 +1867,8 @@ const collectRiskSnapshot = async ({
                   score_type?: string;
                   related_entities?: unknown[];
                   calculation_run_id?: string;
+                  category_1_count?: number;
+                  modifiers?: unknown[];
                 };
               };
               user?: {
@@ -1753,6 +1880,8 @@ const collectRiskSnapshot = async ({
                   score_type?: string;
                   related_entities?: unknown[];
                   calculation_run_id?: string;
+                  category_1_count?: number;
+                  modifiers?: unknown[];
                 };
               };
               service?: {
@@ -1764,6 +1893,8 @@ const collectRiskSnapshot = async ({
                   score_type?: string;
                   related_entities?: unknown[];
                   calculation_run_id?: string;
+                  category_1_count?: number;
+                  modifiers?: unknown[];
                 };
               };
             }
@@ -1782,6 +1913,22 @@ const collectRiskSnapshot = async ({
           typeof risk.calculation_run_id === 'string' ? risk.calculation_run_id : '-';
         const resolutionKey = buildResolutionKey({ targetEntityId: id, calculationRunId });
         if (resolutionRowsByKey.has(resolutionKey)) continue;
+        const modifiers = Array.isArray(risk.modifiers)
+          ? (risk.modifiers as Array<Record<string, unknown>>)
+          : [];
+        const resolvedCriticality = (() => {
+          const criticalityModifier = modifiers.find(
+            (modifier) => modifier.type === 'asset_criticality',
+          );
+          const metadata =
+            criticalityModifier && typeof criticalityModifier.metadata === 'object'
+              ? (criticalityModifier.metadata as Record<string, unknown>)
+              : undefined;
+          return typeof metadata?.criticality_level === 'string' ? metadata.criticality_level : '-';
+        })();
+        const resolvedWatchlistsCount = modifiers.filter(
+          (modifier) => modifier.type === 'watchlist',
+        ).length;
         resolutionRowsByKey.set(resolutionKey, {
           resolutionKey,
           targetEntityId: id,
@@ -1791,6 +1938,10 @@ const collectRiskSnapshot = async ({
               : '-',
           level: risk.calculated_level ?? '-',
           relatedEntities: Array.isArray(risk.related_entities) ? risk.related_entities.length : 0,
+          resolvedAlertsCount:
+            typeof risk.category_1_count === 'number' ? risk.category_1_count : 0,
+          resolvedCriticality,
+          resolvedWatchlistsCount,
           calculationRunId,
           timestamp: typeof source?.['@timestamp'] === 'string' ? source['@timestamp'] : '-',
         });
@@ -2042,6 +2193,8 @@ const printResolutionRows = async ({
   const targetWidth = 48;
   const scoreWidth = 7;
   const levelWidth = 9;
+  const critWidth = 14;
+  const watchlistsWidth = 4;
   const relWidth = 6;
   const runWidth = 18;
   const tsWidth = 24;
@@ -2052,11 +2205,13 @@ const printResolutionRows = async ({
     formatCell('Target Entity', targetWidth),
     formatCell('Score', scoreWidth),
     formatCell('Level', levelWidth),
+    formatCell('Crit', critWidth),
+    formatCell('WL', watchlistsWidth),
     formatCell('Rel', relWidth),
     formatCell('Run ID', runWidth),
     formatCell('Timestamp', tsWidth),
   ].join(' | ');
-  const separator = `${'-'.repeat(idxWidth)}-+-${'-'.repeat(keyWidth)}-+-${'-'.repeat(targetWidth)}-+-${'-'.repeat(scoreWidth)}-+-${'-'.repeat(levelWidth)}-+-${'-'.repeat(relWidth)}-+-${'-'.repeat(runWidth)}-+-${'-'.repeat(tsWidth)}`;
+  const separator = `${'-'.repeat(idxWidth)}-+-${'-'.repeat(keyWidth)}-+-${'-'.repeat(targetWidth)}-+-${'-'.repeat(scoreWidth)}-+-${'-'.repeat(levelWidth)}-+-${'-'.repeat(critWidth)}-+-${'-'.repeat(watchlistsWidth)}-+-${'-'.repeat(relWidth)}-+-${'-'.repeat(runWidth)}-+-${'-'.repeat(tsWidth)}`;
 
   // eslint-disable-next-line no-console
   console.log(colorize(`🧩 Resolution scorecard (${rows.length} rows)`, 'cyan'));
@@ -2077,6 +2232,8 @@ const printResolutionRows = async ({
           formatCell(row.targetEntityId, targetWidth),
           formatCell(row.score, scoreWidth),
           colorizeRiskLevel(levelCell, row.level),
+          formatCell(row.resolvedCriticality, critWidth),
+          formatCell(String(row.resolvedWatchlistsCount), watchlistsWidth),
           formatCell(String(row.relatedEntities), relWidth),
           formatCell(row.calculationRunId, runWidth),
           formatCell(row.timestamp, tsWidth),
@@ -2106,6 +2263,8 @@ const printResolutionRows = async ({
           formatCell(row.targetEntityId, targetWidth),
           formatCell(row.score, scoreWidth),
           colorizeRiskLevel(levelCell, row.level),
+          formatCell(row.resolvedCriticality, critWidth),
+          formatCell(String(row.resolvedWatchlistsCount), watchlistsWidth),
           formatCell(String(row.relatedEntities), relWidth),
           formatCell(row.calculationRunId, runWidth),
           formatCell(row.timestamp, tsWidth),
@@ -4025,7 +4184,45 @@ const runFollowOnActionLoop = async ({
         log.info(
           `Graph summary: resolution_groups=${trackedRelationshipGraph.resolutionGroups.length}, ownership_edges=${trackedRelationshipGraph.ownershipEdges.length}, sample_group_sizes=[${sampledGroups.join(', ')}]`,
         );
-        printGraphSummaryViews({ graph: trackedRelationshipGraph, maxRows: pageSize });
+        printGraphSummaryViews({
+          graph: trackedRelationshipGraph,
+          scoreByEntityId: new Map(
+            before.rows.map((row) => [
+              row.id,
+              {
+                score: row.score,
+                level: row.level,
+                alertsCount: row.alertsCount,
+                criticality: row.criticality,
+                watchlistsCount: row.watchlistsCount,
+              },
+            ]),
+          ),
+          resolutionScoreByEntityId: (() => {
+            const latestByTarget = new Map<
+              string,
+              {
+                score: string;
+                level: string;
+                resolvedAlertsCount: number;
+                criticality: string;
+                watchlistsCount: number;
+              }
+            >();
+            for (const row of before.resolutionRows) {
+              if (latestByTarget.has(row.targetEntityId)) continue;
+              latestByTarget.set(row.targetEntityId, {
+                score: row.score,
+                level: row.level,
+                resolvedAlertsCount: row.resolvedAlertsCount,
+                criticality: row.resolvedCriticality,
+                watchlistsCount: row.resolvedWatchlistsCount,
+              });
+            }
+            return latestByTarget;
+          })(),
+          maxRows: pageSize,
+        });
       }
     } else if (action === 'link_aliases') {
       if (!phase2Enabled || !resolutionEnabled) {
