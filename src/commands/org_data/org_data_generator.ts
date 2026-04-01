@@ -10,6 +10,7 @@ import {
   Employee,
   Device,
   Host,
+  CentralAgent,
   CloudAccount,
   CloudResource,
   CloudIamUser,
@@ -101,6 +102,12 @@ export const generateOrgData = (config: OrganizationConfig): Organization => {
   // Determine productivity suite
   const productivitySuite: ProductivitySuite = config.productivitySuite || 'microsoft';
 
+  // Generate central agent for cloud/SaaS integrations
+  const centralAgent: CentralAgent = {
+    id: faker.string.uuid(),
+    name: 'fleet-collector-01',
+  };
+
   return {
     name: config.name,
     domain,
@@ -117,6 +124,7 @@ export const generateOrgData = (config: OrganizationConfig): Organization => {
     cloudflareZones,
     onePasswordVaults,
     productivitySuite,
+    centralAgent,
   };
 };
 
@@ -450,6 +458,7 @@ const generateDevice = (type: DeviceType, platform: LaptopPlatform | MobilePlatf
     crowdstrikeDeviceId: faker.string.hexadecimal({ length: 32, prefix: '' }).toLowerCase(),
     macAddress: faker.internet.mac({ separator: '-' }),
     ipAddress: faker.internet.ipv4(),
+    elasticAgentId: faker.string.uuid(),
   };
 };
 
@@ -492,6 +501,7 @@ const generateHosts = (count: number, cloudProviders: CloudProvider[]): Host[] =
       region,
       purpose,
       os,
+      elasticAgentId: faker.string.uuid(),
     });
   }
 

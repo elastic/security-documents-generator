@@ -4,7 +4,12 @@
  * Based on the Elastic hashicorp_vault integration package
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
+import {
+  BaseIntegration,
+  IntegrationDocument,
+  DataStreamConfig,
+  AgentData,
+} from './base_integration';
 import { Organization, Employee, CorrelationMap } from '../types';
 import { faker } from '@faker-js/faker';
 
@@ -100,6 +105,7 @@ export class HashiCorpVaultIntegration extends BaseIntegration {
     _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
+    const centralAgent = this.buildCentralAgent(org);
     const auditDocs: IntegrationDocument[] = [];
     const logDocs: IntegrationDocument[] = [];
 
@@ -108,13 +114,13 @@ export class HashiCorpVaultIntegration extends BaseIntegration {
     for (const employee of vaultEmployees) {
       const auditCount = faker.number.int({ min: 2, max: 6 });
       for (let i = 0; i < auditCount; i++) {
-        auditDocs.push(this.createAuditDocument(employee));
+        auditDocs.push(this.createAuditDocument(employee, centralAgent));
       }
     }
 
     const logCount = Math.max(5, Math.ceil(org.employees.length * 0.3));
     for (let i = 0; i < logCount; i++) {
-      logDocs.push(this.createLogDocument());
+      logDocs.push(this.createLogDocument(centralAgent));
     }
 
     documentsMap.set(this.dataStreams[0].index, auditDocs);
@@ -122,7 +128,7 @@ export class HashiCorpVaultIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private createAuditDocument(employee: Employee): IntegrationDocument {
+  private createAuditDocument(employee: Employee, centralAgent: AgentData): IntegrationDocument {
     const op = faker.helpers.weightedArrayElement(
       VAULT_OPERATIONS.map((o) => ({ value: o, weight: o.weight })),
     );
@@ -177,12 +183,13 @@ export class HashiCorpVaultIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawVaultAuditEvent),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'hashicorp_vault.audit' },
     } as IntegrationDocument;
   }
 
-  private createLogDocument(): IntegrationDocument {
+  private createLogDocument(centralAgent: AgentData): IntegrationDocument {
     const logEvt = faker.helpers.weightedArrayElement(
       LOG_MESSAGES.map((l) => ({ value: l, weight: l.weight })),
     );
@@ -190,6 +197,7 @@ export class HashiCorpVaultIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: logEvt.message,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'hashicorp_vault.log' },
     } as IntegrationDocument;

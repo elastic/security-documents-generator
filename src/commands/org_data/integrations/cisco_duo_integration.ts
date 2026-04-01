@@ -84,7 +84,7 @@ export class CiscoDuoIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private generateAuthDocument(employee: Employee, _org: Organization): IntegrationDocument {
+  private generateAuthDocument(employee: Employee, org: Organization): IntegrationDocument {
     const factor = faker.helpers.weightedArrayElement(
       DUO_FACTORS.map((f) => ({ value: f.name, weight: f.weight })),
     );
@@ -150,6 +150,7 @@ export class CiscoDuoIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'cisco_duo.auth' },
     } as IntegrationDocument;

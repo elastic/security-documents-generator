@@ -29,6 +29,35 @@ const OS_TYPES = ['Mac OS X', 'Windows 10', 'Windows 11', 'Linux'];
 const DEVICE_TYPES = ['Computer', 'Mobile'];
 
 /**
+ * Okta admin privilege types for group.privilege events
+ */
+const OKTA_PRIVILEGE_TYPES = [
+  'Super admin',
+  'Group admin',
+  'App admin',
+  'Read-only admin',
+  'Help desk admin',
+  'Org admin',
+  'API access management admin',
+];
+
+/**
+ * Anomalous geo locations for rare region/IP detection scenarios
+ */
+const ANOMALOUS_LOCATIONS = [
+  { country: 'North Korea', state: 'Pyongyang', city: 'Pyongyang', ip: '175.45.176.' },
+  {
+    country: 'Russia',
+    state: 'Kamchatka Krai',
+    city: 'Petropavlovsk-Kamchatsky',
+    ip: '185.220.101.',
+  },
+  { country: 'China', state: 'Xinjiang', city: 'Urumqi', ip: '103.25.61.' },
+  { country: 'Nigeria', state: 'Lagos', city: 'Lagos', ip: '41.58.100.' },
+  { country: 'Brazil', state: 'Roraima', city: 'Boa Vista', ip: '177.54.32.' },
+];
+
+/**
  * Okta System Logs Integration
  */
 export class OktaSystemIntegration extends BaseIntegration {
@@ -70,6 +99,15 @@ export class OktaSystemIntegration extends BaseIntegration {
       const employeeGroups = this.getEmployeeGroups(employee, org.oktaGroups);
       documents.push(...this.generateGroupMembershipEvents(employee, employeeGroups, org));
     }
+
+    // Org-level PAD event types (not per-employee)
+    documents.push(...this.generateUserLifecycleEvents(org));
+    documents.push(...this.generateGroupPrivilegeEvents(org));
+    documents.push(...this.generateGroupApplicationAssignmentEvents(org));
+    documents.push(...this.generateGroupLifecycleEvents(org));
+
+    // Anomalous behavior patterns for PAD detection
+    documents.push(...this.generateAnomalousEvents(org));
 
     // Sort documents by timestamp
     documents.sort((a, b) => {
@@ -204,7 +242,269 @@ export class OktaSystemIntegration extends BaseIntegration {
     // Generate one event per group, backdated to when employee was "added"
     for (const group of groups) {
       const timestamp = faker.date.past({ years: 1 }).toISOString();
-      events.push(this.createGroupMembershipEvent(employee, group, org, timestamp));
+      events.push(
+        this.createGroupMembershipEvent(
+          employee,
+          group,
+          org,
+          timestamp,
+          'group.user_membership.add',
+          'Add user to group membership',
+        ),
+      );
+    }
+
+    // ~10% of employees get a removal event from a random group
+    if (groups.length > 1 && faker.number.float() < 0.1) {
+      const removedGroup = faker.helpers.arrayElement(groups);
+      const timestamp = this.getRandomTimestamp(48);
+      events.push(
+        this.createGroupMembershipEvent(
+          employee,
+          removedGroup,
+          org,
+          timestamp,
+          'group.user_membership.remove',
+          'Remove user from group membership',
+        ),
+      );
+    }
+
+    return events;
+  }
+
+  /**
+   * Generate user lifecycle events across the org
+   */
+  private generateUserLifecycleEvents(org: Organization): OktaSystemLogDocument[] {
+    const events: OktaSystemLogDocument[] = [];
+    const adminEmployee = faker.helpers.arrayElement(org.employees);
+
+    for (const employee of org.employees) {
+      // Every employee had a create + activate (backdated)
+      const createTime = faker.date.past({ years: 2 }).toISOString();
+      events.push(
+        this.createAdminActionEvent(
+          adminEmployee,
+          employee,
+          null,
+          org,
+          createTime,
+          'user.lifecycle.create',
+          'Create Okta user',
+        ),
+      );
+      const activateTime = new Date(
+        new Date(createTime).getTime() + faker.number.int({ min: 1, max: 60 }) * 60000,
+      ).toISOString();
+      events.push(
+        this.createAdminActionEvent(
+          adminEmployee,
+          employee,
+          null,
+          org,
+          activateTime,
+          'user.lifecycle.activate',
+          'Activate Okta user',
+        ),
+      );
+
+      // ~30% get a profile update
+      if (faker.number.float() < 0.3) {
+        const timestamp = this.getRandomTimestamp(48);
+        events.push(
+          this.createAdminActionEvent(
+            adminEmployee,
+            employee,
+            null,
+            org,
+            timestamp,
+            'user.lifecycle.update',
+            'Update Okta user profile',
+          ),
+        );
+      }
+
+      // ~3% get deactivated (offboarding)
+      if (faker.number.float() < 0.03) {
+        const timestamp = this.getRandomTimestamp(48);
+        events.push(
+          this.createAdminActionEvent(
+            adminEmployee,
+            employee,
+            null,
+            org,
+            timestamp,
+            'user.lifecycle.deactivate',
+            'Deactivate Okta user',
+          ),
+        );
+      }
+
+      // ~2% get suspended then unsuspended
+      if (faker.number.float() < 0.02) {
+        const suspendTime = this.getRandomTimestamp(48);
+        events.push(
+          this.createAdminActionEvent(
+            adminEmployee,
+            employee,
+            null,
+            org,
+            suspendTime,
+            'user.lifecycle.suspend',
+            'Suspend Okta user',
+          ),
+        );
+        const unsuspendTime = new Date(
+          new Date(suspendTime).getTime() + faker.number.int({ min: 1, max: 24 }) * 3600000,
+        ).toISOString();
+        events.push(
+          this.createAdminActionEvent(
+            adminEmployee,
+            employee,
+            null,
+            org,
+            unsuspendTime,
+            'user.lifecycle.unsuspend',
+            'Unsuspend Okta user',
+          ),
+        );
+      }
+    }
+
+    return events;
+  }
+
+  /**
+   * Generate group privilege grant/revoke events
+   */
+  private generateGroupPrivilegeEvents(org: Organization): OktaSystemLogDocument[] {
+    const events: OktaSystemLogDocument[] = [];
+    const adminEmployee = faker.helpers.arrayElement(org.employees);
+
+    // ~5% of employees get privilege grants
+    for (const employee of org.employees) {
+      if (faker.number.float() < 0.05) {
+        const privilege = faker.helpers.arrayElement(OKTA_PRIVILEGE_TYPES);
+        const timestamp = this.getRandomTimestamp(48);
+        events.push(
+          this.createAdminActionEvent(
+            adminEmployee,
+            employee,
+            null,
+            org,
+            timestamp,
+            'group.privilege.grant',
+            'Grant group admin privilege',
+            { privilegeGranted: privilege },
+          ),
+        );
+
+        // Occasional revoke (~30% of grants)
+        if (faker.number.float() < 0.3) {
+          const revokeTime = new Date(
+            new Date(timestamp).getTime() + faker.number.int({ min: 1, max: 48 }) * 3600000,
+          ).toISOString();
+          events.push(
+            this.createAdminActionEvent(
+              adminEmployee,
+              employee,
+              null,
+              org,
+              revokeTime,
+              'group.privilege.revoke',
+              'Revoke group admin privilege',
+              { privilegeRevoked: privilege },
+            ),
+          );
+        }
+      }
+    }
+
+    return events;
+  }
+
+  /**
+   * Generate group application assignment events
+   */
+  private generateGroupApplicationAssignmentEvents(org: Organization): OktaSystemLogDocument[] {
+    const events: OktaSystemLogDocument[] = [];
+    const adminEmployee = faker.helpers.arrayElement(org.employees);
+
+    // For a few groups, assign them to applications
+    const groups = org.oktaGroups.slice(0, Math.min(5, org.oktaGroups.length));
+    for (const group of groups) {
+      const app = faker.helpers.arrayElement(OKTA_APPLICATIONS);
+      const timestamp = faker.date.past({ years: 1 }).toISOString();
+      events.push(
+        this.createGroupAppAssignmentEvent(
+          adminEmployee,
+          group,
+          app,
+          org,
+          timestamp,
+          'group.application_assignment.add',
+          'Add application assignment to group',
+        ),
+      );
+
+      // Occasional removal
+      if (faker.number.float() < 0.2) {
+        const removeTime = this.getRandomTimestamp(48);
+        events.push(
+          this.createGroupAppAssignmentEvent(
+            adminEmployee,
+            group,
+            app,
+            org,
+            removeTime,
+            'group.application_assignment.remove',
+            'Remove application assignment from group',
+          ),
+        );
+      }
+    }
+
+    return events;
+  }
+
+  /**
+   * Generate group lifecycle create/delete events
+   */
+  private generateGroupLifecycleEvents(org: Organization): OktaSystemLogDocument[] {
+    const events: OktaSystemLogDocument[] = [];
+    const adminEmployee = faker.helpers.arrayElement(org.employees);
+
+    // Each existing group had a create event (backdated)
+    for (const group of org.oktaGroups) {
+      const timestamp = faker.date.past({ years: 2 }).toISOString();
+      events.push(
+        this.createGroupLifecycleEvent(
+          adminEmployee,
+          group,
+          org,
+          timestamp,
+          'group.lifecycle.create',
+          'Create Okta group',
+        ),
+      );
+    }
+
+    // Occasional group deletion (~10% of groups)
+    for (const group of org.oktaGroups) {
+      if (faker.number.float() < 0.1) {
+        const timestamp = this.getRandomTimestamp(48);
+        events.push(
+          this.createGroupLifecycleEvent(
+            adminEmployee,
+            group,
+            org,
+            timestamp,
+            'group.lifecycle.delete',
+            'Delete Okta group',
+          ),
+        );
+      }
     }
 
     return events;
@@ -297,6 +597,7 @@ export class OktaSystemIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
+      agent: this.buildCentralAgent(org),
       data_stream: {
         namespace: 'default',
         type: 'logs',
@@ -377,6 +678,7 @@ export class OktaSystemIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
+      agent: this.buildCentralAgent(org),
       data_stream: {
         namespace: 'default',
         type: 'logs',
@@ -451,6 +753,7 @@ export class OktaSystemIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
+      agent: this.buildCentralAgent(org),
       data_stream: {
         namespace: 'default',
         type: 'logs',
@@ -534,6 +837,7 @@ export class OktaSystemIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
+      agent: this.buildCentralAgent(org),
       data_stream: {
         namespace: 'default',
         type: 'logs',
@@ -550,6 +854,8 @@ export class OktaSystemIntegration extends BaseIntegration {
     group: OktaGroup,
     org: Organization,
     timestamp: string,
+    eventType: string = 'group.user_membership.add',
+    displayMessage: string = 'Add user to group membership',
   ): OktaSystemLogDocument {
     const transactionId = this.generateTransactionId();
     const uuid = faker.string.uuid();
@@ -563,8 +869,8 @@ export class OktaSystemIntegration extends BaseIntegration {
         displayName: 'Okta System',
         detailEntry: null,
       },
-      eventType: 'group.user_membership.add',
-      displayMessage: 'Add user to group membership',
+      eventType,
+      displayMessage,
       outcome: {
         result: 'SUCCESS',
       },
@@ -609,6 +915,694 @@ export class OktaSystemIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
+      agent: this.buildCentralAgent(org),
+      data_stream: {
+        namespace: 'default',
+        type: 'logs',
+        dataset: 'okta.system',
+      },
+    } as unknown as OktaSystemLogDocument;
+  }
+
+  /**
+   * Create an admin action event (user lifecycle, group privilege, etc.)
+   */
+  private createAdminActionEvent(
+    actor: Employee,
+    targetEmployee: Employee,
+    targetGroup: OktaGroup | null,
+    org: Organization,
+    timestamp: string,
+    eventType: string,
+    displayMessage: string,
+    debugExtras?: Record<string, string>,
+    clientInfoOverride?: ReturnType<OktaSystemIntegration['generateClientInfo']>,
+  ): OktaSystemLogDocument {
+    const clientInfo = clientInfoOverride || this.generateClientInfo(actor);
+    const transactionId = this.generateTransactionId();
+    const uuid = faker.string.uuid();
+
+    const target: Array<{ id: string; type: string; alternateId: string; displayName: string }> = [
+      {
+        id: targetEmployee.oktaUserId,
+        type: 'User',
+        alternateId: targetEmployee.email,
+        displayName: `${targetEmployee.firstName} ${targetEmployee.lastName}`,
+      },
+    ];
+
+    if (targetGroup) {
+      target.push({
+        id: targetGroup.id,
+        type: 'UserGroup',
+        alternateId: targetGroup.name,
+        displayName: targetGroup.name,
+      });
+    }
+
+    const rawEvent = {
+      actor: {
+        id: actor.oktaUserId,
+        type: 'User',
+        alternateId: actor.email,
+        displayName: `${actor.firstName} ${actor.lastName}`,
+        detailEntry: null,
+      },
+      eventType,
+      displayMessage,
+      outcome: {
+        result: 'SUCCESS',
+      },
+      severity: 'INFO',
+      published: timestamp,
+      client: {
+        ipAddress: clientInfo.ip,
+        device: clientInfo.device,
+        userAgent: {
+          browser: clientInfo.browser,
+          os: clientInfo.os,
+          rawUserAgent: clientInfo.rawUserAgent,
+        },
+        zone: 'null',
+        geographicalContext: {
+          city: clientInfo.geo.city_name,
+          country: clientInfo.geo.country_name,
+          state: clientInfo.geo.region_name,
+          geolocation: clientInfo.geo.location,
+        },
+      },
+      authenticationContext: {
+        authenticationStep: 0,
+        externalSessionId: this.generateSessionId(),
+      },
+      debugContext: {
+        debugData: {
+          requestId: transactionId,
+          requestUri: '/api/v1/users',
+          url: '/api/v1/users',
+          threatSuspected: 'false',
+          ...debugExtras,
+        },
+      },
+      transaction: {
+        id: transactionId,
+        type: 'WEB',
+      },
+      uuid,
+      target,
+      version: '0',
+    };
+
+    return {
+      '@timestamp': timestamp,
+      message: JSON.stringify(rawEvent),
+      agent: this.buildCentralAgent(org),
+      data_stream: {
+        namespace: 'default',
+        type: 'logs',
+        dataset: 'okta.system',
+      },
+    } as unknown as OktaSystemLogDocument;
+  }
+
+  /**
+   * Create a group application assignment event
+   */
+  private createGroupAppAssignmentEvent(
+    actor: Employee,
+    group: OktaGroup,
+    app: { name: string; id: string; type: string },
+    org: Organization,
+    timestamp: string,
+    eventType: string,
+    displayMessage: string,
+  ): OktaSystemLogDocument {
+    const clientInfo = this.generateClientInfo(actor);
+    const transactionId = this.generateTransactionId();
+    const uuid = faker.string.uuid();
+
+    const rawEvent = {
+      actor: {
+        id: actor.oktaUserId,
+        type: 'User',
+        alternateId: actor.email,
+        displayName: `${actor.firstName} ${actor.lastName}`,
+        detailEntry: null,
+      },
+      eventType,
+      displayMessage,
+      outcome: {
+        result: 'SUCCESS',
+      },
+      severity: 'INFO',
+      published: timestamp,
+      client: {
+        ipAddress: clientInfo.ip,
+        device: clientInfo.device,
+        userAgent: {
+          browser: clientInfo.browser,
+          os: clientInfo.os,
+          rawUserAgent: clientInfo.rawUserAgent,
+        },
+        zone: 'null',
+        geographicalContext: {
+          city: clientInfo.geo.city_name,
+          country: clientInfo.geo.country_name,
+          state: clientInfo.geo.region_name,
+          geolocation: clientInfo.geo.location,
+        },
+      },
+      authenticationContext: {
+        authenticationStep: 0,
+        externalSessionId: this.generateSessionId(),
+      },
+      debugContext: {
+        debugData: {
+          requestId: transactionId,
+          requestUri: '/api/v1/apps',
+          url: '/api/v1/apps',
+          threatSuspected: 'false',
+        },
+      },
+      transaction: {
+        id: transactionId,
+        type: 'WEB',
+      },
+      uuid,
+      target: [
+        {
+          id: group.id,
+          type: 'UserGroup',
+          alternateId: group.name,
+          displayName: group.name,
+        },
+        {
+          id: app.id,
+          type: 'AppInstance',
+          alternateId: app.name,
+          displayName: app.name,
+        },
+      ],
+      version: '0',
+    };
+
+    return {
+      '@timestamp': timestamp,
+      message: JSON.stringify(rawEvent),
+      agent: this.buildCentralAgent(org),
+      data_stream: {
+        namespace: 'default',
+        type: 'logs',
+        dataset: 'okta.system',
+      },
+    } as unknown as OktaSystemLogDocument;
+  }
+
+  /**
+   * Create a group lifecycle event (create/delete)
+   */
+  private createGroupLifecycleEvent(
+    actor: Employee,
+    group: OktaGroup,
+    org: Organization,
+    timestamp: string,
+    eventType: string,
+    displayMessage: string,
+  ): OktaSystemLogDocument {
+    const clientInfo = this.generateClientInfo(actor);
+    const transactionId = this.generateTransactionId();
+    const uuid = faker.string.uuid();
+
+    const rawEvent = {
+      actor: {
+        id: actor.oktaUserId,
+        type: 'User',
+        alternateId: actor.email,
+        displayName: `${actor.firstName} ${actor.lastName}`,
+        detailEntry: null,
+      },
+      eventType,
+      displayMessage,
+      outcome: {
+        result: 'SUCCESS',
+      },
+      severity: 'INFO',
+      published: timestamp,
+      client: {
+        ipAddress: clientInfo.ip,
+        device: clientInfo.device,
+        userAgent: {
+          browser: clientInfo.browser,
+          os: clientInfo.os,
+          rawUserAgent: clientInfo.rawUserAgent,
+        },
+        zone: 'null',
+        geographicalContext: {
+          city: clientInfo.geo.city_name,
+          country: clientInfo.geo.country_name,
+          state: clientInfo.geo.region_name,
+          geolocation: clientInfo.geo.location,
+        },
+      },
+      authenticationContext: {
+        authenticationStep: 0,
+        externalSessionId: this.generateSessionId(),
+      },
+      debugContext: {
+        debugData: {
+          requestId: transactionId,
+          requestUri: '/api/v1/groups',
+          url: '/api/v1/groups',
+          threatSuspected: 'false',
+        },
+      },
+      transaction: {
+        id: transactionId,
+        type: 'WEB',
+      },
+      uuid,
+      target: [
+        {
+          id: group.id,
+          type: 'UserGroup',
+          alternateId: group.name,
+          displayName: group.name,
+        },
+      ],
+      version: '0',
+    };
+
+    return {
+      '@timestamp': timestamp,
+      message: JSON.stringify(rawEvent),
+      agent: this.buildCentralAgent(org),
+      data_stream: {
+        namespace: 'default',
+        type: 'logs',
+        dataset: 'okta.system',
+      },
+    } as unknown as OktaSystemLogDocument;
+  }
+
+  // ==========================================
+  // Anomalous behavior generation for PAD
+  // ==========================================
+
+  /**
+   * Generate anomalous events designed to trigger PAD ML detections.
+   * Selects ~3% of employees as "rogue actors" and generates concentrated
+   * bursts of suspicious activity.
+   */
+  private generateAnomalousEvents(org: Organization): OktaSystemLogDocument[] {
+    const events: OktaSystemLogDocument[] = [];
+    const rogueCount = Math.max(1, Math.floor(org.employees.length * 0.03));
+    const rogueEmployees = faker.helpers.arrayElements(org.employees, rogueCount);
+
+    console.log(
+      `  Generating PAD anomalous Okta patterns for ${rogueEmployees.length} rogue actor(s)...`,
+    );
+
+    for (const rogue of rogueEmployees) {
+      const burstEvents = this.generateRogueAdminBurst(rogue, org);
+      const sessionEvents = this.generateMultiCountrySessions(rogue, org);
+      const rareEvents = this.generateRareAccessEvents(rogue, org);
+
+      events.push(...burstEvents, ...sessionEvents, ...rareEvents);
+
+      console.log(
+        `    - ${rogue.firstName} ${rogue.lastName} (${rogue.email}): ` +
+          `${burstEvents.length} admin burst events, ` +
+          `${sessionEvents.length} multi-country sessions, ` +
+          `${rareEvents.length} rare IP/region events`,
+      );
+    }
+
+    console.log(`  Total PAD anomalous events: ${events.length}`);
+
+    return events;
+  }
+
+  /**
+   * Scenario A: Rogue admin burst — triggers all 5 PAD spike ML jobs.
+   * Generates a concentrated burst of admin actions within a 1-2 hour window.
+   */
+  private generateRogueAdminBurst(rogue: Employee, org: Organization): OktaSystemLogDocument[] {
+    const events: OktaSystemLogDocument[] = [];
+    const burstStart = new Date(Date.now() - faker.number.int({ min: 1, max: 24 }) * 3600000);
+    const burstDurationMs = faker.number.int({ min: 30, max: 120 }) * 60000;
+
+    const randomBurstTime = (): string => {
+      return new Date(
+        burstStart.getTime() + faker.number.int({ min: 0, max: burstDurationMs }),
+      ).toISOString();
+    };
+
+    const targetEmployees = faker.helpers.arrayElements(
+      org.employees.filter((e) => e.oktaUserId !== rogue.oktaUserId),
+      Math.min(20, org.employees.length - 1),
+    );
+
+    // 15-30 group membership add/remove events
+    const membershipCount = faker.number.int({ min: 15, max: 30 });
+    for (let i = 0; i < membershipCount; i++) {
+      const target = faker.helpers.arrayElement(targetEmployees);
+      const group = faker.helpers.arrayElement(org.oktaGroups);
+      const isAdd = faker.number.float() < 0.6;
+      events.push(
+        this.createGroupMembershipEvent(
+          target,
+          group,
+          org,
+          randomBurstTime(),
+          isAdd ? 'group.user_membership.add' : 'group.user_membership.remove',
+          isAdd ? 'Add user to group membership' : 'Remove user from group membership',
+        ),
+      );
+      // Override actor to be the rogue admin (the default uses SystemPrincipal)
+      // Re-create with createAdminActionEvent for proper actor attribution
+    }
+    // Replace the membership events with properly attributed ones
+    events.length = events.length - membershipCount;
+    for (let i = 0; i < membershipCount; i++) {
+      const target = faker.helpers.arrayElement(targetEmployees);
+      const group = faker.helpers.arrayElement(org.oktaGroups);
+      const isAdd = faker.number.float() < 0.6;
+      events.push(
+        this.createAdminActionEvent(
+          rogue,
+          target,
+          group,
+          org,
+          randomBurstTime(),
+          isAdd ? 'group.user_membership.add' : 'group.user_membership.remove',
+          isAdd ? 'Add user to group membership' : 'Remove user from group membership',
+        ),
+      );
+    }
+
+    // 10-20 user lifecycle events
+    const lifecycleCount = faker.number.int({ min: 10, max: 20 });
+    const lifecycleTypes = [
+      { type: 'user.lifecycle.activate', msg: 'Activate Okta user' },
+      { type: 'user.lifecycle.deactivate', msg: 'Deactivate Okta user' },
+      { type: 'user.lifecycle.suspend', msg: 'Suspend Okta user' },
+      { type: 'user.lifecycle.update', msg: 'Update Okta user profile' },
+      { type: 'user.lifecycle.unsuspend', msg: 'Unsuspend Okta user' },
+    ];
+    for (let i = 0; i < lifecycleCount; i++) {
+      const target = faker.helpers.arrayElement(targetEmployees);
+      const action = faker.helpers.arrayElement(lifecycleTypes);
+      events.push(
+        this.createAdminActionEvent(
+          rogue,
+          target,
+          null,
+          org,
+          randomBurstTime(),
+          action.type,
+          action.msg,
+        ),
+      );
+    }
+
+    // 5-10 group privilege grant/revoke events
+    const privilegeCount = faker.number.int({ min: 5, max: 10 });
+    for (let i = 0; i < privilegeCount; i++) {
+      const target = faker.helpers.arrayElement(targetEmployees);
+      const privilege = faker.helpers.arrayElement(OKTA_PRIVILEGE_TYPES);
+      const isGrant = faker.number.float() < 0.7;
+      events.push(
+        this.createAdminActionEvent(
+          rogue,
+          target,
+          null,
+          org,
+          randomBurstTime(),
+          isGrant ? 'group.privilege.grant' : 'group.privilege.revoke',
+          isGrant ? 'Grant group admin privilege' : 'Revoke group admin privilege',
+          isGrant ? { privilegeGranted: privilege } : { privilegeRevoked: privilege },
+        ),
+      );
+    }
+
+    // 5-10 group application assignment events
+    const appAssignCount = faker.number.int({ min: 5, max: 10 });
+    for (let i = 0; i < appAssignCount; i++) {
+      const group = faker.helpers.arrayElement(org.oktaGroups);
+      const app = faker.helpers.arrayElement(OKTA_APPLICATIONS);
+      const isAdd = faker.number.float() < 0.6;
+      events.push(
+        this.createGroupAppAssignmentEvent(
+          rogue,
+          group,
+          app,
+          org,
+          randomBurstTime(),
+          isAdd ? 'group.application_assignment.add' : 'group.application_assignment.remove',
+          isAdd
+            ? 'Add application assignment to group'
+            : 'Remove application assignment from group',
+        ),
+      );
+    }
+
+    // 3-5 group lifecycle create/delete events
+    const groupLifecycleCount = faker.number.int({ min: 3, max: 5 });
+    for (let i = 0; i < groupLifecycleCount; i++) {
+      const fakeGroup: OktaGroup = {
+        id: `00g${faker.string.alphanumeric(17)}`,
+        name: `${faker.word.adjective()}-${faker.word.noun()}-group`,
+        description: faker.company.catchPhrase(),
+        type: 'access',
+      };
+      const isCreate = faker.number.float() < 0.6;
+      events.push(
+        this.createGroupLifecycleEvent(
+          rogue,
+          fakeGroup,
+          org,
+          randomBurstTime(),
+          isCreate ? 'group.lifecycle.create' : 'group.lifecycle.delete',
+          isCreate ? 'Create Okta group' : 'Delete Okta group',
+        ),
+      );
+    }
+
+    return events;
+  }
+
+  /**
+   * Scenario B: Concurrent multi-country sessions — triggers the Okta session
+   * transform and pad_okta_high_sum_concurrent_sessions_by_user ML job.
+   * Generates session.start events from 3-4 different countries within ~30 minutes
+   * WITHOUT matching session.end events.
+   */
+  private generateMultiCountrySessions(
+    rogue: Employee,
+    org: Organization,
+  ): OktaSystemLogDocument[] {
+    const events: OktaSystemLogDocument[] = [];
+    const baseTime = new Date(Date.now() - faker.number.int({ min: 1, max: 12 }) * 3600000);
+
+    const foreignLocations = faker.helpers.arrayElements(
+      ANOMALOUS_LOCATIONS,
+      faker.number.int({ min: 3, max: 4 }),
+    );
+
+    for (const location of foreignLocations) {
+      const sessionId = this.generateSessionId();
+      const timestamp = new Date(
+        baseTime.getTime() + faker.number.int({ min: 0, max: 30 }) * 60000,
+      ).toISOString();
+      const ip = location.ip + faker.number.int({ min: 1, max: 254 });
+
+      const clientInfo = {
+        ip,
+        device: 'Computer',
+        browser: 'CHROME',
+        os: 'Linux',
+        rawUserAgent:
+          'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        geo: {
+          city_name: location.city,
+          country_name: location.country,
+          region_name: location.state,
+          location: { lat: faker.location.latitude(), lon: faker.location.longitude() },
+        },
+      };
+
+      // Session start only — no end event so transform flags it as active
+      events.push(
+        this.createSessionEventWithClientInfo(
+          rogue,
+          org,
+          'user.session.start',
+          'User login to Okta',
+          timestamp,
+          sessionId,
+          'SUCCESS',
+          undefined,
+          clientInfo,
+        ),
+      );
+    }
+
+    return events;
+  }
+
+  /**
+   * Scenario C: Rare source IP and region — triggers pad_okta_rare_source_ip_by_user
+   * and pad_okta_rare_region_name_by_user ML jobs.
+   * Generates admin action events from unusual geographic locations.
+   */
+  private generateRareAccessEvents(rogue: Employee, org: Organization): OktaSystemLogDocument[] {
+    const events: OktaSystemLogDocument[] = [];
+    const location = faker.helpers.arrayElement(ANOMALOUS_LOCATIONS);
+    const ip = location.ip + faker.number.int({ min: 1, max: 254 });
+
+    const rareClientInfo = {
+      ip,
+      device: 'Computer',
+      browser: 'FIREFOX',
+      os: 'Linux',
+      rawUserAgent: 'Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0',
+      geo: {
+        city_name: location.city,
+        country_name: location.country,
+        region_name: location.state,
+        location: { lat: faker.location.latitude(), lon: faker.location.longitude() },
+      },
+    };
+
+    // Generate admin actions from the rare location
+    const targetEmployees = faker.helpers.arrayElements(
+      org.employees.filter((e) => e.oktaUserId !== rogue.oktaUserId),
+      Math.min(5, org.employees.length - 1),
+    );
+
+    const eventTypes = [
+      { type: 'group.user_membership.add', msg: 'Add user to group membership' },
+      { type: 'user.lifecycle.update', msg: 'Update Okta user profile' },
+      { type: 'group.privilege.grant', msg: 'Grant group admin privilege' },
+      { type: 'user.lifecycle.deactivate', msg: 'Deactivate Okta user' },
+    ];
+
+    for (const target of targetEmployees) {
+      const action = faker.helpers.arrayElement(eventTypes);
+      const timestamp = this.getRandomTimestamp(24);
+      const debugExtras =
+        action.type === 'group.privilege.grant'
+          ? { privilegeGranted: faker.helpers.arrayElement(OKTA_PRIVILEGE_TYPES) }
+          : undefined;
+      events.push(
+        this.createAdminActionEvent(
+          rogue,
+          target,
+          action.type.startsWith('group.user_membership')
+            ? faker.helpers.arrayElement(org.oktaGroups)
+            : null,
+          org,
+          timestamp,
+          action.type,
+          action.msg,
+          debugExtras,
+          rareClientInfo,
+        ),
+      );
+    }
+
+    return events;
+  }
+
+  /**
+   * Create a session event with custom client info (used for anomalous multi-country sessions)
+   */
+  private createSessionEventWithClientInfo(
+    employee: Employee,
+    org: Organization,
+    eventType: 'user.session.start' | 'user.session.end',
+    displayMessage: string,
+    timestamp: string,
+    sessionId: string,
+    result: 'SUCCESS' | 'FAILURE',
+    reason?: string,
+    clientInfo?: ReturnType<OktaSystemIntegration['generateClientInfo']>,
+  ): OktaSystemLogDocument {
+    const client = clientInfo || this.generateClientInfo(employee);
+    const transactionId = this.generateTransactionId();
+    const uuid = faker.string.uuid();
+
+    const rawEvent = {
+      actor: {
+        id: employee.oktaUserId,
+        type: 'User',
+        alternateId: employee.email,
+        displayName: `${employee.firstName} ${employee.lastName}`,
+        detailEntry: null,
+      },
+      eventType,
+      displayMessage,
+      outcome: {
+        result,
+        reason: reason || null,
+      },
+      severity: result === 'SUCCESS' ? 'INFO' : 'WARN',
+      published: timestamp,
+      client: {
+        ipAddress: client.ip,
+        device: client.device,
+        userAgent: {
+          browser: client.browser,
+          os: client.os,
+          rawUserAgent: client.rawUserAgent,
+        },
+        zone: 'null',
+        geographicalContext: {
+          city: client.geo.city_name,
+          country: client.geo.country_name,
+          state: client.geo.region_name,
+          geolocation: client.geo.location,
+        },
+      },
+      authenticationContext: {
+        authenticationStep: 0,
+        externalSessionId: sessionId,
+      },
+      debugContext: {
+        debugData: {
+          requestId: transactionId,
+          requestUri: eventType === 'user.session.start' ? '/api/v1/authn' : '/login/signout',
+          url: eventType === 'user.session.start' ? '/api/v1/authn?' : '/login/signout',
+          deviceFingerprint: faker.string.alphanumeric(32),
+          threatSuspected: 'false',
+        },
+      },
+      request: {
+        ipChain: [
+          {
+            ip: client.ip,
+            version: 'V4',
+            geographicalContext: {
+              city: client.geo.city_name,
+              country: client.geo.country_name,
+              state: client.geo.region_name,
+              geolocation: client.geo.location,
+            },
+          },
+        ],
+      },
+      transaction: {
+        id: transactionId,
+        type: 'WEB',
+      },
+      uuid,
+      version: '0',
+    };
+
+    return {
+      '@timestamp': timestamp,
+      message: JSON.stringify(rawEvent),
+      agent: this.buildCentralAgent(org),
       data_stream: {
         namespace: 'default',
         type: 'logs',

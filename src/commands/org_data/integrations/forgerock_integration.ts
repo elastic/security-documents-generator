@@ -4,7 +4,12 @@
  * Based on the Elastic forgerock integration package (AM and IDM data streams)
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
+import {
+  BaseIntegration,
+  IntegrationDocument,
+  DataStreamConfig,
+  AgentData,
+} from './base_integration';
 import { Organization, Employee, CorrelationMap } from '../types';
 import { faker } from '@faker-js/faker';
 
@@ -71,6 +76,7 @@ export class ForgeRockIntegration extends BaseIntegration {
     _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
+    const centralAgent = this.buildCentralAgent(org);
     const amAuthDocs: IntegrationDocument[] = [];
     const amAccessDocs: IntegrationDocument[] = [];
     const idmAuthDocs: IntegrationDocument[] = [];
@@ -79,22 +85,22 @@ export class ForgeRockIntegration extends BaseIntegration {
     for (const employee of org.employees) {
       const amAuthCount = faker.number.int({ min: 1, max: 4 });
       for (let i = 0; i < amAuthCount; i++) {
-        amAuthDocs.push(this.createAmAuthDocument(employee, org));
+        amAuthDocs.push(this.createAmAuthDocument(employee, org, centralAgent));
       }
 
       const amAccessCount = faker.number.int({ min: 1, max: 3 });
       for (let i = 0; i < amAccessCount; i++) {
-        amAccessDocs.push(this.createAmAccessDocument(employee, org));
+        amAccessDocs.push(this.createAmAccessDocument(employee, org, centralAgent));
       }
 
       const idmAuthCount = faker.number.int({ min: 1, max: 2 });
       for (let i = 0; i < idmAuthCount; i++) {
-        idmAuthDocs.push(this.createIdmAuthDocument(employee, org));
+        idmAuthDocs.push(this.createIdmAuthDocument(employee, org, centralAgent));
       }
 
       const idmAccessCount = faker.number.int({ min: 1, max: 2 });
       for (let i = 0; i < idmAccessCount; i++) {
-        idmAccessDocs.push(this.createIdmAccessDocument(employee));
+        idmAccessDocs.push(this.createIdmAccessDocument(employee, centralAgent));
       }
     }
 
@@ -105,7 +111,11 @@ export class ForgeRockIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private createAmAuthDocument(employee: Employee, _org: Organization): IntegrationDocument {
+  private createAmAuthDocument(
+    employee: Employee,
+    _org: Organization,
+    centralAgent: AgentData,
+  ): IntegrationDocument {
     const evt = faker.helpers.weightedArrayElement(
       AM_AUTH_EVENTS.map((e) => ({ value: e, weight: e.weight })),
     );
@@ -141,12 +151,17 @@ export class ForgeRockIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify({ payload }),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'forgerock.am_authentication' },
     } as IntegrationDocument;
   }
 
-  private createAmAccessDocument(employee: Employee, org: Organization): IntegrationDocument {
+  private createAmAccessDocument(
+    employee: Employee,
+    org: Organization,
+    centralAgent: AgentData,
+  ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const sourceIp = faker.internet.ipv4();
     const realm = faker.helpers.arrayElement(FORGEROCK_REALMS);
@@ -197,12 +212,17 @@ export class ForgeRockIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify({ payload }),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'forgerock.am_access' },
     } as IntegrationDocument;
   }
 
-  private createIdmAuthDocument(employee: Employee, _org: Organization): IntegrationDocument {
+  private createIdmAuthDocument(
+    employee: Employee,
+    _org: Organization,
+    centralAgent: AgentData,
+  ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const method = faker.helpers.arrayElement(IDM_AUTH_METHODS);
     const result = faker.helpers.weightedArrayElement([
@@ -228,6 +248,7 @@ export class ForgeRockIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify({ payload }),
       data_stream: {
         namespace: 'default',
@@ -237,7 +258,10 @@ export class ForgeRockIntegration extends BaseIntegration {
     } as IntegrationDocument;
   }
 
-  private createIdmAccessDocument(employee: Employee): IntegrationDocument {
+  private createIdmAccessDocument(
+    employee: Employee,
+    centralAgent: AgentData,
+  ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const status = faker.helpers.weightedArrayElement([
       { value: 'SUCCESSFUL', weight: 92 },
@@ -277,6 +301,7 @@ export class ForgeRockIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify({ payload }),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'forgerock.idm_access' },
     } as IntegrationDocument;

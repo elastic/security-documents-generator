@@ -3,12 +3,15 @@
  * Generates endpoint process, file, network, security, alert, registry, and library events
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
+import {
+  BaseIntegration,
+  IntegrationDocument,
+  DataStreamConfig,
+  ELASTIC_AGENT_VERSION,
+} from './base_integration';
 import { Organization, CorrelationMap, Employee, Device } from '../types';
 import { faker } from '@faker-js/faker';
 import { MALWARE_HASHES } from '../data/threat_intel_data';
-
-const ENDPOINT_AGENT_VERSION = '8.17.4';
 
 const PROCESS_ACTIONS: Array<{ action: string; type: string[] }> = [
   { action: 'start', type: ['start'] },
@@ -281,7 +284,7 @@ export class EndpointIntegration extends BaseIntegration {
       const laptops = employee.devices.filter((d) => d.type === 'laptop');
       for (const device of laptops) {
         allLaptops.push({ employee, device });
-        const agentId = device.crowdstrikeAgentId;
+        const agentId = device.elasticAgentId;
         const hostId = device.id;
         const platform = device.platform as string;
 
@@ -340,7 +343,7 @@ export class EndpointIntegration extends BaseIntegration {
         this.generateAlertDocument(
           employee,
           device,
-          device.crowdstrikeAgentId,
+          device.elasticAgentId,
           device.id,
           device.platform as string,
         ),
@@ -381,11 +384,12 @@ export class EndpointIntegration extends BaseIntegration {
     };
   }
 
-  private buildAgentObject(agentId: string) {
+  private buildAgentObject(agentId: string, hostname: string) {
     return {
       id: agentId,
+      name: hostname,
       type: 'endpoint',
-      version: ENDPOINT_AGENT_VERSION,
+      version: ELASTIC_AGENT_VERSION,
     };
   }
 
@@ -408,9 +412,10 @@ export class EndpointIntegration extends BaseIntegration {
       employee.userName,
     );
 
+    const hostname = `${employee.userName}-${device.platform}`;
     return {
       '@timestamp': timestamp,
-      agent: this.buildAgentObject(agentId),
+      agent: this.buildAgentObject(agentId, hostname),
       process: {
         Ext: {
           ancestry: [parentEntityId],
@@ -474,9 +479,10 @@ export class EndpointIntegration extends BaseIntegration {
     const extension = fileName.includes('.') ? fileName.split('.').pop() : undefined;
     const entityId = faker.string.alphanumeric(40);
 
+    const hostname = `${employee.userName}-${device.platform}`;
     return {
       '@timestamp': timestamp,
-      agent: this.buildAgentObject(agentId),
+      agent: this.buildAgentObject(agentId, hostname),
       process: {
         Ext: { ancestry: [faker.string.alphanumeric(40)] },
         name: platform === 'windows' ? 'explorer.exe' : 'bash',
@@ -531,9 +537,10 @@ export class EndpointIntegration extends BaseIntegration {
     const entityId = faker.string.alphanumeric(40);
     const proc = faker.helpers.arrayElement(COMMON_PROCESSES);
 
+    const hostname = `${employee.userName}-${device.platform}`;
     return {
       '@timestamp': timestamp,
-      agent: this.buildAgentObject(agentId),
+      agent: this.buildAgentObject(agentId, hostname),
       process: {
         Ext: { ancestry: [faker.string.alphanumeric(40)] },
         name: proc.name,
@@ -602,9 +609,10 @@ export class EndpointIntegration extends BaseIntegration {
     ]);
     const entityId = faker.string.alphanumeric(40);
 
+    const hostname = `${employee.userName}-${device.platform}`;
     return {
       '@timestamp': timestamp,
-      agent: this.buildAgentObject(agentId),
+      agent: this.buildAgentObject(agentId, hostname),
       process: {
         Ext: {
           ancestry: [faker.string.alphanumeric(40)],
@@ -672,12 +680,13 @@ export class EndpointIntegration extends BaseIntegration {
     const sha256 = faker.helpers.arrayElement(MALWARE_HASHES);
     const fileName = `${faker.string.alphanumeric(8)}.${faker.helpers.arrayElement(['dll', 'exe', 'ps1', 'vbs'])}`;
 
+    const hostname = `${employee.userName}-${device.platform}`;
     return {
       '@timestamp': timestamp,
       agent: {
-        ...this.buildAgentObject(agentId),
+        ...this.buildAgentObject(agentId, hostname),
         build: {
-          original: `version: ${ENDPOINT_AGENT_VERSION}, compiled: Mon Jan 01 00:00:00 2024, branch: main, commit: ${faker.string.hexadecimal({ length: 40, casing: 'lower', prefix: '' })}`,
+          original: `version: ${ELASTIC_AGENT_VERSION}, compiled: Mon Jan 01 00:00:00 2024, branch: main, commit: ${faker.string.hexadecimal({ length: 40, casing: 'lower', prefix: '' })}`,
         },
       },
       process: {
@@ -769,9 +778,10 @@ export class EndpointIntegration extends BaseIntegration {
     const value = regPath.split('\\').pop() ?? 'Value';
     const entityId = faker.string.alphanumeric(40);
 
+    const hostname = `${employee.userName}-windows`;
     return {
       '@timestamp': timestamp,
-      agent: this.buildAgentObject(agentId),
+      agent: this.buildAgentObject(agentId, hostname),
       registry: {
         hive,
         path: fullPath,
@@ -833,9 +843,10 @@ export class EndpointIntegration extends BaseIntegration {
       lib = faker.helpers.arrayElement(SHARED_LIBS);
     }
 
+    const hostname = `${employee.userName}-${device.platform}`;
     return {
       '@timestamp': timestamp,
-      agent: this.buildAgentObject(agentId),
+      agent: this.buildAgentObject(agentId, hostname),
       process: {
         Ext: {
           ancestry: [faker.string.alphanumeric(40)],

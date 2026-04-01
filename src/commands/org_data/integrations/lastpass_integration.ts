@@ -162,17 +162,18 @@ export class LastPassIntegration extends BaseIntegration {
 
     const userDocs: IntegrationDocument[] = [];
     const eventDocs: IntegrationDocument[] = [];
+    const centralAgent = this.buildCentralAgent(org);
 
     for (const employee of org.employees) {
-      userDocs.push(this.createUserDocument(employee));
+      userDocs.push(this.createUserDocument(employee, centralAgent));
 
       const eventCount = faker.number.int({ min: 2, max: 5 });
       for (let i = 0; i < eventCount; i++) {
-        eventDocs.push(this.createEventReportDocument(employee));
+        eventDocs.push(this.createEventReportDocument(employee, centralAgent));
       }
     }
 
-    const sharedFolderDocs = this.createSharedFolderDocuments(org);
+    const sharedFolderDocs = this.createSharedFolderDocuments(org, centralAgent);
 
     documentsMap.set(this.dataStreams[0].index, userDocs);
     documentsMap.set(this.dataStreams[1].index, eventDocs);
@@ -181,7 +182,10 @@ export class LastPassIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private createUserDocument(employee: Employee): IntegrationDocument {
+  private createUserDocument(
+    employee: Employee,
+    centralAgent: { id: string; name: string; type: string; version: string },
+  ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(24);
     const userId = getStableLastPassUserId(employee);
     const groups = faker.helpers.arrayElements(USER_GROUPS, { min: 1, max: 3 });
@@ -213,6 +217,7 @@ export class LastPassIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawUser),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'lastpass.user' },
     } as IntegrationDocument;
@@ -225,7 +230,10 @@ export class LastPassIntegration extends BaseIntegration {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
 
-  private createEventReportDocument(employee: Employee): IntegrationDocument {
+  private createEventReportDocument(
+    employee: Employee,
+    centralAgent: { id: string; name: string; type: string; version: string },
+  ): IntegrationDocument {
     const eventDef = faker.helpers.weightedArrayElement(
       EVENT_ACTIONS.map((e) => ({ value: e, weight: e.weight })),
     );
@@ -244,6 +252,7 @@ export class LastPassIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawEvent),
       data_stream: {
         namespace: 'default',
@@ -253,7 +262,10 @@ export class LastPassIntegration extends BaseIntegration {
     } as IntegrationDocument;
   }
 
-  private createSharedFolderDocuments(org: Organization): IntegrationDocument[] {
+  private createSharedFolderDocuments(
+    org: Organization,
+    centralAgent: { id: string; name: string; type: string; version: string },
+  ): IntegrationDocument[] {
     const docs: IntegrationDocument[] = [];
     for (const name of SHARED_FOLDER_NAMES) {
       const timestamp = this.getRandomTimestamp(168);
@@ -281,6 +293,7 @@ export class LastPassIntegration extends BaseIntegration {
 
         docs.push({
           '@timestamp': timestamp,
+          agent: centralAgent,
           message: JSON.stringify(rawFolder),
           data_stream: {
             namespace: 'default',

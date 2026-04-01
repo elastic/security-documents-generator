@@ -5,7 +5,12 @@
  * Audit record fields use CamelCase; pipeline converts to snake_case.
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
+import {
+  BaseIntegration,
+  IntegrationDocument,
+  DataStreamConfig,
+  AgentData,
+} from './base_integration';
 import { Organization, Employee, CorrelationMap } from '../types';
 import { faker } from '@faker-js/faker';
 
@@ -187,11 +192,12 @@ export class CyberArkPasIntegration extends BaseIntegration {
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
+    const centralAgent = this.buildCentralAgent(org);
 
     for (const employee of org.employees) {
       const eventCount = faker.number.int({ min: 2, max: 4 });
       for (let i = 0; i < eventCount; i++) {
-        documents.push(this.createAuditDocument(employee));
+        documents.push(this.createAuditDocument(employee, centralAgent));
       }
     }
 
@@ -199,7 +205,7 @@ export class CyberArkPasIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private createAuditDocument(employee: Employee): IntegrationDocument {
+  private createAuditDocument(employee: Employee, centralAgent: AgentData): IntegrationDocument {
     const action = faker.helpers.weightedArrayElement(
       AUDIT_ACTIONS.map((a) => ({ value: a, weight: a.weight })),
     );
@@ -290,6 +296,7 @@ export class CyberArkPasIntegration extends BaseIntegration {
 
     const doc: IntegrationDocument = {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message,
       data_stream: {
         dataset: 'cyberarkpas.audit',

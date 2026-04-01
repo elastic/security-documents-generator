@@ -4,7 +4,12 @@
  * Based on the Elastic canva integration package
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
+import {
+  BaseIntegration,
+  IntegrationDocument,
+  DataStreamConfig,
+  AgentData,
+} from './base_integration';
 import { Organization, Employee, CorrelationMap } from '../types';
 import { faker } from '@faker-js/faker';
 
@@ -135,11 +140,12 @@ export class CanvaIntegration extends BaseIntegration {
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
+    const centralAgent = this.buildCentralAgent(org);
 
     for (const employee of org.employees) {
       const eventCount = faker.number.int({ min: 2, max: 4 });
       for (let i = 0; i < eventCount; i++) {
-        documents.push(this.createAuditDocument(employee, org));
+        documents.push(this.createAuditDocument(employee, org, centralAgent));
       }
     }
 
@@ -147,7 +153,11 @@ export class CanvaIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private createAuditDocument(employee: Employee, org: Organization): IntegrationDocument {
+  private createAuditDocument(
+    employee: Employee,
+    org: Organization,
+    centralAgent: AgentData,
+  ): IntegrationDocument {
     const action = faker.helpers.weightedArrayElement(
       AUDIT_ACTIONS.map((a) => ({ value: a, weight: a.weight })),
     );
@@ -222,6 +232,7 @@ export class CanvaIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawAudit),
       data_stream: {
         dataset: 'canva.audit',

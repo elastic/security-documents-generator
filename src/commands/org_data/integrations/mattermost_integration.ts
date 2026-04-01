@@ -61,11 +61,12 @@ export class MattermostIntegration extends BaseIntegration {
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
+    const centralAgent = this.buildCentralAgent(org);
 
     for (const employee of org.employees) {
       const eventCount = faker.number.int({ min: 2, max: 5 });
       for (let i = 0; i < eventCount; i++) {
-        documents.push(this.createAuditDocument(employee, org));
+        documents.push(this.createAuditDocument(employee, org, centralAgent));
       }
     }
 
@@ -73,7 +74,11 @@ export class MattermostIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private createAuditDocument(employee: Employee, org: Organization): IntegrationDocument {
+  private createAuditDocument(
+    employee: Employee,
+    org: Organization,
+    centralAgent: { id: string; name: string; type: string; version: string },
+  ): IntegrationDocument {
     const action = faker.helpers.weightedArrayElement(
       AUDIT_ACTIONS.map((a) => ({ value: a, weight: a.weight })),
     );
@@ -117,6 +122,7 @@ export class MattermostIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawEvent),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'mattermost.audit' },
     } as IntegrationDocument;

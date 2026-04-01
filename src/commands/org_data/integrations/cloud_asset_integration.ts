@@ -72,12 +72,13 @@ export class CloudAssetIntegration extends BaseIntegration {
    */
   private createCloudResourceDocument(
     resource: CloudResource,
-    _org: Organization,
+    org: Organization,
   ): CloudAssetDocument {
     const timestamp = this.getRandomTimestamp(48);
 
     const baseDoc: CloudAssetDocument = {
       '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
       event: {
         kind: 'asset',
       },
@@ -139,6 +140,7 @@ export class CloudAssetIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
       event: {
         kind: 'asset',
       },
@@ -206,6 +208,7 @@ export class CloudAssetIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
       event: {
         kind: 'asset',
       },

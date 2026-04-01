@@ -180,8 +180,10 @@ export class JamfProIntegration extends BaseIntegration {
       },
     };
 
+    const hostname = `${employee.userName}-${device.platform}`;
     return {
       '@timestamp': this.getRandomTimestamp(24),
+      agent: this.buildLocalAgent(device, hostname),
       message: inventoryPayload,
       data_stream: {
         namespace: 'default',
@@ -208,9 +210,10 @@ export class JamfProIntegration extends BaseIntegration {
     const macColonFormat = device.macAddress.replace(/-/g, ':').toLowerCase();
     const fullName = `${employee.firstName} ${employee.lastName}`;
 
-    // Pipeline expects json -> jamf_pro.events; device fields under event.computer
+    const hostname = `${employee.userName}-${device.platform}`;
     return {
       '@timestamp': this.getRandomTimestamp(48),
+      agent: this.buildLocalAgent(device, hostname),
       json: {
         event: {
           username: fullName,

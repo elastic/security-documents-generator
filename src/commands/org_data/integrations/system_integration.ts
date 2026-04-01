@@ -274,6 +274,7 @@ export class SystemIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildServerAgent(host),
       message,
       input: { type: 'log' },
       data_stream: {
@@ -306,6 +307,7 @@ export class SystemIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildServerAgent(host),
       message,
       input: { type: 'log' },
       data_stream: {
@@ -337,6 +339,7 @@ export class SystemIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildServerAgent(host),
       message,
       input: { type: 'log' },
       data_stream: {
@@ -359,6 +362,7 @@ export class SystemIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildServerAgent(host),
       message,
       input: { type: 'log' },
       data_stream: {
@@ -382,6 +386,7 @@ export class SystemIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildServerAgent(host),
       message,
       input: { type: 'log' },
       data_stream: {
@@ -437,6 +442,7 @@ export class SystemIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildServerAgent(host),
       message,
       input: { type: 'log' },
       data_stream: {

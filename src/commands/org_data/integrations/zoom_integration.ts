@@ -118,11 +118,12 @@ export class ZoomIntegration extends BaseIntegration {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
     const masterAccountId = faker.string.alphanumeric(22);
+    const centralAgent = this.buildCentralAgent(org);
 
     for (const employee of org.employees) {
       const eventCount = faker.number.int({ min: 2, max: 4 });
       for (let i = 0; i < eventCount; i++) {
-        documents.push(this.createWebhookDocument(employee, org, masterAccountId));
+        documents.push(this.createWebhookDocument(employee, org, masterAccountId, centralAgent));
       }
     }
 
@@ -134,6 +135,7 @@ export class ZoomIntegration extends BaseIntegration {
     employee: Employee,
     org: Organization,
     masterAccountId: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument {
     const eventDef = faker.helpers.weightedArrayElement(
       WEBHOOK_EVENTS.map((e) => ({ value: e, weight: e.weight })),
@@ -240,6 +242,7 @@ export class ZoomIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       event: {
         action: eventDef.action,
         category: eventDef.category,

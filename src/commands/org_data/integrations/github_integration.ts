@@ -85,6 +85,7 @@ export class GitHubIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'github.audit' },
     } as IntegrationDocument;

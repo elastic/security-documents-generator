@@ -4,7 +4,12 @@
  * Based on the Elastic ping_one integration package
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
+import {
+  BaseIntegration,
+  IntegrationDocument,
+  DataStreamConfig,
+  AgentData,
+} from './base_integration';
 import { Organization, Employee, CorrelationMap } from '../types';
 import { faker } from '@faker-js/faker';
 
@@ -105,6 +110,7 @@ export class PingOneIntegration extends BaseIntegration {
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
+    const centralAgent = this.buildCentralAgent(org);
 
     const environmentId = faker.string.uuid();
 
@@ -112,7 +118,7 @@ export class PingOneIntegration extends BaseIntegration {
     for (const employee of org.employees) {
       const eventCount = faker.number.int({ min: 2, max: 3 });
       for (let i = 0; i < eventCount; i++) {
-        documents.push(this.createAuditDocument(employee, org, environmentId));
+        documents.push(this.createAuditDocument(employee, org, environmentId, centralAgent));
       }
     }
 
@@ -127,6 +133,7 @@ export class PingOneIntegration extends BaseIntegration {
     employee: Employee,
     org: Organization,
     environmentId: string,
+    centralAgent: AgentData,
   ): IntegrationDocument {
     const action = faker.helpers.weightedArrayElement(
       AUDIT_ACTIONS.map((a) => ({ value: a, weight: a.weight })),
@@ -221,6 +228,7 @@ export class PingOneIntegration extends BaseIntegration {
 
     return {
       '@timestamp': recordedAt,
+      agent: centralAgent,
       message: JSON.stringify(rawEvent),
       data_stream: {
         namespace: 'default',

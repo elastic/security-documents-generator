@@ -4,7 +4,12 @@
  * Based on the Elastic slack integration package
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
+import {
+  BaseIntegration,
+  IntegrationDocument,
+  DataStreamConfig,
+  AgentData,
+} from './base_integration';
 import { Organization, Employee, CorrelationMap } from '../types';
 import { faker } from '@faker-js/faker';
 
@@ -72,12 +77,13 @@ export class SlackIntegration extends BaseIntegration {
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
+    const centralAgent = this.buildCentralAgent(org);
 
     // Generate 2-4 audit events per employee
     for (const employee of org.employees) {
       const eventCount = faker.number.int({ min: 2, max: 4 });
       for (let i = 0; i < eventCount; i++) {
-        documents.push(this.createAuditDocument(employee, org));
+        documents.push(this.createAuditDocument(employee, org, centralAgent));
       }
     }
 
@@ -88,7 +94,11 @@ export class SlackIntegration extends BaseIntegration {
   /**
    * Create a Slack audit log document
    */
-  private createAuditDocument(employee: Employee, org: Organization): IntegrationDocument {
+  private createAuditDocument(
+    employee: Employee,
+    org: Organization,
+    centralAgent: AgentData,
+  ): IntegrationDocument {
     const action = faker.helpers.weightedArrayElement(
       AUDIT_ACTIONS.map((a) => ({ value: a, weight: a.weight })),
     );
@@ -146,6 +156,7 @@ export class SlackIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawEvent),
       data_stream: {
         namespace: 'default',

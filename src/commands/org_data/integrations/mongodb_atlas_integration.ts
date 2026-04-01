@@ -69,15 +69,16 @@ export class MongoDbAtlasIntegration extends BaseIntegration {
     const auditDocs: IntegrationDocument[] = [];
     const orgDocs: IntegrationDocument[] = [];
     const orgId = faker.string.hexadecimal({ length: 24, prefix: '' });
+    const centralAgent = this.buildCentralAgent(org);
 
     for (const employee of org.employees) {
       const auditCount = faker.number.int({ min: 2, max: 4 });
       for (let i = 0; i < auditCount; i++) {
-        auditDocs.push(this.createAuditDocument(employee));
+        auditDocs.push(this.createAuditDocument(employee, centralAgent));
       }
 
       if (faker.datatype.boolean(0.4)) {
-        orgDocs.push(this.createOrgDocument(employee, org, orgId));
+        orgDocs.push(this.createOrgDocument(employee, org, orgId, centralAgent));
       }
     }
 
@@ -86,7 +87,10 @@ export class MongoDbAtlasIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private createAuditDocument(employee: Employee): IntegrationDocument {
+  private createAuditDocument(
+    employee: Employee,
+    centralAgent: { id: string; name: string; type: string; version: string },
+  ): IntegrationDocument {
     const action = faker.helpers.weightedArrayElement(
       AUDIT_ACTIONS.map((a) => ({ value: a, weight: a.weight })),
     );
@@ -118,6 +122,7 @@ export class MongoDbAtlasIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawAudit),
       host_name: hostname,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'mongodb_atlas.mongod_audit' },
@@ -128,6 +133,7 @@ export class MongoDbAtlasIntegration extends BaseIntegration {
     employee: Employee,
     org: Organization,
     orgId: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument {
     const eventType = faker.helpers.weightedArrayElement(
       ORG_EVENT_TYPES.map((e) => ({ value: e, weight: e.weight })),
@@ -175,6 +181,7 @@ export class MongoDbAtlasIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       response,
       data_stream: {
         namespace: 'default',

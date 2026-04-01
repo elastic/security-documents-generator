@@ -122,7 +122,7 @@ export class OnePasswordIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private generateSigninDocument(employee: Employee, _org: Organization): IntegrationDocument {
+  private generateSigninDocument(employee: Employee, org: Organization): IntegrationDocument {
     const sourceIp = faker.internet.ipv4();
     const success = faker.datatype.boolean(0.95);
     const timestamp = this.getRandomTimestamp(72);
@@ -153,6 +153,7 @@ export class OnePasswordIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
       data_stream: { namespace: 'default', type: 'logs', dataset: '1password.signin_attempts' },
     } as IntegrationDocument;
@@ -204,6 +205,7 @@ export class OnePasswordIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
       data_stream: { namespace: 'default', type: 'logs', dataset: '1password.item_usages' },
     } as IntegrationDocument;

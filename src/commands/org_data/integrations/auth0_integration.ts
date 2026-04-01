@@ -4,7 +4,12 @@
  * Based on the Elastic auth0 integration package
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
+import {
+  BaseIntegration,
+  IntegrationDocument,
+  DataStreamConfig,
+  AgentData,
+} from './base_integration';
 import { Organization, Employee, CorrelationMap } from '../types';
 import { faker } from '@faker-js/faker';
 
@@ -147,11 +152,12 @@ export class Auth0Integration extends BaseIntegration {
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
+    const centralAgent = this.buildCentralAgent(org);
 
     for (const employee of org.employees) {
       const eventCount = faker.number.int({ min: 2, max: 5 });
       for (let i = 0; i < eventCount; i++) {
-        documents.push(this.createLogDocument(employee, org));
+        documents.push(this.createLogDocument(employee, org, centralAgent));
       }
     }
 
@@ -159,7 +165,11 @@ export class Auth0Integration extends BaseIntegration {
     return documentsMap;
   }
 
-  private createLogDocument(employee: Employee, org: Organization): IntegrationDocument {
+  private createLogDocument(
+    employee: Employee,
+    org: Organization,
+    centralAgent: AgentData,
+  ): IntegrationDocument {
     const eventType = faker.helpers.weightedArrayElement(
       AUTH0_EVENT_TYPES.map((e) => ({ value: e, weight: e.weight })),
     );
@@ -196,6 +206,7 @@ export class Auth0Integration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       json: { data: rawAuth0Data },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'auth0.logs' },
     } as IntegrationDocument;

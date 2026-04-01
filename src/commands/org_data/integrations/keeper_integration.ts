@@ -141,11 +141,12 @@ export class KeeperIntegration extends BaseIntegration {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const auditDocs: IntegrationDocument[] = [];
     const enterpriseId = faker.number.int({ min: 1000, max: 9999 });
+    const centralAgent = this.buildCentralAgent(org);
 
     for (const employee of org.employees) {
       const eventCount = faker.number.int({ min: 2, max: 5 });
       for (let i = 0; i < eventCount; i++) {
-        auditDocs.push(this.createAuditDocument(employee, enterpriseId));
+        auditDocs.push(this.createAuditDocument(employee, enterpriseId, centralAgent));
       }
     }
 
@@ -153,7 +154,11 @@ export class KeeperIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private createAuditDocument(employee: Employee, enterpriseId: number): IntegrationDocument {
+  private createAuditDocument(
+    employee: Employee,
+    enterpriseId: number,
+    centralAgent: { id: string; name: string; type: string; version: string },
+  ): IntegrationDocument {
     const eventDef = faker.helpers.weightedArrayElement(
       AUDIT_EVENTS.map((e) => ({ value: e, weight: e.weight })),
     );
@@ -185,6 +190,7 @@ export class KeeperIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawEvent),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'keeper.audit' },
     } as IntegrationDocument;

@@ -10,7 +10,12 @@
  * API reference: https://developer.pingidentity.com/pingdirectory/directory-proxy-scim/user-profile-endpoints/get-read-search-users.html
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
+import {
+  BaseIntegration,
+  IntegrationDocument,
+  DataStreamConfig,
+  AgentData,
+} from './base_integration';
 import { Organization, Employee, CorrelationMap } from '../types';
 import { faker } from '@faker-js/faker';
 
@@ -99,6 +104,7 @@ export class PingDirectoryIntegration extends BaseIntegration {
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
+    const centralAgent = this.buildCentralAgent(org);
 
     // Build a lookup for managers
     const employeeById = new Map<string, Employee>();
@@ -113,7 +119,9 @@ export class PingDirectoryIntegration extends BaseIntegration {
     for (const employee of org.employees) {
       const manager = employee.managerId ? employeeById.get(employee.managerId) : undefined;
 
-      documents.push(this.createScimUserDocument(employee, manager, org, scimBaseUrl));
+      documents.push(
+        this.createScimUserDocument(employee, manager, org, scimBaseUrl, centralAgent),
+      );
     }
 
     documentsMap.set(this.dataStreams[0].index, documents);
@@ -129,6 +137,7 @@ export class PingDirectoryIntegration extends BaseIntegration {
     manager: Employee | undefined,
     org: Organization,
     scimBaseUrl: string,
+    centralAgent: AgentData,
   ): IntegrationDocument {
     const scimUserId = faker.string.uuid();
     const createdDate = faker.date
@@ -159,6 +168,7 @@ export class PingDirectoryIntegration extends BaseIntegration {
 
     return {
       '@timestamp': this.getRandomTimestamp(24),
+      agent: centralAgent,
       event: {
         dataset: 'ping_directory.users',
         kind: 'asset',

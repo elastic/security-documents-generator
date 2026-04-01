@@ -53,10 +53,11 @@ export class EntraIdIntegration extends BaseIntegration {
     const entityIndex = this.dataStreams[0].index;
     const entityDataset = 'entityanalytics_entra_id.entity';
     const timestamp = this.getTimestamp();
+    const centralAgent = this.buildCentralAgent(org);
     const documents: IntegrationDocument[] = [];
 
     // Sync start marker
-    documents.push(this.createSyncMarker('started', timestamp, entityDataset));
+    documents.push(this.createSyncMarker('started', timestamp, entityDataset, centralAgent));
 
     // User documents
     for (const employee of org.employees) {
@@ -73,7 +74,7 @@ export class EntraIdIntegration extends BaseIntegration {
     }
 
     // Sync end marker
-    documents.push(this.createSyncMarker('completed', timestamp, entityDataset));
+    documents.push(this.createSyncMarker('completed', timestamp, entityDataset, centralAgent));
 
     documentsMap.set(entityIndex, documents);
     return documentsMap;
@@ -102,6 +103,7 @@ export class EntraIdIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
       azure_ad: {
         userPrincipalName: employee.email,
         mail: employee.email,
@@ -179,6 +181,7 @@ export class EntraIdIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
       azure_ad: {
         accountEnabled: true,
         displayName: entraDisplayName,
@@ -231,9 +234,11 @@ export class EntraIdIntegration extends BaseIntegration {
     action: 'started' | 'completed',
     timestamp: string,
     dataset: string,
+    centralAgent: ReturnType<BaseIntegration['buildCentralAgent']>,
   ): EntraIdSyncMarkerDocument {
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       event: {
         action,
         kind: 'asset',

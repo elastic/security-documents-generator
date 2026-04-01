@@ -5,7 +5,12 @@
  * Produces raw Bitwarden API JSON in message for ingest pipeline processing
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
+import {
+  BaseIntegration,
+  IntegrationDocument,
+  DataStreamConfig,
+  AgentData,
+} from './base_integration';
 import { Organization, Employee, CorrelationMap } from '../types';
 import { faker } from '@faker-js/faker';
 
@@ -102,6 +107,7 @@ export class BitwardenIntegration extends BaseIntegration {
     _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
+    const centralAgent = this.buildCentralAgent(org);
 
     const eventDocs: IntegrationDocument[] = [];
     const memberDocs: IntegrationDocument[] = [];
@@ -109,14 +115,14 @@ export class BitwardenIntegration extends BaseIntegration {
     for (const employee of org.employees) {
       const eventCount = faker.number.int({ min: 2, max: 5 });
       for (let i = 0; i < eventCount; i++) {
-        eventDocs.push(this.createEventDocument(employee));
+        eventDocs.push(this.createEventDocument(employee, centralAgent));
       }
-      memberDocs.push(this.createMemberDocument(employee));
+      memberDocs.push(this.createMemberDocument(employee, centralAgent));
     }
 
-    const groupDocs = this.createGroupDocuments();
-    const policyDocs = this.createPolicyDocuments();
-    const collectionDocs = this.createCollectionDocuments();
+    const groupDocs = this.createGroupDocuments(centralAgent);
+    const policyDocs = this.createPolicyDocuments(centralAgent);
+    const collectionDocs = this.createCollectionDocuments(centralAgent);
 
     documentsMap.set(this.dataStreams[0].index, eventDocs);
     documentsMap.set(this.dataStreams[1].index, memberDocs);
@@ -127,7 +133,7 @@ export class BitwardenIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private createEventDocument(employee: Employee): IntegrationDocument {
+  private createEventDocument(employee: Employee, centralAgent: AgentData): IntegrationDocument {
     const eventType = faker.helpers.weightedArrayElement(
       EVENT_TYPES.map((e) => ({ value: e, weight: e.weight })),
     );
@@ -155,6 +161,7 @@ export class BitwardenIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawEvent),
       data_stream: {
         dataset: 'bitwarden.event',
@@ -164,7 +171,7 @@ export class BitwardenIntegration extends BaseIntegration {
     } as IntegrationDocument;
   }
 
-  private createMemberDocument(employee: Employee): IntegrationDocument {
+  private createMemberDocument(employee: Employee, centralAgent: AgentData): IntegrationDocument {
     const memberId = getStableMemberId(employee);
     const userId = getStableUserId(employee);
     const status = faker.helpers.arrayElement(MEMBER_STATUSES);
@@ -188,6 +195,7 @@ export class BitwardenIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawMember),
       data_stream: {
         dataset: 'bitwarden.member',
@@ -197,7 +205,7 @@ export class BitwardenIntegration extends BaseIntegration {
     } as IntegrationDocument;
   }
 
-  private createGroupDocuments(): IntegrationDocument[] {
+  private createGroupDocuments(centralAgent: AgentData): IntegrationDocument[] {
     return GROUP_NAMES.map((name) => {
       const groupId = faker.string.uuid();
       const collectionCount = faker.number.int({ min: 1, max: 3 });
@@ -218,6 +226,7 @@ export class BitwardenIntegration extends BaseIntegration {
 
       return {
         '@timestamp': timestamp,
+        agent: centralAgent,
         message: JSON.stringify(rawGroup),
         data_stream: {
           dataset: 'bitwarden.group',
@@ -228,7 +237,7 @@ export class BitwardenIntegration extends BaseIntegration {
     });
   }
 
-  private createPolicyDocuments(): IntegrationDocument[] {
+  private createPolicyDocuments(centralAgent: AgentData): IntegrationDocument[] {
     return POLICY_TYPES.map((policy) => {
       const policyId = faker.string.uuid();
       const timestamp = this.getRandomTimestamp(168);
@@ -255,6 +264,7 @@ export class BitwardenIntegration extends BaseIntegration {
 
       return {
         '@timestamp': timestamp,
+        agent: centralAgent,
         message: JSON.stringify(rawPolicy),
         data_stream: {
           dataset: 'bitwarden.policy',
@@ -265,7 +275,7 @@ export class BitwardenIntegration extends BaseIntegration {
     });
   }
 
-  private createCollectionDocuments(): IntegrationDocument[] {
+  private createCollectionDocuments(centralAgent: AgentData): IntegrationDocument[] {
     const collectionNames = [
       'Engineering Secrets',
       'Production Credentials',
@@ -287,6 +297,7 @@ export class BitwardenIntegration extends BaseIntegration {
 
       return {
         '@timestamp': timestamp,
+        agent: centralAgent,
         message: JSON.stringify(rawCollection),
         data_stream: {
           dataset: 'bitwarden.collection',

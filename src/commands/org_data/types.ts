@@ -40,6 +40,7 @@ export interface Device {
   crowdstrikeDeviceId: string;
   macAddress: string;
   ipAddress: string;
+  elasticAgentId: string;
 }
 
 /**
@@ -96,6 +97,15 @@ export interface Host {
     version: string;
     family: string;
   };
+  elasticAgentId: string;
+}
+
+/**
+ * Central Elastic Agent that collects data from cloud/SaaS integrations
+ */
+export interface CentralAgent {
+  id: string;
+  name: string;
 }
 
 /**
@@ -208,6 +218,7 @@ export interface Organization {
   cloudflareZones: CloudflareZone[];
   onePasswordVaults: OnePasswordVault[];
   productivitySuite: ProductivitySuite;
+  centralAgent: CentralAgent;
 }
 
 /**

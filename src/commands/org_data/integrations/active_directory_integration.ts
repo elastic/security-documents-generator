@@ -4,7 +4,12 @@
  * Based on beats x-pack/filebeat/input/entityanalytics/provider/activedirectory/
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
+import {
+  BaseIntegration,
+  IntegrationDocument,
+  DataStreamConfig,
+  AgentData,
+} from './base_integration';
 import { Organization, Employee, Device, ActiveDirectoryDocument, CorrelationMap } from '../types';
 import { faker } from '@faker-js/faker';
 
@@ -55,6 +60,7 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
     const timestamp = this.getTimestamp();
+    const centralAgent = this.buildCentralAgent(org);
 
     const baseDn = `DC=${org.domain.replace('.com', '')},DC=com`;
 
@@ -63,7 +69,14 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
       const userDn = this.buildUserDn(employee, baseDn);
       correlationMap.adDnToEmployee.set(userDn, employee);
 
-      const userDoc = this.createUserDocument(employee, org, timestamp, baseDn, userDn);
+      const userDoc = this.createUserDocument(
+        employee,
+        org,
+        timestamp,
+        baseDn,
+        userDn,
+        centralAgent,
+      );
       documents.push(userDoc);
     }
 
@@ -73,7 +86,14 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
         (d) => d.type === 'laptop' && d.platform === 'windows',
       );
       for (const device of windowsDevices) {
-        const computerDoc = this.createDeviceDocument(device, employee, org, timestamp, baseDn);
+        const computerDoc = this.createDeviceDocument(
+          device,
+          employee,
+          org,
+          timestamp,
+          baseDn,
+          centralAgent,
+        );
         documents.push(computerDoc);
       }
     }
@@ -100,6 +120,7 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
     timestamp: string,
     baseDn: string,
     userDn: string,
+    centralAgent: AgentData,
   ): ActiveDirectoryDocument {
     const whenCreated = faker.date.past({ years: 2 }).toISOString();
     const whenChanged = faker.date.recent({ days: 30 }).toISOString();
@@ -181,6 +202,7 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       activedirectory: {
         id: userDn,
         user: entry,
@@ -213,6 +235,7 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
     org: Organization,
     timestamp: string,
     baseDn: string,
+    centralAgent: AgentData,
   ): ActiveDirectoryDocument {
     const whenCreated = faker.date.past({ years: 1 }).toISOString();
     const whenChanged = faker.date.recent({ days: 14 }).toISOString();
@@ -255,6 +278,7 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       activedirectory: {
         id: computerDn,
         device: entry,

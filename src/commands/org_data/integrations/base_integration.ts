@@ -3,11 +3,20 @@
  * Abstract class defining the interface for all security integrations
  */
 
-import { Organization, CorrelationMap } from '../types';
+import { Organization, CorrelationMap, Device, Host } from '../types';
 import { installPackage } from '../../../utils/kibana_api';
 import { ingest } from '../../utils/indices';
 import cliProgress from 'cli-progress';
 import { chunk } from 'lodash-es';
+
+export const ELASTIC_AGENT_VERSION = '8.17.4';
+
+export interface AgentData {
+  id: string;
+  name: string;
+  type: string;
+  version: string;
+}
 
 /**
  * Document type for integration documents
@@ -185,6 +194,47 @@ export abstract class BaseIntegration {
     const now = new Date();
     const offsetMs = Math.random() * maxOffsetHours * 60 * 60 * 1000;
     return new Date(now.getTime() - offsetMs).toISOString();
+  }
+
+  /**
+   * Build agent metadata for a centralized cloud/SaaS integration collector.
+   * All centralized integrations share the same agent identity.
+   */
+  protected buildCentralAgent(org: Organization): AgentData {
+    return {
+      id: org.centralAgent.id,
+      name: org.centralAgent.name,
+      type: 'filebeat',
+      version: ELASTIC_AGENT_VERSION,
+    };
+  }
+
+  /**
+   * Build agent metadata for a local workstation agent (one per device).
+   */
+  protected buildLocalAgent(
+    device: Device,
+    hostname: string,
+    agentType: string = 'filebeat',
+  ): AgentData {
+    return {
+      id: device.elasticAgentId,
+      name: hostname,
+      type: agentType,
+      version: ELASTIC_AGENT_VERSION,
+    };
+  }
+
+  /**
+   * Build agent metadata for a server host agent (one per server).
+   */
+  protected buildServerAgent(host: Host): AgentData {
+    return {
+      id: host.elasticAgentId,
+      name: host.name,
+      type: 'filebeat',
+      version: ELASTIC_AGENT_VERSION,
+    };
   }
 }
 

@@ -5,7 +5,12 @@
  * Based on the Elastic island_browser integration package.
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
+import {
+  BaseIntegration,
+  IntegrationDocument,
+  DataStreamConfig,
+  AgentData,
+} from './base_integration';
 import { Organization, Employee, CorrelationMap, Device } from '../types';
 import { faker } from '@faker-js/faker';
 
@@ -123,11 +128,14 @@ export class IslandBrowserIntegration extends BaseIntegration {
     const auditDocs: IntegrationDocument[] = [];
     const adminDocs: IntegrationDocument[] = [];
 
+    const centralAgent = this.buildCentralAgent(org);
     for (const employee of org.employees) {
-      userDocs.push(this.createUserDocument(employee, org, tenantId));
+      userDocs.push(this.createUserDocument(employee, org, tenantId, centralAgent));
 
       for (const device of employee.devices.filter((d) => d.type === 'laptop')) {
-        deviceDocs.push(this.createDeviceDocument(employee, device, org, tenantId));
+        const hostname = `${employee.userName}-${device.platform}`;
+        const localAgent = this.buildLocalAgent(device, hostname);
+        deviceDocs.push(this.createDeviceDocument(employee, device, org, tenantId, localAgent));
       }
 
       const auditCount = faker.number.int({ min: 2, max: 5 });
@@ -136,7 +144,9 @@ export class IslandBrowserIntegration extends BaseIntegration {
           employee.devices.filter((d) => d.type === 'laptop'),
         );
         if (device) {
-          auditDocs.push(this.createAuditDocument(employee, device, org, tenantId));
+          const hostname = `${employee.userName}-${device.platform}`;
+          const localAgent = this.buildLocalAgent(device, hostname);
+          auditDocs.push(this.createAuditDocument(employee, device, org, tenantId, localAgent));
         }
       }
     }
@@ -147,7 +157,7 @@ export class IslandBrowserIntegration extends BaseIntegration {
     for (const admin of admins.slice(0, 3)) {
       const actionCount = faker.number.int({ min: 1, max: 3 });
       for (let i = 0; i < actionCount; i++) {
-        adminDocs.push(this.createAdminActionDocument(admin, tenantId));
+        adminDocs.push(this.createAdminActionDocument(admin, tenantId, centralAgent));
       }
     }
 
@@ -163,6 +173,7 @@ export class IslandBrowserIntegration extends BaseIntegration {
     employee: Employee,
     org: Organization,
     tenantId: string,
+    agentData: AgentData,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(24);
     const groups: string[] = [employee.department];
@@ -197,6 +208,7 @@ export class IslandBrowserIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: agentData,
       message: JSON.stringify(raw),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'island_browser.user' },
     } as IntegrationDocument;
@@ -207,6 +219,7 @@ export class IslandBrowserIntegration extends BaseIntegration {
     device: Device,
     org: Organization,
     tenantId: string,
+    agentData: AgentData,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(24);
     const browserVersion = faker.helpers.arrayElement(BROWSER_VERSIONS);
@@ -254,6 +267,7 @@ export class IslandBrowserIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: agentData,
       message: JSON.stringify(raw),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'island_browser.device' },
     } as IntegrationDocument;
@@ -264,6 +278,7 @@ export class IslandBrowserIntegration extends BaseIntegration {
     device: Device,
     org: Organization,
     tenantId: string,
+    agentData: AgentData,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const auditType = faker.helpers.weightedArrayElement(
@@ -322,12 +337,17 @@ export class IslandBrowserIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: agentData,
       message: JSON.stringify(raw),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'island_browser.audit' },
     } as IntegrationDocument;
   }
 
-  private createAdminActionDocument(admin: Employee, tenantId: string): IntegrationDocument {
+  private createAdminActionDocument(
+    admin: Employee,
+    tenantId: string,
+    agentData: AgentData,
+  ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const actionDomain = faker.helpers.arrayElement(ADMIN_ACTION_DOMAINS);
     const entityType = faker.helpers.arrayElement(ADMIN_ENTITY_TYPES);
@@ -352,6 +372,7 @@ export class IslandBrowserIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: agentData,
       message: JSON.stringify(raw),
       data_stream: {
         namespace: 'default',

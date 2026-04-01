@@ -182,11 +182,12 @@ export class KeycloakIntegration extends BaseIntegration {
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const logDocs: IntegrationDocument[] = [];
+    const centralAgent = this.buildCentralAgent(org);
 
     for (const employee of org.employees) {
       const eventCount = faker.number.int({ min: 2, max: 5 });
       for (let i = 0; i < eventCount; i++) {
-        logDocs.push(this.createLogDocument(employee, org));
+        logDocs.push(this.createLogDocument(employee, org, centralAgent));
       }
     }
 
@@ -194,7 +195,11 @@ export class KeycloakIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private createLogDocument(employee: Employee, org: Organization): IntegrationDocument {
+  private createLogDocument(
+    employee: Employee,
+    org: Organization,
+    centralAgent: { id: string; name: string; type: string; version: string },
+  ): IntegrationDocument {
     const eventDef = faker.helpers.weightedArrayElement(
       EVENT_TYPES.map((e) => ({ value: e, weight: e.weight })),
     );
@@ -220,6 +225,7 @@ export class KeycloakIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawKeycloakJson),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'keycloak.log' },
     } as IntegrationDocument;
