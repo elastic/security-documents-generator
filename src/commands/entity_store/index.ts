@@ -264,6 +264,16 @@ export const entityStoreCommands: CommandModule = {
         '--table-page-size <n>',
         'rows per summary table page (default 20, or 30 with --phase2)',
       )
+      .option(
+        '--dangerous-clean',
+        'DANGEROUS: clear alerts, entity docs, and risk score docs in the selected space before running',
+        false,
+      )
+      .option(
+        '--debug-resolution',
+        'enable verbose resolution diagnostics (relationship sync + debug read traces)',
+        false,
+      )
       .action(
         wrapAction(async (options) => {
           await riskScoreV2Command(options);

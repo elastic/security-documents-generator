@@ -32,7 +32,8 @@ function shouldLog(level: Exclude<LogLevel, 'silent'>): boolean {
 
 function formatPrefix(level: Exclude<LogLevel, 'silent'>): string {
   const { color, label } = LEVEL_STYLES[level];
-  return `${color}[${label}]${COLORS.reset}`;
+  const timestamp = new Date().toISOString();
+  return `${color}[${timestamp}][${label}]${COLORS.reset}`;
 }
 
 function formatArg(arg: unknown): string {

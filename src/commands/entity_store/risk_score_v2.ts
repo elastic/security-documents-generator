@@ -55,6 +55,8 @@ type RiskScoreV2Options = {
   avgAliasesPerTarget?: string;
   ownershipEdgeRate?: string;
   tablePageSize?: string;
+  dangerousClean?: boolean;
+  debugResolution?: boolean;
 };
 
 type SeededUser = { userName: string; userId: string; userEmail: string };
@@ -77,10 +79,20 @@ type RiskSummaryRow = {
 };
 type RiskSnapshot = {
   rows: RiskSummaryRow[];
+  resolutionRows: ResolutionScoreRow[];
   totalRiskDocs: number;
   totalEntityDocs: number;
   riskDocsMatched: number;
   watchlistModifierDocs: number;
+};
+type ResolutionScoreRow = {
+  resolutionKey: string;
+  targetEntityId: string;
+  score: string;
+  level: string;
+  relatedEntities: number;
+  calculationRunId: string;
+  timestamp: string;
 };
 type ResolutionGroupAssignment = {
   targetId: string;
@@ -93,6 +105,28 @@ type OwnershipEdge = {
 type RelationshipGraphState = {
   resolutionGroups: ResolutionGroupAssignment[];
   ownershipEdges: OwnershipEdge[];
+};
+
+const buildResolutionKey = ({
+  targetEntityId,
+  calculationRunId,
+}: {
+  targetEntityId: string;
+  calculationRunId: string;
+}): string => `${targetEntityId}#${calculationRunId || 'no-run-id'}`;
+
+const getRelationshipGraphStats = (graph: RelationshipGraphState) => {
+  const resolutionTargetCount = graph.resolutionGroups.length;
+  const resolutionAliasCount = graph.resolutionGroups.reduce(
+    (count, group) => count + group.aliasIds.length,
+    0,
+  );
+  return {
+    resolutionTargetCount,
+    resolutionAliasCount,
+    resolutionEdgeCount: resolutionAliasCount,
+    ownershipEdgeCount: graph.ownershipEdges.length,
+  };
 };
 
 const summarizeList = (items: string[], max: number = 6): string => {
@@ -610,6 +644,11 @@ const applyRelationshipGraph = async ({
         entityIds: aliases,
         space,
       });
+      if (response.linked.length < aliases.length || response.skipped.length > 0) {
+        log.warn(
+          `Resolution link validation: requested=${aliases.length}, linked=${response.linked.length}, skipped=${response.skipped.length} for target=${group.targetId}`,
+        );
+      }
       log.info(
         `Resolution link: target=${group.targetId}, linked=${response.linked.length}, skipped=${response.skipped.length}`,
       );
@@ -657,6 +696,11 @@ const clearRelationshipGraph = async ({
   for (const ids of chunk(entityIds, 1000)) {
     if (ids.length === 0) continue;
     const response = await unlinkResolutionEntities({ entityIds: ids, space });
+    if (response.unlinked.length < ids.length || response.skipped.length > 0) {
+      log.warn(
+        `Resolution unlink validation: requested=${ids.length}, unlinked=${response.unlinked.length}, skipped=${response.skipped.length}`,
+      );
+    }
     log.info(
       `Resolution unlink: unlinked=${response.unlinked.length}, skipped=${response.skipped.length}`,
     );
@@ -682,6 +726,214 @@ const clearRelationshipGraph = async ({
   for (const entityBatch of chunk(entities, 200)) {
     await forceBulkUpdateEntitiesViaCrud({ entities: entityBatch, space });
   }
+};
+
+type RelationshipStateSnapshot = {
+  fetched: number;
+  expectedTargetCount: number;
+  expectedAliasCount: number;
+  aliasesWithResolvedTo: number;
+  expectedAliasMatches: number;
+  ownershipSources: number;
+  ownershipLinks: number;
+  expectedOwnershipEdges: number;
+  mismatches: string[];
+  unexpectedAliases: string[];
+};
+
+const collectEntityRelationshipState = async ({
+  space,
+  entityIds,
+  graph,
+}: {
+  space: string;
+  entityIds: string[];
+  graph: RelationshipGraphState;
+}): Promise<RelationshipStateSnapshot> => {
+  const uniqueEntityIds = [...new Set(entityIds)];
+  if (uniqueEntityIds.length === 0) {
+    return {
+      fetched: 0,
+      expectedTargetCount: graph.resolutionGroups.length,
+      expectedAliasCount: 0,
+      aliasesWithResolvedTo: 0,
+      expectedAliasMatches: 0,
+      ownershipSources: 0,
+      ownershipLinks: 0,
+      expectedOwnershipEdges: graph.ownershipEdges.length,
+      mismatches: [],
+      unexpectedAliases: [],
+    };
+  }
+
+  const client = getEsClient();
+  const entityIndex = `.entities.v2.latest.security_${space}`;
+  const entityResponse = await client.search({
+    index: entityIndex,
+    size: uniqueEntityIds.length,
+    query: {
+      terms: {
+        'entity.id': uniqueEntityIds,
+      },
+    },
+    _source: [
+      'entity.id',
+      'entity.relationships.resolution.resolved_to',
+      'entity.relationships.owns',
+    ],
+  });
+
+  const expectedAliasToTarget = new Map<string, string>();
+  for (const group of graph.resolutionGroups) {
+    for (const aliasId of group.aliasIds) {
+      expectedAliasToTarget.set(aliasId, group.targetId);
+    }
+  }
+
+  let aliasesWithResolvedTo = 0;
+  let ownershipSources = 0;
+  let ownershipLinks = 0;
+  let expectedAliasMatches = 0;
+  const mismatches: string[] = [];
+  const unexpectedAliases: string[] = [];
+
+  for (const hit of entityResponse.hits.hits) {
+    const source = hit._source as
+      | {
+          entity?: {
+            id?: string;
+            relationships?: { resolution?: { resolved_to?: unknown }; owns?: unknown };
+          };
+        }
+      | undefined;
+    const id = source?.entity?.id;
+    if (!id) continue;
+
+    const resolvedTo =
+      normalizeWatchlists(
+        getFromNestedOrDotted(
+          source as Record<string, unknown> | undefined,
+          'entity.relationships.resolution.resolved_to',
+        ),
+      )[0] ?? '-';
+    const owns = normalizeWatchlists(
+      getFromNestedOrDotted(
+        source as Record<string, unknown> | undefined,
+        'entity.relationships.owns',
+      ),
+    );
+
+    if (resolvedTo !== '-') {
+      aliasesWithResolvedTo += 1;
+    }
+    if (owns.length > 0) {
+      ownershipSources += 1;
+      ownershipLinks += owns.length;
+    }
+
+    const expectedTarget = expectedAliasToTarget.get(id);
+    if (expectedTarget) {
+      if (resolvedTo === expectedTarget) {
+        expectedAliasMatches += 1;
+      } else {
+        mismatches.push(`${id} -> ${resolvedTo} (expected ${expectedTarget})`);
+      }
+    } else if (resolvedTo !== '-') {
+      unexpectedAliases.push(`${id} -> ${resolvedTo}`);
+    }
+  }
+
+  return {
+    fetched: entityResponse.hits.hits.length,
+    expectedTargetCount: graph.resolutionGroups.length,
+    expectedAliasCount: expectedAliasToTarget.size,
+    aliasesWithResolvedTo,
+    expectedAliasMatches,
+    ownershipSources,
+    ownershipLinks,
+    expectedOwnershipEdges: graph.ownershipEdges.length,
+    mismatches,
+    unexpectedAliases,
+  };
+};
+
+const logEntityRelationshipState = async ({
+  space,
+  entityIds,
+  graph,
+  context,
+}: {
+  space: string;
+  entityIds: string[];
+  graph: RelationshipGraphState;
+  context: string;
+}): Promise<RelationshipStateSnapshot> => {
+  const uniqueEntityIds = [...new Set(entityIds)];
+  const snapshot = await collectEntityRelationshipState({
+    space,
+    entityIds: uniqueEntityIds,
+    graph,
+  });
+  log.info(
+    `[rel-state:${context}] fetched=${snapshot.fetched}/${uniqueEntityIds.length}, expected_targets=${snapshot.expectedTargetCount}, expected_aliases=${snapshot.expectedAliasCount}, aliases_with_resolved_to=${snapshot.aliasesWithResolvedTo}, expected_alias_matches=${snapshot.expectedAliasMatches}, ownership_sources=${snapshot.ownershipSources}, ownership_links=${snapshot.ownershipLinks}, expected_ownership_edges=${snapshot.expectedOwnershipEdges}`,
+  );
+  if (snapshot.mismatches.length > 0) {
+    log.warn(
+      `[rel-state:${context}] resolution mismatches (${snapshot.mismatches.length}): ${summarizeList(snapshot.mismatches, 6)}`,
+    );
+  }
+  if (snapshot.unexpectedAliases.length > 0) {
+    log.warn(
+      `[rel-state:${context}] unexpected alias mappings (${snapshot.unexpectedAliases.length}): ${summarizeList(snapshot.unexpectedAliases, 6)}`,
+    );
+  }
+  return snapshot;
+};
+
+const waitForEntityRelationshipState = async ({
+  space,
+  entityIds,
+  graph,
+  context,
+  timeoutMs = 15_000,
+}: {
+  space: string;
+  entityIds: string[];
+  graph: RelationshipGraphState;
+  context: string;
+  timeoutMs?: number;
+}): Promise<void> => {
+  const expectedAliasCount = graph.resolutionGroups.reduce(
+    (count, group) => count + group.aliasIds.length,
+    0,
+  );
+  if (expectedAliasCount === 0) {
+    await logEntityRelationshipState({ space, entityIds, graph, context });
+    return;
+  }
+
+  const deadline = Date.now() + timeoutMs;
+  let lastMatches = -1;
+  let lastResolved = -1;
+  while (Date.now() < deadline) {
+    const snapshot = await collectEntityRelationshipState({ space, entityIds, graph });
+    if (
+      snapshot.expectedAliasMatches !== lastMatches ||
+      snapshot.aliasesWithResolvedTo !== lastResolved
+    ) {
+      log.info(
+        `[rel-sync:${context}] alias_matches=${snapshot.expectedAliasMatches}/${expectedAliasCount}, aliases_with_resolved_to=${snapshot.aliasesWithResolvedTo}`,
+      );
+      lastMatches = snapshot.expectedAliasMatches;
+      lastResolved = snapshot.aliasesWithResolvedTo;
+    }
+    if (snapshot.expectedAliasMatches >= expectedAliasCount && snapshot.mismatches.length === 0) {
+      break;
+    }
+    await sleep(1000);
+  }
+
+  await logEntityRelationshipState({ space, entityIds, graph, context });
 };
 
 const forceExtractExpectedEntities = async ({
@@ -865,6 +1117,7 @@ const waitForMaintainerRun = async (
   space: string,
   maintainerId: string = 'risk-score',
 ): Promise<{ runs: number; taskStatus: string; settled: boolean }> => {
+  const settleWaitMs = 8_000;
   let baselineRuns: number;
   try {
     const baseline = await getEntityMaintainers(space, [maintainerId]);
@@ -888,7 +1141,7 @@ const waitForMaintainerRun = async (
       log.info(
         `Maintainer "${maintainerId}" run observed (runs=${maintainer.runs}, taskStatus=${maintainer.taskStatus}).`,
       );
-      const settleDeadline = Date.now() + 15_000;
+      const settleDeadline = Date.now() + settleWaitMs;
       while (Date.now() < settleDeadline) {
         const settleResponse = await getEntityMaintainers(space, [maintainerId]);
         const settleMaintainer = settleResponse.maintainers.find((m) => m.id === maintainerId);
@@ -897,7 +1150,7 @@ const waitForMaintainerRun = async (
             `Maintainer "${maintainerId}" appears settled (taskStatus=${settleMaintainer?.taskStatus ?? 'unknown'}).`,
           );
           return {
-            runs: maintainer.runs,
+            runs: settleMaintainer?.runs ?? maintainer.runs,
             taskStatus: settleMaintainer?.taskStatus ?? maintainer.taskStatus,
             settled: true,
           };
@@ -905,7 +1158,7 @@ const waitForMaintainerRun = async (
         await sleep(2000);
       }
       log.warn(
-        `Maintainer "${maintainerId}" still reports taskStatus=started after short settle wait; continuing with summary.`,
+        `Maintainer "${maintainerId}" still reports taskStatus=started after ${formatDurationMs(settleWaitMs)} settle wait.`,
       );
       return { runs: maintainer.runs, taskStatus: maintainer.taskStatus, settled: false };
     }
@@ -921,6 +1174,36 @@ const waitForMaintainerRun = async (
   }
 
   throw new Error(`Timed out waiting for maintainer "${maintainerId}" run`);
+};
+
+const waitForResolutionDocs = async ({
+  space,
+  entityIds,
+  minDocs = 1,
+  timeoutMs = 45000,
+}: {
+  space: string;
+  entityIds: string[];
+  minDocs?: number;
+  timeoutMs?: number;
+}) => {
+  const deadline = Date.now() + timeoutMs;
+  let lastCount = -1;
+  while (Date.now() < deadline) {
+    const snapshot = await collectRiskSnapshot({ space, entityIds });
+    const count = snapshot.resolutionRows.length;
+    if (count !== lastCount) {
+      log.info(`Resolution doc wait: found=${count}, target>=${minDocs}`);
+      lastCount = count;
+    }
+    if (count >= minDocs) {
+      return;
+    }
+    await sleep(2000);
+  }
+  log.warn(
+    `Timed out waiting for resolution docs (target>=${minDocs}) after ${formatDurationMs(timeoutMs)}; continuing with current snapshot.`,
+  );
 };
 
 const createWatchlistsForRun = async (space: string) => {
@@ -1113,6 +1396,30 @@ const normalizeWatchlists = (value: unknown): string[] => {
   return [];
 };
 
+const canUseInteractivePrompts = (): boolean =>
+  Boolean(process.stdout.isTTY && process.stdin.isTTY);
+
+const isPromptIoError = (error: unknown): boolean => {
+  const message =
+    error instanceof Error ? error.message : typeof error === 'string' ? error : String(error);
+  return message.includes('setRawMode') || message.includes('EIO');
+};
+
+const getFromNestedOrDotted = (
+  source: Record<string, unknown> | undefined,
+  path: string,
+): unknown => {
+  if (!source) return undefined;
+  if (path in source) return source[path];
+  const parts = path.split('.');
+  let current: unknown = source;
+  for (const part of parts) {
+    if (!current || typeof current !== 'object') return undefined;
+    current = (current as Record<string, unknown>)[part];
+  }
+  return current;
+};
+
 const toNumericScore = (value: string): number | null => {
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -1134,6 +1441,7 @@ const collectRiskSnapshot = async ({
   if (uniqueEntityIds.length === 0) {
     return {
       rows: [],
+      resolutionRows: [],
       totalRiskDocs,
       totalEntityDocs,
       riskDocsMatched: 0,
@@ -1150,7 +1458,14 @@ const collectRiskSnapshot = async ({
         'entity.id': uniqueEntityIds,
       },
     },
-    _source: ['entity.id', 'entity.type', 'entity.attributes.watchlists', 'asset.criticality'],
+    _source: [
+      'entity.id',
+      'entity.type',
+      'entity.attributes.watchlists',
+      'entity.relationships.resolution.resolved_to',
+      'entity.relationships.owns',
+      'asset.criticality',
+    ],
   });
 
   const entityById = new Map<
@@ -1179,15 +1494,30 @@ const collectRiskSnapshot = async ({
     const id = source?.entity?.id;
     if (!id) continue;
     const resolvedTo =
-      normalizeWatchlists(source?.entity?.relationships?.resolution?.resolved_to)[0] ?? '-';
-    const owns = normalizeWatchlists(source?.entity?.relationships?.owns);
+      normalizeWatchlists(
+        getFromNestedOrDotted(
+          source as Record<string, unknown> | undefined,
+          'entity.relationships.resolution.resolved_to',
+        ),
+      )[0] ?? '-';
+    const owns = normalizeWatchlists(
+      getFromNestedOrDotted(
+        source as Record<string, unknown> | undefined,
+        'entity.relationships.owns',
+      ),
+    );
     if (resolvedTo !== '-') {
       aliasCountByTarget.set(resolvedTo, (aliasCountByTarget.get(resolvedTo) ?? 0) + 1);
     }
     entityById.set(id, {
       entityType: source.entity?.type ?? 'unknown',
       criticality: source.asset?.criticality ?? '-',
-      watchlists: normalizeWatchlists(source?.entity?.attributes?.watchlists),
+      watchlists: normalizeWatchlists(
+        getFromNestedOrDotted(
+          source as Record<string, unknown> | undefined,
+          'entity.attributes.watchlists',
+        ),
+      ),
       resolutionTarget: resolvedTo,
       ownershipLinks: owns.length,
     });
@@ -1203,22 +1533,32 @@ const collectRiskSnapshot = async ({
           { terms: { 'host.name': uniqueEntityIds } },
           { terms: { 'user.name': uniqueEntityIds } },
           { terms: { 'service.name': uniqueEntityIds } },
+          { terms: { 'host.risk.id_value': uniqueEntityIds } },
+          { terms: { 'user.risk.id_value': uniqueEntityIds } },
+          { terms: { 'service.risk.id_value': uniqueEntityIds } },
         ],
         minimum_should_match: 1,
       },
     },
     _source: [
+      '@timestamp',
       'host.name',
       'host.risk.calculated_score_norm',
       'host.risk.calculated_level',
+      'host.risk.calculation_run_id',
+      'host.risk.id_value',
       'host.risk.modifiers',
       'user.name',
       'user.risk.calculated_score_norm',
       'user.risk.calculated_level',
+      'user.risk.calculation_run_id',
+      'user.risk.id_value',
       'user.risk.modifiers',
       'service.name',
       'service.risk.calculated_score_norm',
       'service.risk.calculated_level',
+      'service.risk.calculation_run_id',
+      'service.risk.id_value',
       'service.risk.score_type',
       'service.risk.related_entities',
       'service.risk.modifiers',
@@ -1226,6 +1566,73 @@ const collectRiskSnapshot = async ({
       'host.risk.related_entities',
       'user.risk.score_type',
       'user.risk.related_entities',
+    ],
+  });
+
+  const resolutionResponse = await client.search({
+    index: riskIndex,
+    size: Math.max(100, uniqueEntityIds.length * 8),
+    sort: [{ '@timestamp': { order: 'desc' } }],
+    query: {
+      bool: {
+        should: [
+          {
+            term: {
+              'host.risk.score_type': 'resolution',
+            },
+          },
+          {
+            term: {
+              'user.risk.score_type': 'resolution',
+            },
+          },
+          {
+            term: {
+              'service.risk.score_type': 'resolution',
+            },
+          },
+        ],
+        minimum_should_match: 1,
+        filter: [
+          {
+            bool: {
+              should: [
+                { terms: { 'host.name': uniqueEntityIds } },
+                { terms: { 'user.name': uniqueEntityIds } },
+                { terms: { 'service.name': uniqueEntityIds } },
+                { terms: { 'host.risk.id_value': uniqueEntityIds } },
+                { terms: { 'user.risk.id_value': uniqueEntityIds } },
+                { terms: { 'service.risk.id_value': uniqueEntityIds } },
+              ],
+              minimum_should_match: 1,
+            },
+          },
+        ],
+      },
+    },
+    _source: [
+      '@timestamp',
+      'host.name',
+      'host.risk.id_value',
+      'host.risk.calculated_score_norm',
+      'host.risk.calculated_level',
+      'host.risk.score_type',
+      'host.risk.related_entities',
+      'host.risk.calculation_run_id',
+      'user.name',
+      'user.risk.id_value',
+      'user.risk.calculated_score_norm',
+      'user.risk.calculated_level',
+      'user.risk.score_type',
+      'user.risk.related_entities',
+      'user.risk.calculation_run_id',
+      'service.name',
+      'service.risk.id_value',
+      'service.risk.calculated_score_norm',
+      'service.risk.calculated_level',
+      'service.risk.score_type',
+      'service.risk.related_entities',
+      'service.risk.calculation_run_id',
     ],
   });
 
@@ -1242,48 +1649,64 @@ const collectRiskSnapshot = async ({
     string,
     { score: string; level: string; scoreType: string; relatedEntities: number }
   >();
+  const resolutionRowsByKey = new Map<string, ResolutionScoreRow>();
   for (const hit of riskResponse.hits.hits) {
     const source = hit._source as
       | {
+          '@timestamp'?: string;
           host?: {
             name?: string;
             risk?: {
+              id_value?: string;
               calculated_score_norm?: number;
               calculated_level?: string;
               score_type?: string;
               related_entities?: unknown[];
+              calculation_run_id?: string;
             };
           };
           user?: {
             name?: string;
             risk?: {
+              id_value?: string;
               calculated_score_norm?: number;
               calculated_level?: string;
               score_type?: string;
               related_entities?: unknown[];
+              calculation_run_id?: string;
             };
           };
           service?: {
             name?: string;
             risk?: {
+              id_value?: string;
               calculated_score_norm?: number;
               calculated_level?: string;
               score_type?: string;
               related_entities?: unknown[];
+              calculation_run_id?: string;
             };
           };
         }
       | undefined;
-    const id = source?.host?.name ?? source?.user?.name ?? source?.service?.name;
+    const id =
+      source?.host?.name ??
+      source?.user?.name ??
+      source?.service?.name ??
+      source?.host?.risk?.id_value ??
+      source?.user?.risk?.id_value ??
+      source?.service?.risk?.id_value;
     const risk = source?.host?.risk ?? source?.user?.risk ?? source?.service?.risk;
-    if (!id || !risk || riskById.has(id)) continue;
+    if (!id || !risk) continue;
+    const scoreType = typeof risk.score_type === 'string' ? risk.score_type : '-';
+    if (riskById.has(id)) continue;
     riskById.set(id, {
       score:
         typeof risk.calculated_score_norm === 'number'
           ? risk.calculated_score_norm.toFixed(2)
           : '-',
       level: risk.calculated_level ?? '-',
-      scoreType: typeof risk.score_type === 'string' ? risk.score_type : '-',
+      scoreType,
       relatedEntities: Array.isArray(risk.related_entities) ? risk.related_entities.length : 0,
     });
   }
@@ -1305,7 +1728,165 @@ const collectRiskSnapshot = async ({
     totalEntityDocs,
     riskDocsMatched: riskById.size,
     watchlistModifierDocs,
+    resolutionRows: (() => {
+      for (const hit of resolutionResponse.hits.hits) {
+        const source = hit._source as
+          | {
+              '@timestamp'?: string;
+              host?: {
+                name?: string;
+                risk?: {
+                  id_value?: string;
+                  calculated_score_norm?: number;
+                  calculated_level?: string;
+                  score_type?: string;
+                  related_entities?: unknown[];
+                  calculation_run_id?: string;
+                };
+              };
+              user?: {
+                name?: string;
+                risk?: {
+                  id_value?: string;
+                  calculated_score_norm?: number;
+                  calculated_level?: string;
+                  score_type?: string;
+                  related_entities?: unknown[];
+                  calculation_run_id?: string;
+                };
+              };
+              service?: {
+                name?: string;
+                risk?: {
+                  id_value?: string;
+                  calculated_score_norm?: number;
+                  calculated_level?: string;
+                  score_type?: string;
+                  related_entities?: unknown[];
+                  calculation_run_id?: string;
+                };
+              };
+            }
+          | undefined;
+        const risk = source?.host?.risk ?? source?.user?.risk ?? source?.service?.risk;
+        if (!risk || risk.score_type !== 'resolution') continue;
+        const id =
+          source?.host?.name ??
+          source?.user?.name ??
+          source?.service?.name ??
+          source?.host?.risk?.id_value ??
+          source?.user?.risk?.id_value ??
+          source?.service?.risk?.id_value;
+        if (!id) continue;
+        const calculationRunId =
+          typeof risk.calculation_run_id === 'string' ? risk.calculation_run_id : '-';
+        const resolutionKey = buildResolutionKey({ targetEntityId: id, calculationRunId });
+        if (resolutionRowsByKey.has(resolutionKey)) continue;
+        resolutionRowsByKey.set(resolutionKey, {
+          resolutionKey,
+          targetEntityId: id,
+          score:
+            typeof risk.calculated_score_norm === 'number'
+              ? risk.calculated_score_norm.toFixed(2)
+              : '-',
+          level: risk.calculated_level ?? '-',
+          relatedEntities: Array.isArray(risk.related_entities) ? risk.related_entities.length : 0,
+          calculationRunId,
+          timestamp: typeof source?.['@timestamp'] === 'string' ? source['@timestamp'] : '-',
+        });
+      }
+      return [...resolutionRowsByKey.values()];
+    })(),
   };
+};
+
+const logResolutionReadDiagnostics = async ({
+  space,
+  entityIds,
+  context,
+}: {
+  space: string;
+  entityIds: string[];
+  context: string;
+}): Promise<void> => {
+  const uniqueEntityIds = [...new Set(entityIds)];
+  if (uniqueEntityIds.length === 0) return;
+
+  const client = getEsClient();
+  const riskIndex = `risk-score.risk-score-${space}`;
+  const response = await client.search({
+    index: riskIndex,
+    size: 8,
+    sort: [{ '@timestamp': { order: 'desc' } }],
+    query: {
+      bool: {
+        should: [
+          { term: { 'host.risk.score_type': 'resolution' } },
+          { term: { 'user.risk.score_type': 'resolution' } },
+          { term: { 'service.risk.score_type': 'resolution' } },
+        ],
+        minimum_should_match: 1,
+        filter: [
+          {
+            bool: {
+              should: [
+                { terms: { 'host.name': uniqueEntityIds } },
+                { terms: { 'user.name': uniqueEntityIds } },
+                { terms: { 'service.name': uniqueEntityIds } },
+                { terms: { 'host.risk.id_value': uniqueEntityIds } },
+                { terms: { 'user.risk.id_value': uniqueEntityIds } },
+                { terms: { 'service.risk.id_value': uniqueEntityIds } },
+              ],
+              minimum_should_match: 1,
+            },
+          },
+        ],
+      },
+    },
+    _source: [
+      '@timestamp',
+      'host.name',
+      'host.risk.id_value',
+      'host.risk.score_type',
+      'user.name',
+      'user.risk.id_value',
+      'user.risk.score_type',
+      'service.name',
+      'service.risk.id_value',
+      'service.risk.score_type',
+    ],
+  });
+
+  const hits = response.hits.hits;
+  log.warn(
+    `[debug:${context}] resolution-read diagnostics: matched_hits=${hits.length}, total=${response.hits.total && typeof response.hits.total === 'object' ? response.hits.total.value : 'n/a'}`,
+  );
+  for (const [index, hit] of hits.entries()) {
+    const source = hit._source as
+      | {
+          '@timestamp'?: string;
+          host?: { name?: string; risk?: { id_value?: string; score_type?: string } };
+          user?: { name?: string; risk?: { id_value?: string; score_type?: string } };
+          service?: { name?: string; risk?: { id_value?: string; score_type?: string } };
+        }
+      | undefined;
+    const id =
+      source?.host?.name ??
+      source?.user?.name ??
+      source?.service?.name ??
+      source?.host?.risk?.id_value ??
+      source?.user?.risk?.id_value ??
+      source?.service?.risk?.id_value ??
+      '-';
+    const scoreType =
+      source?.host?.risk?.score_type ??
+      source?.user?.risk?.score_type ??
+      source?.service?.risk?.score_type ??
+      '-';
+    log.warn(
+      `[debug:${context}] hit_${index + 1}: id=${id}, score_type=${scoreType}, ts=${source?.['@timestamp'] ?? '-'}`,
+    );
+  }
 };
 
 const printRiskRows = async ({
@@ -1351,7 +1932,7 @@ const printRiskRows = async ({
     console.log(line);
   };
 
-  if (!process.stdout.isTTY || rows.length <= pageSize) {
+  if (!canUseInteractivePrompts() || rows.length <= pageSize) {
     printLine(header);
     printLine(separator);
     for (const row of rows) {
@@ -1414,14 +1995,20 @@ const printRiskRows = async ({
           : canPrev
             ? '[p] previous, [q] continue'
             : '[q] continue';
-    const nav = (
-      await input({
+    let navRaw: string;
+    try {
+      navRaw = await input({
         message: `Table navigation: ${navHint}`,
         default: 'q',
-      })
-    )
-      .trim()
-      .toLowerCase();
+      });
+    } catch (error) {
+      if (isPromptIoError(error)) {
+        log.warn(`Interactive table navigation unavailable (${error}). Continuing.`);
+        break;
+      }
+      throw error;
+    }
+    const nav = navRaw.trim().toLowerCase();
 
     if (nav === 'n' && canNext) {
       page += 1;
@@ -1436,6 +2023,163 @@ const printRiskRows = async ({
     }
     log.warn(`Invalid table navigation "${nav}" for this page.`);
   }
+};
+
+const printResolutionRows = async ({
+  rows,
+  pageSize = 20,
+}: {
+  rows: ResolutionScoreRow[];
+  pageSize?: number;
+}): Promise<void> => {
+  if (rows.length === 0) {
+    log.info('Resolution scorecard: no resolution docs found for tracked entities.');
+    return;
+  }
+
+  const keyWidth = 52;
+  const idxWidth = 4;
+  const targetWidth = 48;
+  const scoreWidth = 7;
+  const levelWidth = 9;
+  const relWidth = 6;
+  const runWidth = 18;
+  const tsWidth = 24;
+
+  const header = [
+    formatCell('#', idxWidth),
+    formatCell('Resolution Key', keyWidth),
+    formatCell('Target Entity', targetWidth),
+    formatCell('Score', scoreWidth),
+    formatCell('Level', levelWidth),
+    formatCell('Rel', relWidth),
+    formatCell('Run ID', runWidth),
+    formatCell('Timestamp', tsWidth),
+  ].join(' | ');
+  const separator = `${'-'.repeat(idxWidth)}-+-${'-'.repeat(keyWidth)}-+-${'-'.repeat(targetWidth)}-+-${'-'.repeat(scoreWidth)}-+-${'-'.repeat(levelWidth)}-+-${'-'.repeat(relWidth)}-+-${'-'.repeat(runWidth)}-+-${'-'.repeat(tsWidth)}`;
+
+  // eslint-disable-next-line no-console
+  console.log(colorize(`🧩 Resolution scorecard (${rows.length} rows)`, 'cyan'));
+  const printLine = (line: string) => {
+    // eslint-disable-next-line no-console
+    console.log(line);
+  };
+
+  if (!canUseInteractivePrompts() || rows.length <= pageSize) {
+    printLine(header);
+    printLine(separator);
+    for (const [index, row] of rows.entries()) {
+      const levelCell = formatCell(row.level, levelWidth);
+      printLine(
+        [
+          formatCell(String(index + 1), idxWidth),
+          formatCell(row.resolutionKey, keyWidth),
+          formatCell(row.targetEntityId, targetWidth),
+          formatCell(row.score, scoreWidth),
+          colorizeRiskLevel(levelCell, row.level),
+          formatCell(String(row.relatedEntities), relWidth),
+          formatCell(row.calculationRunId, runWidth),
+          formatCell(row.timestamp, tsWidth),
+        ].join(' | '),
+      );
+    }
+    log.info('Tip: use [j] with a row number, full target ID, or ID prefix.');
+    return;
+  }
+
+  let page = 0;
+  const totalPages = Math.ceil(rows.length / pageSize);
+  while (true) {
+    const start = page * pageSize;
+    const end = Math.min(start + pageSize, rows.length);
+    const pageRows = rows.slice(start, end);
+
+    printLine(header);
+    printLine(separator);
+    for (const [offset, row] of pageRows.entries()) {
+      const index = start + offset;
+      const levelCell = formatCell(row.level, levelWidth);
+      printLine(
+        [
+          formatCell(String(index + 1), idxWidth),
+          formatCell(row.resolutionKey, keyWidth),
+          formatCell(row.targetEntityId, targetWidth),
+          formatCell(row.score, scoreWidth),
+          colorizeRiskLevel(levelCell, row.level),
+          formatCell(String(row.relatedEntities), relWidth),
+          formatCell(row.calculationRunId, runWidth),
+          formatCell(row.timestamp, tsWidth),
+        ].join(' | '),
+      );
+    }
+    log.info('Tip: use [j] with a row number, full target ID, or ID prefix.');
+
+    const canNext = page < totalPages - 1;
+    const canPrev = page > 0;
+    const navHint =
+      canPrev && canNext
+        ? '[n] next, [p] previous, [q] continue'
+        : canNext
+          ? '[n] next, [q] continue'
+          : canPrev
+            ? '[p] previous, [q] continue'
+            : '[q] continue';
+    let navRaw: string;
+    try {
+      navRaw = await input({
+        message: `Resolution table navigation: ${navHint}`,
+        default: 'q',
+      });
+    } catch (error) {
+      if (isPromptIoError(error)) {
+        log.warn(`Interactive resolution table navigation unavailable (${error}). Continuing.`);
+        break;
+      }
+      throw error;
+    }
+    const nav = navRaw.trim().toLowerCase();
+    if (nav === 'n' && canNext) {
+      page += 1;
+      continue;
+    }
+    if (nav === 'p' && canPrev) {
+      page -= 1;
+      continue;
+    }
+    if (nav === 'q' || nav === '') {
+      break;
+    }
+  }
+};
+
+const resolveResolutionTargetFromInput = ({
+  inputValue,
+  rows,
+}: {
+  inputValue: string;
+  rows: ResolutionScoreRow[];
+}): string | null => {
+  const value = inputValue.trim();
+  if (!value) return null;
+
+  const numeric = Number.parseInt(value, 10);
+  if (Number.isFinite(numeric) && String(numeric) === value) {
+    const row = rows[numeric - 1];
+    return row?.targetEntityId ?? null;
+  }
+
+  const exactByTarget = rows.find((row) => row.targetEntityId === value);
+  if (exactByTarget) return exactByTarget.targetEntityId;
+
+  const exactByKey = rows.find((row) => row.resolutionKey === value);
+  if (exactByKey) return exactByKey.targetEntityId;
+
+  const prefixMatches = rows.filter(
+    (row) => row.targetEntityId.startsWith(value) || row.resolutionKey.startsWith(value),
+  );
+  if (prefixMatches.length === 1) return prefixMatches[0].targetEntityId;
+
+  return null;
 };
 
 const printSnapshotResult = (
@@ -1481,6 +2225,8 @@ const reportRiskSummary = async ({
   expectedRiskDelta,
   entityIds,
   pageSize,
+  expectedResolutionTargets = 0,
+  debugResolution = false,
 }: {
   space: string;
   baselineRiskScoreCount: number;
@@ -1488,6 +2234,8 @@ const reportRiskSummary = async ({
   expectedRiskDelta: number;
   entityIds: string[];
   pageSize: number;
+  expectedResolutionTargets?: number;
+  debugResolution?: boolean;
 }): Promise<{ missingRiskDocs: number; totalEntities: number; snapshot: RiskSnapshot }> => {
   const snapshot = await collectRiskSnapshot({ space, entityIds });
   const riskDelta = Math.max(0, snapshot.totalRiskDocs - baselineRiskScoreCount);
@@ -1506,7 +2254,20 @@ const reportRiskSummary = async ({
   }
 
   log.info(`Docs with watchlist modifiers: ${snapshot.watchlistModifierDocs}`);
+  if (expectedResolutionTargets > 0 && snapshot.resolutionRows.length === 0) {
+    log.warn(
+      `Resolution warning: expected resolution targets=${expectedResolutionTargets} but found no resolution docs in summary.`,
+    );
+    if (debugResolution) {
+      await logResolutionReadDiagnostics({
+        space,
+        entityIds,
+        context: 'initial_summary',
+      });
+    }
+  }
   await printRiskRows({ rows: snapshot.rows, riskDocsMatched: snapshot.riskDocsMatched, pageSize });
+  await printResolutionRows({ rows: snapshot.resolutionRows, pageSize });
   const result = printSnapshotResult(snapshot);
   return { ...result, snapshot };
 };
@@ -1690,6 +2451,16 @@ const getRiskScoreDocCount = async (space: string): Promise<number> => {
   }
 };
 
+const refreshRiskScoreIndex = async (space: string): Promise<void> => {
+  const client = getEsClient();
+  const index = `risk-score.risk-score-${space}`;
+  try {
+    await client.indices.refresh({ index, ignore_unavailable: true });
+  } catch {
+    // Ignore refresh issues in test harness; caller will still attempt reads.
+  }
+};
+
 const getEntityStoreDocCount = async (space: string): Promise<number> => {
   const client = getEsClient();
   const index = `.entities.v2.latest.security_${space}`;
@@ -1699,6 +2470,47 @@ const getEntityStoreDocCount = async (space: string): Promise<number> => {
   } catch {
     return 0;
   }
+};
+
+const deleteAllDocsFromIndex = async (index: string, label: string): Promise<number> => {
+  const client = getEsClient();
+  try {
+    const response = await client.deleteByQuery({
+      index,
+      refresh: true,
+      ignore_unavailable: true,
+      conflicts: 'proceed',
+      query: { match_all: {} },
+    });
+    const deleted = response.deleted ?? 0;
+    log.info(`Dangerous clean: deleted ${deleted} ${label} docs from "${index}".`);
+    return deleted;
+  } catch (error) {
+    const statusCode = (error as { meta?: { statusCode?: number } }).meta?.statusCode;
+    if (statusCode === 404) {
+      log.info(`Dangerous clean: index "${index}" not found for ${label}; nothing to delete.`);
+      return 0;
+    }
+    throw error;
+  }
+};
+
+const dangerousCleanSpaceData = async (space: string): Promise<void> => {
+  const alertIndex = getAlertIndex(space);
+  const entityLatestIndex = `.entities.v2.latest.security_${space}`;
+  const entityHistoryIndex = `.entities.v2.history.security_${space}`;
+  const riskIndex = `risk-score.risk-score-${space}`;
+  const riskLookupIndex = `.entity_analytics.risk_score.lookup-${space}`;
+
+  log.warn(
+    `Dangerous clean enabled for space "${space}". Clearing alerts, entity docs, and risk score docs before test run.`,
+  );
+
+  await deleteAllDocsFromIndex(alertIndex, 'alert');
+  await deleteAllDocsFromIndex(entityLatestIndex, 'entity-latest');
+  await deleteAllDocsFromIndex(entityHistoryIndex, 'entity-history');
+  await deleteAllDocsFromIndex(riskIndex, 'risk-score');
+  await deleteAllDocsFromIndex(riskLookupIndex, 'risk-score-lookup');
 };
 
 const getPresentEntityIds = async (space: string, entityIds: string[]): Promise<Set<string>> => {
@@ -1942,7 +2754,9 @@ const runRiskMaintainerOnce = async ({
 }) =>
   runTimedStage(stage, async () => {
     await initEntityMaintainers(space);
-    return waitForMaintainerRun(space, 'risk-score');
+    const outcome = await waitForMaintainerRun(space, 'risk-score');
+    await refreshRiskScoreIndex(space);
+    return outcome;
   });
 
 const countSeededAlertsByEntityKind = async ({
@@ -2000,6 +2814,7 @@ type FollowOnAction =
   | 'add_more_entities'
   | 'tweak_single_entity'
   | 'view_single_risk_doc'
+  | 'explain_resolution'
   | 'export_risk_docs'
   | 'refresh_table'
   | 'run_maintainer_and_refresh'
@@ -2280,6 +3095,7 @@ const promptFollowOnAction = async ({
     formatFollowOnOption('e', 'expand entities (add more users/hosts/local-users/services)'),
     formatFollowOnOption('t', 'tweak single entity (criticality/watchlists/reset/add alerts)'),
     formatFollowOnOption('v', 'view single risk-score doc(s)'),
+    formatFollowOnOption('j', 'explain resolution score for one target'),
     formatFollowOnOption('x', 'export risk-score docs to file'),
     formatFollowOnOption('f', 'refresh table (no data changes)'),
     formatFollowOnOption('u', 'run maintainer and refresh table'),
@@ -2340,6 +3156,10 @@ const promptFollowOnAction = async ({
       log.info('Selected [v] view single risk-score doc(s).');
       return 'view_single_risk_doc';
     }
+    if (answer === 'j') {
+      log.info('Selected [j] explain resolution score.');
+      return 'explain_resolution';
+    }
     if (answer === 'x') {
       log.info('Selected [x] export risk-score docs to file.');
       return 'export_risk_docs';
@@ -2382,7 +3202,7 @@ const promptFollowOnAction = async ({
     }
 
     log.warn(
-      `Invalid option "${answer}". Please enter one of: r, p, m, a, e, t, v, x, f, u, g, l, k, o, c, d, q.`,
+      `Invalid option "${answer}". Please enter one of: r, p, m, a, e, t, v, j, x, f, u, g, l, k, o, c, d, q.`,
     );
   }
 };
@@ -2410,6 +3230,7 @@ const runFollowOnActionLoop = async ({
   avgAliasesPerTarget,
   ownershipEdgeRate,
   relationshipGraph,
+  debugResolution,
   runTimedStage,
 }: {
   space: string;
@@ -2434,6 +3255,7 @@ const runFollowOnActionLoop = async ({
   avgAliasesPerTarget: number;
   ownershipEdgeRate: number;
   relationshipGraph: RelationshipGraphState;
+  debugResolution: boolean;
   runTimedStage: <T>(stage: string, fn: () => Promise<T>) => Promise<T>;
 }) => {
   let trackedUsers = [...users];
@@ -2657,6 +3479,14 @@ const runFollowOnActionLoop = async ({
             });
             await applyRelationshipGraph({ graph: expandedGraph, space });
             trackedRelationshipGraph = expandedGraph;
+            if (debugResolution) {
+              await waitForEntityRelationshipState({
+                space,
+                entityIds: [...trackedEntityIds, ...expectedNewEntityIds],
+                graph: trackedRelationshipGraph,
+                context: 'follow_on_expand_apply',
+              });
+            }
           });
         }
 
@@ -2867,6 +3697,33 @@ const runFollowOnActionLoop = async ({
               });
             }
           });
+          trackedRelationshipGraph.resolutionGroups = trackedRelationshipGraph.resolutionGroups
+            .map((group) => ({
+              targetId: group.targetId,
+              aliasIds: group.aliasIds.filter((aliasId) => aliasId !== selection.euid),
+            }))
+            .filter((group) => group.aliasIds.length > 0);
+          if (targetId && targetId !== selection.euid) {
+            const existingGroup = trackedRelationshipGraph.resolutionGroups.find(
+              (group) => group.targetId === targetId,
+            );
+            if (existingGroup) {
+              existingGroup.aliasIds = [...new Set([...existingGroup.aliasIds, selection.euid])];
+            } else {
+              trackedRelationshipGraph.resolutionGroups.push({
+                targetId,
+                aliasIds: [selection.euid],
+              });
+            }
+          }
+          if (debugResolution) {
+            await waitForEntityRelationshipState({
+              space,
+              entityIds: trackedEntityIds,
+              graph: trackedRelationshipGraph,
+              context: 'follow_on_tweak_resolution',
+            });
+          }
           const maintainerOutcome = await runRiskMaintainerOnce({
             space,
             runTimedStage,
@@ -2904,6 +3761,24 @@ const runFollowOnActionLoop = async ({
                 space,
               });
             });
+            trackedRelationshipGraph.ownershipEdges =
+              trackedRelationshipGraph.ownershipEdges.filter(
+                (edge) => edge.sourceId !== selection.euid,
+              );
+            if (targetId) {
+              trackedRelationshipGraph.ownershipEdges.push({
+                sourceId: selection.euid,
+                targetId,
+              });
+            }
+            if (debugResolution) {
+              await waitForEntityRelationshipState({
+                space,
+                entityIds: trackedEntityIds,
+                graph: trackedRelationshipGraph,
+                context: 'follow_on_tweak_ownership',
+              });
+            }
             const maintainerOutcome = await runRiskMaintainerOnce({
               space,
               runTimedStage,
@@ -2960,6 +3835,73 @@ const runFollowOnActionLoop = async ({
           }
         }
       }
+    } else if (action === 'explain_resolution') {
+      const resolutionRowsForSelection = before.resolutionRows;
+      const targetIdInput = await input({
+        message: 'Resolution target (row #, full ID, or prefix)',
+        default:
+          resolutionRowsForSelection.length > 0
+            ? resolutionRowsForSelection[0].targetEntityId
+            : (trackedEntityIds[0] ?? ''),
+      });
+      const targetId =
+        resolveResolutionTargetFromInput({
+          inputValue: targetIdInput,
+          rows: resolutionRowsForSelection,
+        }) ?? targetIdInput.trim();
+      if (!targetId) {
+        log.warn('No target entity ID provided.');
+      } else {
+        const docsByEntity = await fetchRiskDocsForEntityIds({
+          space,
+          entityIds: [targetId],
+          maxDocsPerEntity: 20,
+        });
+        const resolutionDocs = (docsByEntity.get(targetId) ?? []).filter(
+          (doc) => doc.scoreType === 'resolution',
+        );
+        if (resolutionDocs.length === 0) {
+          log.warn(`No resolution score docs found for "${targetId}".`);
+          if (resolutionRowsForSelection.length > 0) {
+            log.info(
+              `Try one of the visible row numbers (1-${resolutionRowsForSelection.length}) from the resolution scorecard.`,
+            );
+          }
+        } else {
+          const latest = resolutionDocs[0];
+          const riskSource = ((latest.source.user as Record<string, unknown>)?.risk ??
+            (latest.source.host as Record<string, unknown>)?.risk ??
+            (latest.source.service as Record<string, unknown>)?.risk ??
+            {}) as Record<string, unknown>;
+          const relatedEntities = Array.isArray(riskSource.related_entities)
+            ? (riskSource.related_entities as unknown[])
+            : [];
+          const relatedIds = relatedEntities
+            .map((item) => {
+              if (typeof item === 'string') return item;
+              if (item && typeof item === 'object') {
+                const rec = item as Record<string, unknown>;
+                if (typeof rec.id === 'string') return rec.id;
+                if (typeof rec.entity_id === 'string') return rec.entity_id;
+                if (typeof rec.name === 'string') return rec.name;
+              }
+              return null;
+            })
+            .filter((item): item is string => item !== null);
+          const resolutionKey = buildResolutionKey({
+            targetEntityId: targetId,
+            calculationRunId: latest.calculationRunId,
+          });
+          // eslint-disable-next-line no-console
+          console.log(colorize(`🧠 Resolution explain for ${targetId}`, 'cyan'));
+          // eslint-disable-next-line no-console
+          console.log(
+            `  key=${resolutionKey} score=${latest.score ?? '-'} level=${latest.level} run_id=${latest.calculationRunId} related_count=${relatedEntities.length}`,
+          );
+          // eslint-disable-next-line no-console
+          console.log(`  related_entities: ${summarizeList(relatedIds, 12)}`);
+        }
+      }
     } else if (action === 'export_risk_docs') {
       const scopeRaw = await input({
         message: 'Export scope: [t] tracked entities, [c] changed entities',
@@ -3005,6 +3947,13 @@ const runFollowOnActionLoop = async ({
           score: doc.score,
           level: doc.level,
           score_type: doc.scoreType,
+          resolution_key:
+            doc.scoreType === 'resolution'
+              ? buildResolutionKey({
+                  targetEntityId: entityId,
+                  calculationRunId: doc.calculationRunId,
+                })
+              : null,
           calculation_run_id: doc.calculationRunId,
           source: doc.source,
         })),
@@ -3021,6 +3970,13 @@ const runFollowOnActionLoop = async ({
               resolution_aliases: row.resolutionAliases,
               ownership_links: row.ownershipLinks,
               related_entities: row.relatedEntities,
+              resolution_key:
+                record.score_type === 'resolution'
+                  ? buildResolutionKey({
+                      targetEntityId: record.entity_id,
+                      calculationRunId: record.calculation_run_id,
+                    })
+                  : null,
             },
           });
         }
@@ -3107,6 +4063,14 @@ const runFollowOnActionLoop = async ({
             }
           });
           trackedRelationshipGraph.resolutionGroups.push({ targetId, aliasIds });
+          if (debugResolution) {
+            await waitForEntityRelationshipState({
+              space,
+              entityIds: trackedEntityIds,
+              graph: trackedRelationshipGraph,
+              context: 'follow_on_link_aliases',
+            });
+          }
           const maintainerOutcome = await runRiskMaintainerOnce({
             space,
             runTimedStage,
@@ -3150,6 +4114,14 @@ const runFollowOnActionLoop = async ({
               aliasIds: group.aliasIds.filter((aliasId) => !entityIdsToUnlink.includes(aliasId)),
             }),
           );
+          if (debugResolution) {
+            await waitForEntityRelationshipState({
+              space,
+              entityIds: trackedEntityIds,
+              graph: trackedRelationshipGraph,
+              context: 'follow_on_unlink_entities',
+            });
+          }
           const maintainerOutcome = await runRiskMaintainerOnce({
             space,
             runTimedStage,
@@ -3202,6 +4174,14 @@ const runFollowOnActionLoop = async ({
             (edge) => edge.sourceId !== sourceId,
           );
           trackedRelationshipGraph.ownershipEdges.push({ sourceId, targetId });
+          if (debugResolution) {
+            await waitForEntityRelationshipState({
+              space,
+              entityIds: trackedEntityIds,
+              graph: trackedRelationshipGraph,
+              context: 'follow_on_ownership_mutate',
+            });
+          }
           const maintainerOutcome = await runRiskMaintainerOnce({
             space,
             runTimedStage,
@@ -3220,6 +4200,14 @@ const runFollowOnActionLoop = async ({
           clearRelationshipGraph({ entityIds: trackedEntityIds, space }),
         );
         trackedRelationshipGraph = { resolutionGroups: [], ownershipEdges: [] };
+        if (debugResolution) {
+          await waitForEntityRelationshipState({
+            space,
+            entityIds: trackedEntityIds,
+            graph: trackedRelationshipGraph,
+            context: 'follow_on_clear_relationships',
+          });
+        }
         const maintainerOutcome = await runRiskMaintainerOnce({
           space,
           runTimedStage,
@@ -3246,6 +4234,14 @@ const runFollowOnActionLoop = async ({
           await applyRelationshipGraph({ graph: rebuiltGraph, space });
         });
         trackedRelationshipGraph = rebuiltGraph;
+        if (debugResolution) {
+          await waitForEntityRelationshipState({
+            space,
+            entityIds: trackedEntityIds,
+            graph: trackedRelationshipGraph,
+            context: 'follow_on_reapply_relationships',
+          });
+        }
         const maintainerOutcome = await runRiskMaintainerOnce({
           space,
           runTimedStage,
@@ -3258,6 +4254,28 @@ const runFollowOnActionLoop = async ({
     }
 
     const after = await collectRiskSnapshot({ space, entityIds: trackedEntityIds });
+    const trackedGraphStats = getRelationshipGraphStats(trackedRelationshipGraph);
+    if (phase2Enabled && trackedGraphStats.resolutionEdgeCount === 0) {
+      log.warn(
+        'Resolution scoring will be empty because current graph has zero resolution edges; use [d] reapply relationships.',
+      );
+    }
+    if (
+      phase2Enabled &&
+      trackedGraphStats.resolutionTargetCount > 0 &&
+      after.resolutionRows.length === 0
+    ) {
+      log.warn(
+        `Resolution warning: graph has ${trackedGraphStats.resolutionTargetCount} resolution targets but summary found no resolution docs. If maintainer just ran, wait and press [u], or use [d] to reapply.`,
+      );
+      if (debugResolution) {
+        await logResolutionReadDiagnostics({
+          space,
+          entityIds: trackedEntityIds,
+          context: `follow_on_${action}`,
+        });
+      }
+    }
     if (action === 'reset_to_zero') {
       const alertCounts = await countSeededAlertsByEntityKind({
         space,
@@ -3283,6 +4301,7 @@ const runFollowOnActionLoop = async ({
     }
     lastChangedEntityIds = printBeforeAfterComparison({ actionTitle: action, before, after });
     await printRiskRows({ rows: after.rows, riskDocsMatched: after.riskDocsMatched, pageSize });
+    await printResolutionRows({ rows: after.resolutionRows, pageSize });
     printSnapshotResult(after);
   }
 };
@@ -3343,10 +4362,12 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
     Math.max(0, Number.parseFloat(options.ownershipEdgeRate ?? '0.3')),
   );
   const pageSize = Math.max(10, parseOptionInt(options.tablePageSize, phase2Enabled ? 30 : 20));
-  const followOnEnabled = options.followOn ?? process.stdout.isTTY;
+  const dangerousCleanEnabled = Boolean(options.dangerousClean);
+  const debugResolutionEnabled = Boolean(options.debugResolution);
+  const followOnEnabled = options.followOn ?? canUseInteractivePrompts();
 
   log.info(
-    `Starting risk-score-v2 in space "${space}" with seedSource=${seedSource}, kinds=${entityKinds.join(',')}, idp_users=${usersCount}, local_users=${localUsersCount}, hosts=${hostsCount}, services=${servicesCount}, alertsPerEntity=${alertsPerEntity}, eventIndex=${eventIndex}, phase2=${phase2Enabled}, resolution=${resolutionEnabled}, propagation=${propagationEnabled}`,
+    `Starting risk-score-v2 in space "${space}" with seedSource=${seedSource}, kinds=${entityKinds.join(',')}, idp_users=${usersCount}, local_users=${localUsersCount}, hosts=${hostsCount}, services=${servicesCount}, alertsPerEntity=${alertsPerEntity}, eventIndex=${eventIndex}, phase2=${phase2Enabled}, resolution=${resolutionEnabled}, propagation=${propagationEnabled}, dangerous_clean=${dangerousCleanEnabled}`,
   );
 
   if (options.setup !== false) {
@@ -3354,6 +4375,12 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
       await ensureSecurityDefaultDataView(space);
       await enableEntityStoreV2(space);
       await installEntityStoreV2(space);
+    });
+  }
+
+  if (dangerousCleanEnabled) {
+    await runTimedStage('dangerous_clean', async () => {
+      await dangerousCleanSpaceData(space);
     });
   }
 
@@ -3439,7 +4466,24 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
         return;
       }
       await applyRelationshipGraph({ graph: relationshipGraph, space });
+      if (debugResolutionEnabled) {
+        await waitForEntityRelationshipState({
+          space,
+          entityIds: uniqueEntityIds,
+          graph: relationshipGraph,
+          context: 'initial_apply',
+        });
+      }
     });
+    const graphStats = getRelationshipGraphStats(relationshipGraph);
+    log.info(
+      `Pre-run graph summary: resolution_targets=${graphStats.resolutionTargetCount}, resolution_aliases=${graphStats.resolutionAliasCount}, resolution_edges=${graphStats.resolutionEdgeCount}, ownership_edges=${graphStats.ownershipEdgeCount}`,
+    );
+    if (graphStats.resolutionEdgeCount === 0) {
+      log.warn(
+        'Resolution scoring will be empty because resolution edge count is zero; use [d] reapply relationships.',
+      );
+    }
   }
 
   let watchlistIds: string[] = [];
@@ -3490,6 +4534,17 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   log.info(
     `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
   );
+  const graphStats = getRelationshipGraphStats(relationshipGraph);
+  if (phase2Enabled && graphStats.resolutionTargetCount > 0) {
+    await runTimedStage('wait_for_resolution_docs', async () =>
+      waitForResolutionDocs({
+        space,
+        entityIds: allEntityIds,
+        minDocs: 1,
+        timeoutMs: 60_000,
+      }),
+    );
+  }
   log.info(
     'Maintainer run requested once. Collecting risk summary directly (without strict risk-score count gating).',
   );
@@ -3501,9 +4556,11 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
       expectedRiskDelta: Math.max(1, expectedNewEntityIds.length),
       entityIds: allEntityIds,
       pageSize,
+      expectedResolutionTargets: graphStats.resolutionTargetCount,
+      debugResolution: debugResolutionEnabled,
     }),
   );
-  if (followOnEnabled && process.stdout.isTTY) {
+  if (followOnEnabled && canUseInteractivePrompts()) {
     await runFollowOnActionLoop({
       space,
       entityIds: allEntityIds,
@@ -3527,9 +4584,10 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
       avgAliasesPerTarget,
       ownershipEdgeRate,
       relationshipGraph,
+      debugResolution: debugResolutionEnabled,
       runTimedStage,
     });
-  } else if (followOnEnabled && !process.stdout.isTTY) {
+  } else if (followOnEnabled && !canUseInteractivePrompts()) {
     log.info(
       'Follow-on actions requested, but output is non-interactive (non-TTY). Skipping menu.',
     );

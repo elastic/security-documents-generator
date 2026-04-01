@@ -87,6 +87,8 @@ yarn start risk-score-v2 [options]
 - `--avg-aliases-per-target <n>`: default `2`
 - `--ownership-edge-rate <n>`: default `0.3`
 - `--table-page-size <n>`: rows per page in summary tables
+- `--dangerous-clean`: clear alerts, entity docs, risk-score docs, and risk lookup docs in target space before run
+- `--debug-resolution`: enable verbose resolution diagnostics (relationship sync/read traces)
 
 ### Follow-on actions
 
@@ -99,10 +101,12 @@ After the initial summary (TTY mode), you can choose:
 - refresh table (no data mutations; re-read latest risk/entity docs)
 - run maintainer and refresh table (no data mutations beyond maintainer recalculation)
 - graph summary (prints resolution groups, ownership edges, sampled resolution group sizes)
+- explain resolution score for a single target (prints synthetic resolution key + contributors)
 - link aliases / unlink entities in resolution groups
 - mutate ownership links, clear all relationships, reapply default relationship topology
 
 Each action prints a compact before/after comparison table with score, level, modifier, and relationship deltas.
+The command also prints a dedicated **resolution scorecard** (with synthetic `resolution_key`) so parent-anchored resolution scores are visible and referenceable.
 
 ### Phase 2 sensible defaults
 
