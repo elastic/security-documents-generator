@@ -134,22 +134,11 @@ export const entityStoreCommands: CommandModule = {
         'Generate maintainers and snapshot data for Entity Store V2 entities (risk score, asset criticality, anomaly behaviors, relationships, watchlists)',
       )
       .option('--space <space>', 'Kibana space ID', 'default')
-      .option('--quick', 'Run all maintainers for 10000 entities without prompts')
-      .option('--exclude-wl', 'Exclude watchlists when running with --quick', false)
+      .option('--quick', 'Run all maintainers for 10000 entities without prompts')      
       .action(
-        wrapAction(async ({ space, quick, excludeWl }: { space: string; quick?: boolean; excludeWl?: boolean }) => {
-          if (quick) {
-            const allMaintainers = Object.values(
-              ENTITY_MAINTAINERS_OPTIONS,
-            ) as EntityMaintainerOption[];
-            const maintainers = excludeWl
-              ? allMaintainers.filter(
-                  (maintainer) => maintainer !== ('watchlist' as EntityMaintainerOption),
-                )
-              : allMaintainers;
+        wrapAction(async ({ space, quick, excludeWl }: { space: string; quick?: boolean }) => {        
             await generateEntityMaintainersData({
-              count: 10000,
-              maintainers,
+              count: 10000,              
               space,
             });
             return;
@@ -177,11 +166,11 @@ export const entityStoreCommands: CommandModule = {
                 value: ENTITY_MAINTAINERS_OPTIONS.relationships,
                 checked: true,
               },
-              /*{
+              {
                 name: 'Watchlist',
                 value: ENTITY_MAINTAINERS_OPTIONS.watchlist,
                 checked: true,
-              },*/
+              },
               {
                 name: 'Snapshot (30-day history)',
                 value: ENTITY_MAINTAINERS_OPTIONS.snapshot,
