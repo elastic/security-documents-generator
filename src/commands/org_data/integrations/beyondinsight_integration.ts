@@ -9,6 +9,7 @@ import {
   BaseIntegration,
   type IntegrationDocument,
   type DataStreamConfig,
+  type AgentData,
 } from './base_integration.ts';
 import { type Organization, type Employee, type CorrelationMap } from '../types.ts';
 import { faker } from '@faker-js/faker';
@@ -101,6 +102,7 @@ export class BeyondInsightIntegration extends BaseIntegration {
     _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
+    const centralAgent = this.buildCentralAgent(org);
 
     const userAuditDocs: IntegrationDocument[] = [];
     const sessionDocs: IntegrationDocument[] = [];
@@ -109,20 +111,20 @@ export class BeyondInsightIntegration extends BaseIntegration {
     for (const employee of org.employees) {
       const auditCount = faker.number.int({ min: 2, max: 4 });
       for (let i = 0; i < auditCount; i++) {
-        userAuditDocs.push(this.createUserAuditDocument(employee));
+        userAuditDocs.push(this.createUserAuditDocument(employee, centralAgent));
       }
       if (faker.datatype.boolean(0.3)) {
-        sessionDocs.push(this.createSessionDocument(employee));
+        sessionDocs.push(this.createSessionDocument(employee, centralAgent));
       }
     }
 
     const accountCount = faker.number.int({ min: 5, max: 15 });
     for (let i = 0; i < accountCount; i++) {
-      managedAccountDocs.push(this.createManagedAccountDocument(i));
+      managedAccountDocs.push(this.createManagedAccountDocument(i, centralAgent));
     }
 
-    const systemDocs = this.createManagedSystemDocuments();
-    const assetDocs = this.createAssetDocuments();
+    const systemDocs = this.createManagedSystemDocuments(centralAgent);
+    const assetDocs = this.createAssetDocuments(centralAgent);
 
     documentsMap.set(this.dataStreams[0].index, userAuditDocs);
     documentsMap.set(this.dataStreams[1].index, sessionDocs);
@@ -133,7 +135,10 @@ export class BeyondInsightIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private createUserAuditDocument(employee: Employee): IntegrationDocument {
+  private createUserAuditDocument(
+    employee: Employee,
+    centralAgent: AgentData,
+  ): IntegrationDocument {
     const action = faker.helpers.weightedArrayElement(
       AUDIT_ACTION_TYPES.map((a) => ({ value: a, weight: a.weight })),
     );
@@ -155,6 +160,7 @@ export class BeyondInsightIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       event: { original: JSON.stringify(rawEvent) },
       data_stream: {
         dataset: 'beyondinsight_password_safe.useraudit',
@@ -164,7 +170,7 @@ export class BeyondInsightIntegration extends BaseIntegration {
     } as IntegrationDocument;
   }
 
-  private createSessionDocument(employee: Employee): IntegrationDocument {
+  private createSessionDocument(employee: Employee, centralAgent: AgentData): IntegrationDocument {
     const startTime = this.getRandomTimestamp(72);
     const durationSec = faker.number.int({ min: 300, max: 14400 });
     const endTime = new Date(new Date(startTime).getTime() + durationSec * 1000).toISOString();
@@ -195,6 +201,7 @@ export class BeyondInsightIntegration extends BaseIntegration {
 
     return {
       '@timestamp': endTime,
+      agent: centralAgent,
       event: { original: JSON.stringify(rawEvent) },
       data_stream: {
         dataset: 'beyondinsight_password_safe.session',
@@ -204,7 +211,7 @@ export class BeyondInsightIntegration extends BaseIntegration {
     } as IntegrationDocument;
   }
 
-  private createManagedSystemDocuments(): IntegrationDocument[] {
+  private createManagedSystemDocuments(centralAgent: AgentData): IntegrationDocument[] {
     return MANAGED_SYSTEM_NAMES.map((name, idx) => {
       const systemId = idx + 1;
       const ip = faker.internet.ipv4();
@@ -227,6 +234,7 @@ export class BeyondInsightIntegration extends BaseIntegration {
 
       return {
         '@timestamp': this.getRandomTimestamp(168),
+        agent: centralAgent,
         event: { original: JSON.stringify(rawEvent) },
         data_stream: {
           dataset: 'beyondinsight_password_safe.managedsystem',
@@ -237,7 +245,7 @@ export class BeyondInsightIntegration extends BaseIntegration {
     });
   }
 
-  private createManagedAccountDocument(idx: number): IntegrationDocument {
+  private createManagedAccountDocument(idx: number, centralAgent: AgentData): IntegrationDocument {
     const accountName = faker.helpers.arrayElement(MANAGED_ACCOUNT_NAMES);
     const systemName = faker.helpers.arrayElement(MANAGED_SYSTEM_NAMES);
     const accountId = idx + 1;
@@ -274,6 +282,7 @@ export class BeyondInsightIntegration extends BaseIntegration {
 
     return {
       '@timestamp': lastChange,
+      agent: centralAgent,
       event: { original: JSON.stringify(rawEvent) },
       data_stream: {
         dataset: 'beyondinsight_password_safe.managedaccount',
@@ -283,7 +292,7 @@ export class BeyondInsightIntegration extends BaseIntegration {
     } as IntegrationDocument;
   }
 
-  private createAssetDocuments(): IntegrationDocument[] {
+  private createAssetDocuments(centralAgent: AgentData): IntegrationDocument[] {
     return MANAGED_SYSTEM_NAMES.map((name, idx) => {
       const assetId = idx + 1;
       const ip = faker.internet.ipv4();
@@ -309,6 +318,7 @@ export class BeyondInsightIntegration extends BaseIntegration {
 
       return {
         '@timestamp': lastUpdateDate,
+        agent: centralAgent,
         event: { original: JSON.stringify(rawEvent) },
         data_stream: {
           dataset: 'beyondinsight_password_safe.asset',

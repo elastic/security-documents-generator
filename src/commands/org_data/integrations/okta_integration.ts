@@ -50,8 +50,9 @@ export class OktaIntegration extends BaseIntegration {
     const documents: IntegrationDocument[] = [];
     const entityIndex = this.dataStreams[0].index;
     const timestamp = this.getTimestamp();
+    const centralAgent = this.buildCentralAgent(org);
 
-    documents.push(this.createSyncMarker('started', timestamp));
+    documents.push(this.createSyncMarker('started', timestamp, centralAgent));
 
     for (const employee of org.employees) {
       correlationMap.oktaUserIdToEmployee.set(employee.oktaUserId, employee);
@@ -59,8 +60,8 @@ export class OktaIntegration extends BaseIntegration {
       documents.push(this.createUserDocument(employee, org, timestamp));
     }
 
-    documents.push(this.createSyncMarker('completed', timestamp));
-    documents.push(this.createDeviceSyncMarker('started', timestamp));
+    documents.push(this.createSyncMarker('completed', timestamp, centralAgent));
+    documents.push(this.createDeviceSyncMarker('started', timestamp, centralAgent));
 
     for (const employee of org.employees) {
       for (const device of employee.devices) {
@@ -68,7 +69,7 @@ export class OktaIntegration extends BaseIntegration {
       }
     }
 
-    documents.push(this.createDeviceSyncMarker('completed', timestamp));
+    documents.push(this.createDeviceSyncMarker('completed', timestamp, centralAgent));
 
     documentsMap.set(entityIndex, documents);
     return documentsMap;
@@ -102,6 +103,7 @@ export class OktaIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
       event: { action: 'user-discovered' },
       okta: {
         id: employee.oktaUserId,
@@ -204,6 +206,7 @@ export class OktaIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
       event: { action: 'device-discovered' },
       okta: {
         id: device.id,
@@ -264,9 +267,11 @@ export class OktaIntegration extends BaseIntegration {
   private createSyncMarker(
     action: 'started' | 'completed',
     timestamp: string,
+    centralAgent: ReturnType<BaseIntegration['buildCentralAgent']>,
   ): OktaSyncMarkerDocument {
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       event: {
         action,
         kind: 'asset',
@@ -289,9 +294,11 @@ export class OktaIntegration extends BaseIntegration {
   private createDeviceSyncMarker(
     action: 'started' | 'completed',
     timestamp: string,
+    centralAgent: ReturnType<BaseIntegration['buildCentralAgent']>,
   ): OktaSyncMarkerDocument {
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       event: {
         action,
         kind: 'asset',

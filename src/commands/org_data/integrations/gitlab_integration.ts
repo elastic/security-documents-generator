@@ -10,6 +10,7 @@ import {
   BaseIntegration,
   type IntegrationDocument,
   type DataStreamConfig,
+  type AgentData,
 } from './base_integration.ts';
 import { type Organization, type Employee, type CorrelationMap } from '../types.ts';
 import { faker } from '@faker-js/faker';
@@ -159,6 +160,7 @@ export class GitLabIntegration extends BaseIntegration {
     _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
+    const centralAgent = this.buildCentralAgent(org);
     const auditDocs: IntegrationDocument[] = [];
     const apiDocs: IntegrationDocument[] = [];
     const authDocs: IntegrationDocument[] = [];
@@ -168,7 +170,7 @@ export class GitLabIntegration extends BaseIntegration {
     for (const employee of gitlabEmployees) {
       const auditCount = faker.number.int({ min: 1, max: 3 });
       for (let i = 0; i < auditCount; i++) {
-        auditDocs.push(this.createAuditDocument(employee, org));
+        auditDocs.push(this.createAuditDocument(employee, org, centralAgent));
       }
 
       const apiCount = faker.number.int({
@@ -176,12 +178,12 @@ export class GitLabIntegration extends BaseIntegration {
         max: employee.department === 'Product & Engineering' ? 8 : 3,
       });
       for (let i = 0; i < apiCount; i++) {
-        apiDocs.push(this.createApiDocument(employee, org));
+        apiDocs.push(this.createApiDocument(employee, org, centralAgent));
       }
 
       const authCount = faker.number.int({ min: 1, max: 2 });
       for (let i = 0; i < authCount; i++) {
-        authDocs.push(this.createAuthDocument(employee, org));
+        authDocs.push(this.createAuthDocument(employee, org, centralAgent));
       }
     }
 
@@ -191,7 +193,11 @@ export class GitLabIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private createAuditDocument(employee: Employee, _org: Organization): IntegrationDocument {
+  private createAuditDocument(
+    employee: Employee,
+    _org: Organization,
+    centralAgent: AgentData,
+  ): IntegrationDocument {
     const evt = faker.helpers.weightedArrayElement(
       AUDIT_EVENTS.map((e) => ({ value: e, weight: e.weight })),
     );
@@ -224,12 +230,17 @@ export class GitLabIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(raw),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'gitlab.audit' },
     } as IntegrationDocument;
   }
 
-  private createApiDocument(employee: Employee, org: Organization): IntegrationDocument {
+  private createApiDocument(
+    employee: Employee,
+    org: Organization,
+    centralAgent: AgentData,
+  ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const route = faker.helpers.arrayElement(API_ROUTES);
     const method = faker.helpers.weightedArrayElement([
@@ -299,12 +310,17 @@ export class GitLabIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(raw),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'gitlab.api' },
     } as IntegrationDocument;
   }
 
-  private createAuthDocument(employee: Employee, _org: Organization): IntegrationDocument {
+  private createAuthDocument(
+    employee: Employee,
+    _org: Organization,
+    centralAgent: AgentData,
+  ): IntegrationDocument {
     const evt = faker.helpers.weightedArrayElement(
       AUTH_MESSAGES.map((e) => ({ value: e, weight: e.weight })),
     );
@@ -344,6 +360,7 @@ export class GitLabIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(raw),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'gitlab.auth' },
     } as IntegrationDocument;

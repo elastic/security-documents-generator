@@ -12,6 +12,7 @@ import {
   BaseIntegration,
   type IntegrationDocument,
   type DataStreamConfig,
+  type AgentData,
 } from './base_integration.ts';
 import { type Organization, type Employee, type CorrelationMap } from '../types.ts';
 import { faker } from '@faker-js/faker';
@@ -173,6 +174,7 @@ export class GcpIntegration extends BaseIntegration {
     _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
+    const centralAgent = this.buildCentralAgent(org);
     const auditDocs: IntegrationDocument[] = [];
     const firewallDocs: IntegrationDocument[] = [];
 
@@ -182,13 +184,13 @@ export class GcpIntegration extends BaseIntegration {
     for (const employee of cloudEmployees) {
       const auditCount = faker.number.int({ min: 2, max: 6 });
       for (let i = 0; i < auditCount; i++) {
-        auditDocs.push(this.createAuditDocument(employee, org, gcpProjectId));
+        auditDocs.push(this.createAuditDocument(employee, org, gcpProjectId, centralAgent));
       }
     }
 
     const firewallCount = Math.max(5, Math.ceil(org.employees.length * 0.5));
     for (let i = 0; i < firewallCount; i++) {
-      firewallDocs.push(this.createFirewallDocument(org, gcpProjectId));
+      firewallDocs.push(this.createFirewallDocument(org, gcpProjectId, centralAgent));
     }
 
     documentsMap.set(this.dataStreams[0].index, auditDocs);
@@ -200,6 +202,7 @@ export class GcpIntegration extends BaseIntegration {
     employee: Employee,
     org: Organization,
     projectId: string,
+    centralAgent: AgentData,
   ): IntegrationDocument {
     const service = faker.helpers.weightedArrayElement(
       GCP_SERVICES.map((s) => ({ value: s, weight: s.weight })),
@@ -262,12 +265,17 @@ export class GcpIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawGcpLogEntry),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'gcp.audit' },
     } as IntegrationDocument;
   }
 
-  private createFirewallDocument(org: Organization, projectId: string): IntegrationDocument {
+  private createFirewallDocument(
+    org: Organization,
+    projectId: string,
+    centralAgent: AgentData,
+  ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const rule = faker.helpers.arrayElement(FIREWALL_RULES);
     const sourceIp = faker.internet.ipv4();
@@ -338,6 +346,7 @@ export class GcpIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawGcpFirewallEntry),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'gcp.firewall' },
     } as IntegrationDocument;

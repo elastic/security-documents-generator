@@ -9,6 +9,7 @@ import {
   BaseIntegration,
   type IntegrationDocument,
   type DataStreamConfig,
+  type AgentData,
 } from './base_integration.ts';
 import { type Organization, type Employee, type CorrelationMap } from '../types.ts';
 import { faker } from '@faker-js/faker';
@@ -83,6 +84,7 @@ export class AuthentikIntegration extends BaseIntegration {
     const eventDocs: IntegrationDocument[] = [];
     const userDocs: IntegrationDocument[] = [];
     const groupDocs: IntegrationDocument[] = [];
+    const centralAgent = this.buildCentralAgent(org);
 
     // Build stable group pk map (department -> uuid)
     const departmentToGroupPk = new Map<string, string>();
@@ -98,22 +100,24 @@ export class AuthentikIntegration extends BaseIntegration {
     // One user entity document per employee
     for (const employee of org.employees) {
       const groupPks = [getGroupPk(employee.department)];
-      userDocs.push(this.createUserDocument(employee, groupPks));
+      userDocs.push(this.createUserDocument(employee, groupPks, centralAgent));
     }
 
     // One group document per department + AllUsers
     const departmentGroups = [...new Set(org.employees.map((e) => e.department))];
     for (const dept of departmentGroups) {
       const members = org.employees.filter((e) => e.department === dept);
-      groupDocs.push(this.createGroupDocument(dept, members, getGroupPk(dept)));
+      groupDocs.push(this.createGroupDocument(dept, members, getGroupPk(dept), centralAgent));
     }
-    groupDocs.push(this.createGroupDocument('AllUsers', org.employees, getGroupPk('AllUsers')));
+    groupDocs.push(
+      this.createGroupDocument('AllUsers', org.employees, getGroupPk('AllUsers'), centralAgent),
+    );
 
     // 2-4 event documents per employee
     for (const employee of org.employees) {
       const eventCount = faker.number.int({ min: 2, max: 4 });
       for (let i = 0; i < eventCount; i++) {
-        eventDocs.push(this.createEventDocument(employee, org));
+        eventDocs.push(this.createEventDocument(employee, org, centralAgent));
       }
     }
 
@@ -128,7 +132,11 @@ export class AuthentikIntegration extends BaseIntegration {
     return String(stableHash(employee.userName) % 100000);
   }
 
-  private createUserDocument(employee: Employee, groupPks: string[]): IntegrationDocument {
+  private createUserDocument(
+    employee: Employee,
+    groupPks: string[],
+    centralAgent: AgentData,
+  ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(24);
     const pk = this.getStableUserPk(employee);
     const uid = faker.string.hexadecimal({ length: 64, prefix: '' });
@@ -155,12 +163,18 @@ export class AuthentikIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawUser),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'authentik.user' },
     } as IntegrationDocument;
   }
 
-  private createGroupDocument(name: string, members: Employee[], pk: string): IntegrationDocument {
+  private createGroupDocument(
+    name: string,
+    members: Employee[],
+    pk: string,
+    centralAgent: AgentData,
+  ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(24);
     const numPk = faker.number.int({ min: 50000, max: 59999 });
 
@@ -180,12 +194,17 @@ export class AuthentikIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawGroup),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'authentik.group' },
     } as IntegrationDocument;
   }
 
-  private createEventDocument(employee: Employee, org: Organization): IntegrationDocument {
+  private createEventDocument(
+    employee: Employee,
+    org: Organization,
+    centralAgent: AgentData,
+  ): IntegrationDocument {
     const eventType = faker.helpers.weightedArrayElement(
       EVENT_ACTIONS.map((e) => ({ value: e, weight: e.weight })),
     );
@@ -221,6 +240,7 @@ export class AuthentikIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawEvent),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'authentik.event' },
     } as IntegrationDocument;

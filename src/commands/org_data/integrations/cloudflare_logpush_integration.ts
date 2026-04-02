@@ -40,6 +40,7 @@ export class CloudflareLogpushIntegration extends BaseIntegration {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const httpDocs: IntegrationDocument[] = [];
     const fwDocs: IntegrationDocument[] = [];
+    const centralAgent = this.buildCentralAgent(org);
 
     const httpCount = this.getHttpRequestCount(org.size);
     const fwCount = Math.floor(httpCount * 0.1); // ~10% of traffic triggers firewall
@@ -48,13 +49,13 @@ export class CloudflareLogpushIntegration extends BaseIntegration {
     for (let i = 0; i < httpCount; i++) {
       const isAttack = faker.datatype.boolean(0.05); // 5% attack traffic
       const zone = faker.helpers.arrayElement(org.cloudflareZones);
-      httpDocs.push(this.generateHttpDocument(zone, isAttack));
+      httpDocs.push(this.generateHttpDocument(zone, isAttack, centralAgent));
     }
 
     // Generate firewall event logs
     for (let i = 0; i < fwCount; i++) {
       const zone = faker.helpers.arrayElement(org.cloudflareZones);
-      fwDocs.push(this.generateFirewallDocument(zone));
+      fwDocs.push(this.generateFirewallDocument(zone, centralAgent));
     }
 
     documentsMap.set('logs-cloudflare_logpush.http_request-default', httpDocs);
@@ -62,7 +63,11 @@ export class CloudflareLogpushIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private generateHttpDocument(zone: CloudflareZone, isAttack: boolean): IntegrationDocument {
+  private generateHttpDocument(
+    zone: CloudflareZone,
+    isAttack: boolean,
+    centralAgent: ReturnType<BaseIntegration['buildCentralAgent']>,
+  ): IntegrationDocument {
     const subdomain = faker.helpers.arrayElement(zone.subdomains);
     const host = `${subdomain}.${zone.name}`;
     const method = faker.helpers.weightedArrayElement(
@@ -126,6 +131,7 @@ export class CloudflareLogpushIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawEvent),
       data_stream: {
         namespace: 'default',
@@ -135,7 +141,10 @@ export class CloudflareLogpushIntegration extends BaseIntegration {
     } as IntegrationDocument;
   }
 
-  private generateFirewallDocument(zone: CloudflareZone): IntegrationDocument {
+  private generateFirewallDocument(
+    zone: CloudflareZone,
+    centralAgent: ReturnType<BaseIntegration['buildCentralAgent']>,
+  ): IntegrationDocument {
     const rule = faker.helpers.arrayElement(CLOUDFLARE_WAF_RULES);
     const action = faker.helpers.weightedArrayElement([
       { value: 'block', weight: 50 },
@@ -183,6 +192,7 @@ export class CloudflareLogpushIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawEvent),
       data_stream: {
         namespace: 'default',

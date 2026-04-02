@@ -203,6 +203,7 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
     };
     return {
       '@timestamp': ts,
+      agent: this.buildCentralAgent(org),
       message: JSON.stringify(raw),
       data_stream: { namespace: 'default', type: 'logs', dataset: `google_workspace.${dataset}` },
     } as IntegrationDocument;
@@ -413,6 +414,7 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
     };
     return {
       '@timestamp': ts,
+      agent: this.buildCentralAgent(org),
       message: JSON.stringify(raw),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'google_workspace.alert' },
     } as IntegrationDocument;
@@ -709,6 +711,7 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
     const raw = { row, schema };
     return {
       '@timestamp': new Date(timestampUsec / 1000).toISOString(),
+      agent: this.buildCentralAgent(org),
       message: JSON.stringify(raw),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'google_workspace.gmail' },
     } as IntegrationDocument;

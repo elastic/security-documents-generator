@@ -126,11 +126,12 @@ export class TeleportIntegration extends BaseIntegration {
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
+    const centralAgent = this.buildCentralAgent(org);
 
     for (const employee of org.employees) {
       const eventCount = faker.number.int({ min: 2, max: 5 });
       for (let i = 0; i < eventCount; i++) {
-        documents.push(this.createAuditDocument(employee));
+        documents.push(this.createAuditDocument(employee, centralAgent));
       }
     }
 
@@ -138,7 +139,10 @@ export class TeleportIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private createAuditDocument(employee: Employee): IntegrationDocument {
+  private createAuditDocument(
+    employee: Employee,
+    centralAgent: { id: string; name: string; type: string; version: string },
+  ): IntegrationDocument {
     const eventDef = faker.helpers.weightedArrayElement(
       AUDIT_EVENTS.map((e) => ({ value: e, weight: e.weight })),
     );
@@ -181,6 +185,7 @@ export class TeleportIntegration extends BaseIntegration {
     // user must be string (pipeline expects it in raw JSON)
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawEvent),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'teleport.audit' },
     } as IntegrationDocument;

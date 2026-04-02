@@ -81,6 +81,7 @@ export class O365Integration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
       o365audit,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'o365.audit' },
     } as IntegrationDocument;

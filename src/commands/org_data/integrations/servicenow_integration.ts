@@ -8,6 +8,7 @@ import {
   BaseIntegration,
   type IntegrationDocument,
   type DataStreamConfig,
+  type AgentData,
 } from './base_integration.ts';
 import { type Organization, type Employee, type CorrelationMap } from '../types.ts';
 import { faker } from '@faker-js/faker';
@@ -90,6 +91,7 @@ export class ServiceNowIntegration extends BaseIntegration {
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
+    const centralAgent = this.buildCentralAgent(org);
 
     // Generate incidents -- roughly 1 per 5 employees
     const incidentCount = Math.max(
@@ -107,7 +109,7 @@ export class ServiceNowIntegration extends BaseIntegration {
           ? faker.helpers.arrayElement(opsEmployees)
           : faker.helpers.arrayElement(org.employees);
 
-      documents.push(this.createIncidentDocument(opener, assignee, org, i + 1));
+      documents.push(this.createIncidentDocument(opener, assignee, org, i + 1, centralAgent));
     }
 
     // Generate a few change requests from Operations staff
@@ -117,7 +119,9 @@ export class ServiceNowIntegration extends BaseIntegration {
         opsEmployees.length > 0
           ? faker.helpers.arrayElement(opsEmployees)
           : faker.helpers.arrayElement(org.employees);
-      documents.push(this.createChangeRequestDocument(requester, org, incidentCount + i + 1));
+      documents.push(
+        this.createChangeRequestDocument(requester, org, incidentCount + i + 1, centralAgent),
+      );
     }
 
     documentsMap.set(this.dataStreams[0].index, documents);
@@ -133,6 +137,7 @@ export class ServiceNowIntegration extends BaseIntegration {
     assignee: Employee,
     org: Organization,
     seq: number,
+    centralAgent: AgentData,
   ): IntegrationDocument {
     const category = faker.helpers.arrayElement(INCIDENT_CATEGORIES);
     const subcategory = faker.helpers.arrayElement(INCIDENT_SUBCATEGORIES[category]);
@@ -190,6 +195,7 @@ export class ServiceNowIntegration extends BaseIntegration {
 
     return {
       '@timestamp': openedAt,
+      agent: centralAgent,
       message: JSON.stringify(rawServiceNowEvent),
       _conf: {
         timestamp_field: 'sys_updated_on',
@@ -212,6 +218,7 @@ export class ServiceNowIntegration extends BaseIntegration {
     requester: Employee,
     org: Organization,
     seq: number,
+    centralAgent: AgentData,
   ): IntegrationDocument {
     const sysId = faker.string.uuid().replace(/-/g, '');
     const number = `CHG${String(seq).padStart(7, '0')}`;
@@ -260,6 +267,7 @@ export class ServiceNowIntegration extends BaseIntegration {
 
     return {
       '@timestamp': openedAt,
+      agent: centralAgent,
       message: JSON.stringify(rawServiceNowEvent),
       _conf: {
         timestamp_field: 'sys_updated_on',
