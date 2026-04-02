@@ -1,8 +1,8 @@
-import { Command } from 'commander';
-import { CommandModule } from '../types';
-import { parseIntBase10, wrapAction } from '../utils/cli_utils';
-import { runOrgData, runOrgDataQuick, getOrgDataHelp } from './org_data';
-import { getAvailableIntegrations } from './integrations';
+import { type Command } from 'commander';
+import { type CommandModule } from '../types.ts';
+import { parseIntBase10, wrapAction } from '../utils/cli_utils.ts';
+import { runOrgData, runOrgDataQuick, getOrgDataHelp } from './org_data.ts';
+import { getAvailableIntegrations } from './integrations/index.ts';
 
 export const orgDataCommands: CommandModule = {
   register(program: Command) {
@@ -40,17 +40,12 @@ export const orgDataCommands: CommandModule = {
       .alias('org-data-quick')
       .alias('organization-quick')
       .description(
-        'Quick correlated organization data generation with defaults (medium size)',
+        'Quick correlated organization data generation with defaults (medium size, all integrations)',
       )
       .option('--space <space>', 'Kibana space', 'default')
-      .option(
-        '--privmon-wl',
-        'Use Privileged User Monitoring watchlist integrations (active_directory, okta, okta_system)',
-        false,
-      )
       .action(
         wrapAction(async (options) => {
-          await runOrgDataQuick(options.space, { privmonWatchlist: options.privmonWl });
+          await runOrgDataQuick(options.space);
         }),
       );
   },
