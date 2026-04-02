@@ -16,12 +16,14 @@ export function wrapAction<TArgs extends unknown[]>(
 ): (...args: TArgs) => Promise<void> {
   return async (...args: TArgs) => {
     let isShuttingDown = false;
+    let sigintCount = 0;
 
-    process.once('SIGINT', () => {
-      if (isShuttingDown) {
+    process.on('SIGINT', () => {
+      if (isShuttingDown || sigintCount >= 1) {
         log.info('\nForce quitting...');
         process.exit(130);
       }
+      sigintCount += 1;
       isShuttingDown = true;
       log.info('\nInterrupted, shutting down... (Ctrl+C again to force quit)');
       process.exitCode = 130;
