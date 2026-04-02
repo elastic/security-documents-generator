@@ -1,16 +1,11 @@
-import { type Command } from 'commander';
-import { type CommandModule } from '../types.ts';
-import { wrapAction } from '../utils/cli_utils.ts';
-import { log } from '../../utils/logger.ts';
-import {
-  ENTITY_STORE_OPTIONS,
-  ENTITY_MAINTAINERS_OPTIONS,
-  generateNewSeed,
-} from '../../constants.ts';
-import type { EntityMaintainerOption } from '../../constants.ts';
-import { cleanEntityStore, generateEntityStore } from './entity_store.ts';
-import { setupEntityResolutionDemo } from './entity_resolution.ts';
-import { generateEntityMaintainersData } from './entity_maintainers.ts';
+import { Command } from 'commander';
+import { CommandModule } from '../types';
+import { wrapAction } from '../utils/cli_utils';
+import { ENTITY_STORE_OPTIONS, ENTITY_MAINTAINERS_CONFIG, generateNewSeed } from '../../constants';
+import type { EntityMaintainerOption } from '../../constants';
+import { cleanEntityStore, generateEntityStore } from './entity_store';
+import { setupEntityResolutionDemo } from './entity_resolution';
+import { generateEntityMaintainersData } from './entity_maintainers';
 import {
   promptForNumericInputs,
   promptForSelection,
@@ -140,50 +135,27 @@ export const entityStoreCommands: CommandModule = {
       )
       .option('--space <space>', 'Kibana space ID', 'default')
       .option('--quick', 'Run all maintainers for 10000 entities without prompts')
+      .option('--exclude-wl', 'Exclude watchlists when running with --quick', false)
       .action(
-        wrapAction(async ({ space, quick }: { space: string; quick?: boolean }) => {
+        wrapAction(async ({ space, quick, excludeWl }: { space: string; quick?: boolean; excludeWl?: boolean }) => {
           if (quick) {
+            const maintainers = ENTITY_MAINTAINERS_CONFIG.filter(
+              (maintainer) => maintainer.quickDefault && (!excludeWl || !maintainer.excludeOnQuick),
+            ).map((maintainer) => maintainer.key);
             await generateEntityMaintainersData({
               count: 10000,
-              maintainers: Object.values(ENTITY_MAINTAINERS_OPTIONS) as EntityMaintainerOption[],
+              maintainers,
               space,
             });
             return;
           }
           const selectedMaintainers = await promptForSelection<EntityMaintainerOption>({
             message: 'Select maintainers to generate data for',
-            choices: [
-              {
-                name: 'Risk Score',
-                value: ENTITY_MAINTAINERS_OPTIONS.riskScore,
-                checked: true,
-              },
-              {
-                name: 'Asset Criticality',
-                value: ENTITY_MAINTAINERS_OPTIONS.assetCriticality,
-                checked: true,
-              },
-              {
-                name: 'Anomaly Behaviors',
-                value: ENTITY_MAINTAINERS_OPTIONS.anomalyBehaviors,
-                checked: true,
-              },
-              {
-                name: 'Relationships',
-                value: ENTITY_MAINTAINERS_OPTIONS.relationships,
-                checked: true,
-              },
-              {
-                name: 'Watchlist',
-                value: ENTITY_MAINTAINERS_OPTIONS.watchlist,
-                checked: true,
-              },
-              {
-                name: 'Snapshot (30-day history)',
-                value: ENTITY_MAINTAINERS_OPTIONS.snapshot,
-                checked: true,
-              },
-            ],
+            choices: ENTITY_MAINTAINERS_CONFIG.map((maintainer) => ({
+              name: maintainer.label,
+              value: maintainer.key,
+              checked: maintainer.defaultChecked,
+            })),
           });
 
           if (selectedMaintainers.length === 0) {
