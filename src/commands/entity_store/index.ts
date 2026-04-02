@@ -139,6 +139,7 @@ export const entityStoreCommands: CommandModule = {
         wrapAction(async ({ space, quick, excludeWl }: { space: string; quick?: boolean }) => {        
             await generateEntityMaintainersData({
               count: 10000,              
+              maintainers: Object.values(ENTITY_MAINTAINERS_OPTIONS) as EntityMaintainerOption[],
               space,
             });
             return;
