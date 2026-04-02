@@ -5,38 +5,38 @@
 
 import { faker } from '@faker-js/faker';
 import {
-  Organization,
-  OrganizationConfig,
-  Employee,
-  Device,
-  Host,
-  CentralAgent,
-  CloudAccount,
-  CloudResource,
-  CloudIamUser,
-  OktaGroup,
-  EntraIdGroup,
-  GitHubRepo,
-  GitHubOrg,
-  CloudflareZone,
-  OnePasswordVault,
-  DeviceType,
-  LaptopPlatform,
-  MobilePlatform,
-  CloudProvider,
-  ProductivitySuite,
-  OrganizationSize,
+  type Organization,
+  type OrganizationConfig,
+  type Employee,
+  type Device,
+  type Host,
+  type CentralAgent,
+  type CloudAccount,
+  type CloudResource,
+  type CloudIamUser,
+  type OktaGroup,
+  type EntraIdGroup,
+  type GitHubRepo,
+  type GitHubOrg,
+  type CloudflareZone,
+  type OnePasswordVault,
+  type DeviceType,
+  type LaptopPlatform,
+  type MobilePlatform,
+  type CloudProvider,
+  type ProductivitySuite,
+  type OrganizationSize,
   SIZE_CONFIGS,
-  DepartmentName,
-} from './types';
-import { DEPARTMENTS, getCloudAccessDepartments } from './data/departments';
-import { getRandomCountry, getRandomCity } from './data/countries';
+  type DepartmentName,
+} from './types.ts';
+import { DEPARTMENTS, getCloudAccessDepartments } from './data/departments.ts';
+import { getRandomCountry, getRandomCity } from './data/countries.ts';
 import {
   getResourcesForProvider,
   S3_BUCKET_PURPOSES,
   IAM_ROLE_NAMES,
   SERVICE_NAMES,
-} from './data/cloud_resources';
+} from './data/cloud_resources.ts';
 
 /**
  * Generate a complete organization based on configuration

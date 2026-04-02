@@ -1,0 +1,254 @@
+{
+  "testName": "baseline-v2_1-standard",
+  "timestamp": "2026-03-17T14:28:07.895Z",
+  "testConfig": {
+    "entityCount": 100000,
+    "logsPerEntity": 10
+  },
+  "metrics": {
+    "searchLatency": {
+      "avg": 0,
+      "p50": 0,
+      "p95": 0,
+      "p99": 0,
+      "max": 0
+    },
+    "intakeLatency": {
+      "avg": 0,
+      "p50": 0,
+      "p95": 0,
+      "p99": 0,
+      "max": 0
+    },
+    "processingLatency": {
+      "avg": 0,
+      "p50": 0,
+      "p95": 0,
+      "p99": 0,
+      "max": 0
+    },
+    "cpu": {
+      "avg": 12.442276422764227,
+      "peak": 82,
+      "avgPerNode": {
+        "instance-0000000000": 16.89268292682927,
+        "instance-0000000001": 20.2390243902439,
+        "tiebreaker-0000000002": 0.1951219512195122
+      }
+    },
+    "memory": {
+      "avgHeapPercent": 50.70081300813008,
+      "peakHeapPercent": 86,
+      "avgHeapBytes": 1191250968.6764228,
+      "peakHeapBytes": 3516923904
+    },
+    "throughput": {
+      "avgDocumentsPerSecond": 0,
+      "peakDocumentsPerSecond": 0
+    },
+    "indexEfficiency": {
+      "avgRatio": 0,
+      "totalDocumentsIndexed": 0,
+      "totalDocumentsProcessed": 0
+    },
+    "pagesProcessed": {
+      "total": 0,
+      "avgPerSample": 0
+    },
+    "triggerCount": {
+      "total": 0,
+      "avgPerTransform": 0
+    },
+    "exponentialAverages": {
+      "checkpointDuration": 0,
+      "documentsIndexed": 0,
+      "documentsProcessed": 0
+    },
+    "perEntityType": {
+      "host": {
+        "searchLatency": {
+          "avg": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "intakeLatency": {
+          "avg": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "processingLatency": {
+          "avg": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "documentsProcessed": 0,
+        "documentsIndexed": 0,
+        "pagesProcessed": 0,
+        "triggerCount": 0,
+        "sampleCounts": {
+          "search": 0,
+          "index": 0,
+          "processing": 0
+        }
+      },
+      "user": {
+        "searchLatency": {
+          "avg": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "intakeLatency": {
+          "avg": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "processingLatency": {
+          "avg": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "documentsProcessed": 0,
+        "documentsIndexed": 0,
+        "pagesProcessed": 0,
+        "triggerCount": 0,
+        "sampleCounts": {
+          "search": 0,
+          "index": 0,
+          "processing": 0
+        }
+      },
+      "service": {
+        "searchLatency": {
+          "avg": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "intakeLatency": {
+          "avg": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "processingLatency": {
+          "avg": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "documentsProcessed": 0,
+        "documentsIndexed": 0,
+        "pagesProcessed": 0,
+        "triggerCount": 0,
+        "sampleCounts": {
+          "search": 0,
+          "index": 0,
+          "processing": 0
+        }
+      },
+      "generic": {
+        "searchLatency": {
+          "avg": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "intakeLatency": {
+          "avg": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "processingLatency": {
+          "avg": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "documentsProcessed": 0,
+        "documentsIndexed": 0,
+        "pagesProcessed": 0,
+        "triggerCount": 0,
+        "sampleCounts": {
+          "search": 0,
+          "index": 0,
+          "processing": 0
+        }
+      }
+    },
+    "transformStates": {
+      "indexing": 0,
+      "started": 0
+    },
+    "errors": {
+      "searchFailures": 0,
+      "indexFailures": 0,
+      "totalFailures": 0
+    },
+    "clusterHealth": {
+      "status": "green",
+      "avgActiveShards": 118,
+      "unassignedShards": 0
+    },
+    "kibana": {
+      "eventLoop": {
+        "delay": {
+          "avg": 106.82387880487808,
+          "p50": 10.084351,
+          "p95": 10.706943,
+          "p99": 80.084991,
+          "max": 491.519999
+        },
+        "utilization": {
+          "avg": 0.07217852709931269,
+          "peak": 0.3513982673397491
+        }
+      },
+      "elasticsearchClient": {
+        "avgActiveSockets": 1.2097560975609756,
+        "avgIdleSockets": 29.068292682926828,
+        "peakQueuedRequests": 0
+      },
+      "responseTimes": {
+        "avg": 26.572959662288923,
+        "max": 4330
+      },
+      "memory": {
+        "avgHeapBytes": 700993641.7951219,
+        "peakHeapBytes": 926772496,
+        "avgRssBytes": 983685469.6585366,
+        "peakRssBytes": 1159991296
+      },
+      "requests": {
+        "total": 16,
+        "avgPerSecond": 0.07834688081480756,
+        "errorRate": 0,
+        "disconnects": 0
+      },
+      "osLoad": {
+        "avg1m": 1.4045853658536585,
+        "avg5m": 0.9874146341463423,
+        "avg15m": 0.8795609756097555,
+        "peak1m": 1.85
+      }
+    }
+  }
+}

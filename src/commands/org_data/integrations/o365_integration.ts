@@ -3,10 +3,19 @@
  * Generates unified audit log documents for the o365.audit data stream
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
-import { Organization, CorrelationMap, Employee, DepartmentName } from '../types';
+import {
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import {
+  type Organization,
+  type CorrelationMap,
+  type Employee,
+  type DepartmentName,
+} from '../types.ts';
 import { faker } from '@faker-js/faker';
-import { O365_WORKLOADS, DEPT_O365_WEIGHTS, SHAREPOINT_SITES } from '../data/saas_apps';
+import { O365_WORKLOADS, DEPT_O365_WEIGHTS, SHAREPOINT_SITES } from '../data/saas_apps.ts';
 
 /**
  * O365 Integration

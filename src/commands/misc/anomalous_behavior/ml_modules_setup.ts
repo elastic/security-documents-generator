@@ -1,16 +1,23 @@
 import pRetry from 'p-retry';
+import { log } from '../../../utils/logger.ts';
 import {
   setupMlModule,
   installIntegrationAndCreatePolicy,
   forceStartDatafeeds,
   getMlJobsSummary,
-} from '../../../utils/kibana_api';
+} from '../../../utils/kibana_api.ts';
 export const SECURITY_AUTH_MODULE = 'security_auth';
 export const SECURITY_AUTH_JOB_IDS = [
   'auth_rare_source_ip_for_a_user',
   'suspicious_login_activity',
   'auth_rare_user',
   'auth_rare_hour_for_a_user',
+];
+export const SECURITY_AUTH_JOB_IDS_V2 = [
+  'auth_rare_source_ip_for_a_user_ea',
+  'suspicious_login_activity_ea',
+  'auth_rare_user_ea',
+  'auth_rare_hour_for_a_user_ea',
 ];
 
 export const PAD_MODULE = 'pad-ml';
@@ -27,6 +34,7 @@ export const LMD_JOB_IDS = [
 
 export const SECURITY_PACKETBEAT_MODULE = 'security_packetbeat';
 export const SECURITY_PACKETBEAT_JOB_IDS = ['packetbeat_rare_server_domain'];
+export const SECURITY_PACKETBEAT_JOB_IDS_V2 = ['packetbeat_rare_server_domain_ea'];
 
 export const DED_MODULE = 'ded-ml';
 export const DED_JOB_IDS = [
@@ -42,6 +50,14 @@ export const ALL_ANOMALY_JOB_IDS = [
   ...LMD_JOB_IDS,
   ...SECURITY_PACKETBEAT_JOB_IDS,
   ...DED_JOB_IDS,
+];
+
+export const ALL_ANOMALY_JOB_IDS_V2 = [
+  ...SECURITY_AUTH_JOB_IDS_V2,
+  ...PAD_JOB_IDS, // wait for https://github.com/elastic/integrations/pull/17626
+  ...LMD_JOB_IDS, // wait for https://github.com/elastic/integrations/pull/17626
+  ...SECURITY_PACKETBEAT_JOB_IDS_V2,
+  ...DED_JOB_IDS, // wait for https://github.com/elastic/integrations/pull/17626
 ];
 
 const DEFAULT_INDEX_PATTERN = 'ecs_compliant,auditbeat-*,winlogbeat-*';
@@ -76,63 +92,65 @@ const setupMlModulesWithRetry = (moduleId: string, indexPatternName: string, spa
 export const setupAnomalyMlModulesAndStartDatafeeds = async (
   space: string,
   generateAnomalyData: boolean,
+  v2: boolean,
 ): Promise<void> => {
   try {
     // Security Auth (built-in, no Fleet integration)
-    console.log('Setting up ML module: security_auth');
+    log.info('Setting up ML module: security_auth');
     await setupMlModulesWithRetry(SECURITY_AUTH_MODULE, DEFAULT_INDEX_PATTERN, space);
   } catch (err) {
-    console.warn('Failed to setup Security Auth ML module:', err);
+    log.warn('Failed to setup Security Auth ML module:', err);
   }
 
   // PAD (requires Fleet integration)
   try {
-    console.log('Installing PAD integration and creating policy');
+    log.info('Installing PAD integration and creating policy');
     await installIntegrationAndCreatePolicy('pad', space);
-    console.log('Setting up ML module: pad-ml');
+    log.info('Setting up ML module: pad-ml');
     await setupMlModulesWithRetry(PAD_MODULE, DEFAULT_INDEX_PATTERN, space);
   } catch (err) {
-    console.warn('Failed to setup PAD ML module:', err);
+    log.warn('Failed to setup PAD ML module:', err);
   }
 
   // LMD (requires Fleet integration)
   try {
-    console.log('Installing LMD integration and creating policy');
+    log.info('Installing LMD integration and creating policy');
     await installIntegrationAndCreatePolicy('lmd', space);
-    console.log('Setting up ML module: lmd-ml');
+    log.info('Setting up ML module: lmd-ml');
     await setupMlModulesWithRetry(LMD_MODULE, DEFAULT_INDEX_PATTERN, space);
   } catch (err) {
-    console.warn('Failed to setup LMD ML module:', err);
+    log.warn('Failed to setup LMD ML module:', err);
   }
 
   // Security Packetbeat (built-in)
   try {
-    console.log('Setting up ML module: security_packetbeat');
+    log.info('Setting up ML module: security_packetbeat');
     await setupMlModulesWithRetry(SECURITY_PACKETBEAT_MODULE, DEFAULT_INDEX_PATTERN, space);
   } catch (err) {
-    console.warn('Failed to setup Security Packetbeat ML module:', err);
+    log.warn('Failed to setup Security Packetbeat ML module:', err);
   }
 
   // DED (requires Fleet integration)
   try {
-    console.log('Installing DED integration and creating policy');
+    log.info('Installing DED integration and creating policy');
     await installIntegrationAndCreatePolicy('ded', space);
-    console.log('Setting up ML module: ded-ml');
+    log.info('Setting up ML module: ded-ml');
     await setupMlModulesWithRetry(DED_MODULE, DEFAULT_INDEX_PATTERN, space);
   } catch (err) {
-    console.warn('Failed to setup DED ML module:', err);
+    log.warn('Failed to setup DED ML module:', err);
   }
 
   if (!generateAnomalyData) {
     // Start all datafeeds again so any that failed earlier can be retried together
-    console.log('Starting all anomaly job datafeeds');
+    log.info('Starting all anomaly job datafeeds');
+    const jobIds = v2 ? ALL_ANOMALY_JOB_IDS_V2 : ALL_ANOMALY_JOB_IDS;
     await forceStartDatafeeds(
-      ALL_ANOMALY_JOB_IDS.map((id) => `datafeed-${id}`),
+      jobIds.map((id) => `datafeed-${id}`),
       space,
     );
-    console.log('ML modules setup and datafeeds started.');
+    log.info('ML modules setup and datafeeds started.');
   } else {
-    console.log(
+    log.info(
       'ML modules setup completed. Skipping datafeed start and anomaly record generation due to --no-anomaly-data flag.',
     );
   }
@@ -147,8 +165,11 @@ export const waitForAllJobsToStart = async (jobIds: string[], space?: string): P
   const timeoutMs = 5 * 60 * 1000; // 5 minutes in milliseconds
   const startTime = Date.now();
 
-  console.log(`Waiting for ${jobIds.length} job(s) to start: ${jobIds.join(', ')}`);
+  log.info(`Waiting for ${jobIds.length} job(s) to start: ${jobIds.join(', ')}`);
 
+  // wait for https://github.com/elastic/integrations/pull/17626
+  // const jobIdsToUse = v2 ? jobIds.map((id) => `${id}_ea`) : jobIds;
+  const jobIdsToUse = jobIds;
   await pRetry(
     async () => {
       // Check if we've exceeded the timeout
@@ -157,7 +178,7 @@ export const waitForAllJobsToStart = async (jobIds: string[], space?: string): P
         throw new Error(`waitForAllJobsToStart exceeded timeout of ${timeoutMs}ms`);
       }
 
-      const jobs = (await getMlJobsSummary(jobIds, space)) as Array<{
+      const jobs = (await getMlJobsSummary(jobIdsToUse, space)) as Array<{
         id: string;
         jobState: string;
         datafeedState: string;
@@ -166,23 +187,23 @@ export const waitForAllJobsToStart = async (jobIds: string[], space?: string): P
       // Check if all jobs are found
       if (jobs.length !== jobIds.length) {
         const foundJobIds = jobs.map((job) => job.id);
-        const missingJobIds = jobIds.filter((id) => !foundJobIds.includes(id));
+        const missingJobIds = jobIdsToUse.filter((id) => !foundJobIds.includes(id));
         if (missingJobIds.length > 0) {
           const errorMsg = `Not all jobs found. Missing: ${missingJobIds.join(', ')}.`;
-          console.warn(errorMsg);
+          log.warn(errorMsg);
           throw new Error(errorMsg);
         }
       }
 
       // Check if all the jobs we care about are started
       const notStartedJobs = jobs.filter(
-        (job) => jobIds.includes(job.id) && !isJobStarted(job.jobState, job.datafeedState),
+        (job) => jobIdsToUse.includes(job.id) && !isJobStarted(job.jobState, job.datafeedState),
       );
       const startedCount = jobs.length - notStartedJobs.length;
 
       if (notStartedJobs.length > 0) {
         const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-        console.log(
+        log.info(
           `[${elapsedSeconds}s] Status: ${startedCount}/${
             jobs.length
           } jobs started. Waiting for: ${notStartedJobs.map((job) => job.id).join(', ')}`,
@@ -194,15 +215,15 @@ export const waitForAllJobsToStart = async (jobIds: string[], space?: string): P
       }
 
       const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-      console.log(`[${elapsedSeconds}s] All ${jobs.length} job(s) are now started!`);
+      log.info(`[${elapsedSeconds}s] All ${jobs.length} job(s) are now started!`);
       return jobs;
     },
     {
       retries: 10,
       onFailedAttempt: (error) => {
-        console.log(error);
+        log.info(error);
         const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-        console.log(
+        log.info(
           `[${elapsedSeconds}s] Retry attempt ${error.attemptNumber} failed. ${error.retriesLeft} retries left. Error: ${error}`,
         );
       },

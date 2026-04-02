@@ -1,14 +1,15 @@
-import { generateNewSeed } from '../../constants';
+import { generateNewSeed } from '../../constants.ts';
 import { faker } from '@faker-js/faker';
-import { ingest } from '../utils/indices';
+import { log } from '../../utils/logger.ts';
+import { ingest } from '../utils/indices.ts';
 import createVulnerabilities, {
-  CreateVulnerabilitiesParams,
-} from '../../generators/create_vulnerability';
+  type CreateVulnerabilitiesParams,
+} from '../../generators/create_vulnerability.ts';
 import createMisconfigurations, {
-  CreateMisconfigurationsParams,
-} from '../../generators/create_misconfigurations';
-import { installPackage } from '../../utils/kibana_api';
-import { generateAnomalousBehaviorDataWithMlJobs } from './anomalous_behavior';
+  type CreateMisconfigurationsParams,
+} from '../../generators/create_misconfigurations.ts';
+import { installPackage } from '../../utils/kibana_api.ts';
+import { generateAnomalousBehaviorDataWithMlJobs } from './anomalous_behavior/index.ts';
 
 const VULNERABILITY_INDEX_NAME = 'logs-cloud_security_posture.vulnerabilities_latest-default';
 
@@ -24,6 +25,7 @@ interface GenerateAiInsightsOpts {
   space: string;
   generateAnomalies: boolean;
   generateAnomalyData: boolean;
+  v2?: boolean;
   seed?: number;
 }
 export const generateAiInsights = async ({
@@ -33,6 +35,7 @@ export const generateAiInsights = async ({
   space,
   generateAnomalies,
   generateAnomalyData,
+  v2 = false,
   seed = generateNewSeed(),
 }: GenerateAiInsightsOpts) => {
   faker.seed(seed);
@@ -44,7 +47,7 @@ export const generateAiInsights = async ({
     hostname: faker.internet.domainName(),
   }));
 
-  console.log('Installing cloud posture package');
+  log.info('Installing cloud posture package');
   await installPackage({ packageName: PACKAGE_TO_INSTALL, space });
 
   await ingest(VULNERABILITY_INDEX_NAME, generateDocs(usersData, space, createVulnerabilities));
@@ -60,12 +63,10 @@ export const generateAiInsights = async ({
   );
 
   if (generateAnomalies) {
-    console.log(`Generating anomalous behavior data with ML jobs`);
-    await generateAnomalousBehaviorDataWithMlJobs(space, records, generateAnomalyData);
+    log.info(`Generating anomalous behavior data with ML jobs`);
+    await generateAnomalousBehaviorDataWithMlJobs(space, records, generateAnomalyData, v2);
   } else {
-    console.log(
-      'Skipping anomalous behavior ML job and data generation due to --no-anomalies flag',
-    );
+    log.info('Skipping anomalous behavior ML job and data generation due to --no-anomalies flag');
   }
 };
 

@@ -3,9 +3,10 @@
  * Abstract class defining the interface for all security integrations
  */
 
-import { Organization, CorrelationMap, Device, Host } from '../types';
-import { installPackage } from '../../../utils/kibana_api';
-import { ingest } from '../../utils/indices';
+import { log } from '../../../utils/logger.ts';
+import { type Organization, type CorrelationMap, type Device, type Host } from '../types.ts';
+import { installPackage } from '../../../utils/kibana_api.ts';
+import { ingest } from '../../utils/indices.ts';
 import cliProgress from 'cli-progress';
 import { chunk } from 'lodash-es';
 
@@ -73,14 +74,14 @@ export abstract class BaseIntegration {
    * Install the integration package via Fleet API
    */
   async install(space: string = 'default'): Promise<void> {
-    console.log(`Installing ${this.displayName} package...`);
+    log.info(`Installing ${this.displayName} package...`);
     try {
       await installPackage({ packageName: this.packageName, space, prerelease: this.prerelease });
-      console.log(`  ✓ ${this.displayName} package installed`);
+      log.info(`  ✓ ${this.displayName} package installed`);
     } catch (error) {
       // Package might already be installed, which is fine
       if (error instanceof Error && error.message.includes('409')) {
-        console.log(`  ✓ ${this.displayName} package already installed`);
+        log.info(`  ✓ ${this.displayName} package already installed`);
       } else {
         throw error;
       }
@@ -107,7 +108,7 @@ export abstract class BaseIntegration {
     for (const [index, documents] of documentsMap) {
       if (documents.length === 0) continue;
 
-      console.log(`  Indexing ${documents.length} documents to ${index}...`);
+      log.info(`  Indexing ${documents.length} documents to ${index}...`);
 
       if (showProgress) {
         const progress = new cliProgress.SingleBar(
@@ -145,20 +146,20 @@ export abstract class BaseIntegration {
     correlationMap: CorrelationMap,
     space: string = 'default',
   ): Promise<IntegrationResult> {
-    console.log(`\n--- ${this.displayName} Integration ---`);
+    log.info(`\n--- ${this.displayName} Integration ---`);
 
     try {
       // Install the package
       await this.install(space);
 
       // Generate documents
-      console.log(`Generating ${this.displayName} documents...`);
+      log.info(`Generating ${this.displayName} documents...`);
       const documentsMap = this.generateDocuments(org, correlationMap);
 
       // Index documents
       const totalIndexed = await this.indexDocuments(documentsMap);
 
-      console.log(`  ✓ ${this.displayName}: ${totalIndexed} documents indexed`);
+      log.info(`  ✓ ${this.displayName}: ${totalIndexed} documents indexed`);
 
       return {
         integrationName: this.packageName,
@@ -168,7 +169,7 @@ export abstract class BaseIntegration {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`  ✗ ${this.displayName} failed: ${errorMessage}`);
+      log.error(`  ✗ ${this.displayName} failed: ${errorMessage}`);
 
       return {
         integrationName: this.packageName,

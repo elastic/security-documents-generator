@@ -7,8 +7,12 @@
  * Based on the Elastic azure integration package (packages/azure)
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
-import { Organization, Employee, Device, CorrelationMap } from '../types';
+import {
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import { type Organization, type Employee, type Device, type CorrelationMap } from '../types.ts';
 import { faker } from '@faker-js/faker';
 
 const AZURE_RESOURCE_OPERATIONS: Array<{

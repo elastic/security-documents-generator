@@ -1,14 +1,15 @@
 import {
-  BulkResponse,
-  BulkOperationContainer,
-  BulkCreateOperation,
-  DeleteByQueryResponse,
+  type BulkResponse,
+  type BulkOperationContainer,
+  type BulkCreateOperation,
+  type DeleteByQueryResponse,
 } from '@elastic/elasticsearch/lib/api/types';
 import { chunk } from 'lodash-es';
-import { getEsClient } from '../utils/indices';
-import { addMetadataToDoc } from '../../utils/doc_metadata';
-import { createProgressBar } from '../utils/cli_utils';
-import { DEFAULT_CHUNK_SIZE } from '../../constants';
+import { getEsClient } from '../utils/indices.ts';
+import { addMetadataToDoc } from '../../utils/doc_metadata.ts';
+import { createProgressBar } from '../utils/cli_utils.ts';
+import { DEFAULT_CHUNK_SIZE } from '../../constants.ts';
+import { log } from '../../utils/logger.ts';
 
 export type BulkOperationTuple = [BulkOperationContainer, object];
 
@@ -17,7 +18,7 @@ export const logBulkErrors = (result: BulkResponse, context: string): void => {
     return;
   }
   const failedItems = result.items?.filter((item) => 'error' in item && item.error);
-  console.error(context, failedItems);
+  log.error(context, failedItems);
 };
 
 /**
@@ -159,6 +160,6 @@ export async function deleteDataStreamSafe(name: string): Promise<void> {
     if (statusCode !== 404) {
       throw error;
     }
-    console.log('Resource does not yet exist, and will be created.');
+    log.info('Resource does not yet exist, and will be created.');
   }
 }

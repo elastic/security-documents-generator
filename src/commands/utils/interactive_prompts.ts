@@ -1,5 +1,5 @@
 import { checkbox, input } from '@inquirer/prompts';
-import { parseIntBase10 } from './cli_utils';
+import { parseIntBase10 } from './cli_utils.ts';
 
 export interface NumericPrompt {
   key: string;

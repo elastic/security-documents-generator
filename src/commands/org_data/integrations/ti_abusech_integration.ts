@@ -5,11 +5,11 @@
 
 import {
   BaseIntegration,
-  IntegrationDocument,
-  DataStreamConfig,
-  AgentData,
-} from './base_integration';
-import { Organization, CorrelationMap } from '../types';
+  type IntegrationDocument,
+  type DataStreamConfig,
+  type AgentData,
+} from './base_integration.ts';
+import { type Organization, type CorrelationMap } from '../types.ts';
 import { faker } from '@faker-js/faker';
 import {
   MALWARE_FAMILIES,
@@ -18,7 +18,7 @@ import {
   TI_CONFIDENCE_LEVELS,
   ABUSECH_MALWARE_TYPES,
   ABUSECH_THREAT_TYPES,
-} from '../data/threat_intel_data';
+} from '../data/threat_intel_data.ts';
 
 /**
  * TI AbuseCH Integration

@@ -10,9 +10,10 @@
     "result_type": { "type": "keyword" },
     "record_score": { "type": "double" },
     "timestamp": { "type": "date" },
-    "user": { "properties": { "name": { "type": "keyword" } } },
+    "user": { "properties": { "name": { "type": "keyword" }, "id": { "type": "keyword" } } },
     "destination": { "properties": { "domain": { "type": "keyword" } } },
     "server": { "properties": { "domain": { "type": "keyword" } } },
+    "event": { "properties": { "module": { "type": "keyword" } } },
     "influencers": {
       "type": "nested",
       "properties": {

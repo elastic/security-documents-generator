@@ -3,8 +3,12 @@
  * Generates MFA authentication log documents for the cisco_duo.auth data stream
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
-import { Organization, CorrelationMap, Employee } from '../types';
+import {
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import { type Organization, type CorrelationMap, type Employee } from '../types.ts';
 import { faker } from '@faker-js/faker';
 
 /**

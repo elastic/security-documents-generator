@@ -1,9 +1,9 @@
 import {
-  FullSyncEntityEventDoc,
-  OktaSampleUser,
-  AdSampleUser,
-} from '../utils/integrations_sync_utils';
-import { userNameAsEmail, userNameWhitespaceRemoved } from '../utils/sample_data_helpers';
+  type FullSyncEntityEventDoc,
+  type OktaSampleUser,
+  type AdSampleUser,
+} from '../utils/integrations_sync_utils.ts';
+import { userNameAsEmail, userNameWhitespaceRemoved } from '../utils/sample_data_helpers.ts';
 
 /**
  * Should not need all of these for our use case - should need ONLY

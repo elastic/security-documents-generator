@@ -7,11 +7,11 @@
 
 import {
   BaseIntegration,
-  IntegrationDocument,
-  DataStreamConfig,
-  AgentData,
-} from './base_integration';
-import { Organization, Employee, CorrelationMap } from '../types';
+  type IntegrationDocument,
+  type DataStreamConfig,
+  type AgentData,
+} from './base_integration.ts';
+import { type Organization, type Employee, type CorrelationMap } from '../types.ts';
 import { faker } from '@faker-js/faker';
 
 const AUDIT_ACTIONS: Array<{

@@ -1,7 +1,7 @@
 import { flatMap, range } from 'lodash-es';
-import { SECURITY_AUTH_JOB_IDS } from '../ml_modules_setup';
+import { SECURITY_AUTH_JOB_IDS } from '../ml_modules_setup.ts';
 import { faker } from '@faker-js/faker';
-import { generateCommonFields } from './utils';
+import { generateCommonFields } from './utils.ts';
 
 const generateRareHourForUserRecord = (ndx: number) => {
   const commonFields = generateCommonFields();

@@ -3,8 +3,18 @@
  * Generates sign-in attempt and item usage documents
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
-import { Organization, CorrelationMap, Employee, DepartmentName, OnePasswordVault } from '../types';
+import {
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import {
+  type Organization,
+  type CorrelationMap,
+  type Employee,
+  type DepartmentName,
+  type OnePasswordVault,
+} from '../types.ts';
 import { faker } from '@faker-js/faker';
 
 /**

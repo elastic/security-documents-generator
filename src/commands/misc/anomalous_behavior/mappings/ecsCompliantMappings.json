@@ -48,7 +48,12 @@
         }
       }
     },
-    "user": { "properties": { "name": { "type": "keyword" } } },
+    "user": {
+      "properties": {
+        "name": { "type": "keyword" },
+        "id": { "type": "keyword" }
+      }
+    },
     "geo": { "properties": { "country_name": { "type": "keyword" } } },
     "observer": {
       "properties": {
@@ -82,13 +87,22 @@
     "host": {
       "properties": {
         "name": { "type": "keyword" },
+        "id": { "type": "keyword" },
         "ip": { "type": "ip" },
         "uptime": { "type": "long" }
       }
     },
     "container": { "properties": { "image": { "type": "keyword" } } },
     "client": { "properties": { "ip": { "type": "keyword" } } },
-    "event": { "properties": { "ingested": { "type": "date" }, "created": { "type": "keyword" } } },
+    "event": {
+      "properties": {
+        "ingested": { "type": "date" },
+        "created": { "type": "keyword" },
+        "module": { "type": "keyword" },
+        "outcome": { "type": "keyword" },
+        "category": { "type": "keyword" }
+      }
+    },
     "dll": {
       "properties": { "code_signature": { "properties": { "valid": { "type": "keyword" } } } }
     }

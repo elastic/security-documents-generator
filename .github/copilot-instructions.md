@@ -30,16 +30,23 @@ When reviewing or suggesting Elasticsearch ingest/upload code, map use cases to 
 
 Do not suggest custom `client.bulk()` or `client.helpers.bulk()` flows when an existing helper fits. If direct bulk APIs are necessary, require a brief justification in PR notes.
 
-## 3) PR review checklist (Copilot)
+## 3) Minimize new dependencies
+
+- Prefer using built-in Node.js modules or existing dependencies in `package.json` before introducing new ones.
+- However, do not reinvent the wheel. If a well-maintained dependency significantly reduces code complexity or maintenance burden, it is perfectly acceptable.
+- When reviewing PRs that add new dependencies, ensure there is a brief justification if the use case could easily be solved with existing tools.
+
+## 4) PR review checklist (Copilot)
 
 Use this checklist when reviewing PRs:
 
 - Does this PR add a new command where an existing command/module could be extended?
 - Does this PR duplicate Elasticsearch ingest/upload logic already covered by shared helpers?
+- Does this PR introduce new dependencies that could be avoided using existing libraries or built-in modules?
 - If a new top-level command is introduced, is there a clear domain-boundary rationale?
 - If direct bulk APIs are used, is there a specific reason shared helpers were insufficient?
 
-## 4) Feedback style expectations
+## 5) Feedback style expectations
 
 - Flag violations as concrete action items, not generic preferences.
 - Point authors to the exact existing module/helper to use (with file path and function name).

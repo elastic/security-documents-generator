@@ -10,12 +10,12 @@
     "result_type": { "type": "keyword" },
     "record_score": { "type": "double" },
     "timestamp": { "type": "date" },
-    "user": { "properties": { "name": { "type": "keyword" } } },
+    "user": { "properties": { "name": { "type": "keyword" }, "id": { "type": "keyword" } } },
     "process": {
       "properties": { "name": { "type": "keyword" }, "command_line": { "type": "keyword" } }
     },
-    "event": { "properties": { "action": { "type": "keyword" } } },
-    "host": { "properties": { "name": { "type": "keyword" } } },
+    "event": { "properties": { "action": { "type": "keyword" }, "module": { "type": "keyword" } } },
+    "host": { "properties": { "name": { "type": "keyword" }, "id": { "type": "keyword" } } },
     "winlog": {
       "properties": { "event_data": { "properties": { "PrivilegeList": { "type": "keyword" } } } }
     },

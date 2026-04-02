@@ -12,11 +12,12 @@
 
 import {
   BaseIntegration,
-  IntegrationDocument,
-  DataStreamConfig,
-  AgentData,
-} from './base_integration';
-import { Organization, Employee, CorrelationMap } from '../types';
+  type IntegrationDocument,
+  type DataStreamConfig,
+  type AgentData,
+} from './base_integration.ts';
+import { log } from '../../../utils/logger.ts';
+import { type Organization, type Employee, type CorrelationMap } from '../types.ts';
 import { faker } from '@faker-js/faker';
 
 /** SCIM v2 schema URNs used by PingDirectory */
@@ -95,7 +96,7 @@ export class PingDirectoryIntegration extends BaseIntegration {
    * We skip Fleet installation entirely.
    */
   async install(_space: string = 'default'): Promise<void> {
-    console.log(`  ℹ ${this.displayName}: Custom integration — no Fleet package to install`);
+    log.info(`  ℹ ${this.displayName}: Custom integration — no Fleet package to install`);
   }
 
   generateDocuments(

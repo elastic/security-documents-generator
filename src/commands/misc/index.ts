@@ -1,13 +1,14 @@
-import { Command } from 'commander';
-import { CommandModule } from '../types';
-import { kibanaApi } from '../../utils';
-import { generateAssetCriticality } from './asset_criticality';
-import { generateAiInsights } from './insights';
-import { generateLegacyRiskScore } from './legacy_risk_score';
-import { singleEntityCommand } from './single_entity';
-import { ensureSpace } from '../../utils';
-import { parseOptionInt, wrapAction } from '../utils/cli_utils';
-import { ENTITY_TYPES, EntityType } from '../../types/entities';
+import { type Command } from 'commander';
+import { type CommandModule } from '../types.ts';
+import { log } from '../../utils/logger.ts';
+import { kibanaApi } from '../../utils/index.ts';
+import { generateAssetCriticality } from './asset_criticality.ts';
+import { generateAiInsights } from './insights.ts';
+import { generateLegacyRiskScore } from './legacy_risk_score.ts';
+import { singleEntityCommand } from './single_entity.ts';
+import { ensureSpace } from '../../utils/index.ts';
+import { parseOptionInt, wrapAction } from '../utils/cli_utils.ts';
+import { ENTITY_TYPES, type EntityType } from '../../types/entities.ts';
 
 export const miscCommands: CommandModule = {
   register(program: Command) {
@@ -30,6 +31,7 @@ export const miscCommands: CommandModule = {
         '--no-anomaly-data',
         'create entity data and ML modules without starting datafeeds or generating anomalous behavior records',
       )
+      .option('--v2', 'generate v2 ML anomaly data with user.id, host.id, and event.module fields')
       .description(
         'Generate vulnerabilities, misconfigurations, ML jobs, and anomalous behavior for entities.',
       )
@@ -48,6 +50,7 @@ export const miscCommands: CommandModule = {
             space,
             generateAnomalies,
             generateAnomalyData,
+            v2: options.v2 ?? false,
           });
         }),
       );
@@ -98,9 +101,7 @@ Examples:
         wrapAction(async (options) => {
           const entityType = options.type as EntityType | undefined;
           if (entityType && !ENTITY_TYPES.includes(entityType)) {
-            console.error(
-              `Invalid --type: ${entityType}. Must be one of: ${ENTITY_TYPES.join(', ')}`,
-            );
+            log.error(`Invalid --type: ${entityType}. Must be one of: ${ENTITY_TYPES.join(', ')}`);
             process.exit(1);
           }
           await singleEntityCommand({

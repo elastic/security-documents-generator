@@ -6,15 +6,19 @@
  * entity ingest pipeline renames to entityanalytics_okta and routes to user/device.
  */
 
-import { BaseIntegration, IntegrationDocument, DataStreamConfig } from './base_integration';
 import {
-  Organization,
-  Employee,
-  Device,
-  OktaGroup,
-  OktaSyncMarkerDocument,
-  CorrelationMap,
-} from '../types';
+  BaseIntegration,
+  type IntegrationDocument,
+  type DataStreamConfig,
+} from './base_integration.ts';
+import {
+  type Organization,
+  type Employee,
+  type Device,
+  type OktaGroup,
+  type OktaSyncMarkerDocument,
+  type CorrelationMap,
+} from '../types.ts';
 import { faker } from '@faker-js/faker';
 
 const IDENTITY_SOURCE = 'okta-saas-organization';

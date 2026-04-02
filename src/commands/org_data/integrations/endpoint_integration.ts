@@ -5,13 +5,13 @@
 
 import {
   BaseIntegration,
-  IntegrationDocument,
-  DataStreamConfig,
+  type IntegrationDocument,
+  type DataStreamConfig,
   ELASTIC_AGENT_VERSION,
-} from './base_integration';
-import { Organization, CorrelationMap, Employee, Device } from '../types';
+} from './base_integration.ts';
+import { type Organization, type CorrelationMap, type Employee, type Device } from '../types.ts';
 import { faker } from '@faker-js/faker';
-import { MALWARE_HASHES } from '../data/threat_intel_data';
+import { MALWARE_HASHES } from '../data/threat_intel_data.ts';
 
 const PROCESS_ACTIONS: Array<{ action: string; type: string[] }> = [
   { action: 'start', type: ['start'] },

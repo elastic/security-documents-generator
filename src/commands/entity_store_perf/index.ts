@@ -1,14 +1,15 @@
-import { Command } from 'commander';
-import { CommandModule } from '../types';
-import { parseIntBase10, promptForFileSelection, wrapAction } from '../utils/cli_utils';
+import { type Command } from 'commander';
+import { type CommandModule } from '../types.ts';
+import { log } from '../../utils/logger.ts';
+import { parseIntBase10, promptForFileSelection, wrapAction } from '../utils/cli_utils.ts';
 import {
   createPerfDataFile,
   listPerfDataFiles,
   uploadPerfDataFile,
   uploadPerfDataFileInterval,
   ENTITY_DISTRIBUTIONS,
-  DistributionType,
-} from './entity_store_perf';
+  type DistributionType,
+} from './entity_store_perf.ts';
 
 export const entityStorePerfCommands: CommandModule = {
   register(program: Command) {
@@ -28,8 +29,8 @@ export const entityStorePerfCommands: CommandModule = {
         wrapAction(async (name, entityCount, logsPerEntity, startIndex, options) => {
           const distributionType = options.distribution as DistributionType;
           if (!ENTITY_DISTRIBUTIONS[distributionType]) {
-            console.error(`❌ Invalid distribution type: ${distributionType}`);
-            console.error(`   Available types: ${Object.keys(ENTITY_DISTRIBUTIONS).join(', ')}`);
+            log.error(`❌ Invalid distribution type: ${distributionType}`);
+            log.error(`   Available types: ${Object.keys(ENTITY_DISTRIBUTIONS).join(', ')}`);
             process.exit(1);
           }
           await createPerfDataFile({
@@ -47,6 +48,7 @@ export const entityStorePerfCommands: CommandModule = {
       .argument('[file]', 'File to upload')
       .option('--index <index>', 'Destination index')
       .option('--delete', 'Delete all entities before uploading')
+      .option('--noTransforms', 'Use Entity Store V2 / ESQL flow (no transforms)')
       .description('Upload performance data file')
       .action(
         wrapAction(async (file, options) => {
@@ -54,6 +56,7 @@ export const entityStorePerfCommands: CommandModule = {
             file ?? (await promptForFileSelection(listPerfDataFiles())),
             options.index,
             options.delete,
+            options.noTransforms,
           );
         }),
       );
@@ -77,7 +80,10 @@ export const entityStorePerfCommands: CommandModule = {
         parseIntBase10,
         5,
       )
-      .option('--noTransforms', 'Skip transform-related operations (for ESQL workflows)')
+      .option(
+        '--noTransforms',
+        'Run Entity Store V2 / ESQL flow (enable V2, install V2, no transforms, v2 indices)',
+      )
       .option('--index <index>', 'Destination index')
       .description('Upload performance data file')
       .action(
