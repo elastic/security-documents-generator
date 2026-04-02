@@ -15,10 +15,18 @@ export function wrapAction<TArgs extends unknown[]>(
   fn: (...args: TArgs) => Promise<void>,
 ): (...args: TArgs) => Promise<void> {
   return async (...args: TArgs) => {
+    let isShuttingDown = false;
+
     process.once('SIGINT', () => {
-      log.info('\nInterrupted, shutting down...');      
-      process.exit(0);
+      if (isShuttingDown) {
+        log.info('\nForce quitting...');
+        process.exit(130);
+      }
+      isShuttingDown = true;
+      log.info('\nInterrupted, shutting down... (Ctrl+C again to force quit)');
+      process.exitCode = 130;
     });
+
     try {
       await fn(...args);
     } catch (error) {
