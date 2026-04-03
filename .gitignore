@@ -1,6 +1,7 @@
 # Output and Data
 output/
 reports/
+tmp/risk-score-v2/exports/
 
 # Data directory exceptions
 data/*
