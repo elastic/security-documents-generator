@@ -7,7 +7,7 @@ import {
   listPerfDataFiles,
   uploadPerfDataFile,
   uploadPerfDataFileInterval,
-  ENTITY_DISTRIBUTIONS,
+  isValidDistributionType,
   type DistributionType,
 } from './entity_store_perf.ts';
 
@@ -21,25 +21,89 @@ export const entityStorePerfCommands: CommandModule = {
       .argument('[start-index]', 'for sequential data, which index to start at', parseIntBase10, 0)
       .option(
         '--distribution <type>',
-        `Entity distribution type: equal (user/host/generic/service: 25% each), standard (user/host/generic/service: 33/33/33/1) (default: standard)`,
+        'Entity distribution: equal (25% each type), standard (33/33/33/1%), absolute (requires --user-count, --host-count, --service-count, --generic-count; must sum to entity-count) (default: standard)',
         'standard',
+      )
+      .option(
+        '--user-count <n>',
+        'With --distribution absolute: number of user entities',
+        parseIntBase10,
+      )
+      .option(
+        '--host-count <n>',
+        'With --distribution absolute: number of host entities',
+        parseIntBase10,
+      )
+      .option(
+        '--service-count <n>',
+        'With --distribution absolute: number of service entities',
+        parseIntBase10,
+      )
+      .option(
+        '--generic-count <n>',
+        'With --distribution absolute: number of generic entities',
+        parseIntBase10,
       )
       .description('Create performance data')
       .action(
         wrapAction(async (name, entityCount, logsPerEntity, startIndex, options) => {
           const distributionType = options.distribution as DistributionType;
-          if (!ENTITY_DISTRIBUTIONS[distributionType]) {
+          if (!isValidDistributionType(distributionType)) {
             log.error(`❌ Invalid distribution type: ${distributionType}`);
-            log.error(`   Available types: ${Object.keys(ENTITY_DISTRIBUTIONS).join(', ')}`);
+            log.error(`   Available types: equal, standard, absolute`);
             process.exit(1);
           }
-          await createPerfDataFile({
-            name,
-            entityCount,
-            logsPerEntity,
-            startIndex,
-            distribution: distributionType,
-          });
+
+          const userCount = options.userCount as number | undefined;
+          const hostCount = options.hostCount as number | undefined;
+          const serviceCount = options.serviceCount as number | undefined;
+          const genericCount = options.genericCount as number | undefined;
+          const anyCountOptionSet =
+            userCount !== undefined ||
+            hostCount !== undefined ||
+            serviceCount !== undefined ||
+            genericCount !== undefined;
+
+          if (distributionType === 'absolute') {
+            if (
+              userCount === undefined ||
+              hostCount === undefined ||
+              serviceCount === undefined ||
+              genericCount === undefined
+            ) {
+              log.error(
+                '❌ --distribution absolute requires --user-count, --host-count, --service-count, and --generic-count',
+              );
+              process.exit(1);
+            }
+            await createPerfDataFile({
+              name,
+              entityCount,
+              logsPerEntity,
+              startIndex,
+              distribution: 'absolute',
+              explicitEntityCounts: {
+                user: userCount,
+                host: hostCount,
+                service: serviceCount,
+                generic: genericCount,
+              },
+            });
+          } else {
+            if (anyCountOptionSet) {
+              log.error(
+                '❌ --user-count, --host-count, --service-count, and --generic-count are only valid with --distribution absolute',
+              );
+              process.exit(1);
+            }
+            await createPerfDataFile({
+              name,
+              entityCount,
+              logsPerEntity,
+              startIndex,
+              distribution: distributionType,
+            });
+          }
         }),
       );
 
@@ -48,6 +112,19 @@ export const entityStorePerfCommands: CommandModule = {
       .argument('[file]', 'File to upload')
       .option('--index <index>', 'Destination index')
       .option('--delete', 'Delete all entities before uploading')
+      .option('--metrics', 'Generate metrics logs for baseline comparison')
+      .option(
+        '--samplingInterval <seconds>',
+        'Sampling interval in seconds for metrics collection (default: 5)',
+        parseIntBase10,
+        5,
+      )
+      .option(
+        '--transformTimeout <timeout>',
+        'Timeout in minutes for waiting for generic transform to complete in metrics mode (default: 30)',
+        parseIntBase10,
+        30,
+      )
       .option('--noTransforms', 'Use Entity Store V2 / ESQL flow (no transforms)')
       .description('Upload performance data file')
       .action(
@@ -57,6 +134,11 @@ export const entityStorePerfCommands: CommandModule = {
             options.index,
             options.delete,
             options.noTransforms,
+            {
+              enabled: options.metrics,
+              samplingIntervalMs: options.samplingInterval * 1000,
+              transformTimeoutMs: options.transformTimeout * 60 * 1000,
+            },
           );
         }),
       );
