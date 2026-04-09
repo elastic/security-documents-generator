@@ -100,23 +100,20 @@ export const ENTITY_ENGINE_URL = (engineType: string) => `${ENTITY_ENGINES_URL}/
 export const INIT_ENTITY_ENGINE_URL = (engineType: string) =>
   `${ENTITY_ENGINE_URL(engineType)}/init`;
 export const ENTITY_STORE_ENTITIES_URL = (entityType: 'user' | 'host' | 'service') =>
-  `/api/entity_store/entities/${entityType}`;
+  `/api/security/entity_store/entities/${entityType}`;
 
 // Kibana Settings API endpoints
 export const KIBANA_SETTINGS_URL = '/api/kibana/settings';
 export const KIBANA_SETTINGS_INTERNAL_URL = '/internal/kibana/settings';
 
-// Entity Store V2 (ESQL) internal API
-export const ENTITY_STORE_V2_INSTALL_URL = '/internal/security/entity_store/install';
+// Entity Store V2 (ESQL) API
+export const ENTITY_STORE_V2_INSTALL_URL = '/api/security/entity_store/install';
 export const ENTITY_STORE_V2_FORCE_LOG_EXTRACTION_URL = (entityType: 'user' | 'host' | 'service') =>
   `/internal/security/entity_store/${entityType}/force_log_extraction`;
-export const ENTITY_STORE_V2_CRUD_BULK_URL = '/internal/security/entity_store/entities/bulk';
-export const ENTITY_STORE_V2_RESOLUTION_LINK_URL =
-  '/internal/security/entity_store/resolution/link';
-export const ENTITY_STORE_V2_RESOLUTION_UNLINK_URL =
-  '/internal/security/entity_store/resolution/unlink';
-export const ENTITY_STORE_V2_RESOLUTION_GROUP_URL =
-  '/internal/security/entity_store/resolution/group';
+export const ENTITY_STORE_V2_CRUD_BULK_URL = '/api/security/entity_store/entities/bulk';
+export const ENTITY_STORE_V2_RESOLUTION_LINK_URL = '/api/security/entity_store/resolution/link';
+export const ENTITY_STORE_V2_RESOLUTION_UNLINK_URL = '/api/security/entity_store/resolution/unlink';
+export const ENTITY_STORE_V2_RESOLUTION_GROUP_URL = '/api/security/entity_store/resolution/group';
 export const ENTITY_MAINTAINERS_INIT_URL =
   '/internal/security/entity_store/entity_maintainers/init';
 export const ENTITY_MAINTAINERS_URL = '/internal/security/entity_store/entity_maintainers';
