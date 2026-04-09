@@ -31,7 +31,7 @@
     "globals": "^17.0.0",
     "lodash-es": "^4.17.21",
     "p-map": "^7.0.2",
-    "p-retry": "^7.1.1"
+    "p-retry": "^8.0.0"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
