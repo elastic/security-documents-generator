@@ -1627,7 +1627,7 @@ const collectRiskSnapshot = async ({
 
   const riskResponse = await client.search({
     index: riskIndex,
-    size: Math.max(100, uniqueEntityIds.length * 4),
+    size: Math.min(10000, Math.max(100, uniqueEntityIds.length * 4)),
     sort: [{ '@timestamp': { order: 'desc' } }],
     query: {
       bool: {
@@ -1677,9 +1677,10 @@ const collectRiskSnapshot = async ({
     ],
   });
 
+  const maxResolutionSearchSize = 10_000;
   const resolutionResponse = await client.search({
     index: riskIndex,
-    size: Math.max(100, uniqueEntityIds.length * 8),
+    size: Math.min(maxResolutionSearchSize, Math.max(100, uniqueEntityIds.length * 8)),
     sort: [{ '@timestamp': { order: 'desc' } }],
     query: {
       bool: {
@@ -3179,59 +3180,83 @@ const fetchRiskDocsForEntityIds = async ({
   maxDocsPerEntity: number;
 }): Promise<Map<string, RiskDocSummary[]>> => {
   const uniqueEntityIds = [...new Set(entityIds)];
+  const uniqueEntityIdSet = new Set(uniqueEntityIds);
   const grouped = new Map<string, RiskDocSummary[]>();
-  if (uniqueEntityIds.length === 0) {
+  if (uniqueEntityIds.length === 0 || maxDocsPerEntity <= 0) {
     return grouped;
   }
 
   const client = getEsClient();
   const riskIndex = `risk-score.risk-score-${space}`;
-  const response = await client.search({
-    index: riskIndex,
-    size: Math.max(100, uniqueEntityIds.length * Math.max(1, maxDocsPerEntity) * 4),
-    sort: [{ '@timestamp': { order: 'desc' } }],
-    query: {
-      bool: {
-        should: [
-          { terms: { 'host.name': uniqueEntityIds } },
-          { terms: { 'user.name': uniqueEntityIds } },
-          { terms: { 'service.name': uniqueEntityIds } },
-        ],
-        minimum_should_match: 1,
-      },
-    },
-  });
 
-  for (const hit of response.hits.hits) {
-    const source = (hit._source ?? {}) as {
-      '@timestamp'?: string;
-      host?: { name?: string; risk?: Record<string, unknown> };
-      user?: { name?: string; risk?: Record<string, unknown> };
-      service?: { name?: string; risk?: Record<string, unknown> };
-    };
-    const entityId = source.host?.name ?? source.user?.name ?? source.service?.name;
-    if (!entityId || !uniqueEntityIds.includes(entityId)) {
-      continue;
-    }
-    const risk = source.host?.risk ?? source.user?.risk ?? source.service?.risk ?? {};
-    const entries = grouped.get(entityId) ?? [];
-    if (entries.length >= maxDocsPerEntity) {
-      continue;
-    }
-    entries.push({
-      entityId,
-      timestamp: source['@timestamp'] ?? '-',
-      score:
-        typeof risk.calculated_score_norm === 'number'
-          ? (risk.calculated_score_norm as number)
-          : null,
-      level: typeof risk.calculated_level === 'string' ? (risk.calculated_level as string) : '-',
-      scoreType: typeof risk.score_type === 'string' ? (risk.score_type as string) : '-',
-      calculationRunId:
-        typeof risk.calculation_run_id === 'string' ? (risk.calculation_run_id as string) : '-',
-      source: source as unknown as Record<string, unknown>,
+  const desiredSize = Math.max(100, uniqueEntityIds.length * Math.max(1, maxDocsPerEntity) * 4);
+  const pageSize = Math.min(10000, desiredSize);
+
+  const hasEnoughDocsForAllEntities = () =>
+    uniqueEntityIds.every((entityId) => (grouped.get(entityId)?.length ?? 0) >= maxDocsPerEntity);
+
+  let searchAfter: (string | number | boolean | null)[] | undefined;
+
+  while (!hasEnoughDocsForAllEntities()) {
+    const response = await client.search({
+      index: riskIndex,
+      size: pageSize,
+      sort: [{ '@timestamp': { order: 'desc' } }, { _id: { order: 'desc' } }],
+      search_after: searchAfter,
+      query: {
+        bool: {
+          should: [
+            { terms: { 'host.name': uniqueEntityIds } },
+            { terms: { 'user.name': uniqueEntityIds } },
+            { terms: { 'service.name': uniqueEntityIds } },
+          ],
+          minimum_should_match: 1,
+        },
+      },
     });
-    grouped.set(entityId, entries);
+
+    const hits = response.hits.hits;
+    if (hits.length === 0) {
+      break;
+    }
+
+    for (const hit of hits) {
+      const source = (hit._source ?? {}) as {
+        '@timestamp'?: string;
+        host?: { name?: string; risk?: Record<string, unknown> };
+        user?: { name?: string; risk?: Record<string, unknown> };
+        service?: { name?: string; risk?: Record<string, unknown> };
+      };
+      const entityId = source.host?.name ?? source.user?.name ?? source.service?.name;
+      if (!entityId || !uniqueEntityIdSet.has(entityId)) {
+        continue;
+      }
+      const risk = source.host?.risk ?? source.user?.risk ?? source.service?.risk ?? {};
+      const entries = grouped.get(entityId) ?? [];
+      if (entries.length >= maxDocsPerEntity) {
+        continue;
+      }
+      entries.push({
+        entityId,
+        timestamp: source['@timestamp'] ?? '-',
+        score:
+          typeof risk.calculated_score_norm === 'number'
+            ? (risk.calculated_score_norm as number)
+            : null,
+        level: typeof risk.calculated_level === 'string' ? (risk.calculated_level as string) : '-',
+        scoreType: typeof risk.score_type === 'string' ? (risk.score_type as string) : '-',
+        calculationRunId:
+          typeof risk.calculation_run_id === 'string' ? (risk.calculation_run_id as string) : '-',
+        source: source as unknown as Record<string, unknown>,
+      });
+      grouped.set(entityId, entries);
+    }
+
+    const lastHit = hits[hits.length - 1];
+    if (!lastHit.sort || lastHit.sort.length === 0) {
+      break;
+    }
+    searchAfter = lastHit.sort as (string | number | boolean | null)[];
   }
   return grouped;
 };
@@ -4789,7 +4814,7 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
       'Follow-on actions requested, but output is non-interactive (non-TTY). Skipping menu.',
     );
   } else {
-    log.info('Follow-on menu disabled (--no-follow-on).');
+    log.info('Follow-on menu disabled.');
   }
   if (stageTimings.length > 0) {
     log.info(

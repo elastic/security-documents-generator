@@ -54,6 +54,17 @@ const getDispatcher = () => {
   return undefined;
 };
 
+const redactUrl = (urlStr: string): string => {
+  try {
+    const parsed = new URL(urlStr);
+    parsed.username = '';
+    parsed.password = '';
+    return parsed.toString();
+  } catch {
+    return urlStr;
+  }
+};
+
 const joinUrl = (...parts: string[]) =>
   parts.map((p, i) => (i === 0 ? p.replace(/\/+$/, '') : p.replace(/^\/+/, ''))).join('/');
 
@@ -127,6 +138,7 @@ export const kibanaFetch = async <T>(
   headers.set('x-elastic-internal-origin', 'kibana');
   headers.set('elastic-api-version', apiVersion);
   let result: Response;
+  const safeUrl = redactUrl(url);
   try {
     result = await fetch(url, {
       headers: headers,
@@ -135,7 +147,7 @@ export const kibanaFetch = async <T>(
     } as RequestInit);
   } catch (error) {
     const details = formatCauseDetails(error);
-    const message = `Network request failed for ${method} ${url}. Details: ${details}. Check Kibana URL, credentials, and whether Kibana is running.`;
+    const message = `Network request failed for ${method} ${safeUrl}. Details: ${details}. Check Kibana URL, credentials, and whether Kibana is running.`;
     throw new Error(message, { cause: error });
   }
   const rawResponse = await result.text();
@@ -148,13 +160,13 @@ export const kibanaFetch = async <T>(
   }
   if (!data || typeof data !== 'object') {
     throw new Error(
-      `Unexpected non-object response from ${method} ${url}. Raw response: ${rawResponse.slice(0, 500)}`,
+      `Unexpected non-object response from ${method} ${safeUrl}. Raw response: ${rawResponse.slice(0, 500)}`,
     );
   }
 
   if (result.status >= 400 && !ignoreStatusesArray.includes(result.status)) {
     throwResponseError(
-      `Request failed for ${method} ${url}, status: ${result.status}`,
+      `Request failed for ${method} ${safeUrl}, status: ${result.status}`,
       result.status,
       data,
     );
@@ -1070,6 +1082,7 @@ export const uploadPrivmonCsv = async (
       path: '/api/entity_analytics/monitoring/users/_csv',
       space,
     });
+    const safeUploadUrl = redactUrl(uploadUrl);
     const response = await fetch(uploadUrl, {
       method: 'POST',
       headers: {
@@ -1084,7 +1097,7 @@ export const uploadPrivmonCsv = async (
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to upload CSV: ${errorText}`);
+      throw new Error(`Failed to upload CSV to ${safeUploadUrl}: ${errorText}`);
     }
 
     return { success: true };
