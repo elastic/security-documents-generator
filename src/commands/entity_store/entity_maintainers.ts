@@ -270,7 +270,7 @@ const generateRelationshipsFields = (allEntityNames: string[], currentEntityName
 
 const generateWatchlistFields = (existingWatchlists?: string[]) => {
   const watchlists = new Set(existingWatchlists ?? []);
-  watchlists.add('Privileged User');
+  watchlists.add('privileged-user-monitoring-watchlist-id');
 
   return {
     entity: {

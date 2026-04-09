@@ -73,10 +73,31 @@ export function wrapAction<TArgs extends unknown[]>(
   fn: (...args: TArgs) => Promise<void>,
 ): (...args: TArgs) => Promise<void> {
   return async (...args: TArgs) => {
+    let isShuttingDown = false;
+
+    const onSigInt = () => {
+      if (isShuttingDown) {
+        log.info('\nForce quitting...');
+        process.exit(130);
+      }
+      isShuttingDown = true;
+      log.info('\nInterrupted, shutting down... (Ctrl+C again to force quit)');
+      process.exitCode = 130;
+
+      setTimeout(() => {
+        log.info('\nShutdown timed out, force quitting...');
+        process.exit(130);
+      }, 5000).unref();
+    };
+
+    process.on('SIGINT', onSigInt);
+
     try {
       await fn(...args);
     } catch (error) {
       handleCommandError(error);
+    } finally {
+      process.off('SIGINT', onSigInt);
     }
   };
 }
