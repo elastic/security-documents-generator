@@ -10,6 +10,7 @@ import {
   DETECTION_ENGINE_RULES_URL,
   COMPONENT_TEMPLATES_URL,
   FLEET_EPM_PACKAGES_URL,
+  FLEET_EPM_INSTALL_PACKAGE_URL,
   SPACES_URL,
   SPACE_URL,
   RISK_SCORE_URL,
@@ -151,17 +152,31 @@ export const kibanaFetch = async <T>(
     throw new Error(message, { cause: error });
   }
   const rawResponse = await result.text();
-  // log response status
+
   let data: unknown;
-  try {
-    data = rawResponse ? JSON.parse(rawResponse) : {};
-  } catch {
-    data = { message: rawResponse };
+  if (!rawResponse.trim()) {
+    data = {};
+  } else {
+    try {
+      data = JSON.parse(rawResponse);
+    } catch {
+      const origin = (() => {
+        try {
+          return new URL(url).origin;
+        } catch {
+          return '(invalid kibana URL)';
+        }
+      })();
+      throw new Error(
+        `Kibana API returned non-JSON (HTTP ${result.status}) for ${path} at ${origin}. ` +
+          `Body starts with: ${JSON.stringify(rawResponse.slice(0, 120))}. ` +
+          `Check kibana.node is the Kibana base URL (not Elasticsearch). If Kibana uses server.basePath, ` +
+          `include it in kibana.node (e.g. http://host:5601/mybase).`,
+      );
+    }
   }
   if (!data || typeof data !== 'object') {
-    throw new Error(
-      `Unexpected non-object response from ${method} ${safeUrl}. Raw response: ${rawResponse.slice(0, 500)}`,
-    );
+    throw new Error(`Unexpected Kibana response shape for ${path}`);
   }
 
   if (result.status >= 400 && !ignoreStatusesArray.includes(result.status)) {
@@ -342,7 +357,13 @@ export const installPackage = async ({
   space?: string;
   prerelease?: boolean;
 }) => {
-  let url = FLEET_EPM_PACKAGES_URL(packageName, version);
+  let resolvedVersion = version;
+  if (version === 'latest') {
+    const pkg = await getPackageInfo({ packageName, space, prerelease });
+    resolvedVersion = pkg.item.version;
+  }
+
+  let url = FLEET_EPM_INSTALL_PACKAGE_URL(packageName, resolvedVersion);
   if (prerelease) {
     url += '?prerelease=true';
   }
@@ -392,15 +413,17 @@ export const createAgentPolicy = async ({
 export const getPackageInfo = async ({
   packageName,
   space,
+  prerelease = false,
 }: {
   packageName: string;
   space?: string;
+  prerelease?: boolean;
 }): Promise<{ item: { name: string; version: string; status: string } }> => {
-  return kibanaFetch(
-    FLEET_EPM_PACKAGES_URL(packageName),
-    { method: 'GET' },
-    { apiVersion: API_VERSIONS.public.v1, space },
-  );
+  let path = FLEET_EPM_PACKAGES_URL(packageName);
+  if (prerelease) {
+    path += '?prerelease=true';
+  }
+  return kibanaFetch(path, { method: 'GET' }, { apiVersion: API_VERSIONS.public.v1, space });
 };
 
 export const getPackagePolicies = async ({
