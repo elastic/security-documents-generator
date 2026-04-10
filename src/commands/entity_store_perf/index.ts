@@ -9,6 +9,7 @@ import {
   uploadPerfDataFileInterval,
   isValidDistributionType,
   type DistributionType,
+  ENTITY_DISTRIBUTIONS,
 } from './entity_store_perf.ts';
 
 export const entityStorePerfCommands: CommandModule = {
@@ -50,7 +51,7 @@ export const entityStorePerfCommands: CommandModule = {
           const distributionType = options.distribution as DistributionType;
           if (!isValidDistributionType(distributionType)) {
             log.error(`❌ Invalid distribution type: ${distributionType}`);
-            log.error(`   Available types: equal, standard, absolute`);
+            log.error(`   Available types: ${Object.keys(ENTITY_DISTRIBUTIONS).join(', ')}`);
             process.exit(1);
           }
 

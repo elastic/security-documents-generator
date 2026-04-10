@@ -868,7 +868,8 @@ export const createPerfDataFile = async ({
   );
 
   if (distribution === 'absolute') {
-    const pct = (n: number) => ((n / entityCount) * 100).toFixed(1);
+    // if there are no entities, we will show 100% for each type
+    const pct = (n: number) => (entityCount > 0 ? ((n / entityCount) * 100).toFixed(1) : '100');
     log.info(
       `Distribution (absolute): ${entityCounts.user} users (${pct(entityCounts.user)}%), ` +
         `${entityCounts.host} hosts (${pct(entityCounts.host)}%), ` +
