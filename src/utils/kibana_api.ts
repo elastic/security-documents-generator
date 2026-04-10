@@ -851,7 +851,7 @@ export const linkResolutionEntities = async ({
   space?: string;
 }) => {
   const spacePath = getEntityStoreV2SpacePath(space);
-  const path = `${spacePath}${ENTITY_STORE_V2_RESOLUTION_LINK_URL}?apiVersion=2`;
+  const path = `${spacePath}${ENTITY_STORE_V2_RESOLUTION_LINK_URL}`;
   return kibanaFetch<ResolutionLinkResponse>(
     path,
     {
@@ -861,7 +861,7 @@ export const linkResolutionEntities = async ({
         entity_ids: entityIds,
       }),
     },
-    { apiVersion: '2' },
+    { apiVersion: API_VERSIONS.public.v1 },
   );
 };
 
@@ -873,7 +873,7 @@ export const unlinkResolutionEntities = async ({
   space?: string;
 }) => {
   const spacePath = getEntityStoreV2SpacePath(space);
-  const path = `${spacePath}${ENTITY_STORE_V2_RESOLUTION_UNLINK_URL}?apiVersion=2`;
+  const path = `${spacePath}${ENTITY_STORE_V2_RESOLUTION_UNLINK_URL}`;
   return kibanaFetch<ResolutionUnlinkResponse>(
     path,
     {
@@ -882,7 +882,7 @@ export const unlinkResolutionEntities = async ({
         entity_ids: entityIds,
       }),
     },
-    { apiVersion: '2' },
+    { apiVersion: API_VERSIONS.public.v1 },
   );
 };
 
@@ -898,7 +898,11 @@ export const getResolutionGroup = async ({
   query.set('apiVersion', '2');
   query.set('entity_id', entityId);
   const path = `${spacePath}${ENTITY_STORE_V2_RESOLUTION_GROUP_URL}?${query.toString()}`;
-  return kibanaFetch<ResolutionGroupResponse>(path, { method: 'GET' }, { apiVersion: '2' });
+  return kibanaFetch<ResolutionGroupResponse>(
+    path,
+    { method: 'GET' },
+    { apiVersion: API_VERSIONS.public.v1 },
+  );
 };
 
 export const createWatchlist = async ({
@@ -931,14 +935,14 @@ export const forceBulkUpdateEntitiesViaCrud = async ({
   space?: string;
 }) => {
   const spacePath = getEntityStoreV2SpacePath(space);
-  const path = `${spacePath}${ENTITY_STORE_V2_CRUD_BULK_URL}?apiVersion=2&force=true`;
+  const path = `${spacePath}${ENTITY_STORE_V2_CRUD_BULK_URL}?force=true`;
   return kibanaFetch<{ ok: boolean; errors?: unknown[] }>(
     path,
     {
       method: 'PUT',
       body: JSON.stringify({ entities }),
     },
-    { apiVersion: '2' },
+    { apiVersion: API_VERSIONS.public.v1 },
   );
 };
 
