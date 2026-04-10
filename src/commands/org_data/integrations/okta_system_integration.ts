@@ -16,6 +16,7 @@ import {
   type OktaGroup,
 } from '../types.ts';
 import { faker } from '@faker-js/faker';
+import { log } from '../../../utils/logger.ts';
 
 /**
  * Okta applications for SSO events
@@ -1228,8 +1229,7 @@ export class OktaSystemIntegration extends BaseIntegration {
     const rogueCount = Math.max(1, Math.floor(org.employees.length * 0.03));
     const rogueEmployees = faker.helpers.arrayElements(org.employees, rogueCount);
 
-    // eslint-disable-next-line no-console
-    console.log(
+    log.info(
       `  Generating PAD anomalous Okta patterns for ${rogueEmployees.length} rogue actor(s)...`,
     );
 
@@ -1240,8 +1240,7 @@ export class OktaSystemIntegration extends BaseIntegration {
 
       events.push(...burstEvents, ...sessionEvents, ...rareEvents);
 
-      // eslint-disable-next-line no-console
-      console.log(
+      log.info(
         `    - ${rogue.firstName} ${rogue.lastName} (${rogue.email}): ` +
           `${burstEvents.length} admin burst events, ` +
           `${sessionEvents.length} multi-country sessions, ` +
@@ -1249,8 +1248,7 @@ export class OktaSystemIntegration extends BaseIntegration {
       );
     }
 
-    // eslint-disable-next-line no-console
-    console.log(`  Total PAD anomalous events: ${events.length}`);
+    log.info(`  Total PAD anomalous events: ${events.length}`);
 
     return events;
   }
