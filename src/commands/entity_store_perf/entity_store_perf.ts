@@ -26,8 +26,6 @@ import {
 } from '../../types/entities.ts';
 import { getEntityStorePerfDataDir } from '../../utils/data_paths.ts';
 
-const config = getConfig();
-
 // Checkpoint stability configuration for transform completion detection
 // Consider checkpoint stable if it hasn't changed in this duration (10 seconds)
 const CHECKPOINT_STABLE_TIME_MS = 10000;
@@ -594,6 +592,7 @@ const waitForTransformToComplete = async (
 };
 
 const logClusterHealthEvery = (name: string, interval: number): (() => void) => {
+  const config = getConfig();
   if (config.serverless) {
     log.info('Skipping cluster health on serverless cluster');
     return () => {};
@@ -677,6 +676,7 @@ const logTransformStatsEvery = (name: string, interval: number): (() => void) =>
 };
 
 const logNodeStatsEvery = (name: string, interval: number): (() => void) => {
+  const config = getConfig();
   if (config.serverless) {
     log.info('Skipping node stats on serverless cluster');
     return () => {};
