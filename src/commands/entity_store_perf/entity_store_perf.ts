@@ -141,13 +141,6 @@ const generateHostFields = ({
 }: GeneratorOptions): HostFields => {
   const id = `${idPrefix}-host-${entityIndex}`;
   return {
-    entity: {
-      id: id,
-      name: id,
-      type: 'host',
-      sub_type: 'aws_ec2_instance',
-      address: `example.${idPrefix}.com`,
-    },
     host: {
       id: id,
       name: id,
@@ -183,8 +176,6 @@ const changeServiceName = (doc: Record<string, any>, addition: string) => {
   const newName = `${doc.service.name}-${addition}`;
   doc.service.name = newName;
   doc.service.id = newName;
-  doc.entity.name = newName;
-  doc.entity.id = newName;
   return doc;
 };
 
@@ -206,13 +197,6 @@ const changeGenericEntityName = (doc: Record<string, any>, addition: string) => 
 const generateUserFields = ({ idPrefix, entityIndex }: GeneratorOptions): UserFields => {
   const id = `${idPrefix}-user-${entityIndex}`;
   return {
-    entity: {
-      id: id,
-      name: id,
-      type: 'user',
-      sub_type: 'aws_iam_user',
-      address: `example.${idPrefix}.com`,
-    },
     user: {
       id: id,
       name: id,
@@ -233,13 +217,6 @@ const generateUserFields = ({ idPrefix, entityIndex }: GeneratorOptions): UserFi
 const generateServiceFields = ({ idPrefix, entityIndex }: GeneratorOptions): ServiceFields => {
   const id = `${idPrefix}-service-${entityIndex}`;
   return {
-    entity: {
-      id: id,
-      name: id,
-      type: 'service',
-      sub_type: 'system',
-      address: `example.${idPrefix}.com`,
-    },
     service: {
       id: id,
       name: id,
@@ -353,15 +330,56 @@ export const ENTITY_DISTRIBUTIONS = {
   },
 } as const;
 
-export type DistributionType = keyof typeof ENTITY_DISTRIBUTIONS;
+export type PresetDistributionType = keyof typeof ENTITY_DISTRIBUTIONS;
+/** CLI / API: preset ratios (`equal`, `standard`) or `absolute` (explicit per-type counts). */
+export type DistributionType = PresetDistributionType | 'absolute';
 export type EntityType = 'user' | 'host' | 'service' | 'generic';
 
-export const DEFAULT_DISTRIBUTION: DistributionType = 'standard';
+export const DEFAULT_DISTRIBUTION: PresetDistributionType = 'standard';
+
+export const isValidDistributionType = (value: string): value is DistributionType =>
+  value === 'absolute' || Object.prototype.hasOwnProperty.call(ENTITY_DISTRIBUTIONS, value);
+
+export type ExplicitEntityCountsInput = {
+  user: number;
+  host: number;
+  service: number;
+  generic: number;
+};
 
 /**
- * Get entity distribution by type
+ * Validates explicit per-type counts for `--distribution absolute`.
+ * Each count must be a non-negative integer; the sum must equal totalEntityCount.
  */
-export const getEntityDistribution = (type: DistributionType = DEFAULT_DISTRIBUTION) => {
+export const validateExplicitEntityCounts = (
+  totalEntityCount: number,
+  counts: ExplicitEntityCountsInput,
+) => {
+  const keys: (keyof ExplicitEntityCountsInput)[] = ['user', 'host', 'service', 'generic'];
+  for (const key of keys) {
+    const v = counts[key];
+    if (!Number.isInteger(v) || v < 0) {
+      throw new Error(`Invalid ${key} count: expected a non-negative integer, got ${String(v)}`);
+    }
+  }
+  const { user, host, service, generic } = counts;
+  const sum = user + host + service + generic;
+  if (sum !== totalEntityCount) {
+    throw new Error(`Explicit entity counts sum to ${sum} but entity-count is ${totalEntityCount}`);
+  }
+  return {
+    user,
+    host,
+    generic,
+    service,
+    total: totalEntityCount,
+  };
+};
+
+/**
+ * Get entity distribution by type (preset only; not used for `absolute`)
+ */
+export const getEntityDistribution = (type: PresetDistributionType = DEFAULT_DISTRIBUTION) => {
   return ENTITY_DISTRIBUTIONS[type];
 };
 
@@ -819,26 +837,54 @@ export const createPerfDataFile = async ({
   startIndex,
   name,
   distribution = DEFAULT_DISTRIBUTION,
+  explicitEntityCounts,
 }: {
   name: string;
   entityCount: number;
   logsPerEntity: number;
   startIndex: number;
   distribution?: DistributionType;
+  explicitEntityCounts?: ExplicitEntityCountsInput;
 }): Promise<void> => {
   const filePath = getFilePath(name);
-  const dist = getEntityDistribution(distribution);
-  const entityCounts = calculateEntityCounts(entityCount, dist);
+
+  let entityCounts: ReturnType<typeof calculateEntityCounts>;
+
+  if (distribution === 'absolute') {
+    if (explicitEntityCounts === undefined) {
+      throw new Error('explicitEntityCounts is required when distribution is absolute');
+    }
+    entityCounts = validateExplicitEntityCounts(entityCount, explicitEntityCounts);
+  } else {
+    if (explicitEntityCounts !== undefined) {
+      throw new Error('explicitEntityCounts must not be set unless distribution is absolute');
+    }
+    const dist = getEntityDistribution(distribution);
+    entityCounts = calculateEntityCounts(entityCount, dist);
+  }
 
   log.info(
     `Creating performance data file ${name} with ${entityCount} entities and ${logsPerEntity} logs per entity. Starting at index ${startIndex}`,
   );
-  log.info(
-    `Distribution (${distribution}): ${entityCounts.user} users (${(dist.user * 100).toFixed(1)}%), ` +
-      `${entityCounts.host} hosts (${(dist.host * 100).toFixed(1)}%), ` +
-      `${entityCounts.service} services (${(dist.service * 100).toFixed(1)}%), ` +
-      `${entityCounts.generic} generic entities (${(dist.generic * 100).toFixed(1)}%)`,
-  );
+
+  if (distribution === 'absolute') {
+    // if there are no entities, we will show 100% for each type
+    const pct = (n: number) => (entityCount > 0 ? ((n / entityCount) * 100).toFixed(1) : '100');
+    log.info(
+      `Distribution (absolute): ${entityCounts.user} users (${pct(entityCounts.user)}%), ` +
+        `${entityCounts.host} hosts (${pct(entityCounts.host)}%), ` +
+        `${entityCounts.service} services (${pct(entityCounts.service)}%), ` +
+        `${entityCounts.generic} generic entities (${pct(entityCounts.generic)}%)`,
+    );
+  } else {
+    const dist = getEntityDistribution(distribution);
+    log.info(
+      `Distribution (${distribution}): ${entityCounts.user} users (${(dist.user * 100).toFixed(1)}%), ` +
+        `${entityCounts.host} hosts (${(dist.host * 100).toFixed(1)}%), ` +
+        `${entityCounts.service} services (${(dist.service * 100).toFixed(1)}%), ` +
+        `${entityCounts.generic} generic entities (${(dist.generic * 100).toFixed(1)}%)`,
+    );
+  }
 
   if (fs.existsSync(filePath)) {
     log.info(`Data file ${name}.json already exists. Deleting...`);
@@ -1041,6 +1087,11 @@ export const uploadPerfDataFile = async (
   indexOverride?: string,
   deleteEntities?: boolean,
   noTransforms?: boolean,
+  metricsOptions?: {
+    enabled: boolean;
+    samplingIntervalMs: number;
+    transformTimeoutMs: number;
+  },
 ) => {
   const index = indexOverride || `logs-perftest.${name}-default`;
   const entityIndex = noTransforms ? ENTITY_INDEX_V2 : ENTITY_INDEX_V1;
@@ -1083,15 +1134,58 @@ export const uploadPerfDataFile = async (
     `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`,
   );
   const startTime = Date.now();
+  const samplingInterval = metricsOptions?.samplingIntervalMs ?? 5000;
+  const transformTimeout = metricsOptions?.transformTimeoutMs ?? 1800000;
+  const metricsEnabled = metricsOptions?.enabled ?? false;
 
-  await uploadFile({ filePath, index, lineCount });
-  const ingestTook = Date.now() - startTime;
-  log.info(`Data file ${name} uploaded to index ${index} in ${ingestTook}ms`);
+  let stopHealthLogging = () => {};
+  let stopTransformsLogging = () => {};
+  let stopNodeStatsLogging = () => {};
+  let stopKibanaStatsLogging = () => {};
 
-  await countEntitiesUntil(name, entityCount, entityIndex);
+  if (metricsEnabled) {
+    stopHealthLogging = logClusterHealthEvery(name, samplingInterval);
+    stopNodeStatsLogging = logNodeStatsEvery(name, samplingInterval);
+    stopKibanaStatsLogging = logKibanaStatsEvery(name, samplingInterval);
+    if (!noTransforms) {
+      stopTransformsLogging = logTransformStatsEvery(name, samplingInterval);
+    }
+  }
 
-  const tookTotal = Date.now() - startTime;
-  log.info(`Total time: ${tookTotal}ms`);
+  try {
+    await uploadFile({ filePath, index, lineCount });
+    const ingestTook = Date.now() - startTime;
+    log.info(`Data file ${name} uploaded to index ${index} in ${ingestTook}ms`);
+
+    await countEntitiesUntil(name, entityCount, entityIndex);
+
+    if (metricsEnabled && !noTransforms) {
+      log.info(
+        `Waiting for generic transform to process ${lineCount} documents (timeout: ${transformTimeout / 1000 / 60} minutes)...`,
+      );
+      try {
+        await waitForTransformToComplete(
+          'entities-v1-latest-security_generic_default',
+          lineCount,
+          transformTimeout,
+        );
+      } catch (error) {
+        log.warn(
+          `Warning: ${error instanceof Error ? error.message : 'Failed to wait for transform completion'}. Continuing...`,
+        );
+      }
+    }
+
+    const tookTotal = Date.now() - startTime;
+    log.info(`Total time: ${tookTotal}ms`);
+  } finally {
+    if (metricsEnabled) {
+      stopHealthLogging();
+      stopTransformsLogging();
+      stopNodeStatsLogging();
+      stopKibanaStatsLogging();
+    }
+  }
 };
 
 /**

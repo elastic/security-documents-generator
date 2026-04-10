@@ -723,9 +723,13 @@ export const enableEntityStoreV2 = async (space: string = 'default'): Promise<vo
  */
 export const installEntityStoreV2 = async (space: string = 'default'): Promise<void> => {
   const spacePath = getEntityStoreV2SpacePath(space);
-  const installPath = `${spacePath}${ENTITY_STORE_V2_INSTALL_URL}?apiVersion=2`;
+  const installPath = `${spacePath}${ENTITY_STORE_V2_INSTALL_URL}`;
 
-  await kibanaFetch(installPath, { method: 'POST', body: JSON.stringify({}) }, { apiVersion: '2' });
+  await kibanaFetch(
+    installPath,
+    { method: 'POST', body: JSON.stringify({}) },
+    { apiVersion: API_VERSIONS.public.v1 },
+  );
   log.info('Entity Store V2 installed successfully');
 };
 

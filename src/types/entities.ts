@@ -11,7 +11,6 @@ export interface EntityFields {
 }
 
 export interface HostFields {
-  entity: EntityFields;
   host: {
     hostname?: string;
     domain?: string;
@@ -25,7 +24,6 @@ export interface HostFields {
 }
 
 export interface UserFields {
-  entity: EntityFields;
   user: {
     full_name?: string[];
     domain?: string;
@@ -45,7 +43,6 @@ export interface UserFields {
 }
 
 export interface ServiceFields {
-  entity: EntityFields;
   service: {
     name: string;
     id?: string;
