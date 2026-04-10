@@ -1228,6 +1228,7 @@ export class OktaSystemIntegration extends BaseIntegration {
     const rogueCount = Math.max(1, Math.floor(org.employees.length * 0.03));
     const rogueEmployees = faker.helpers.arrayElements(org.employees, rogueCount);
 
+    // eslint-disable-next-line no-console
     console.log(
       `  Generating PAD anomalous Okta patterns for ${rogueEmployees.length} rogue actor(s)...`,
     );
@@ -1239,6 +1240,7 @@ export class OktaSystemIntegration extends BaseIntegration {
 
       events.push(...burstEvents, ...sessionEvents, ...rareEvents);
 
+      // eslint-disable-next-line no-console
       console.log(
         `    - ${rogue.firstName} ${rogue.lastName} (${rogue.email}): ` +
           `${burstEvents.length} admin burst events, ` +
@@ -1247,6 +1249,7 @@ export class OktaSystemIntegration extends BaseIntegration {
       );
     }
 
+    // eslint-disable-next-line no-console
     console.log(`  Total PAD anomalous events: ${events.length}`);
 
     return events;
