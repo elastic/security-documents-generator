@@ -4,7 +4,7 @@ import { chunk } from 'lodash-es';
 import { getEsClient } from '../utils/indices.ts';
 import { bulkIngest, bulkUpsert } from '../shared/elasticsearch.ts';
 import {
-  getEntityStoreV2Index,
+  getEntityStoreIndex,
   ENTITY_MAINTAINERS_OPTIONS,
   DEFAULT_CHUNK_SIZE,
   type EntityMaintainerOption,
@@ -113,7 +113,7 @@ const fetchEntities = async (
   const client = getEsClient();
 
   const response = await client.search({
-    index: getEntityStoreV2Index(space),
+    index: getEntityStoreIndex(space),
     size: count,
     sort: [{ '@timestamp': 'desc' }],
     query: {
@@ -270,7 +270,7 @@ const generateRelationshipsFields = (allEntityNames: string[], currentEntityName
 
 const generateWatchlistFields = (existingWatchlists?: string[]) => {
   const watchlists = new Set(existingWatchlists ?? []);
-  watchlists.add('Privileged User');
+  watchlists.add('privileged-user-monitoring-watchlist-id');
 
   return {
     entity: {

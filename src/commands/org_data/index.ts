@@ -20,17 +20,26 @@ export const orgDataCommands: CommandModule = {
       )
       .option('--all', 'Generate all integrations regardless of company size')
       .option('--detection-rules', 'Include sample detection rules for applicable integrations')
+      .option(
+        '--size <size>',
+        'Organization size without prompting (john-doe|small|medium|enterprise)',
+      )
+      .option(
+        '--productivity-suite <suite>',
+        'Productivity suite without prompting (microsoft|google)',
+      )
       .addHelpText('after', '\n' + getOrgDataHelp())
       .action(
         wrapAction(async (options) => {
           await runOrgData({
-            size: 'medium',
+            size: options.size,
             name: options.name,
             space: options.space,
             seed: options.seed,
             integrations: options.integrations,
             all: options.all,
             detectionRules: options.detectionRules,
+            productivitySuite: options.productivitySuite,
           });
         }),
       );

@@ -16,10 +16,9 @@ export const ENTITY_STORE_OPTIONS = {
   apiEnrichment: 'apiEnrichment',
 } as const;
 
-export const getEntityStoreV2Index = (space: string = 'default') =>
-  `.entities.v2.latest.security_${space}`;
+export const getEntityStoreIndex = (space: string = 'default') => `entities-latest-${space}`;
 
-export const ENTITY_STORE_V2_INDEX = getEntityStoreV2Index();
+export const ENTITY_STORE_INDEX = getEntityStoreIndex();
 export const ENTITY_MAINTAINERS_OPTIONS = {
   riskScore: 'riskScore',
   assetCriticality: 'assetCriticality',
@@ -85,13 +84,13 @@ export const ASSET_CRITICALITY_BULK_URL = '/api/asset_criticality/bulk';
 export const DETECTION_ENGINE_RULES_URL = '/api/detection_engine/rules';
 export const DETECTION_ENGINE_RULES_BULK_ACTION_URL = `${DETECTION_ENGINE_RULES_URL}/_bulk_action`;
 export const COMPONENT_TEMPLATES_URL = '/api/index_management/component_templates';
-export const FLEET_EPM_PACKAGES_URL = (packageName: string, version: string = 'latest') => {
-  let url = `/api/fleet/epm/packages/${packageName}`;
-  if (version !== 'latest') {
-    url = `${url}/${version}`;
-  }
-  return url;
-};
+/** GET package metadata — path is /packages/{pkgName} only (Kibana Fleet API). */
+export const FLEET_EPM_PACKAGES_URL = (packageName: string) =>
+  `/api/fleet/epm/packages/${packageName}`;
+
+/** POST install from registry — {pkgVersion} must be a semver (resolve “latest” via GET package first). */
+export const FLEET_EPM_INSTALL_PACKAGE_URL = (packageName: string, version: string) =>
+  `/api/fleet/epm/packages/${packageName}/${encodeURIComponent(version)}`;
 export const SPACES_URL = '/api/spaces/space';
 export const SPACE_URL = (space: string) => `/api/spaces/space/${space}`;
 
@@ -99,15 +98,27 @@ export const ENTITY_ENGINES_URL = '/api/entity_store/engines';
 export const ENTITY_ENGINE_URL = (engineType: string) => `${ENTITY_ENGINES_URL}/${engineType}`;
 export const INIT_ENTITY_ENGINE_URL = (engineType: string) =>
   `${ENTITY_ENGINE_URL(engineType)}/init`;
-export const ENTITY_STORE_ENTITIES_URL = (entityType: 'user' | 'host') =>
-  `/api/entity_store/entities/${entityType}`;
+export const ENTITY_STORE_ENTITIES_URL = (entityType: 'user' | 'host' | 'service') =>
+  `/api/security/entity_store/entities/${entityType}`;
 
 // Kibana Settings API endpoints
 export const KIBANA_SETTINGS_URL = '/api/kibana/settings';
 export const KIBANA_SETTINGS_INTERNAL_URL = '/internal/kibana/settings';
 
-// Entity Store V2 (ESQL) internal API
-export const ENTITY_STORE_V2_INSTALL_URL = '/internal/security/entity_store/install';
+// Entity Store V2 (ESQL) API
+export const ENTITY_STORE_V2_INSTALL_URL = '/api/security/entity_store/install';
+export const ENTITY_STORE_V2_FORCE_LOG_EXTRACTION_URL = (entityType: 'user' | 'host' | 'service') =>
+  `/internal/security/entity_store/${entityType}/force_log_extraction`;
+export const ENTITY_STORE_V2_CRUD_BULK_URL = '/api/security/entity_store/entities/bulk';
+export const ENTITY_STORE_V2_RESOLUTION_LINK_URL = '/api/security/entity_store/resolution/link';
+export const ENTITY_STORE_V2_RESOLUTION_UNLINK_URL = '/api/security/entity_store/resolution/unlink';
+export const ENTITY_STORE_V2_RESOLUTION_GROUP_URL = '/api/security/entity_store/resolution/group';
+export const ENTITY_MAINTAINERS_INIT_URL =
+  '/internal/security/entity_store/entity_maintainers/init';
+export const ENTITY_MAINTAINERS_URL = '/internal/security/entity_store/entity_maintainers';
+export const ENTITY_MAINTAINERS_RUN_URL = (id: string) =>
+  `/internal/security/entity_store/entity_maintainers/run/${id}`;
+export const WATCHLISTS_URL = '/api/entity_analytics/watchlists';
 
 // ML module group used by Security
 export const ML_GROUP_ID = 'security';

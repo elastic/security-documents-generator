@@ -3,17 +3,26 @@ import { faker } from '@faker-js/faker';
 function baseCreateAlerts({
   userName = 'user-1',
   hostName = 'host-1',
+  userId,
+  hostId,
+  eventModule,
   space = 'default',
 }: {
   userName?: string;
   hostName?: string;
+  userId?: string;
+  hostId?: string;
+  eventModule?: string;
   space?: string;
 } = {}) {
   const risk_score = faker.number.int({ min: 0, max: 100 });
   const severity = ['low', 'medium', 'high', 'critical'][faker.number.int({ min: 0, max: 3 })];
   return {
     'host.name': hostName,
+    ...(hostId ? { 'host.id': hostId } : {}),
     'user.name': userName,
+    ...(userId ? { 'user.id': userId } : {}),
+    ...(eventModule ? { 'event.module': eventModule } : {}),
     'kibana.alert.start': '2023-04-11T20:18:15.816Z',
     'kibana.alert.last_detected': '2023-04-11T20:18:15.816Z',
     'kibana.version': '8.7.0',
@@ -109,12 +118,21 @@ export default function createAlerts<O extends object>(
   {
     userName,
     hostName,
+    userId,
+    hostId,
+    eventModule,
     space,
   }: {
     userName?: string;
     hostName?: string;
+    userId?: string;
+    hostId?: string;
+    eventModule?: string;
     space?: string;
   } = {},
 ): O & BaseCreateAlertsReturnType {
-  return { ...baseCreateAlerts({ userName, hostName, space }), ...override };
+  return {
+    ...baseCreateAlerts({ userName, hostName, userId, hostId, eventModule, space }),
+    ...override,
+  };
 }

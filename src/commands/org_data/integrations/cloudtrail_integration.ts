@@ -25,7 +25,16 @@ import { faker } from '@faker-js/faker';
 const AWS_API_EVENTS: Record<string, { eventSource: string; events: string[] }> = {
   EC2: {
     eventSource: 'ec2.amazonaws.com',
-    events: ['DescribeInstances', 'DescribeSecurityGroups', 'DescribeVpcs', 'DescribeSubnets'],
+    events: [
+      'DescribeInstances',
+      'DescribeSecurityGroups',
+      'DescribeVpcs',
+      'DescribeSubnets',
+      'RunInstances',
+      'StopInstances',
+      'StartInstances',
+      'TerminateInstances',
+    ],
   },
   S3: {
     eventSource: 's3.amazonaws.com',
@@ -85,6 +94,68 @@ const AWS_USER_AGENTS = [
   'console.amazonaws.com',
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
   'terraform-aws-provider/5.31.0',
+];
+
+/**
+ * Tags required on every document for the ingest pipeline's entity
+ * classification script to run. Without 'actor_target_mapping' the
+ * Painless script that populates host.target.entity.id, user.entity.id,
+ * etc. is skipped entirely.
+ */
+const CLOUDTRAIL_TAGS = ['actor_target_mapping', 'forwarded'];
+
+/**
+ * Events the ingest pipeline's enrichment functions map to enrichCtx.target
+ * using the instance ID, which the target classifier then routes to
+ * host.target.entity.id (and host.id) via the i- prefix.
+ *
+ * Each entry carries its eventSource and the raw-event parameter shape
+ * the pipeline reads the instance ID from.
+ */
+const HOST_TARGET_EVENTS: {
+  eventSource: string;
+  eventName: string;
+  buildParams: (instanceId: string) => {
+    requestParameters: Record<string, unknown>;
+    responseElements?: null;
+  };
+}[] = [
+  {
+    eventSource: 'ec2.amazonaws.com',
+    eventName: 'GetPasswordData',
+    buildParams: (id) => ({
+      requestParameters: { instanceId: id },
+      responseElements: null,
+    }),
+  },
+  {
+    eventSource: 'ec2-instance-connect.amazonaws.com',
+    eventName: 'SendSSHPublicKey',
+    buildParams: (id) => ({
+      requestParameters: {
+        instanceId: id,
+        instanceOSUser: 'ec2-user',
+        sSHPublicKey: 'REDACTED',
+      },
+    }),
+  },
+  {
+    eventSource: 'ssm.amazonaws.com',
+    eventName: 'SendCommand',
+    buildParams: (id) => ({
+      requestParameters: {
+        instanceIds: [id],
+        documentName: 'AWS-RunShellScript',
+      },
+    }),
+  },
+  {
+    eventSource: 'ssm.amazonaws.com',
+    eventName: 'StartSession',
+    buildParams: (id) => ({
+      requestParameters: { target: id },
+    }),
+  },
 ];
 
 /**
@@ -251,6 +322,46 @@ export class CloudTrailIntegration extends BaseIntegration {
           ),
         );
       }
+
+      // Generate events that produce host.target.entity.id (2-4 per session)
+      const ec2Instances = accountResources.filter((r) => r.subType === 'AWS EC2 Instance');
+      if (ec2Instances.length > 0) {
+        const instanceEventCount = faker.number.int({ min: 2, max: 4 });
+        for (let i = 0; i < instanceEventCount; i++) {
+          const apiTime = new Date(
+            new Date(sessionStart).getTime() + faker.number.int({ min: 30, max: 600 }) * 1000,
+          ).toISOString();
+          const targetInstance = faker.helpers.arrayElement(ec2Instances);
+
+          events.push(
+            this.createHostTargetEvent(
+              {
+                type: 'AssumedRole',
+                principalId: `${this.generateRoleId()}:${employee.email}`,
+                arn: assumedRoleArn,
+                accountId: account!.id,
+                accessKeyId,
+                sessionContext: {
+                  attributes: {
+                    mfaAuthenticated: 'true',
+                    creationDate: apiTime,
+                  },
+                  sessionIssuer: {
+                    type: 'Role',
+                    principalId: this.generateRoleId(),
+                    arn: `arn:aws:iam::${account!.id}:role/okta`,
+                    accountId: account!.id,
+                    userName: 'okta',
+                  },
+                },
+              },
+              account!,
+              apiTime,
+              targetInstance,
+            ),
+          );
+        }
+      }
     }
 
     return events;
@@ -287,6 +398,32 @@ export class CloudTrailIntegration extends BaseIntegration {
           accountResources,
         ),
       );
+    }
+
+    // Generate events that produce host.target.entity.id (2-4 per batch)
+    const ec2Instances = accountResources.filter((r) => r.subType === 'AWS EC2 Instance');
+    if (ec2Instances.length > 0) {
+      const instanceEventCount = faker.number.int({ min: 2, max: 4 });
+      for (let i = 0; i < instanceEventCount; i++) {
+        const timestamp = this.getRandomTimestamp(48);
+        const targetInstance = faker.helpers.arrayElement(ec2Instances);
+
+        events.push(
+          this.createHostTargetEvent(
+            {
+              type: 'IAMUser',
+              principalId: this.generatePrincipalId(),
+              arn: iamUser.arn,
+              accountId: account!.id,
+              accessKeyId,
+              userName: iamUser.userName,
+            },
+            account!,
+            timestamp,
+            targetInstance,
+          ),
+        );
+      }
     }
 
     return events;
@@ -484,6 +621,7 @@ export class CloudTrailIntegration extends BaseIntegration {
       '@timestamp': timestamp,
       agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
+      tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
     } as IntegrationDocument;
   }
@@ -545,6 +683,7 @@ export class CloudTrailIntegration extends BaseIntegration {
       '@timestamp': timestamp,
       agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
+      tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
     } as IntegrationDocument;
   }
@@ -627,6 +766,7 @@ export class CloudTrailIntegration extends BaseIntegration {
       '@timestamp': timestamp,
       agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
+      tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
     } as IntegrationDocument;
   }
@@ -682,6 +822,7 @@ export class CloudTrailIntegration extends BaseIntegration {
       '@timestamp': timestamp,
       agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
+      tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
     } as IntegrationDocument;
   }
@@ -751,6 +892,49 @@ export class CloudTrailIntegration extends BaseIntegration {
       '@timestamp': timestamp,
       agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
+      tags: CLOUDTRAIL_TAGS,
+      data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
+    } as IntegrationDocument;
+  }
+
+  /**
+   * Create an event that the ingest pipeline maps to host.target.entity.id.
+   * Uses HOST_TARGET_EVENTS which produce the exact parameter shapes that
+   * enrichEc2 / enrichSsm / enrichEc2InstanceConnect add to enrichCtx.target.
+   */
+  private createHostTargetEvent(
+    userIdentity: Record<string, unknown>,
+    account: CloudAccount,
+    timestamp: string,
+    instance: CloudResource,
+  ): IntegrationDocument {
+    const hostTargetEvent = faker.helpers.arrayElement(HOST_TARGET_EVENTS);
+    const params = hostTargetEvent.buildParams(instance.id);
+
+    const rawEvent: Record<string, unknown> = {
+      eventVersion: '1.08',
+      userIdentity,
+      eventTime: timestamp,
+      eventSource: hostTargetEvent.eventSource,
+      eventName: hostTargetEvent.eventName,
+      awsRegion: instance.region,
+      sourceIPAddress: faker.internet.ipv4(),
+      userAgent: faker.helpers.arrayElement(AWS_USER_AGENTS),
+      requestParameters: params.requestParameters,
+      ...(params.responseElements !== undefined && {
+        responseElements: params.responseElements,
+      }),
+      eventID: faker.string.uuid(),
+      readOnly: hostTargetEvent.eventName === 'GetPasswordData',
+      eventType: 'AwsApiCall',
+      managementEvent: true,
+      recipientAccountId: account.id,
+    };
+
+    return {
+      '@timestamp': timestamp,
+      message: JSON.stringify(rawEvent),
+      tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
     } as IntegrationDocument;
   }

@@ -129,7 +129,7 @@ export class JamfProIntegration extends BaseIntegration {
   private createInventoryDocument(
     device: Device,
     employee: Employee,
-    org: Organization,
+    _org: Organization,
     udid: string,
     jssId: string,
   ): IntegrationDocument {
@@ -138,14 +138,17 @@ export class JamfProIntegration extends BaseIntegration {
     const lastReportDate = faker.date.recent({ days: 3 }).toISOString();
     const lastEnrolledDate = faker.date.past({ years: 1 }).toISOString();
     const initialEntryDate = faker.date.past({ years: 2 }).toISOString().split('T')[0];
-    const ipAddress = `10.${faker.number.int({ min: 0, max: 255 })}.${faker.number.int({ min: 0, max: 255 })}.${faker.number.int({ min: 1, max: 254 })}`;
     const managementId = faker.string.uuid();
+    // Use device IP so entity store can correlate with endpoint host.ip
+    const ipAddress = device.ipAddress;
+    // Use same hostname pattern as endpoint (employee.userName-platform) for host entity correlation
+    const hostname = `${employee.userName}-mac`;
 
     const inventoryPayload = {
       id: jssId,
       udid: udid,
       general: {
-        name: `${org.name.toLowerCase().replace(/[^a-z0-9]/g, '')}-${device.serialNumber}`,
+        name: hostname,
         platform: 'Mac',
         last_ip_address: ipAddress,
         last_reported_ip: ipAddress,
@@ -184,7 +187,6 @@ export class JamfProIntegration extends BaseIntegration {
       },
     };
 
-    const hostname = `${employee.userName}-${device.platform}`;
     return {
       '@timestamp': this.getRandomTimestamp(24),
       agent: this.buildLocalAgent(device, hostname),

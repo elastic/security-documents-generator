@@ -10,6 +10,7 @@ import {
   DETECTION_ENGINE_RULES_URL,
   COMPONENT_TEMPLATES_URL,
   FLEET_EPM_PACKAGES_URL,
+  FLEET_EPM_INSTALL_PACKAGE_URL,
   SPACES_URL,
   SPACE_URL,
   RISK_SCORE_URL,
@@ -25,6 +26,15 @@ import {
   KIBANA_SETTINGS_INTERNAL_URL,
   ENTITY_STORE_ENTITIES_URL,
   ENTITY_STORE_V2_INSTALL_URL,
+  ENTITY_STORE_V2_FORCE_LOG_EXTRACTION_URL,
+  ENTITY_STORE_V2_RESOLUTION_GROUP_URL,
+  ENTITY_STORE_V2_RESOLUTION_LINK_URL,
+  ENTITY_STORE_V2_RESOLUTION_UNLINK_URL,
+  ENTITY_MAINTAINERS_INIT_URL,
+  ENTITY_MAINTAINERS_URL,
+  ENTITY_MAINTAINERS_RUN_URL,
+  WATCHLISTS_URL,
+  ENTITY_STORE_V2_CRUD_BULK_URL,
   ML_GROUP_ID,
 } from '../constants.ts';
 
@@ -45,6 +55,17 @@ const getDispatcher = () => {
   return undefined;
 };
 
+const redactUrl = (urlStr: string): string => {
+  try {
+    const parsed = new URL(urlStr);
+    parsed.username = '';
+    parsed.password = '';
+    return parsed.toString();
+  } catch {
+    return urlStr;
+  }
+};
+
 const joinUrl = (...parts: string[]) =>
   parts.map((p, i) => (i === 0 ? p.replace(/\/+$/, '') : p.replace(/^\/+/, ''))).join('/');
 
@@ -56,6 +77,7 @@ export const buildKibanaUrl = (opts: { path: string; space?: string }) => {
 };
 
 type ResponseError = Error & { statusCode: number; responseData: unknown };
+type ErrorWithCause = Error & { cause?: unknown };
 
 const getAuthorizationHeader = () => {
   const config = getConfig();
@@ -75,6 +97,27 @@ const throwResponseError = (message: string, statusCode: number, response: unkno
   throw error;
 };
 
+const formatCauseDetails = (error: unknown): string => {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+
+  const details: string[] = [error.message];
+  const causeRecord = error as ErrorWithCause & {
+    code?: string;
+    errno?: number | string;
+    address?: string;
+    port?: number;
+  };
+
+  if (causeRecord.code) details.push(`code=${causeRecord.code}`);
+  if (causeRecord.errno !== undefined) details.push(`errno=${String(causeRecord.errno)}`);
+  if (causeRecord.address) details.push(`address=${causeRecord.address}`);
+  if (causeRecord.port !== undefined) details.push(`port=${String(causeRecord.port)}`);
+
+  return details.join(', ');
+};
+
 export const kibanaFetch = async <T>(
   path: string,
   params: object,
@@ -86,6 +129,7 @@ export const kibanaFetch = async <T>(
 ): Promise<T> => {
   const { ignoreStatuses, apiVersion = '1', space } = opts;
   const url = buildKibanaUrl({ path, space });
+  const method = ((params as { method?: string }).method ?? 'GET').toUpperCase();
   const ignoreStatusesArray = Array.isArray(ignoreStatuses) ? ignoreStatuses : [ignoreStatuses];
   const headers = new Headers();
   headers.append('Content-Type', 'application/json');
@@ -94,26 +138,50 @@ export const kibanaFetch = async <T>(
 
   headers.set('x-elastic-internal-origin', 'kibana');
   headers.set('elastic-api-version', apiVersion);
-  const result = await fetch(url, {
-    headers: headers,
-    ...params,
-    dispatcher: getDispatcher(),
-  } as RequestInit);
-  const rawResponse = await result.text();
-  // log response status
-  let data: unknown;
+  let result: Response;
+  const safeUrl = redactUrl(url);
   try {
-    data = rawResponse ? JSON.parse(rawResponse) : {};
-  } catch {
-    data = { message: rawResponse };
+    result = await fetch(url, {
+      headers: headers,
+      ...params,
+      dispatcher: getDispatcher(),
+    } as RequestInit);
+  } catch (error) {
+    const details = formatCauseDetails(error);
+    const message = `Network request failed for ${method} ${safeUrl}. Details: ${details}. Check Kibana URL, credentials, and whether Kibana is running.`;
+    throw new Error(message, { cause: error });
+  }
+  const rawResponse = await result.text();
+
+  let data: unknown;
+  if (!rawResponse.trim()) {
+    data = {};
+  } else {
+    try {
+      data = JSON.parse(rawResponse);
+    } catch {
+      const origin = (() => {
+        try {
+          return new URL(url).origin;
+        } catch {
+          return '(invalid kibana URL)';
+        }
+      })();
+      throw new Error(
+        `Kibana API returned non-JSON (HTTP ${result.status}) for ${path} at ${origin}. ` +
+          `Body starts with: ${JSON.stringify(rawResponse.slice(0, 120))}. ` +
+          `Check kibana.node is the Kibana base URL (not Elasticsearch). If Kibana uses server.basePath, ` +
+          `include it in kibana.node (e.g. http://host:5601/mybase).`,
+      );
+    }
   }
   if (!data || typeof data !== 'object') {
-    throw new Error();
+    throw new Error(`Unexpected Kibana response shape for ${path}`);
   }
 
   if (result.status >= 400 && !ignoreStatusesArray.includes(result.status)) {
     throwResponseError(
-      `Failed to fetch data from ${url}, status: ${result.status}`,
+      `Request failed for ${method} ${safeUrl}, status: ${result.status}`,
       result.status,
       data,
     );
@@ -289,7 +357,13 @@ export const installPackage = async ({
   space?: string;
   prerelease?: boolean;
 }) => {
-  let url = FLEET_EPM_PACKAGES_URL(packageName, version);
+  let resolvedVersion = version;
+  if (version === 'latest') {
+    const pkg = await getPackageInfo({ packageName, space, prerelease });
+    resolvedVersion = pkg.item.version;
+  }
+
+  let url = FLEET_EPM_INSTALL_PACKAGE_URL(packageName, resolvedVersion);
   if (prerelease) {
     url += '?prerelease=true';
   }
@@ -339,15 +413,17 @@ export const createAgentPolicy = async ({
 export const getPackageInfo = async ({
   packageName,
   space,
+  prerelease = false,
 }: {
   packageName: string;
   space?: string;
+  prerelease?: boolean;
 }): Promise<{ item: { name: string; version: string; status: string } }> => {
-  return kibanaFetch(
-    FLEET_EPM_PACKAGES_URL(packageName),
-    { method: 'GET' },
-    { apiVersion: API_VERSIONS.public.v1, space },
-  );
+  let path = FLEET_EPM_PACKAGES_URL(packageName);
+  if (prerelease) {
+    path += '?prerelease=true';
+  }
+  return kibanaFetch(path, { method: 'GET' }, { apiVersion: API_VERSIONS.public.v1, space });
 };
 
 export const getPackagePolicies = async ({
@@ -670,10 +746,204 @@ export const enableEntityStoreV2 = async (space: string = 'default'): Promise<vo
  */
 export const installEntityStoreV2 = async (space: string = 'default'): Promise<void> => {
   const spacePath = getEntityStoreV2SpacePath(space);
-  const installPath = `${spacePath}${ENTITY_STORE_V2_INSTALL_URL}?apiVersion=2`;
+  const installPath = `${spacePath}${ENTITY_STORE_V2_INSTALL_URL}`;
 
-  await kibanaFetch(installPath, { method: 'POST', body: JSON.stringify({}) }, { apiVersion: '2' });
+  await kibanaFetch(
+    installPath,
+    { method: 'POST', body: JSON.stringify({}) },
+    { apiVersion: API_VERSIONS.public.v1 },
+  );
   log.info('Entity Store V2 installed successfully');
+};
+
+export const forceLogExtraction = async (
+  entityType: 'user' | 'host' | 'service',
+  {
+    fromDateISO,
+    toDateISO,
+    space = 'default',
+  }: { fromDateISO: string; toDateISO: string; space?: string },
+) => {
+  const spacePath = getEntityStoreV2SpacePath(space);
+  const path = `${spacePath}${ENTITY_STORE_V2_FORCE_LOG_EXTRACTION_URL(entityType)}`;
+  return kibanaFetch(
+    path,
+    {
+      method: 'POST',
+      body: JSON.stringify({ fromDateISO, toDateISO }),
+    },
+    { apiVersion: '2' },
+  );
+};
+
+export const initEntityMaintainers = async (space: string = 'default') => {
+  const spacePath = getEntityStoreV2SpacePath(space);
+  const path = `${spacePath}${ENTITY_MAINTAINERS_INIT_URL}?apiVersion=2`;
+  return kibanaFetch(
+    path,
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    },
+    { apiVersion: '2' },
+  );
+};
+
+export interface EntityMaintainerStatus {
+  id: string;
+  runs: number;
+  taskStatus: string;
+}
+
+export const getEntityMaintainers = async (space: string = 'default', ids?: string[]) => {
+  const spacePath = getEntityStoreV2SpacePath(space);
+  const query = new URLSearchParams();
+  query.set('apiVersion', '2');
+  if (ids && ids.length > 0) {
+    query.set('ids', ids.join(','));
+  }
+  const path = `${spacePath}${ENTITY_MAINTAINERS_URL}?${query.toString()}`;
+
+  return kibanaFetch<{ maintainers: EntityMaintainerStatus[] }>(
+    path,
+    { method: 'GET' },
+    { apiVersion: '2' },
+  );
+};
+
+export const runEntityMaintainer = async (maintainerId: string, space: string = 'default') => {
+  const spacePath = getEntityStoreV2SpacePath(space);
+  const path = `${spacePath}${ENTITY_MAINTAINERS_RUN_URL(maintainerId)}?apiVersion=2`;
+  return kibanaFetch(
+    path,
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    },
+    { apiVersion: '2' },
+  );
+};
+
+export interface ResolutionLinkResponse {
+  linked: string[];
+  skipped: string[];
+  target_id: string;
+}
+
+export interface ResolutionUnlinkResponse {
+  unlinked: string[];
+  skipped: string[];
+}
+
+export interface ResolutionGroupResponse {
+  target: Record<string, unknown>;
+  aliases: Array<Record<string, unknown>>;
+  group_size: number;
+}
+
+export const linkResolutionEntities = async ({
+  targetId,
+  entityIds,
+  space = 'default',
+}: {
+  targetId: string;
+  entityIds: string[];
+  space?: string;
+}) => {
+  const spacePath = getEntityStoreV2SpacePath(space);
+  const path = `${spacePath}${ENTITY_STORE_V2_RESOLUTION_LINK_URL}`;
+  return kibanaFetch<ResolutionLinkResponse>(
+    path,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        target_id: targetId,
+        entity_ids: entityIds,
+      }),
+    },
+    { apiVersion: API_VERSIONS.public.v1 },
+  );
+};
+
+export const unlinkResolutionEntities = async ({
+  entityIds,
+  space = 'default',
+}: {
+  entityIds: string[];
+  space?: string;
+}) => {
+  const spacePath = getEntityStoreV2SpacePath(space);
+  const path = `${spacePath}${ENTITY_STORE_V2_RESOLUTION_UNLINK_URL}`;
+  return kibanaFetch<ResolutionUnlinkResponse>(
+    path,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        entity_ids: entityIds,
+      }),
+    },
+    { apiVersion: API_VERSIONS.public.v1 },
+  );
+};
+
+export const getResolutionGroup = async ({
+  entityId,
+  space = 'default',
+}: {
+  entityId: string;
+  space?: string;
+}) => {
+  const spacePath = getEntityStoreV2SpacePath(space);
+  const query = new URLSearchParams();
+  query.set('apiVersion', '2');
+  query.set('entity_id', entityId);
+  const path = `${spacePath}${ENTITY_STORE_V2_RESOLUTION_GROUP_URL}?${query.toString()}`;
+  return kibanaFetch<ResolutionGroupResponse>(
+    path,
+    { method: 'GET' },
+    { apiVersion: API_VERSIONS.public.v1 },
+  );
+};
+
+export const createWatchlist = async ({
+  name,
+  riskModifier,
+  space = 'default',
+}: {
+  name: string;
+  riskModifier: number;
+  space?: string;
+}) => {
+  return kibanaFetch<{ id: string; name: string }>(
+    WATCHLISTS_URL,
+    {
+      method: 'POST',
+      body: JSON.stringify({ name, riskModifier }),
+    },
+    { apiVersion: API_VERSIONS.public.v1, space },
+  );
+};
+
+export const forceBulkUpdateEntitiesViaCrud = async ({
+  entities,
+  space = 'default',
+}: {
+  entities: Array<{
+    type: 'user' | 'host' | 'service';
+    doc: Record<string, unknown>;
+  }>;
+  space?: string;
+}) => {
+  const spacePath = getEntityStoreV2SpacePath(space);
+  const path = `${spacePath}${ENTITY_STORE_V2_CRUD_BULK_URL}?force=true`;
+  return kibanaFetch<{ ok: boolean; errors?: unknown[] }>(
+    path,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ entities }),
+    },
+    { apiVersion: API_VERSIONS.public.v1 },
+  );
 };
 
 /**
@@ -843,6 +1113,7 @@ export const uploadPrivmonCsv = async (
       path: '/api/entity_analytics/monitoring/users/_csv',
       space,
     });
+    const safeUploadUrl = redactUrl(uploadUrl);
     const response = await fetch(uploadUrl, {
       method: 'POST',
       headers: {
@@ -857,7 +1128,7 @@ export const uploadPrivmonCsv = async (
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to upload CSV: ${errorText}`);
+      throw new Error(`Failed to upload CSV to ${safeUploadUrl}: ${errorText}`);
     }
 
     return { success: true };
