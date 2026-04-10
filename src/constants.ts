@@ -122,3 +122,9 @@ export const WATCHLISTS_URL = '/api/entity_analytics/watchlists';
 
 // ML module group used by Security
 export const ML_GROUP_ID = 'security';
+
+// Lead Generation
+export const INFERENCE_CONNECTORS_URL = '/internal/inference/connectors';
+export const LEAD_GENERATION_ENABLE_URL = '/internal/entity_analytics/leads/enable';
+export const LEAD_GENERATION_GENERATE_URL = '/internal/entity_analytics/leads/generate';
+export const LEAD_GENERATION_STATUS_URL = '/internal/entity_analytics/leads/status';
