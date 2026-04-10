@@ -85,13 +85,13 @@ export const ASSET_CRITICALITY_BULK_URL = '/api/asset_criticality/bulk';
 export const DETECTION_ENGINE_RULES_URL = '/api/detection_engine/rules';
 export const DETECTION_ENGINE_RULES_BULK_ACTION_URL = `${DETECTION_ENGINE_RULES_URL}/_bulk_action`;
 export const COMPONENT_TEMPLATES_URL = '/api/index_management/component_templates';
-export const FLEET_EPM_PACKAGES_URL = (packageName: string, version: string = 'latest') => {
-  let url = `/api/fleet/epm/packages/${packageName}`;
-  if (version !== 'latest') {
-    url = `${url}/${version}`;
-  }
-  return url;
-};
+/** GET package metadata — path is /packages/{pkgName} only (Kibana Fleet API). */
+export const FLEET_EPM_PACKAGES_URL = (packageName: string) =>
+  `/api/fleet/epm/packages/${packageName}`;
+
+/** POST install from registry — {pkgVersion} must be a semver (resolve “latest” via GET package first). */
+export const FLEET_EPM_INSTALL_PACKAGE_URL = (packageName: string, version: string) =>
+  `/api/fleet/epm/packages/${packageName}/${encodeURIComponent(version)}`;
 export const SPACES_URL = '/api/spaces/space';
 export const SPACE_URL = (space: string) => `/api/spaces/space/${space}`;
 

@@ -140,6 +140,39 @@ yarn start privmon-quick --space default
 yarn start csp --data-sources all --findings-count 50
 ```
 
+### Correlated Organization Data
+
+Interactive — prompts for size, productivity suite, and detection rules:
+
+```bash
+yarn start org-data
+```
+
+Non-interactive — skip all prompts by providing options directly:
+
+```bash
+yarn start org-data --size small --productivity-suite microsoft --integrations azure,entra_id
+```
+
+Enable detection rules without prompting:
+
+```bash
+yarn start org-data --size medium --detection-rules
+```
+
+Each prompt is skipped individually when its flag is present. Omit any flag to be prompted for it:
+
+| Flag                   | Values                                      | Default (when omitted)   |
+| ---------------------- | ------------------------------------------- | ------------------------ |
+| `--size`               | `john-doe`, `small`, `medium`, `enterprise` | interactive prompt       |
+| `--productivity-suite` | `microsoft`, `google`                       | interactive prompt       |
+| `--detection-rules`    | flag (boolean)                              | interactive prompt       |
+| `--integrations`       | comma-separated list                        | all default integrations |
+| `--all`                | flag (boolean)                              | —                        |
+| `--name`               | string                                      | `Acme CRM`               |
+| `--space`              | string                                      | `default`                |
+| `--seed`               | number                                      | random                   |
+
 ## Commands
 
 Detailed command documentation is colocated with command code under `src/commands`.

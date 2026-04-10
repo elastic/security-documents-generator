@@ -177,13 +177,13 @@ const runOrgDataHelper = async (
 export const runOrgData = async (options: OrganizationOptions): Promise<void> => {
   log.info('\n=== Correlated Organization Data Generator ===\n');
 
-  // Prompt for organization size
-  const size = await promptForSize();
+  // Prompt for organization size only if not provided via CLI
+  const size = options.size ?? (await promptForSize());
 
-  // Prompt for productivity suite
-  const productivitySuite = await promptForProductivitySuite();
+  // Prompt for productivity suite only if not provided via CLI
+  const productivitySuite = options.productivitySuite ?? (await promptForProductivitySuite());
 
-  // Prompt for detection rules if not set via CLI flag
+  // Prompt for detection rules only if not provided via CLI
   const includeDetectionRules =
     options.detectionRules ??
     (await confirm({

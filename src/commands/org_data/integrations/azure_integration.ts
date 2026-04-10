@@ -450,29 +450,48 @@ export class AzureIntegration extends BaseIntegration {
     const auditCount = Math.max(5, Math.ceil(employees.length * 0.3));
 
     for (let i = 0; i < auditCount; i++) {
-      const employee = faker.helpers.arrayElement(employees);
-      docs.push(this.createAuditLogDoc(employee, tenantId));
+      const actor = faker.helpers.arrayElement(employees);
+      docs.push(this.createAuditLogDoc(actor, employees, tenantId));
     }
 
     return docs;
   }
 
-  private createAuditLogDoc(employee: Employee, tenantId: string): IntegrationDocument {
+  private createAuditLogDoc(
+    actor: Employee,
+    employees: Employee[],
+    tenantId: string,
+  ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const activity = faker.helpers.weightedArrayElement(
       AUDIT_LOG_ACTIVITIES.map((a) => ({ value: a, weight: a.weight })),
     );
     const correlationId = faker.string.uuid();
     const targetId = faker.string.uuid();
-    const targetDisplayName =
-      activity.targetType === 'User'
-        ? `${employee.firstName} ${employee.lastName}`
-        : activity.targetType === 'Device'
-          ? `DESKTOP-${faker.string.alphanumeric(7).toUpperCase()}`
-          : `${activity.category}-${faker.string.alphanumeric(6)}`;
 
-    const isAppInitiated = faker.datatype.boolean();
+    // Pick a distinct target employee for User-type relationships
+    const otherEmployees = employees.filter((e) => e.email !== actor.email);
+    const targetEmployee =
+      otherEmployees.length > 0 ? faker.helpers.arrayElement(otherEmployees) : actor;
 
+    // Build the target resource. User-type targets need userPrincipalName so the
+    // ingest pipeline maps it to target_resources.0.user_principal_name, which is
+    // what the communicates_with ES|QL query reads for user→user relationships.
+    const targetResource: Record<string, unknown> = {
+      id: targetId,
+      type: activity.targetType,
+    };
+    if (activity.targetType === 'User') {
+      targetResource.displayName = `${targetEmployee.firstName} ${targetEmployee.lastName}`;
+      targetResource.userPrincipalName = targetEmployee.email;
+    } else if (activity.targetType === 'Device') {
+      targetResource.displayName = `DESKTOP-${faker.string.alphanumeric(7).toUpperCase()}`;
+    } else {
+      targetResource.displayName = `${activity.category}-${faker.string.alphanumeric(6)}`;
+    }
+
+    // Always user-initiated so the actor UPN (initiated_by.user.userPrincipalName)
+    // is present and can be used to build the actor EUID (user:{email}@entra_id).
     const rawAzureJson = {
       time: timestamp,
       category: 'AuditLogs',
@@ -491,27 +510,14 @@ export class AzureIntegration extends BaseIntegration {
         loggedByService: activity.loggedByService,
         operationType: activity.operationType,
         resultReason: '',
-        targetResources: [
-          {
-            displayName: targetDisplayName,
-            id: targetId,
-            type: activity.targetType,
+        targetResources: [targetResource],
+        initiatedBy: {
+          user: {
+            displayName: `${actor.firstName} ${actor.lastName}`,
+            userPrincipalName: actor.email,
+            id: actor.entraIdUserId,
           },
-        ],
-        initiatedBy: isAppInitiated
-          ? {
-              app: {
-                displayName: 'Device Registration Service',
-                servicePrincipalId: faker.string.uuid(),
-              },
-            }
-          : {
-              user: {
-                displayName: `${employee.firstName} ${employee.lastName}`,
-                userPrincipalName: employee.email,
-                id: employee.entraIdUserId,
-              },
-            },
+        },
       },
     };
 
