@@ -125,9 +125,10 @@ export const kibanaFetch = async <T>(
     ignoreStatuses?: number[] | number;
     apiVersion?: string;
     space?: string;
+    omitApiVersion?: boolean;
   } = {},
 ): Promise<T> => {
-  const { ignoreStatuses, apiVersion = '1', space } = opts;
+  const { ignoreStatuses, apiVersion = '1', space, omitApiVersion } = opts;
   const url = buildKibanaUrl({ path, space });
   const method = ((params as { method?: string }).method ?? 'GET').toUpperCase();
   const ignoreStatusesArray = Array.isArray(ignoreStatuses) ? ignoreStatuses : [ignoreStatuses];
@@ -137,7 +138,7 @@ export const kibanaFetch = async <T>(
   headers.append('Authorization', getAuthorizationHeader());
 
   headers.set('x-elastic-internal-origin', 'kibana');
-  headers.set('elastic-api-version', apiVersion);
+  if (!omitApiVersion) headers.set('elastic-api-version', apiVersion);
   let result: Response;
   const safeUrl = redactUrl(url);
   try {
@@ -717,7 +718,7 @@ export const enableEntityStoreV2 = async (space: string = 'default'): Promise<vo
       method: 'POST',
       body: JSON.stringify({ changes: { [ENTITY_STORE_V2_SETTING_KEY]: true } }),
     },
-    { apiVersion: '1' },
+    { omitApiVersion: true },
   );
   log.info('Entity Store V2 feature flag posted, waiting for it to be active...');
 
@@ -728,7 +729,7 @@ export const enableEntityStoreV2 = async (space: string = 'default'): Promise<vo
     }>(
       `${settingsPath}?query=${encodeURIComponent(ENTITY_STORE_V2_SETTING_KEY)}`,
       { method: 'GET' },
-      { apiVersion: '1' },
+      { omitApiVersion: true },
     );
     if (response?.settings?.[ENTITY_STORE_V2_SETTING_KEY]?.userValue === true) {
       log.info('Entity Store V2 feature flag enabled and active');
