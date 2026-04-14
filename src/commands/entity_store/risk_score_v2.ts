@@ -8,6 +8,7 @@ import path from 'path';
 import { ensureSecurityDefaultDataView } from '../../utils/security_default_data_view.ts';
 import {
   createWatchlist,
+  deleteWatchlist,
   enableEntityStoreV2,
   forceLogExtraction,
   forceBulkUpdateEntitiesViaCrud,
@@ -28,6 +29,7 @@ import { generateOrgData } from '../org_data/org_data_generator.ts';
 import type { OrganizationSize, ProductivitySuite } from '../org_data/types.ts';
 import { parseOptionInt } from '../utils/cli_utils.ts';
 import { checkbox, input, select } from '@inquirer/prompts';
+import { getEntityStoreIndex } from '../../constants.ts';
 
 type RiskScoreV2Options = {
   users?: string;
@@ -452,16 +454,47 @@ const toUserEuid = (user: SeededUser) => `user:${user.userEmail}@okta`;
 const toHostEuid = (host: SeededHost) => `host:${host.hostId}`;
 const toServiceEuid = (service: SeededService) => `service:${service.serviceName}`;
 
-const compactSeedToken = (value: string, fallback: string): string => {
-  const normalized = value.replace(/[^a-z0-9]/gi, '').toLowerCase();
-  return (normalized || fallback).slice(0, 4);
+const toFriendlySlug = (value: string, fallback: string): string => {
+  const normalized = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-+/g, '-');
+  return normalized || fallback;
 };
+
+const paddedEntityNumber = (value: number): string => String(value).padStart(3, '0');
+
+const FRIENDLY_HOST_ROLES = [
+  'edge-gateway',
+  'payments-db',
+  'identity-proxy',
+  'auth-api',
+  'billing-worker',
+  'web-frontend',
+  'observability-node',
+  'queue-processor',
+] as const;
+
+const FRIENDLY_SERVICE_ROLES = [
+  'payments-api',
+  'auth-service',
+  'inventory-service',
+  'orders-api',
+  'notifications-worker',
+  'risk-engine',
+  'audit-ingest',
+  'customer-portal',
+] as const;
 
 const seedUsers = (count: number, startAt: number = 0): SeededUser[] =>
   Array.from({ length: count }, (_, i) => {
     const index = startAt + i;
-    const suffix = faker.string.alphanumeric(4).toLowerCase();
-    const userName = `rv2u-${index}-${suffix}`;
+    const readableName = toFriendlySlug(
+      `${faker.person.firstName()}-${faker.person.lastName()}`,
+      `idp-user-${paddedEntityNumber(index)}`,
+    );
+    const userName = `idp-user-${paddedEntityNumber(index)}-${readableName}`;
     return {
       userName,
       userId: `risk-v2-user-id-${index}-${faker.string.alphanumeric(6)}`,
@@ -470,10 +503,15 @@ const seedUsers = (count: number, startAt: number = 0): SeededUser[] =>
   });
 
 const seedHosts = (count: number, startAt: number = 0): SeededHost[] =>
-  Array.from({ length: count }, (_, i) => ({
-    hostName: `risk-v2-host-${startAt + i}-${faker.internet.domainWord()}`,
-    hostId: `risk-v2-host-id-${startAt + i}-${faker.string.alphanumeric(8).toLowerCase()}`,
-  }));
+  Array.from({ length: count }, (_, i) => {
+    const index = startAt + i;
+    const role = FRIENDLY_HOST_ROLES[index % FRIENDLY_HOST_ROLES.length];
+    const hostName = `host-${paddedEntityNumber(index)}-${role}`;
+    return {
+      hostName,
+      hostId: `risk-v2-${hostName}`,
+    };
+  });
 
 const seedLocalUsers = (
   count: number,
@@ -481,18 +519,28 @@ const seedLocalUsers = (
   startAt: number = 0,
 ): SeededLocalUser[] =>
   Array.from({ length: count }, (_, i) => {
+    const index = startAt + i;
     const host = hosts[i % hosts.length] ?? seedHosts(1)[0];
+    const readableName = toFriendlySlug(
+      `${faker.person.firstName()}-${faker.person.lastName()}`,
+      `local-user-${paddedEntityNumber(index)}`,
+    );
+    const hostHint = toFriendlySlug(host.hostName, 'host').slice(0, 14);
     return {
-      userName: `rv2lu-${startAt + i}-${faker.string.alphanumeric(4).toLowerCase()}`,
+      userName: `local-user-${paddedEntityNumber(index)}-${readableName}-${hostHint}`,
       hostId: host.hostId,
       hostName: host.hostName,
     };
   });
 
 const seedServices = (count: number, startAt: number = 0): SeededService[] =>
-  Array.from({ length: count }, (_, i) => ({
-    serviceName: `risk-v2-service-${startAt + i}-${faker.internet.domainWord()}`,
-  }));
+  Array.from({ length: count }, (_, i) => {
+    const index = startAt + i;
+    const role = FRIENDLY_SERVICE_ROLES[index % FRIENDLY_SERVICE_ROLES.length];
+    return {
+      serviceName: `service-${paddedEntityNumber(index)}-${role}`,
+    };
+  });
 
 const topUpToCount = <T>(items: T[], count: number, factory: (remaining: number) => T[]): T[] => {
   if (items.length >= count) {
@@ -529,8 +577,8 @@ const seedFromOrgData = ({
   });
 
   const orgUsers: SeededUser[] = org.employees.map((employee, i) => {
-    const token = compactSeedToken(employee.userName || employee.email, 'user');
-    const compactUserName = `rv2u-${i}-${token}`;
+    const readableName = toFriendlySlug(employee.userName || employee.email, `org-user-${i}`);
+    const compactUserName = `idp-user-${paddedEntityNumber(i)}-${readableName}`;
     return {
       userName: compactUserName,
       userId: employee.oktaUserId,
@@ -548,9 +596,10 @@ const seedFromOrgData = ({
   const fallbackHosts = hosts.length > 0 ? hosts : seedHosts(Math.max(1, localUsersCount));
   const orgLocalUsers: SeededLocalUser[] = org.employees.map((employee, i) => {
     const host = fallbackHosts[i % fallbackHosts.length];
-    const token = compactSeedToken(employee.userName || employee.email, 'user');
+    const readableName = toFriendlySlug(employee.userName || employee.email, `org-local-user-${i}`);
+    const hostHint = toFriendlySlug(host.hostName, 'host').slice(0, 14);
     return {
-      userName: `rv2lu-${i}-${token}`,
+      userName: `local-user-${paddedEntityNumber(i)}-${readableName}-${hostHint}`,
       hostName: host.hostName,
       hostId: host.hostId,
     };
@@ -776,7 +825,7 @@ const applyRelationshipGraph = async ({
         entity: {
           id: sourceId,
           relationships: {
-            owns: [...new Set(targets)],
+            owns: { ids: [...new Set(targets)] },
           },
         },
       },
@@ -818,7 +867,7 @@ const clearRelationshipGraph = async ({
         entity: {
           id,
           relationships: {
-            owns: [],
+            owns: { ids: [] },
           },
         },
       },
@@ -869,7 +918,7 @@ const collectEntityRelationshipState = async ({
   }
 
   const client = getEsClient();
-  const entityIndex = `.entities.v2.latest.security_${space}`;
+  const entityIndex = getEntityStoreIndex(space);
   const entityResponse = await client.search({
     index: entityIndex,
     size: uniqueEntityIds.length,
@@ -918,7 +967,7 @@ const collectEntityRelationshipState = async ({
           'entity.relationships.resolution.resolved_to',
         ),
       )[0] ?? '-';
-    const owns = normalizeWatchlists(
+    const owns = normalizeRelationshipEntityIds(
       getFromNestedOrDotted(
         source as Record<string, unknown> | undefined,
         'entity.relationships.owns',
@@ -1498,6 +1547,29 @@ const normalizeWatchlists = (value: unknown): string[] => {
   return [];
 };
 
+const normalizeRelationshipEntityIds = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    // Backward compatibility with older shape: owns: ["entity:id"].
+    return value.filter((item): item is string => typeof item === 'string');
+  }
+  if (!value || typeof value !== 'object') {
+    return [];
+  }
+  const relationship = value as {
+    ids?: unknown;
+    raw_identifiers?: { 'entity.id'?: unknown };
+  };
+  const directIds = Array.isArray(relationship.ids) ? relationship.ids : [];
+  const rawEntityIds = Array.isArray(relationship.raw_identifiers?.['entity.id'])
+    ? relationship.raw_identifiers['entity.id']
+    : [];
+  return [
+    ...new Set(
+      [...directIds, ...rawEntityIds].filter((item): item is string => typeof item === 'string'),
+    ),
+  ];
+};
+
 const canUseInteractivePrompts = (): boolean =>
   Boolean(process.stdout.isTTY && process.stdin.isTTY);
 
@@ -1551,7 +1623,7 @@ const collectRiskSnapshot = async ({
     };
   }
 
-  const entityIndex = `.entities.v2.latest.security_${space}`;
+  const entityIndex = getEntityStoreIndex(space);
   const entityResponse = await client.search({
     index: entityIndex,
     size: uniqueEntityIds.length,
@@ -1602,7 +1674,7 @@ const collectRiskSnapshot = async ({
           'entity.relationships.resolution.resolved_to',
         ),
       )[0] ?? '-';
-    const owns = normalizeWatchlists(
+    const owns = normalizeRelationshipEntityIds(
       getFromNestedOrDotted(
         source as Record<string, unknown> | undefined,
         'entity.relationships.owns',
@@ -2623,7 +2695,7 @@ const refreshRiskScoreIndex = async (space: string): Promise<void> => {
 
 const getEntityStoreDocCount = async (space: string): Promise<number> => {
   const client = getEsClient();
-  const index = `.entities.v2.latest.security_${space}`;
+  const index = getEntityStoreIndex(space);
   try {
     const response = await client.count({ index });
     return response.count;
@@ -2657,7 +2729,7 @@ const deleteAllDocsFromIndex = async (index: string, label: string): Promise<num
 
 const dangerousCleanSpaceData = async (space: string): Promise<void> => {
   const alertIndex = getAlertIndex(space);
-  const entityLatestIndex = `.entities.v2.latest.security_${space}`;
+  const entityLatestIndex = getEntityStoreIndex(space);
   const entityHistoryIndex = `.entities.v2.history.security_${space}`;
   const riskIndex = `risk-score.risk-score-${space}`;
   const riskLookupIndex = `.entity_analytics.risk_score.lookup-${space}`;
@@ -2679,7 +2751,7 @@ const getPresentEntityIds = async (space: string, entityIds: string[]): Promise<
   }
 
   const client = getEsClient();
-  const index = `.entities.v2.latest.security_${space}`;
+  const index = getEntityStoreIndex(space);
   const present = new Set<string>();
   const chunkSize = 500;
 
@@ -2712,6 +2784,56 @@ const getPresentEntityIds = async (space: string, entityIds: string[]): Promise<
   return present;
 };
 
+const getTrackedEntitiesForWatchlist = async ({
+  space,
+  entityIds,
+  watchlistId,
+}: {
+  space: string;
+  entityIds: string[];
+  watchlistId: string;
+}): Promise<string[]> => {
+  if (entityIds.length === 0) {
+    return [];
+  }
+
+  const client = getEsClient();
+  const index = getEntityStoreIndex(space);
+  const matched = new Set<string>();
+  const chunkSize = 500;
+
+  for (let i = 0; i < entityIds.length; i += chunkSize) {
+    const chunk = entityIds.slice(i, i + chunkSize);
+    try {
+      const response = await client.search({
+        index,
+        size: chunk.length,
+        query: {
+          bool: {
+            filter: [
+              { terms: { 'entity.id': chunk } },
+              { term: { 'entity.attributes.watchlists': watchlistId } },
+            ],
+          },
+        },
+        _source: ['entity.id'],
+      });
+
+      for (const hit of response.hits.hits) {
+        const source = hit._source as { entity?: { id?: string } } | undefined;
+        const id = source?.entity?.id;
+        if (id) {
+          matched.add(id);
+        }
+      }
+    } catch {
+      // Entity index may be unavailable temporarily; continue and return partial matches.
+    }
+  }
+
+  return [...matched];
+};
+
 const waitForExpectedEntityIds = async ({
   space,
   expectedEntityIds,
@@ -2737,7 +2859,7 @@ const waitForExpectedEntityIds = async ({
     const now = Date.now();
     if (present.size !== lastPresent) {
       log.info(
-        `Entity ID progress (.entities.v2.latest.security_${space}): present=${present.size}/${expectedEntityIds.length}`,
+        `Entity ID progress (${getEntityStoreIndex(space)}): present=${present.size}/${expectedEntityIds.length}`,
       );
       lastPresent = present.size;
       lastHeartbeat = now;
@@ -2971,6 +3093,7 @@ type FollowOnAction =
   | 'post_more_alerts'
   | 'remove_modifiers'
   | 'reapply_modifiers'
+  | 'delete_watchlist'
   | 'add_more_entities'
   | 'tweak_single_entity'
   | 'view_single_risk_doc'
@@ -3146,7 +3269,7 @@ const fetchSingleEntityModifierState = async ({
   entityId: string;
 }): Promise<{ criticality: string; watchlists: string[] }> => {
   const client = getEsClient();
-  const entityIndex = `.entities.v2.latest.security_${space}`;
+  const entityIndex = getEntityStoreIndex(space);
   try {
     const response = await client.search({
       index: entityIndex,
@@ -3276,6 +3399,7 @@ const promptFollowOnAction = async ({
     formatFollowOnOption('p', 'post more alerts (same seeded entities)'),
     formatFollowOnOption('m', 'remove modifiers (clear watchlists + criticality)'),
     formatFollowOnOption('a', 're-apply modifiers (new watchlists + criticality)'),
+    formatFollowOnOption('s', 'select watchlist and delete it'),
     formatFollowOnOption('e', 'expand entities (add more users/hosts/local-users/services)'),
     formatFollowOnOption('t', 'tweak single entity (criticality/watchlists/reset/add alerts)'),
     formatFollowOnOption('v', 'view single risk-score doc(s)'),
@@ -3327,6 +3451,10 @@ const promptFollowOnAction = async ({
     if (answer === 'a') {
       log.info('Selected [a] re-apply modifiers.');
       return 'reapply_modifiers';
+    }
+    if (answer === 's') {
+      log.info('Selected [s] delete a watchlist.');
+      return 'delete_watchlist';
     }
     if (answer === 'e') {
       log.info('Selected [e] expand entities.');
@@ -3386,7 +3514,7 @@ const promptFollowOnAction = async ({
     }
 
     log.warn(
-      `Invalid option "${answer}". Please enter one of: r, p, m, a, e, t, v, j, x, f, u, g, l, k, o, c, d, q.`,
+      `Invalid option "${answer}". Please enter one of: r, p, m, a, s, e, t, v, j, x, f, u, g, l, k, o, c, d, q.`,
     );
   }
 };
@@ -3554,6 +3682,38 @@ const runFollowOnActionLoop = async ({
       log.info(
         `Maintainer outcome: runs=${maintainerOutcome.runs}, taskStatus=${maintainerOutcome.taskStatus}, settled=${maintainerOutcome.settled ? 'yes' : 'no'}.`,
       );
+    } else if (action === 'delete_watchlist') {
+      if (trackedWatchlistIds.length === 0) {
+        log.info('No tracked watchlists to delete.');
+      } else {
+        const watchlistId = await select({
+          message: 'Select watchlist to delete',
+          choices: trackedWatchlistIds.map((id) => ({
+            name: id,
+            value: id,
+          })),
+          default: trackedWatchlistIds[0],
+        });
+        const impactedEntityIds = await getTrackedEntitiesForWatchlist({
+          space,
+          entityIds: trackedEntityIds,
+          watchlistId,
+        });
+        log.info(
+          `Watchlist "${watchlistId}" currently has ${impactedEntityIds.length} tracked entit${impactedEntityIds.length === 1 ? 'y' : 'ies'}.`,
+        );
+        for (const entityId of impactedEntityIds) {
+          log.info(`  - ${entityId}`);
+        }
+        await runTimedStage('follow_on_delete_watchlist', async () => {
+          await deleteWatchlist({ id: watchlistId, space });
+        });
+        trackedWatchlistIds = trackedWatchlistIds.filter((id) => id !== watchlistId);
+        log.info(
+          `Deleted watchlist "${watchlistId}". Remaining tracked watchlists: ${trackedWatchlistIds.length}.`,
+        );
+        log.info('Skipped maintainer run after watchlist deletion.');
+      }
     } else if (action === 'add_more_entities') {
       const [addUsersRaw, addLocalUsersRaw, addHostsRaw, addServicesRaw, addAlertsRaw] =
         await Promise.all([
@@ -3936,7 +4096,7 @@ const runFollowOnActionLoop = async ({
                       entity: {
                         id: selection.euid,
                         relationships: {
-                          owns: targetId ? [targetId] : [],
+                          owns: { ids: targetId ? [targetId] : [] },
                         },
                       },
                     },
@@ -4383,7 +4543,7 @@ const runFollowOnActionLoop = async ({
                     entity: {
                       id: sourceId,
                       relationships: {
-                        owns: [targetId],
+                        owns: { ids: [targetId] },
                       },
                     },
                   },
