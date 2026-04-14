@@ -206,7 +206,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
       alertDocs.push(this.generateAlertDocument(employee, device));
     }
 
-    const falconDocs = this.generateFalconDocuments(correlationMap);
+    const falconDocs = this.generateFalconDocuments(org, correlationMap);
 
     documentsMap.set('logs-crowdstrike.host-default', hostDocs);
     documentsMap.set('logs-crowdstrike.alert-default', alertDocs);
@@ -263,9 +263,10 @@ export class CrowdStrikeIntegration extends BaseIntegration {
       product_type_desc: 'Workstation',
     };
 
+    const hostname = `${employee.userName}-${device.platform}`;
     return {
-      // @timestamp is required by IntegrationDocument type; pipeline overwrites from modified_timestamp
       '@timestamp': modifiedTimestamp,
+      agent: this.buildLocalAgent(device, hostname),
       message: JSON.stringify(rawHost),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'crowdstrike.host' },
     } as IntegrationDocument;
@@ -375,9 +376,10 @@ export class CrowdStrikeIntegration extends BaseIntegration {
       source_vendors: ['CrowdStrike'],
     };
 
+    const hostname = `${employee.userName}-${device.platform}`;
     return {
-      // @timestamp is required by IntegrationDocument type; pipeline overwrites from timestamp
       '@timestamp': alertTimestamp,
+      agent: this.buildLocalAgent(device, hostname),
       message: JSON.stringify(rawAlert),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'crowdstrike.alert' },
     } as IntegrationDocument;
@@ -408,7 +410,10 @@ export class CrowdStrikeIntegration extends BaseIntegration {
     return 'Unknown';
   }
 
-  private generateFalconDocuments(correlationMap: CorrelationMap): IntegrationDocument[] {
+  private generateFalconDocuments(
+    org: Organization,
+    correlationMap: CorrelationMap,
+  ): IntegrationDocument[] {
     const falconDocs: IntegrationDocument[] = [];
     let offset = 0;
 
@@ -419,7 +424,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
       for (let i = 0; i < eventCount; i++) {
         const eventType = faker.helpers.weightedArrayElement(FALCON_EVENT_WEIGHTS);
         offset++;
-        falconDocs.push(this.generateFalconEvent(eventType, employee, device, offset));
+        falconDocs.push(this.generateFalconEvent(eventType, employee, device, org, offset));
       }
     }
 
@@ -430,23 +435,26 @@ export class CrowdStrikeIntegration extends BaseIntegration {
     eventType: FalconEventType,
     employee: Employee,
     device: Device,
+    org: Organization,
     offset: number,
   ): IntegrationDocument {
+    const localAgent = this.buildLocalAgent(device, `${employee.userName}-${device.platform}`);
+    const centralAgent = this.buildCentralAgent(org);
     switch (eventType) {
       case 'DetectionSummaryEvent':
-        return this.generateDetectionSummaryEvent(employee, device, offset);
+        return this.generateDetectionSummaryEvent(employee, device, offset, localAgent);
       case 'RemoteResponseSessionStartEvent':
-        return this.generateRemoteResponseStartEvent(employee, device, offset);
+        return this.generateRemoteResponseStartEvent(employee, device, offset, localAgent);
       case 'RemoteResponseSessionEndEvent':
-        return this.generateRemoteResponseEndEvent(employee, device, offset);
+        return this.generateRemoteResponseEndEvent(employee, device, offset, localAgent);
       case 'AuthActivityAuditEvent':
-        return this.generateAuthAuditEvent(employee, offset);
+        return this.generateAuthAuditEvent(employee, offset, centralAgent);
       case 'UserActivityAuditEvent':
-        return this.generateUserActivityAuditEvent(employee, offset);
+        return this.generateUserActivityAuditEvent(employee, offset, centralAgent);
       case 'FirewallMatchEvent':
-        return this.generateFirewallMatchEvent(employee, device, offset);
+        return this.generateFirewallMatchEvent(employee, device, offset, localAgent);
       case 'IncidentSummaryEvent':
-        return this.generateIncidentSummaryEvent(employee, device, offset);
+        return this.generateIncidentSummaryEvent(employee, device, offset, localAgent);
     }
   }
 
@@ -460,6 +468,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
     rawEvent: Record<string, unknown>,
     offset: number,
     timestamp: string,
+    agentData?: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument {
     const eventCreationTimeMs = new Date(timestamp).getTime();
     const rawEnvelope = {
@@ -475,6 +484,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      ...(agentData && { agent: agentData }),
       message: JSON.stringify(rawEnvelope),
       data_stream: { dataset: 'crowdstrike.falcon', namespace: 'default', type: 'logs' },
     } as IntegrationDocument;
@@ -484,6 +494,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
     employee: Employee,
     device: Device,
     offset: number,
+    agentData: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument {
     const _mitre = faker.helpers.arrayElement(MITRE_ATTACKS);
     const proc = faker.helpers.arrayElement(SUSPICIOUS_PROCESSES);
@@ -533,13 +544,14 @@ export class CrowdStrikeIntegration extends BaseIntegration {
       ProcessStartTime: timestampMs,
     };
 
-    return this.buildFalconDoc('DetectionSummaryEvent', rawEvent, offset, timestamp);
+    return this.buildFalconDoc('DetectionSummaryEvent', rawEvent, offset, timestamp, agentData);
   }
 
   private generateRemoteResponseStartEvent(
     employee: Employee,
     device: Device,
     offset: number,
+    agentData: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument {
     const hostname = `${employee.userName}-${device.platform}`;
     const timestamp = this.getRandomTimestamp(24);
@@ -553,13 +565,20 @@ export class CrowdStrikeIntegration extends BaseIntegration {
       StartTimestamp: Math.floor(new Date(timestamp).getTime() / 1000),
     };
 
-    return this.buildFalconDoc('RemoteResponseSessionStartEvent', rawEvent, offset, timestamp);
+    return this.buildFalconDoc(
+      'RemoteResponseSessionStartEvent',
+      rawEvent,
+      offset,
+      timestamp,
+      agentData,
+    );
   }
 
   private generateRemoteResponseEndEvent(
     employee: Employee,
     device: Device,
     offset: number,
+    agentData: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument {
     const hostname = `${employee.userName}-${device.platform}`;
     const timestamp = this.getRandomTimestamp(24);
@@ -580,10 +599,20 @@ export class CrowdStrikeIntegration extends BaseIntegration {
       ),
     };
 
-    return this.buildFalconDoc('RemoteResponseSessionEndEvent', rawEvent, offset, endTimestamp);
+    return this.buildFalconDoc(
+      'RemoteResponseSessionEndEvent',
+      rawEvent,
+      offset,
+      endTimestamp,
+      agentData,
+    );
   }
 
-  private generateAuthAuditEvent(employee: Employee, offset: number): IntegrationDocument {
+  private generateAuthAuditEvent(
+    employee: Employee,
+    offset: number,
+    agentData: { id: string; name: string; type: string; version: string },
+  ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(24);
     const operation = faker.helpers.arrayElement(AUTH_OPERATIONS);
     const success = faker.datatype.boolean(0.85);
@@ -600,10 +629,14 @@ export class CrowdStrikeIntegration extends BaseIntegration {
       ],
     };
 
-    return this.buildFalconDoc('AuthActivityAuditEvent', rawEvent, offset, timestamp);
+    return this.buildFalconDoc('AuthActivityAuditEvent', rawEvent, offset, timestamp, agentData);
   }
 
-  private generateUserActivityAuditEvent(employee: Employee, offset: number): IntegrationDocument {
+  private generateUserActivityAuditEvent(
+    employee: Employee,
+    offset: number,
+    agentData: { id: string; name: string; type: string; version: string },
+  ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(24);
     const operation = faker.helpers.arrayElement(USER_ACTIVITY_OPERATIONS);
     const success = faker.datatype.boolean(0.95);
@@ -620,13 +653,14 @@ export class CrowdStrikeIntegration extends BaseIntegration {
       ],
     };
 
-    return this.buildFalconDoc('UserActivityAuditEvent', rawEvent, offset, timestamp);
+    return this.buildFalconDoc('UserActivityAuditEvent', rawEvent, offset, timestamp, agentData);
   }
 
   private generateFirewallMatchEvent(
     employee: Employee,
     device: Device,
     offset: number,
+    agentData: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument {
     const hostname = `${employee.userName}-${device.platform}`;
     const timestamp = this.getRandomTimestamp(24);
@@ -660,13 +694,14 @@ export class CrowdStrikeIntegration extends BaseIntegration {
       Status: ruleAction === '2' ? 'blocked' : 'allowed',
     };
 
-    return this.buildFalconDoc('FirewallMatchEvent', rawEvent, offset, timestamp);
+    return this.buildFalconDoc('FirewallMatchEvent', rawEvent, offset, timestamp, agentData);
   }
 
   private generateIncidentSummaryEvent(
     employee: Employee,
     device: Device,
     offset: number,
+    agentData: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument {
     const hostname = `${employee.userName}-${device.platform}`;
     const timestamp = this.getRandomTimestamp(48);
@@ -687,6 +722,6 @@ export class CrowdStrikeIntegration extends BaseIntegration {
       UTCTimestamp: timestampMs,
     };
 
-    return this.buildFalconDoc('IncidentSummaryEvent', rawEvent, offset, timestamp);
+    return this.buildFalconDoc('IncidentSummaryEvent', rawEvent, offset, timestamp, agentData);
   }
 }

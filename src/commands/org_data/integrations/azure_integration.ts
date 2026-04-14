@@ -315,46 +315,54 @@ export class AzureIntegration extends BaseIntegration {
     const subscriptionId = faker.string.uuid().toUpperCase();
     const resourceGroup = `${org.name.toUpperCase().replace(/\s+/g, '-')}-RG`;
     const cloudEmployees = org.employees.filter((e) => e.hasAwsAccess);
+    const centralAgent = this.buildCentralAgent(org);
 
     documentsMap.set(
       'logs-azure.activitylogs-default',
-      this.generateActivityLogs(cloudEmployees, org, tenantId, subscriptionId, resourceGroup),
+      this.generateActivityLogs(
+        cloudEmployees,
+        org,
+        tenantId,
+        subscriptionId,
+        resourceGroup,
+        centralAgent,
+      ),
     );
     documentsMap.set(
       'logs-azure.auditlogs-default',
-      this.generateAuditLogs(org.employees, org, tenantId),
+      this.generateAuditLogs(org.employees, org, tenantId, centralAgent),
     );
     documentsMap.set(
       'logs-azure.signinlogs-default',
-      this.generateSignInLogs(org.employees, tenantId),
+      this.generateSignInLogs(org.employees, tenantId, centralAgent),
     );
     documentsMap.set(
       'logs-azure.identity_protection-default',
-      this.generateIdentityProtectionLogs(org.employees, tenantId),
+      this.generateIdentityProtectionLogs(org.employees, tenantId, centralAgent),
     );
     documentsMap.set(
       'logs-azure.provisioning-default',
-      this.generateProvisioningLogs(org.employees, org, tenantId),
+      this.generateProvisioningLogs(org.employees, org, tenantId, centralAgent),
     );
     documentsMap.set(
       'logs-azure.graphactivitylogs-default',
-      this.generateGraphActivityLogs(tenantId),
+      this.generateGraphActivityLogs(tenantId, centralAgent),
     );
     documentsMap.set(
       'logs-azure.firewall_logs-default',
-      this.generateFirewallLogs(org, subscriptionId, resourceGroup),
+      this.generateFirewallLogs(org, subscriptionId, resourceGroup, centralAgent),
     );
     documentsMap.set(
       'logs-azure.platformlogs-default',
-      this.generatePlatformLogs(subscriptionId, resourceGroup),
+      this.generatePlatformLogs(subscriptionId, resourceGroup, centralAgent),
     );
     documentsMap.set(
       'logs-azure.application_gateway-default',
-      this.generateApplicationGatewayLogs(subscriptionId, resourceGroup),
+      this.generateApplicationGatewayLogs(subscriptionId, resourceGroup, centralAgent),
     );
     documentsMap.set(
       'logs-azure.springcloudlogs-default',
-      this.generateSpringCloudLogs(subscriptionId),
+      this.generateSpringCloudLogs(subscriptionId, centralAgent),
     );
 
     return documentsMap;
@@ -366,13 +374,22 @@ export class AzureIntegration extends BaseIntegration {
     tenantId: string,
     subscriptionId: string,
     resourceGroup: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument[] {
     const docs: IntegrationDocument[] = [];
 
     for (const employee of employees) {
       const count = faker.number.int({ min: 2, max: 5 });
       for (let i = 0; i < count; i++) {
-        docs.push(this.createActivityLogDoc(employee, tenantId, subscriptionId, resourceGroup));
+        docs.push(
+          this.createActivityLogDoc(
+            employee,
+            tenantId,
+            subscriptionId,
+            resourceGroup,
+            centralAgent,
+          ),
+        );
       }
     }
 
@@ -384,6 +401,7 @@ export class AzureIntegration extends BaseIntegration {
     tenantId: string,
     subscriptionId: string,
     resourceGroup: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const resourceDef = faker.helpers.weightedArrayElement(
@@ -436,6 +454,7 @@ export class AzureIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawAzureJson),
       data_stream: { dataset: 'azure.activitylogs', namespace: 'default', type: 'logs' },
     } as IntegrationDocument;
@@ -445,13 +464,14 @@ export class AzureIntegration extends BaseIntegration {
     employees: Employee[],
     _org: Organization,
     tenantId: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument[] {
     const docs: IntegrationDocument[] = [];
     const auditCount = Math.max(5, Math.ceil(employees.length * 0.3));
 
     for (let i = 0; i < auditCount; i++) {
       const actor = faker.helpers.arrayElement(employees);
-      docs.push(this.createAuditLogDoc(actor, employees, tenantId));
+      docs.push(this.createAuditLogDoc(actor, employees, tenantId, centralAgent));
     }
 
     return docs;
@@ -461,6 +481,7 @@ export class AzureIntegration extends BaseIntegration {
     actor: Employee,
     employees: Employee[],
     tenantId: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const activity = faker.helpers.weightedArrayElement(
@@ -523,25 +544,34 @@ export class AzureIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawAzureJson),
       data_stream: { dataset: 'azure.auditlogs', namespace: 'default', type: 'logs' },
     } as IntegrationDocument;
   }
 
-  private generateSignInLogs(employees: Employee[], tenantId: string): IntegrationDocument[] {
+  private generateSignInLogs(
+    employees: Employee[],
+    tenantId: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
+  ): IntegrationDocument[] {
     const docs: IntegrationDocument[] = [];
 
     for (const employee of employees) {
       const count = faker.number.int({ min: 2, max: 5 });
       for (let i = 0; i < count; i++) {
-        docs.push(this.createSignInLogDoc(employee, tenantId));
+        docs.push(this.createSignInLogDoc(employee, tenantId, centralAgent));
       }
     }
 
     return docs;
   }
 
-  private createSignInLogDoc(employee: Employee, tenantId: string): IntegrationDocument {
+  private createSignInLogDoc(
+    employee: Employee,
+    tenantId: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
+  ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const app = faker.helpers.arrayElement(SIGNIN_APPS);
     const correlationId = faker.string.uuid();
@@ -630,6 +660,7 @@ export class AzureIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawAzureJson),
       data_stream: { dataset: 'azure.signinlogs', namespace: 'default', type: 'logs' },
     } as IntegrationDocument;
@@ -638,19 +669,24 @@ export class AzureIntegration extends BaseIntegration {
   private generateIdentityProtectionLogs(
     employees: Employee[],
     tenantId: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument[] {
     const docs: IntegrationDocument[] = [];
     const riskyCount = Math.max(2, Math.ceil(employees.length * 0.1));
     const riskyEmployees = faker.helpers.arrayElements(employees, riskyCount);
 
     for (const employee of riskyEmployees) {
-      docs.push(this.createIdentityProtectionDoc(employee, tenantId));
+      docs.push(this.createIdentityProtectionDoc(employee, tenantId, centralAgent));
     }
 
     return docs;
   }
 
-  private createIdentityProtectionDoc(employee: Employee, tenantId: string): IntegrationDocument {
+  private createIdentityProtectionDoc(
+    employee: Employee,
+    tenantId: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
+  ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const riskEventType = faker.helpers.arrayElement(RISK_EVENT_TYPES);
     const riskLevel = faker.helpers.weightedArrayElement([
@@ -714,6 +750,7 @@ export class AzureIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawAzureJson),
       data_stream: {
         dataset: 'azure.identity_protection',
@@ -727,13 +764,14 @@ export class AzureIntegration extends BaseIntegration {
     employees: Employee[],
     org: Organization,
     tenantId: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument[] {
     const docs: IntegrationDocument[] = [];
     const provisionCount = Math.max(3, Math.ceil(employees.length * 0.15));
     const selectedEmployees = faker.helpers.arrayElements(employees, provisionCount);
 
     for (const employee of selectedEmployees) {
-      docs.push(this.createProvisioningDoc(employee, org, tenantId));
+      docs.push(this.createProvisioningDoc(employee, org, tenantId, centralAgent));
     }
 
     return docs;
@@ -743,6 +781,7 @@ export class AzureIntegration extends BaseIntegration {
     employee: Employee,
     _org: Organization,
     tenantId: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const targetApp = faker.helpers.arrayElement(PROVISIONING_TARGET_APPS);
@@ -837,23 +876,30 @@ export class AzureIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawAzureJson),
       data_stream: { dataset: 'azure.provisioning', namespace: 'default', type: 'logs' },
     } as IntegrationDocument;
   }
 
-  private generateGraphActivityLogs(tenantId: string): IntegrationDocument[] {
+  private generateGraphActivityLogs(
+    tenantId: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
+  ): IntegrationDocument[] {
     const docs: IntegrationDocument[] = [];
     const count = faker.number.int({ min: 5, max: 15 });
 
     for (let i = 0; i < count; i++) {
-      docs.push(this.createGraphActivityLogDoc(tenantId));
+      docs.push(this.createGraphActivityLogDoc(tenantId, centralAgent));
     }
 
     return docs;
   }
 
-  private createGraphActivityLogDoc(tenantId: string): IntegrationDocument {
+  private createGraphActivityLogDoc(
+    tenantId: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
+  ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const endpoint = faker.helpers.arrayElement(GRAPH_API_ENDPOINTS);
     const correlationId = faker.string.uuid();
@@ -871,6 +917,7 @@ export class AzureIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       azure: {
         correlation_id: correlationId,
         graphactivitylogs: {
@@ -951,6 +998,7 @@ export class AzureIntegration extends BaseIntegration {
     org: Organization,
     subscriptionId: string,
     resourceGroup: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument[] {
     const docs: IntegrationDocument[] = [];
     const count = Math.max(5, Math.ceil(org.employees.length * 0.5));
@@ -958,7 +1006,15 @@ export class AzureIntegration extends BaseIntegration {
 
     for (let i = 0; i < count; i++) {
       const device = this.pickRandomDevice(org);
-      docs.push(this.createFirewallLogDoc(subscriptionId, resourceGroup, firewallName, device));
+      docs.push(
+        this.createFirewallLogDoc(
+          subscriptionId,
+          resourceGroup,
+          firewallName,
+          device,
+          centralAgent,
+        ),
+      );
     }
 
     return docs;
@@ -969,6 +1025,7 @@ export class AzureIntegration extends BaseIntegration {
     resourceGroup: string,
     firewallName: string,
     device: Device | null,
+    centralAgent: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const ruleCategory = faker.helpers.arrayElement(FIREWALL_RULE_CATEGORIES);
@@ -1010,6 +1067,7 @@ export class AzureIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawAzureJson),
       data_stream: { dataset: 'azure.firewall_logs', namespace: 'default', type: 'logs' },
     } as IntegrationDocument;
@@ -1018,18 +1076,23 @@ export class AzureIntegration extends BaseIntegration {
   private generatePlatformLogs(
     subscriptionId: string,
     resourceGroup: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument[] {
     const docs: IntegrationDocument[] = [];
     const count = faker.number.int({ min: 5, max: 12 });
 
     for (let i = 0; i < count; i++) {
-      docs.push(this.createPlatformLogDoc(subscriptionId, resourceGroup));
+      docs.push(this.createPlatformLogDoc(subscriptionId, resourceGroup, centralAgent));
     }
 
     return docs;
   }
 
-  private createPlatformLogDoc(subscriptionId: string, resourceGroup: string): IntegrationDocument {
+  private createPlatformLogDoc(
+    subscriptionId: string,
+    resourceGroup: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
+  ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const service = faker.helpers.arrayElement(AZURE_PLATFORM_SERVICES);
     const operation = faker.helpers.arrayElement(service.operations);
@@ -1057,6 +1120,7 @@ export class AzureIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawAzureJson),
       data_stream: { dataset: 'azure.platformlogs', namespace: 'default', type: 'logs' },
     } as IntegrationDocument;
@@ -1065,13 +1129,21 @@ export class AzureIntegration extends BaseIntegration {
   private generateApplicationGatewayLogs(
     subscriptionId: string,
     resourceGroup: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument[] {
     const docs: IntegrationDocument[] = [];
     const count = faker.number.int({ min: 5, max: 15 });
     const gatewayName = 'Application-Gateway-01';
 
     for (let i = 0; i < count; i++) {
-      docs.push(this.createApplicationGatewayLogDoc(subscriptionId, resourceGroup, gatewayName));
+      docs.push(
+        this.createApplicationGatewayLogDoc(
+          subscriptionId,
+          resourceGroup,
+          gatewayName,
+          centralAgent,
+        ),
+      );
     }
 
     return docs;
@@ -1081,6 +1153,7 @@ export class AzureIntegration extends BaseIntegration {
     subscriptionId: string,
     resourceGroup: string,
     gatewayName: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const sourceIp = faker.internet.ipv4();
@@ -1142,6 +1215,7 @@ export class AzureIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawAzureJson),
       data_stream: {
         dataset: 'azure.application_gateway',
@@ -1151,14 +1225,19 @@ export class AzureIntegration extends BaseIntegration {
     } as IntegrationDocument;
   }
 
-  private generateSpringCloudLogs(subscriptionId: string): IntegrationDocument[] {
+  private generateSpringCloudLogs(
+    subscriptionId: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
+  ): IntegrationDocument[] {
     const docs: IntegrationDocument[] = [];
     const count = faker.number.int({ min: 5, max: 12 });
     const serviceName = 'springcloud01';
     const resourceGroup = 'SPRINGAPPS-RG';
 
     for (let i = 0; i < count; i++) {
-      docs.push(this.createSpringCloudLogDoc(subscriptionId, resourceGroup, serviceName));
+      docs.push(
+        this.createSpringCloudLogDoc(subscriptionId, resourceGroup, serviceName, centralAgent),
+      );
     }
 
     return docs;
@@ -1168,6 +1247,7 @@ export class AzureIntegration extends BaseIntegration {
     subscriptionId: string,
     resourceGroup: string,
     serviceName: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
     const appName = faker.helpers.arrayElement(SPRING_CLOUD_APPS);
@@ -1208,6 +1288,7 @@ export class AzureIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawAzureJson),
       data_stream: {
         dataset: 'azure.springcloudlogs',

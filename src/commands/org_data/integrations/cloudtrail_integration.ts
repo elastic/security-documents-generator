@@ -287,6 +287,7 @@ export class CloudTrailIntegration extends BaseIntegration {
           iamUser,
           employee,
           account!,
+          org,
           assumedRoleArn,
           callerIdentityTime,
           accessKeyId,
@@ -310,6 +311,7 @@ export class CloudTrailIntegration extends BaseIntegration {
             iamUser,
             employee,
             account!,
+            org,
             service,
             assumedRoleArn,
             apiTime,
@@ -388,6 +390,7 @@ export class CloudTrailIntegration extends BaseIntegration {
         this.createServiceAccountApiEvent(
           iamUser,
           account!,
+          org,
           service,
           timestamp,
           accessKeyId,
@@ -442,7 +445,9 @@ export class CloudTrailIntegration extends BaseIntegration {
       const timestamp = this.getRandomTimestamp(48);
       const isFailure = faker.number.float() < 0.05; // 5% failure rate
 
-      events.push(this.createConsoleLoginEvent(iamUser, employee, account!, timestamp, isFailure));
+      events.push(
+        this.createConsoleLoginEvent(iamUser, employee, account!, org, timestamp, isFailure),
+      );
     }
 
     return events;
@@ -614,6 +619,7 @@ export class CloudTrailIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
       tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
@@ -627,6 +633,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     iamUser: CloudIamUser,
     employee: Employee,
     account: CloudAccount,
+    org: Organization,
     assumedRoleArn: string,
     timestamp: string,
     accessKeyId: string,
@@ -674,6 +681,7 @@ export class CloudTrailIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
       tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
@@ -687,6 +695,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     iamUser: CloudIamUser,
     employee: Employee,
     account: CloudAccount,
+    org: Organization,
     service: string,
     assumedRoleArn: string,
     timestamp: string,
@@ -755,6 +764,7 @@ export class CloudTrailIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
       tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
@@ -767,6 +777,7 @@ export class CloudTrailIntegration extends BaseIntegration {
   private createServiceAccountApiEvent(
     iamUser: CloudIamUser,
     account: CloudAccount,
+    org: Organization,
     service: string,
     timestamp: string,
     accessKeyId: string,
@@ -809,6 +820,7 @@ export class CloudTrailIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
       tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
@@ -822,6 +834,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     iamUser: CloudIamUser,
     employee: Employee,
     account: CloudAccount,
+    org: Organization,
     timestamp: string,
     isFailure: boolean,
   ): IntegrationDocument {
@@ -877,6 +890,7 @@ export class CloudTrailIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
       tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },

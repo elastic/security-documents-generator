@@ -7,6 +7,7 @@ import {
   BaseIntegration,
   type IntegrationDocument,
   type DataStreamConfig,
+  type AgentData,
 } from './base_integration.ts';
 import { type Organization, type CorrelationMap } from '../types.ts';
 import { faker } from '@faker-js/faker';
@@ -38,17 +39,18 @@ export class TiAbusechIntegration extends BaseIntegration {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const malwareDocs: IntegrationDocument[] = [];
     const urlDocs: IntegrationDocument[] = [];
+    const centralAgent = this.buildCentralAgent(org);
 
     const indicatorCount = this.getIndicatorCount(org.size);
 
     // Generate malware hash indicators
     for (let i = 0; i < indicatorCount.malware; i++) {
-      malwareDocs.push(this.generateMalwareDocument());
+      malwareDocs.push(this.generateMalwareDocument(centralAgent));
     }
 
     // Generate URL indicators
     for (let i = 0; i < indicatorCount.url; i++) {
-      urlDocs.push(this.generateUrlDocument());
+      urlDocs.push(this.generateUrlDocument(centralAgent));
     }
 
     documentsMap.set('logs-ti_abusech.malware-default', malwareDocs);
@@ -56,7 +58,7 @@ export class TiAbusechIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private generateMalwareDocument(): IntegrationDocument {
+  private generateMalwareDocument(centralAgent: AgentData): IntegrationDocument {
     const family = faker.helpers.arrayElement(MALWARE_FAMILIES);
     // Use deterministic hashes from our shared set so CrowdStrike alerts can reference them
     const sha256 = faker.helpers.arrayElement(MALWARE_HASHES);
@@ -92,13 +94,14 @@ export class TiAbusechIntegration extends BaseIntegration {
 
     return {
       '@timestamp': lastSeen,
+      agent: centralAgent,
       message: JSON.stringify(rawEvent),
       _conf: { ioc_expiration_duration: '90d' },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'ti_abusech.malware' },
     } as IntegrationDocument;
   }
 
-  private generateUrlDocument(): IntegrationDocument {
+  private generateUrlDocument(centralAgent: AgentData): IntegrationDocument {
     const url = faker.helpers.arrayElement(MALICIOUS_URLS);
     const threatType = faker.helpers.arrayElement(ABUSECH_THREAT_TYPES);
     const status = faker.helpers.weightedArrayElement([
@@ -139,6 +142,7 @@ export class TiAbusechIntegration extends BaseIntegration {
 
     return {
       '@timestamp': lastSeen,
+      agent: centralAgent,
       message: JSON.stringify(rawEvent),
       _conf: { interval: '24h' },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'ti_abusech.url' },

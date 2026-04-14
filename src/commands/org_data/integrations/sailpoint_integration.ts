@@ -8,6 +8,7 @@ import {
   BaseIntegration,
   type IntegrationDocument,
   type DataStreamConfig,
+  type AgentData,
 } from './base_integration.ts';
 import { type Organization, type Employee, type CorrelationMap } from '../types.ts';
 import { faker } from '@faker-js/faker';
@@ -146,6 +147,7 @@ export class SailPointIntegration extends BaseIntegration {
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
+    const centralAgent = this.buildCentralAgent(org);
 
     const orgSlug = org.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
 
@@ -154,7 +156,7 @@ export class SailPointIntegration extends BaseIntegration {
       const eventCount = faker.number.int({ min: 2, max: 3 });
       for (let i = 0; i < eventCount; i++) {
         const targetEmployee = faker.helpers.arrayElement(org.employees);
-        documents.push(this.createEventDocument(employee, targetEmployee, orgSlug));
+        documents.push(this.createEventDocument(employee, targetEmployee, orgSlug, centralAgent));
       }
     }
 
@@ -169,6 +171,7 @@ export class SailPointIntegration extends BaseIntegration {
     actor: Employee,
     target: Employee,
     orgSlug: string,
+    centralAgent: AgentData,
   ): IntegrationDocument {
     const eventType = faker.helpers.weightedArrayElement(
       EVENT_TYPES.map((et) => ({ value: et, weight: et.weight })),
@@ -231,6 +234,7 @@ export class SailPointIntegration extends BaseIntegration {
 
     return {
       '@timestamp': created,
+      agent: centralAgent,
       message: JSON.stringify(rawEvent),
       data_stream: {
         namespace: 'default',

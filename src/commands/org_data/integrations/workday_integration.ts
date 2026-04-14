@@ -13,6 +13,7 @@ import {
   BaseIntegration,
   type IntegrationDocument,
   type DataStreamConfig,
+  type AgentData,
 } from './base_integration.ts';
 import { log } from '../../../utils/logger.ts';
 import { type Organization, type Employee, type CorrelationMap } from '../types.ts';
@@ -103,6 +104,7 @@ export class WorkdayIntegration extends BaseIntegration {
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
+    const centralAgent = this.buildCentralAgent(org);
 
     // Build a lookup for managers
     const employeeById = new Map<string, Employee>();
@@ -114,7 +116,7 @@ export class WorkdayIntegration extends BaseIntegration {
     for (const employee of org.employees) {
       const manager = employee.managerId ? employeeById.get(employee.managerId) : undefined;
 
-      documents.push(this.createPersonDocument(employee, manager, org));
+      documents.push(this.createPersonDocument(employee, manager, org, centralAgent));
     }
 
     documentsMap.set(this.dataStreams[0].index, documents);
@@ -128,6 +130,7 @@ export class WorkdayIntegration extends BaseIntegration {
     employee: Employee,
     manager: Employee | undefined,
     org: Organization,
+    centralAgent: AgentData,
   ): IntegrationDocument {
     const workdayId = faker.string.hexadecimal({ length: 32, prefix: '' }).toLowerCase();
     const hireDate = faker.date
@@ -243,6 +246,7 @@ export class WorkdayIntegration extends BaseIntegration {
 
     return {
       '@timestamp': this.getRandomTimestamp(24),
+      agent: centralAgent,
       message: JSON.stringify(rawEvent),
       data_stream: {
         namespace: 'default',

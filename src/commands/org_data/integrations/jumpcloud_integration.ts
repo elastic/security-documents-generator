@@ -158,11 +158,12 @@ export class JumpCloudIntegration extends BaseIntegration {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const eventDocs: IntegrationDocument[] = [];
     const orgId = faker.string.hexadecimal({ length: 24, prefix: '' });
+    const centralAgent = this.buildCentralAgent(org);
 
     for (const employee of org.employees) {
       const eventCount = faker.number.int({ min: 2, max: 5 });
       for (let i = 0; i < eventCount; i++) {
-        eventDocs.push(this.createEventDocument(employee, orgId));
+        eventDocs.push(this.createEventDocument(employee, orgId, centralAgent));
       }
     }
 
@@ -170,7 +171,11 @@ export class JumpCloudIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private createEventDocument(employee: Employee, orgId: string): IntegrationDocument {
+  private createEventDocument(
+    employee: Employee,
+    orgId: string,
+    centralAgent: { id: string; name: string; type: string; version: string },
+  ): IntegrationDocument {
     const eventDef = faker.helpers.weightedArrayElement(
       EVENT_TYPES.map((e) => ({ value: e, weight: e.weight })),
     );
@@ -238,6 +243,7 @@ export class JumpCloudIntegration extends BaseIntegration {
 
     return {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawJumpCloudEvent),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'jumpcloud.events' },
     } as IntegrationDocument;

@@ -112,8 +112,10 @@ export class ZscalerZiaIntegration extends BaseIntegration {
       proto: 'SSL',
     };
 
+    const hostname = laptop ? `${employee.userName}-${laptop.platform}` : 'unknown';
     return {
       '@timestamp': timestamp,
+      agent: laptop ? this.buildLocalAgent(laptop, hostname) : undefined,
       message: JSON.stringify({ event: rawEvent }),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'zscaler_zia.web' },
     } as IntegrationDocument;
@@ -174,8 +176,10 @@ export class ZscalerZiaIntegration extends BaseIntegration {
       proto: 'SSL',
     };
 
+    const hostname = laptop ? `${employee.userName}-${laptop.platform}` : 'unknown';
     return {
       '@timestamp': timestamp,
+      agent: laptop ? this.buildLocalAgent(laptop, hostname) : undefined,
       message: JSON.stringify({ event: rawEvent }),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'zscaler_zia.web' },
     } as IntegrationDocument;
@@ -222,8 +226,13 @@ export class ZscalerZiaIntegration extends BaseIntegration {
       devicename: employee.devices[0]?.displayName || 'Unknown',
     };
 
+    const device = employee.devices.find((d) => d.type === 'laptop');
+    const hostname = device
+      ? `${employee.userName}-${device.platform}`
+      : `${employee.userName}-unknown`;
     return {
       '@timestamp': this.getRandomTimestamp(72),
+      agent: device ? this.buildLocalAgent(device, hostname) : undefined,
       message: JSON.stringify({ event: rawEvent }),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'zscaler_zia.firewall' },
     } as IntegrationDocument;

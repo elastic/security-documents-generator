@@ -8,6 +8,7 @@ import {
   BaseIntegration,
   type IntegrationDocument,
   type DataStreamConfig,
+  type AgentData,
 } from './base_integration.ts';
 import { type Organization, type Employee, type CorrelationMap } from '../types.ts';
 import { faker } from '@faker-js/faker';
@@ -155,11 +156,12 @@ export class BoxIntegration extends BaseIntegration {
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
+    const centralAgent = this.buildCentralAgent(org);
 
     for (const employee of org.employees) {
       const eventCount = faker.number.int({ min: 2, max: 5 });
       for (let i = 0; i < eventCount; i++) {
-        documents.push(this.createEventDocument(org, employee));
+        documents.push(this.createEventDocument(org, employee, centralAgent));
       }
     }
 
@@ -167,7 +169,11 @@ export class BoxIntegration extends BaseIntegration {
     return documentsMap;
   }
 
-  private createEventDocument(org: Organization, employee: Employee): IntegrationDocument {
+  private createEventDocument(
+    org: Organization,
+    employee: Employee,
+    centralAgent: AgentData,
+  ): IntegrationDocument {
     const action = faker.helpers.weightedArrayElement(
       EVENT_ACTIONS.map((a) => ({ value: a, weight: a.weight })),
     );
@@ -317,9 +323,9 @@ export class BoxIntegration extends BaseIntegration {
       };
     }
 
-    // Output: raw format with message = JSON.stringify(rawBoxEvent)
     const doc: IntegrationDocument = {
       '@timestamp': timestamp,
+      agent: centralAgent,
       message: JSON.stringify(rawBoxEvent),
       data_stream: {
         dataset: 'box_events.events',

@@ -14,6 +14,7 @@ import {
   BaseIntegration,
   type IntegrationDocument,
   type DataStreamConfig,
+  type AgentData,
 } from './base_integration.ts';
 import { log } from '../../../utils/logger.ts';
 import { type Organization, type Employee, type CorrelationMap } from '../types.ts';
@@ -104,6 +105,7 @@ export class PingDirectoryIntegration extends BaseIntegration {
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
+    const centralAgent = this.buildCentralAgent(org);
 
     // Build a lookup for managers
     const employeeById = new Map<string, Employee>();
@@ -118,7 +120,9 @@ export class PingDirectoryIntegration extends BaseIntegration {
     for (const employee of org.employees) {
       const manager = employee.managerId ? employeeById.get(employee.managerId) : undefined;
 
-      documents.push(this.createScimUserDocument(employee, manager, org, scimBaseUrl));
+      documents.push(
+        this.createScimUserDocument(employee, manager, org, scimBaseUrl, centralAgent),
+      );
     }
 
     documentsMap.set(this.dataStreams[0].index, documents);
@@ -134,6 +138,7 @@ export class PingDirectoryIntegration extends BaseIntegration {
     manager: Employee | undefined,
     org: Organization,
     scimBaseUrl: string,
+    centralAgent: AgentData,
   ): IntegrationDocument {
     const scimUserId = faker.string.uuid();
     const createdDate = faker.date
@@ -164,6 +169,7 @@ export class PingDirectoryIntegration extends BaseIntegration {
 
     return {
       '@timestamp': this.getRandomTimestamp(24),
+      agent: centralAgent,
       event: {
         dataset: 'ping_directory.users',
         kind: 'asset',
