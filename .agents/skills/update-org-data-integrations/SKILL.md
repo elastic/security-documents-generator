@@ -198,11 +198,11 @@ integration that references users:
 
 #### Stable fields on Host
 
-| Field            | Description                            | Example                       |
-| ---------------- | -------------------------------------- | ----------------------------- |
-| `id`             | Host UUID                              | `a2b3c4d5-...`                |
-| `name`           | Server hostname                        | `api-server-prod-a1b2c3`      |
-| `elasticAgentId` | Elastic Agent UUID for the server host | `d4e5f6a7-...`                |
+| Field            | Description                            | Example                  |
+| ---------------- | -------------------------------------- | ------------------------ |
+| `id`             | Host UUID                              | `a2b3c4d5-...`           |
+| `name`           | Server hostname                        | `api-server-prod-a1b2c3` |
+| `elasticAgentId` | Elastic Agent UUID for the server host | `d4e5f6a7-...`           |
 
 #### CentralAgent on Organization
 
@@ -210,29 +210,29 @@ The `org.centralAgent` represents a single Elastic Agent deployed on a central f
 collector server. All cloud/SaaS integrations (Okta, GWS, GitHub, etc.) share this agent
 identity in their documents.
 
-| Field  | Description                      | Example               |
-| ------ | -------------------------------- | --------------------- |
-| `id`   | Stable UUID for the agent        | `b7c8d9e0-...`        |
-| `name` | Hostname of the collector server | `fleet-collector-01`  |
+| Field  | Description                      | Example              |
+| ------ | -------------------------------- | -------------------- |
+| `id`   | Stable UUID for the agent        | `b7c8d9e0-...`       |
+| `name` | Hostname of the collector server | `fleet-collector-01` |
 
 #### Correlation rules for ECS fields
 
 When generating documents, map ECS fields to the stable Employee/Device values:
 
-| ECS Field     | Rule                                                                                                                                                                     |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `user.id`     | Windows: `employee.windowsSid`. Mac/Linux: `String(employee.unixUid)`. **Never** generate random SIDs/UIDs per event.                                                    |
-| `user.name`   | Always `employee.userName`.                                                                                                                                              |
-| `user.email`  | Always `employee.email`.                                                                                                                                                 |
-| `user.domain` | Windows user-context: derive from employee (e.g. `employee.userName.split('.')[0].toUpperCase()`). Use `'NT AUTHORITY'` only for SYSTEM.                                 |
-| `host.id`     | Always `device.id`.                                                                                                                                                      |
-| `host.name`   | `${employee.userName}-${device.platform}` for employee devices.                                                                                                          |
-| `host.mac`    | Always `device.macAddress`. Convert separator as needed (dash for ECS/endpoint, colon for Jamf). **Never** call `faker.internet.mac()`.                                  |
-| `host.ip`     | Always `device.ipAddress` as the primary IP. **Never** call `faker.internet.ipv4()` for host IPs. Random IPs are OK for `source.ip`, `destination.ip`, or `external_ip`. |
-| `agent.id`    | Local workstation: `device.elasticAgentId`. Server: `host.elasticAgentId`. Centralized cloud: `org.centralAgent.id`. Use `buildLocalAgent()`, `buildServerAgent()`, or `buildCentralAgent()` helpers from `BaseIntegration`. |
-| `agent.name`  | Local workstation: `${employee.userName}-${device.platform}` (same as `host.name`). Server: `host.name`. Centralized cloud: `org.centralAgent.name` (`fleet-collector-01`). |
-| `agent.type`  | `'endpoint'` for Elastic Defend, `'filebeat'` for all other integrations. |
-| `agent.version` | Always `ELASTIC_AGENT_VERSION` (`'8.17.4'`), exported from `base_integration.ts`. |
+| ECS Field       | Rule                                                                                                                                                                                                                         |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `user.id`       | Windows: `employee.windowsSid`. Mac/Linux: `String(employee.unixUid)`. **Never** generate random SIDs/UIDs per event.                                                                                                        |
+| `user.name`     | Always `employee.userName`.                                                                                                                                                                                                  |
+| `user.email`    | Always `employee.email`.                                                                                                                                                                                                     |
+| `user.domain`   | Windows user-context: derive from employee (e.g. `employee.userName.split('.')[0].toUpperCase()`). Use `'NT AUTHORITY'` only for SYSTEM.                                                                                     |
+| `host.id`       | Always `device.id`.                                                                                                                                                                                                          |
+| `host.name`     | `${employee.userName}-${device.platform}` for employee devices.                                                                                                                                                              |
+| `host.mac`      | Always `device.macAddress`. Convert separator as needed (dash for ECS/endpoint, colon for Jamf). **Never** call `faker.internet.mac()`.                                                                                      |
+| `host.ip`       | Always `device.ipAddress` as the primary IP. **Never** call `faker.internet.ipv4()` for host IPs. Random IPs are OK for `source.ip`, `destination.ip`, or `external_ip`.                                                     |
+| `agent.id`      | Local workstation: `device.elasticAgentId`. Server: `host.elasticAgentId`. Centralized cloud: `org.centralAgent.id`. Use `buildLocalAgent()`, `buildServerAgent()`, or `buildCentralAgent()` helpers from `BaseIntegration`. |
+| `agent.name`    | Local workstation: `${employee.userName}-${device.platform}` (same as `host.name`). Server: `host.name`. Centralized cloud: `org.centralAgent.name` (`fleet-collector-01`).                                                  |
+| `agent.type`    | `'endpoint'` for Elastic Defend, `'filebeat'` for all other integrations.                                                                                                                                                    |
+| `agent.version` | Always `ELASTIC_AGENT_VERSION` (`'8.17.4'`), exported from `base_integration.ts`.                                                                                                                                            |
 
 #### When to extend the CorrelationMap
 
@@ -299,13 +299,14 @@ When examining a pipeline YAML, look for these processor types:
 // CORRECT: Raw pre-pipeline format with agent metadata
 return {
   '@timestamp': timestamp,
-  agent: this.buildCentralAgent(org),  // or buildLocalAgent(device, hostname) / buildServerAgent(host)
+  agent: this.buildCentralAgent(org), // or buildLocalAgent(device, hostname) / buildServerAgent(host)
   message: JSON.stringify(rawApiPayload),
   data_stream: { namespace: 'default', type: 'logs', dataset: '<package>.<dataset>' },
 } as IntegrationDocument;
 ```
 
 Every document MUST include an `agent` field. Use the appropriate helper from `BaseIntegration`:
+
 - **`buildCentralAgent(org)`** -- for cloud/SaaS integrations (Okta, GWS, GitHub, etc.)
 - **`buildLocalAgent(device, hostname, agentType?)`** -- for per-workstation integrations (endpoint, crowdstrike, jamf_pro, island_browser, zscaler_zia)
 - **`buildServerAgent(host)`** -- for per-server integrations (system)
