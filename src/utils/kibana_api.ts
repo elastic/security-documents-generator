@@ -924,6 +924,22 @@ export const createWatchlist = async ({
   );
 };
 
+export const deleteWatchlist = async ({
+  id,
+  space = 'default',
+}: {
+  id: string;
+  space?: string;
+}) => {
+  return kibanaFetch<unknown>(
+    `${WATCHLISTS_URL}/${id}`,
+    {
+      method: 'DELETE',
+    },
+    { apiVersion: API_VERSIONS.public.v1, space },
+  );
+};
+
 export const forceBulkUpdateEntitiesViaCrud = async ({
   entities,
   space = 'default',
