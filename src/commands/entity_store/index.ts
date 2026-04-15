@@ -134,7 +134,10 @@ export const entityStoreCommands: CommandModule = {
         'Generate maintainers and snapshot data for Entity Store V2 entities (risk score, asset criticality, anomaly behaviors, relationships, watchlists)',
       )
       .option('--space <space>', 'Kibana space ID', 'default')
-      .option('--quick', 'Run all maintainers for 10000 entities without prompts')
+      .option(
+        '--quick',
+        'Run quick-default maintainers for 10000 entities without prompts (respects --exclude-wl and maintainer config)',
+      )
       .option('--exclude-wl', 'Exclude watchlists when running with --quick', false)
       .action(
         wrapAction(async ({ space, quick, excludeWl }: { space: string; quick?: boolean; excludeWl?: boolean }) => {
