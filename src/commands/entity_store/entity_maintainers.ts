@@ -1,14 +1,13 @@
 import { log } from '../../utils/logger.ts';
 import { faker } from '@faker-js/faker';
 import { chunk } from 'lodash-es';
-import { getEsClient } from '../utils/indices.ts';
 import { bulkIngest, bulkUpsert } from '../shared/elasticsearch.ts';
 import {
-  getEntityStoreIndex,
   ENTITY_MAINTAINERS_OPTIONS,
   DEFAULT_CHUNK_SIZE,
   type EntityMaintainerOption,
 } from '../../constants.ts';
+import { fetchEntities, type EntityHit, type EntityHitSource } from '../utils/entity_store.ts';
 import { getAlertIndex } from '../../utils/index.ts';
 import createAlerts from '../../generators/create_alerts.ts';
 
@@ -64,67 +63,6 @@ const SYNTHETIC_SERVICES = [
   'Azure Portal',
   'VPN',
 ];
-
-interface EntityHitSource {
-  '@timestamp'?: string;
-  entity?: {
-    id?: string;
-    name?: string;
-    type?: string;
-    risk?: {
-      calculated_level?: string;
-      calculated_score?: number;
-      calculated_score_norm?: number;
-    };
-    behaviors?: {
-      rule_names?: string[];
-      anomaly_job_ids?: string[];
-    };
-    relationships?: Record<string, string[]>;
-    attributes?: {
-      watchlists?: string[];
-      [key: string]: unknown;
-    };
-  };
-  user?: {
-    name?: string;
-  };
-  host?: {
-    name?: string;
-  };
-  asset?: {
-    criticality?: string;
-    [key: string]: unknown;
-  };
-  [key: string]: unknown;
-}
-
-interface EntityHit {
-  _id: string;
-  _index: string;
-  _source: EntityHitSource;
-}
-
-const fetchEntities = async (
-  count: number,
-  space?: string,
-  type = 'Identity',
-): Promise<EntityHit[]> => {
-  const client = getEsClient();
-
-  const response = await client.search({
-    index: getEntityStoreIndex(space),
-    size: count,
-    sort: [{ '@timestamp': 'desc' }],
-    query: {
-      bool: {
-        filter: [{ term: { 'entity.type': type } }],
-      },
-    },
-  });
-
-  return response.hits.hits as unknown as EntityHit[];
-};
 
 const getEntityName = (entity: EntityHit): string | undefined =>
   entity._source?.entity?.name ?? entity._source?.user?.name;

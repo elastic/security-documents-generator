@@ -2,6 +2,146 @@ import { flatMap, range } from 'lodash-es';
 import { DED_JOB_IDS } from '../ml_modules_setup.ts';
 import { faker } from '@faker-js/faker';
 import { generateCommonFields } from './utils.ts';
+import type { HostIdentityForDed, UserIdentityForDed } from '../../../utils/entity_store.ts';
+
+/** Optional host/user pools from Entity Store. */
+export interface DedEntityCorpus {
+  hosts?: HostIdentityForDed[];
+  users?: UserIdentityForDed[];
+}
+
+/** Discriminated union: which identity type (if any) to apply to a record. `none` means keep the record's generated names as-is. */
+type CorrelateBranch =
+  | { kind: 'none' }
+  | { kind: 'host'; host: HostIdentityForDed }
+  | { kind: 'user'; user: UserIdentityForDed };
+
+/**
+ * Picks a user, host, or synthetic branch for record index `ndx`.
+ * Alternates between users and hosts when both pools are available.
+ * Pass `hostOnly: true` to force host selection (for host-partitioned jobs).
+ */
+const resolveCorrelateBranch = (
+  corpus: DedEntityCorpus | undefined,
+  ndx: number,
+  hostOnly = false,
+): CorrelateBranch => {
+  const hosts = corpus?.hosts?.length ? corpus.hosts : [];
+  const users = corpus?.users?.length ? corpus.users : [];
+  if (hostOnly) {
+    return hosts.length > 0 ? { kind: 'host', host: hosts[ndx % hosts.length]! } : { kind: 'none' };
+  }
+  if (hosts.length === 0 && users.length === 0) return { kind: 'none' };
+  if (hosts.length > 0 && users.length > 0) {
+    return ndx % 2 === 0
+      ? { kind: 'user', user: users[ndx % users.length]! }
+      : { kind: 'host', host: hosts[ndx % hosts.length]! };
+  }
+  if (users.length > 0) return { kind: 'user', user: users[ndx % users.length]! };
+  return { kind: 'host', host: hosts[ndx % hosts.length]! };
+};
+
+/** Best display name for a host, used as the influencer value. */
+const hostLabel = (h: HostIdentityForDed): string => h.name ?? h.id ?? 'host';
+
+/** ECS fields to inject into a record for a given host identity. */
+const buildHostFields = (h: HostIdentityForDed): Record<string, string[]> => {
+  const fields: Record<string, string[]> = {};
+  const effectiveName = h.name ?? h.id;
+  if (effectiveName) fields['host.name'] = [effectiveName];
+  if (h.id) fields['host.id'] = [h.id];
+  return fields;
+};
+
+/** Value aligned with `user.name` influencer / doc for applyV2Fields. */
+const userInfluencerPrimary = (u: UserIdentityForDed): string =>
+  u.ecsArrays['user.name']?.[0] ??
+  u.ecsArrays['user.id']?.[0] ??
+  u.ecsArrays['user.email']?.[0] ??
+  u.displayLabel;
+
+type Influencer = { influencer_field_name: string; influencer_field_values: string[] };
+
+// These jobs are partitioned by host.name in the real ML configuration, so only host identities are injected.
+const HOST_ONLY_JOB_IDS = new Set([
+  'ded_high_bytes_written_to_external_device',
+  'ded_high_bytes_written_to_external_device_airdrop',
+]);
+
+/**
+ * Overwrites the identity fields (user.name / host.name and related) on an
+ * already-generated synthetic record with real Entity Store values.
+ * Keeps every other field unchanged.
+ */
+const applyCorpusToRecord = (
+  record: Record<string, unknown>,
+  corpus: DedEntityCorpus,
+  ndx: number,
+): Record<string, unknown> => {
+  const jobId = record.job_id as string | undefined;
+  const br = resolveCorrelateBranch(corpus, ndx, Boolean(jobId && HOST_ONLY_JOB_IDS.has(jobId)));
+  if (br.kind === 'none') return record;
+
+  const result = { ...record };
+  const influencers = (result.influencers as Influencer[] | undefined) ?? [];
+  // Strip both identity fields from influencers; we'll add the winning one back.
+  const otherInfluencers = influencers.filter(
+    (inf) => inf.influencer_field_name !== 'user.name' && inf.influencer_field_name !== 'host.name',
+  );
+
+  if (br.kind === 'user') {
+    const { ecsArrays } = br.user;
+    const userName = userInfluencerPrimary(br.user);
+
+    // Clear host fields so user EUID wins the COALESCE in the ES|QL query.
+    delete result['host.name'];
+    delete result['host.id'];
+
+    // Inject real user ECS fields (user.name, user.id, event.module, …).
+    Object.assign(result, ecsArrays);
+
+    result.influencers = [
+      ...otherInfluencers,
+      { influencer_field_name: 'user.name', influencer_field_values: [userName] },
+    ];
+
+    // Some records are partitioned by host.name; flip to user.name.
+    if (
+      result.partition_field_name === 'host.name' ||
+      result.partition_field_name === 'user.name'
+    ) {
+      result.partition_field_name = 'user.name';
+      result.partition_field_value = userName;
+    }
+  } else {
+    const label = hostLabel(br.host);
+    const hostFields = buildHostFields(br.host);
+
+    // Clear user fields so host EUID wins the COALESCE in the ES|QL query.
+    delete result['user.name'];
+    delete result['user.id'];
+    delete result['event.module'];
+
+    // Inject real host ECS fields (host.name, host.id).
+    Object.assign(result, hostFields);
+
+    result.influencers = [
+      ...otherInfluencers,
+      { influencer_field_name: 'host.name', influencer_field_values: [label] },
+    ];
+
+    // Keep (or set) partition_field keyed on host.name with the real label.
+    if (
+      result.partition_field_name === 'user.name' ||
+      result.partition_field_name === 'host.name'
+    ) {
+      result.partition_field_name = 'host.name';
+      result.partition_field_value = label;
+    }
+  }
+
+  return result;
+};
 
 const generateDestinationIpRecord = (ndx: number) => {
   const commonFields = generateCommonFields();
@@ -237,22 +377,31 @@ const generateExternalDeviceRecord = (ndx: number) => {
   };
 };
 
-export const generateDedRecords = (numDocs: number = 10): Array<Record<string, unknown>> => {
+export const generateDedRecords = (
+  numDocs: number = 10,
+  corpus?: DedEntityCorpus,
+): Array<Record<string, unknown>> => {
   return flatMap(
     DED_JOB_IDS.map((jobId) => {
       return range(numDocs).map((val) => {
+        let record: Record<string, unknown>;
         switch (jobId) {
           case 'ded_high_bytes_written_to_external_device':
-            return generateExternalDeviceRecord(val);
+            record = generateExternalDeviceRecord(val);
+            break;
           case 'ded_high_bytes_written_to_external_device_airdrop':
-            return generateExternalDeviceAirdropRecord(val);
+            record = generateExternalDeviceAirdropRecord(val);
+            break;
           case 'ded_high_sent_bytes_destination_geo_country_iso_code':
-            return generateDestinationGeoCountryRecord(val);
+            record = generateDestinationGeoCountryRecord(val);
+            break;
           case 'ded_high_sent_bytes_destination_ip':
-            return generateDestinationIpRecord(val);
+            record = generateDestinationIpRecord(val);
+            break;
           default:
             throw new Error(`Unexpected job ID: ${jobId}`);
         }
+        return corpus ? applyCorpusToRecord(record, corpus, val) : record;
       });
     }),
   );

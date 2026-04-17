@@ -27,6 +27,7 @@ interface GenerateAiInsightsOpts {
   generateAnomalyData: boolean;
   v2?: boolean;
   seed?: number;
+  correlateWithEntityStore?: boolean;
 }
 export const generateAiInsights = async ({
   users,
@@ -37,6 +38,7 @@ export const generateAiInsights = async ({
   generateAnomalyData,
   v2 = false,
   seed = generateNewSeed(),
+  correlateWithEntityStore = false,
 }: GenerateAiInsightsOpts) => {
   faker.seed(seed);
   const usersData = Array.from({ length: users }, () => ({
@@ -64,7 +66,13 @@ export const generateAiInsights = async ({
 
   if (generateAnomalies) {
     log.info(`Generating anomalous behavior data with ML jobs`);
-    await generateAnomalousBehaviorDataWithMlJobs(space, records, generateAnomalyData, v2);
+    await generateAnomalousBehaviorDataWithMlJobs(
+      space,
+      records,
+      generateAnomalyData,
+      v2,
+      correlateWithEntityStore,
+    );
   } else {
     log.info('Skipping anomalous behavior ML job and data generation due to --no-anomalies flag');
   }

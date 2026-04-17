@@ -38,32 +38,56 @@ export const applyV2Fields = (record: Record<string, unknown>): Record<string, u
   const hostNames = result['host.name'] as string[] | undefined;
 
   if (userNames) {
-    result['user.id'] = userNames.map((n) => `${n}-id`);
-    result['event.module'] = [eventModule];
+    if (!(result['user.id'] as string[] | undefined)?.length) {
+      result['user.id'] = userNames.map((n) => `${n}-id`);
+    }
+    if (!(result['event.module'] as string[] | undefined)?.length) {
+      result['event.module'] = [eventModule];
+    }
   }
 
+  const existingHostIds = result['host.id'] as string[] | undefined;
   if (hostNames) {
-    result['host.id'] = hostNames.map((n) => `${n}-id`);
+    if (!existingHostIds?.length) {
+      result['host.id'] = hostNames.map((n) => `${n}-id`);
+    }
   }
 
   const influencers = result.influencers as Influencer[] | undefined;
   if (influencers) {
     const additions: Influencer[] = [];
+    const resolvedHostIds = result['host.id'] as string[] | undefined;
+    const resolvedUserIds = result['user.id'] as string[] | undefined;
+    const resolvedEventModule = result['event.module'] as string[] | undefined;
     for (const inf of influencers) {
       if (inf.influencer_field_name === 'user.name') {
-        additions.push({
-          influencer_field_name: 'user.id',
-          influencer_field_values: inf.influencer_field_values.map((n) => `${n}-id`),
-        });
+        if (resolvedUserIds && resolvedUserIds.length === inf.influencer_field_values.length) {
+          additions.push({
+            influencer_field_name: 'user.id',
+            influencer_field_values: resolvedUserIds,
+          });
+        } else {
+          additions.push({
+            influencer_field_name: 'user.id',
+            influencer_field_values: inf.influencer_field_values.map((n) => `${n}-id`),
+          });
+        }
         additions.push({
           influencer_field_name: 'event.module',
-          influencer_field_values: [eventModule],
+          influencer_field_values: resolvedEventModule ?? [eventModule],
         });
       } else if (inf.influencer_field_name === 'host.name') {
-        additions.push({
-          influencer_field_name: 'host.id',
-          influencer_field_values: inf.influencer_field_values.map((n) => `${n}-id`),
-        });
+        if (resolvedHostIds && resolvedHostIds.length === inf.influencer_field_values.length) {
+          additions.push({
+            influencer_field_name: 'host.id',
+            influencer_field_values: resolvedHostIds,
+          });
+        } else {
+          additions.push({
+            influencer_field_name: 'host.id',
+            influencer_field_values: inf.influencer_field_values.map((n) => `${n}-id`),
+          });
+        }
       }
     }
     result.influencers = [...influencers, ...additions];

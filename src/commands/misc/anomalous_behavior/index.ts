@@ -25,7 +25,11 @@ import {
   generatePacketbeatRecords,
   generateSourceData,
   applyV2Fields,
+  type DedEntityCorpus,
 } from './generators/index.ts';
+import { fetchHostIdentitiesForDed, fetchUserIdentitiesForDed } from '../../utils/entity_store.ts';
+
+const ENTITY_STORE_CORRELATION_MAX = 10;
 
 const WINDOWS_SERVICES_INDEX = 'winlogbeat-windows-services';
 const AUDITBEAT_HOSTS_INDEX = 'auditbeat-hosts';
@@ -100,9 +104,13 @@ const generatePacketbeatRecordData = async (recordCount: number, v2: boolean): P
   log.info(`Indexed ${records.length} anomaly record(s) into ${PACKETBEAT_ANOMALIES_INDEX}`);
 };
 
-const generateDedRecordData = async (recordCount: number, v2: boolean): Promise<void> => {
+const generateDedRecordData = async (
+  recordCount: number,
+  v2: boolean,
+  dedCorpus?: DedEntityCorpus,
+): Promise<void> => {
   log.info('Generating and indexing source data for DED ML module...');
-  const records = generateDedRecords(recordCount);
+  const records = generateDedRecords(recordCount, dedCorpus);
   const finalRecords = v2 ? records.map(applyV2Fields) : records;
   await bulkIngest({
     index: SHARED_ANOMALIES_INDEX,
@@ -119,6 +127,7 @@ const generateDedRecordData = async (recordCount: number, v2: boolean): Promise<
 const generateAnomalousBehaviorRecords = async (
   recordCount: number,
   v2: boolean,
+  dedCorpus?: DedEntityCorpus,
 ): Promise<void> => {
   log.info('Generating and indexing anomalous behavior ML records...');
 
@@ -126,7 +135,7 @@ const generateAnomalousBehaviorRecords = async (
   await generatePadRecordData(recordCount, v2);
   await generateLmdRecordData(recordCount, v2);
   await generatePacketbeatRecordData(recordCount, v2);
-  await generateDedRecordData(recordCount, v2);
+  await generateDedRecordData(recordCount, v2, dedCorpus);
 
   log.info(`Finished: generating anomalous behavior records`);
 };
@@ -180,13 +189,42 @@ export const generateAnomalousBehaviorDataWithMlJobs = async (
   recordCount: number,
   generateAnomalyData: boolean,
   v2 = false,
+  correlateWithEntityStore = false,
 ): Promise<void> => {
   await setupIndexMappings(space);
   await generateSource();
   await setupAnomalyMlModulesAndStartDatafeeds(space, generateAnomalyData, v2);
 
   if (!generateAnomalyData) {
-    await generateAnomalousBehaviorRecords(recordCount, v2);
+    let dedCorpus: DedEntityCorpus | undefined;
+
+    if (correlateWithEntityStore) {
+      const corpus: DedEntityCorpus = {};
+
+      const hosts = await fetchHostIdentitiesForDed(space, ENTITY_STORE_CORRELATION_MAX);
+      if (hosts.length === 0) {
+        log.warn(`No usable host identities.`);
+      } else {
+        corpus.hosts = hosts;
+      }
+
+      const users = await fetchUserIdentitiesForDed(space, ENTITY_STORE_CORRELATION_MAX);
+      if (users.length === 0) {
+        log.warn(`No usable user identities.`);
+      } else {
+        corpus.users = users;
+      }
+
+      if (!corpus.hosts?.length && !corpus.users?.length) {
+        log.error(
+          `Could not build any correlated host or user identities after fetch. Make sure to populate the entity store before using --correlate-with-entity-store.`,
+        );
+        process.exit(1);
+      }
+      dedCorpus = corpus;
+    }
+
+    await generateAnomalousBehaviorRecords(recordCount, v2, dedCorpus);
     await waitForAllJobsToStart(v2 ? ALL_ANOMALY_JOB_IDS_V2 : ALL_ANOMALY_JOB_IDS, space);
   }
 };
