@@ -49,12 +49,17 @@ export const orgDataCommands: CommandModule = {
       .alias('org-data-quick')
       .alias('organization-quick')
       .description(
-        'Quick correlated organization data generation with defaults (medium size, all integrations)',
+        'Quick correlated organization data generation with defaults (medium size)',
       )
       .option('--space <space>', 'Kibana space', 'default')
+      .option(
+        '--privmon-wl',
+        'Use Privileged User Monitoring watchlist integrations (active_directory, okta, okta_system)',
+        false,
+      )
       .action(
         wrapAction(async (options) => {
-          await runOrgDataQuick(options.space);
+          await runOrgDataQuick(options.space, { privmonWatchlist: options.privmonWl });
         }),
       );
   },

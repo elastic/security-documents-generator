@@ -31,6 +31,54 @@ export const ENTITY_MAINTAINERS_OPTIONS = {
 export type EntityMaintainerOption =
   (typeof ENTITY_MAINTAINERS_OPTIONS)[keyof typeof ENTITY_MAINTAINERS_OPTIONS];
 
+export type EntityMaintainerConfig = {
+  key: EntityMaintainerOption;
+  label: string;
+  defaultChecked: boolean;
+  quickDefault: boolean;
+  excludeOnQuick?: boolean;
+};
+
+export const ENTITY_MAINTAINERS_CONFIG: EntityMaintainerConfig[] = [
+  {
+    key: ENTITY_MAINTAINERS_OPTIONS.riskScore,
+    label: 'Risk Score',
+    defaultChecked: true,
+    quickDefault: true,
+  },
+  {
+    key: ENTITY_MAINTAINERS_OPTIONS.assetCriticality,
+    label: 'Asset Criticality',
+    defaultChecked: true,
+    quickDefault: true,
+  },
+  {
+    key: ENTITY_MAINTAINERS_OPTIONS.anomalyBehaviors,
+    label: 'Anomaly Behaviors',
+    defaultChecked: true,
+    quickDefault: true,
+  },
+  {
+    key: ENTITY_MAINTAINERS_OPTIONS.relationships,
+    label: 'Relationships',
+    defaultChecked: true,
+    quickDefault: true,
+  },
+  {
+    key: ENTITY_MAINTAINERS_OPTIONS.watchlist,
+    label: 'Watchlist',
+    defaultChecked: true,
+    quickDefault: true,
+    excludeOnQuick: true,
+  },
+  {
+    key: ENTITY_MAINTAINERS_OPTIONS.snapshot,
+    label: 'Snapshot (30-day history)',
+    defaultChecked: true,
+    quickDefault: true,
+  },
+];
+
 export const PRIVILEGED_USER_MONITORING_OPTIONS = {
   anomalyData: 'anomalyData',
   sourceEventData: 'sourceEventData',
