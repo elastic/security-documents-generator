@@ -32,6 +32,10 @@ export const miscCommands: CommandModule = {
         'create entity data and ML modules without starting datafeeds or generating anomalous behavior records',
       )
       .option('--v2', 'generate v2 ML anomaly data with user.id, host.id, and event.module fields')
+      .option(
+        '--correlate-with-entity-store',
+        'correlate generated anomaly data with entities from the entity store',
+      )
       .description(
         'Generate vulnerabilities, misconfigurations, ML jobs, and anomalous behavior for entities.',
       )
@@ -51,6 +55,7 @@ export const miscCommands: CommandModule = {
             generateAnomalies,
             generateAnomalyData,
             v2: options.v2 ?? false,
+            correlateWithEntityStore: Boolean(options.correlateWithEntityStore),
           });
         }),
       );
