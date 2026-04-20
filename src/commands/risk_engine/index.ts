@@ -9,6 +9,12 @@ import * as RiskEngineIngest from '../../risk_engine/ingest.ts';
 import { stressTest } from '../../risk_engine/esql_stress_test.ts';
 import * as Pain from '../../risk_engine/scripted_metrics_stress_test.ts';
 import { getRiskEnginePerfDataDir } from '../../utils/data_paths.ts';
+import { captureAndWriteEsStats } from '../../risk_engine/capture_es_stats.ts';
+import { runRiskScoringMetricsExtraction } from '../../risk_engine/extract_metrics_from_logs.ts';
+import { runLeadGenMetricsExtraction } from '../../risk_engine/extract_lead_gen_metrics.ts';
+import { collectResults } from '../../risk_engine/collect_results.ts';
+import { compareResultFiles, printComparisonReport } from '../../risk_engine/compare_results.ts';
+import { generateHostEvents } from '../../risk_engine/generate_host_events.ts';
 
 export const riskEngineCommands: CommandModule = {
   register(program: Command) {
@@ -36,6 +42,9 @@ export const riskEngineCommands: CommandModule = {
         }),
       );
 
+    // Registers `risk-engine` subcommands including perf-scenario helpers
+    // (`create-perf-scenario`, `upload-perf-scenario`, `create-scenario-p90-*`, …); see
+    // `src/risk_engine/perf_scenario_commands.ts`.
     RiskEngineIngest.getCmd(program);
 
     program
@@ -122,5 +131,114 @@ export const riskEngineCommands: CommandModule = {
       .action((file, interval, count) => {
         RiskEngine.uploadPerfData(file, interval, count);
       });
+
+    program
+      .command('generate-host-events')
+      .requiredOption('--entity-name <name>', 'host.name value for generated events')
+      .requiredOption('--timestamp-start <iso>', 'start timestamp (ISO-8601)')
+      .requiredOption('--timestamp-end <iso>', 'end timestamp (ISO-8601)')
+      .option('--count <n>', 'number of events to generate (default: 1000)', parseIntBase10)
+      .option('--index <name>', 'target index (default: logs-generic-default)')
+      .option('--space <name>', 'Kibana space for security data view (default: default)')
+      .description('Generate and ingest synthetic host events with configurable timestamp range')
+      .action(
+        wrapAction(async (options: Record<string, string | number | undefined>) => {
+          await generateHostEvents({
+            entityName: String(options.entityName),
+            count: (options.count as number | undefined) ?? 1000,
+            timestampStart: String(options.timestampStart),
+            timestampEnd: String(options.timestampEnd),
+            index: options.index ? String(options.index) : undefined,
+            space: options.space ? String(options.space) : undefined,
+          });
+        }),
+      );
+
+    program
+      .command('capture-es-stats')
+      .argument('<output-path>', 'JSON file to write ES stats snapshot to')
+      .description('Capture ES cluster health, node JVM/breaker/thread-pool stats, and index stats')
+      .action(
+        wrapAction(async (outputPath: string) => {
+          await captureAndWriteEsStats(outputPath);
+        }),
+      );
+
+    program
+      .command('extract-risk-scoring-metrics')
+      .argument('<log-file>', 'path to Kibana log file (use "-" for stdin)')
+      .description('Parse risk_score_maintainer log lines and output structured JSON metrics')
+      .action(
+        wrapAction(async (logFile: string) => {
+          await runRiskScoringMetricsExtraction(logFile);
+        }),
+      );
+
+    program
+      .command('extract-lead-gen-metrics')
+      .argument('<log-file>', 'path to Kibana log file (use "-" for stdin)')
+      .description(
+        'Parse [LeadGeneration] / [LeadGenerationEngine] log lines and output structured JSON',
+      )
+      .action(
+        wrapAction(async (logFile: string) => {
+          await runLeadGenMetricsExtraction(logFile);
+        }),
+      );
+
+    program
+      .command('collect-results')
+      .argument('<scenario-name>', 'name matching create-perf-scenario output directory')
+      .requiredOption('--log-file <path>', 'path to Kibana log file')
+      .option('--es-stats-pre <path>', 'pre-run ES stats JSON (from capture-es-stats)')
+      .option('--es-stats-post <path>', 'post-run ES stats JSON (from capture-es-stats)')
+      .option('--user-count <n>', 'user count parameter (for metadata)', parseIntBase10)
+      .option('--host-count <n>', 'host count parameter (for metadata)', parseIntBase10)
+      .option('--alerts-per-entity <n>', 'alerts per entity (for metadata)', parseIntBase10)
+      .option('--resolution-pct <n>', 'resolution percentage (for metadata)', parseIntBase10)
+      .description('Collect and merge log metrics + ES stats into a structured results JSON')
+      .action(
+        wrapAction(
+          async (scenarioName: string, options: Record<string, string | number | undefined>) => {
+            await collectResults({
+              scenario: scenarioName,
+              logFile: String(options.logFile),
+              esStatsPreFile: options.esStatsPre ? String(options.esStatsPre) : undefined,
+              esStatsPostFile: options.esStatsPost ? String(options.esStatsPost) : undefined,
+              parameters: {
+                userCount: options.userCount as number | undefined,
+                hostCount: options.hostCount as number | undefined,
+                alertsPerEntity: options.alertsPerEntity as number | undefined,
+                resolutionPct: options.resolutionPct as number | undefined,
+              },
+            });
+          },
+        ),
+      );
+
+    program
+      .command('compare-results')
+      .argument('<baseline-json>', 'path to baseline results JSON')
+      .argument('<current-json>', 'path to current results JSON')
+      .option('--threshold <n>', 'regression threshold percentage (default: 20)', parseIntBase10)
+      .description('Diff two results files and flag regressions > threshold%')
+      .action(
+        wrapAction(
+          async (
+            baselinePath: string,
+            currentPath: string,
+            options: Record<string, number | undefined>,
+          ) => {
+            const threshold = options.threshold ?? 20;
+            const report = compareResultFiles(baselinePath, currentPath, threshold);
+            printComparisonReport(report);
+            // console.log(JSON.stringify(report, null, 2));
+            if (report.hasRegressions) {
+              log.error('Regressions detected — exiting with code 1');
+              process.exit(1);
+            }
+          },
+        ),
+      );
   },
 };

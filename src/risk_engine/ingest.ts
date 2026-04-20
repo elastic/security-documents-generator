@@ -4,6 +4,7 @@ import { log } from '../utils/logger.ts';
 import { ensureSpace, getAlertIndex } from '../utils/index.ts';
 import { sleep } from '../utils/sleep.ts';
 import { streamingBulkIngest } from '../commands/shared/elasticsearch.ts';
+import { registerPerfScenarioRiskEngineCommands } from './perf_scenario_commands.ts';
 
 import { type Command } from 'commander';
 import { parseIntBase10, wrapAction } from '../commands/utils/cli_utils.ts';
@@ -80,6 +81,7 @@ export async function* alertsGenerator(params: {
 
 export const getCmd = (root: Command) => {
   const riskEngine = root.command('risk-engine').description('Risk engine utilities');
+  registerPerfScenarioRiskEngineCommands(riskEngine);
 
   riskEngine
     .command('ingest')
