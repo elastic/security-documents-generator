@@ -219,6 +219,10 @@ export const entityStoreCommands: CommandModule = {
       .option('--hosts <n>', 'number of host entities (default 10)')
       .option('--local-users <n>', 'number of local user entities when local_user kind is enabled')
       .option('--services <n>', 'number of service entities when service kind is enabled')
+      .option(
+        '--scenario <name>',
+        'deterministic scenario preset for manual verification (supported: issue-16838)',
+      )
       .option('--alerts-per-entity <n>', 'number of alerts per entity (default 5)')
       .option('--space <space>', 'space to use', 'default')
       .option('--event-index <index>', 'event index to ingest source documents into')

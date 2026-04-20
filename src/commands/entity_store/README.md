@@ -73,6 +73,7 @@ yarn start risk-score-v2 [options]
 
 - `--entity-kinds <kinds>`: `host,idp_user,local_user,service`
 - `--users <n>`, `--hosts <n>`, `--local-users <n>`, `--services <n>`
+- `--scenario <name>`: deterministic manual-test preset, currently `issue-16838`
 - `--alerts-per-entity <n>`
 - `--seed-source <source>`: `basic|org`
 - `--perf`: high-volume preset
@@ -89,6 +90,24 @@ yarn start risk-score-v2 [options]
 - `--table-page-size <n>`: rows per page in summary tables
 - `--dangerous-clean`: clear alerts, entity docs, risk-score docs, and risk lookup docs in target space before run
 - `--debug-resolution`: enable verbose resolution diagnostics (relationship sync/read traces)
+
+### Scenario preset: `issue-16838`
+
+Use this when validating the two resolution-scoring fixes from GH issue 16838.
+
+```bash
+yarn start risk-score-v2 --scenario issue-16838 --space issue-16838 --dangerous-clean --no-follow-on
+```
+
+This preset seeds two user-only resolution groups:
+
+- Group A: one alerting alias with the `Privileged Users` watchlist, plus one silent alias with the `departing` watchlist and `high_impact` criticality.
+- Group B: only the canonical target has alerts; its alias has none.
+
+The command logs the exact seeded usernames and target EUIDs, then prints summary warnings that make the broken vs fixed behavior obvious:
+
+- Broken branch: Group A is missing the silent member's modifiers, and Group B may have no resolution row at all.
+- Fixed branch: Group A shows both watchlists plus `high_impact`, and Group B gets a resolution score row.
 
 ### Follow-on actions
 

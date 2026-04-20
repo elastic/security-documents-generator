@@ -36,6 +36,7 @@ type RiskScoreV2Options = {
   hosts?: string;
   services?: string;
   localUsers?: string;
+  scenario?: string;
   alertsPerEntity?: string;
   entityKinds?: string;
   offsetHours?: string;
@@ -104,6 +105,33 @@ type ResolutionGroupAssignment = {
   targetId: string;
   aliasIds: string[];
 };
+type RiskScoreV2Scenario = 'issue-16838';
+type ScenarioWatchlistDefinition = {
+  key: string;
+  name: string;
+  riskModifier: number;
+};
+type RiskScoreV2ScenarioPlan = {
+  id: RiskScoreV2Scenario;
+  description: string;
+  users: SeededUser[];
+  hosts: SeededHost[];
+  localUsers: SeededLocalUser[];
+  services: SeededService[];
+  alertUsers: SeededUser[];
+  alertHosts: SeededHost[];
+  alertLocalUsers: SeededLocalUser[];
+  alertServices: SeededService[];
+  alertsPerEntity: number;
+  relationshipGraph: RelationshipGraphState;
+  watchlists: ScenarioWatchlistDefinition[];
+  buildAssignments: (args: {
+    watchlistIdsByKey: Map<string, string>;
+  }) => Map<string, EntityModifierAssignment>;
+  modifierGapTargetId: string;
+  targetOnlyAlertsTargetId: string;
+  notes: string[];
+};
 type OwnershipEdge = {
   sourceId: string;
   targetId: string;
@@ -111,6 +139,15 @@ type OwnershipEdge = {
 type RelationshipGraphState = {
   resolutionGroups: ResolutionGroupAssignment[];
   ownershipEdges: OwnershipEdge[];
+};
+
+type KibanaResponseError = Error & {
+  statusCode?: number;
+  responseData?: {
+    message?: string;
+    error?: string;
+    statusCode?: number;
+  };
 };
 
 const buildResolutionKey = ({
@@ -140,6 +177,19 @@ const summarizeList = (items: string[], max: number = 6): string => {
   if (items.length <= max) return items.join(', ');
   return `${items.slice(0, max).join(', ')}, ... (+${items.length - max} more)`;
 };
+
+const isMaintainerAlreadyRunningError = (error: unknown): boolean => {
+  const candidate = error as KibanaResponseError | undefined;
+  const message = [candidate?.message, candidate?.responseData?.message]
+    .filter((value): value is string => Boolean(value))
+    .join(' ')
+    .toLowerCase();
+
+  return candidate?.statusCode === 500 && message.includes('currently running');
+};
+
+const SCENARIO_ISSUE_16838 = 'issue-16838' as const;
+const SUPPORTED_RISK_SCORE_SCENARIOS: RiskScoreV2Scenario[] = [SCENARIO_ISSUE_16838];
 
 const printGraphSummaryViews = ({
   graph,
@@ -363,6 +413,129 @@ type RiskDocSummary = {
 
 const SUPPORTED_ENTITY_KINDS: EntityKind[] = ['host', 'idp_user', 'local_user', 'service'];
 const SUPPORTED_SEED_SOURCES: SeedSource[] = ['basic', 'org'];
+
+const parseRiskScoreScenario = (value?: string): RiskScoreV2Scenario | null => {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized === SCENARIO_ISSUE_16838 ||
+    normalized === '16838' ||
+    normalized === 'resolution-16838' ||
+    normalized === 'resolution-scoring-16838'
+  ) {
+    return SCENARIO_ISSUE_16838;
+  }
+
+  throw new Error(
+    `Unsupported risk-score-v2 scenario "${value}". Supported values: ${SUPPORTED_RISK_SCORE_SCENARIOS.join(', ')}`,
+  );
+};
+
+const createScenarioUser = (suffix: string): SeededUser => ({
+  userName: `issue-16838-${suffix}`,
+  userId: `issue-16838-${suffix}-id`,
+  userEmail: `issue-16838-${suffix}@example.com`,
+});
+
+const buildIssue16838ScenarioPlan = (): RiskScoreV2ScenarioPlan => {
+  const modifierGapTarget = createScenarioUser('group-a-target');
+  const alertingAlias = createScenarioUser('group-a-alias-with-alerts');
+  const silentAlias = createScenarioUser('group-a-alias-silent');
+  const targetOnlyAlerts = createScenarioUser('group-b-target-with-alerts');
+  const targetOnlySilentAlias = createScenarioUser('group-b-alias-silent');
+  const users = [
+    modifierGapTarget,
+    alertingAlias,
+    silentAlias,
+    targetOnlyAlerts,
+    targetOnlySilentAlias,
+  ];
+
+  return {
+    id: SCENARIO_ISSUE_16838,
+    description:
+      'Reproduce GH issue 16838: silent-member modifiers missing from resolution score, and no group score when only the canonical target has alerts.',
+    users,
+    hosts: [],
+    localUsers: [],
+    services: [],
+    alertUsers: [alertingAlias, targetOnlyAlerts],
+    alertHosts: [],
+    alertLocalUsers: [],
+    alertServices: [],
+    alertsPerEntity: 3,
+    relationshipGraph: {
+      resolutionGroups: [
+        {
+          targetId: toUserEuid(modifierGapTarget),
+          aliasIds: [toUserEuid(alertingAlias), toUserEuid(silentAlias)],
+        },
+        {
+          targetId: toUserEuid(targetOnlyAlerts),
+          aliasIds: [toUserEuid(targetOnlySilentAlias)],
+        },
+      ],
+      ownershipEdges: [],
+    },
+    watchlists: [
+      {
+        key: 'privileged',
+        name: `Privileged Users issue-16838 ${Date.now()}`,
+        riskModifier: 1.8,
+      },
+      {
+        key: 'departing',
+        name: `departing issue-16838 ${Date.now()}`,
+        riskModifier: 1.5,
+      },
+    ],
+    buildAssignments: ({ watchlistIdsByKey }) => {
+      const privilegedId = watchlistIdsByKey.get('privileged');
+      const departingId = watchlistIdsByKey.get('departing');
+      if (!privilegedId || !departingId) {
+        throw new Error('Scenario watchlists were not created correctly.');
+      }
+
+      return new Map<string, EntityModifierAssignment>([
+        [
+          toUserEuid(alertingAlias),
+          {
+            watchlists: [privilegedId],
+          },
+        ],
+        [
+          toUserEuid(silentAlias),
+          {
+            criticality: 'high_impact',
+            watchlists: [departingId],
+          },
+        ],
+      ]);
+    },
+    modifierGapTargetId: toUserEuid(modifierGapTarget),
+    targetOnlyAlertsTargetId: toUserEuid(targetOnlyAlerts),
+    notes: [
+      `${modifierGapTarget.userName}: resolution target for modifier-gap case`,
+      `${alertingAlias.userName}: alias with alerts + Privileged Users watchlist`,
+      `${silentAlias.userName}: alias with no alerts + departing watchlist + high_impact criticality`,
+      `${targetOnlyAlerts.userName}: canonical target with alerts; should still get a resolution score`,
+      `${targetOnlySilentAlias.userName}: alias with no alerts; broken branch misses the lookup row for its target`,
+    ],
+  };
+};
+
+const logRiskScoreScenarioPlan = (plan: RiskScoreV2ScenarioPlan) => {
+  log.info(`Scenario ${plan.id}: ${plan.description}`);
+  for (const note of plan.notes) {
+    log.info(`Scenario note: ${note}`);
+  }
+  log.info(
+    `Scenario targets: modifier-gap=${plan.modifierGapTargetId}, target-only-alerts=${plan.targetOnlyAlertsTargetId}`,
+  );
+};
 const SUPPORTED_ORG_SIZES: OrganizationSize[] = ['john_doe', 'small', 'medium', 'enterprise'];
 const SUPPORTED_PRODUCTIVITY_SUITES: ProductivitySuite[] = ['microsoft', 'google'];
 
@@ -1281,13 +1454,28 @@ const waitForMaintainerRun = async (
   log.info(
     `Triggering maintainer "${maintainerId}" in space "${space}" (baseline runs=${baselineRuns})...`,
   );
-  await runEntityMaintainer(maintainerId, space);
+  let acceptedInFlightRun = false;
+  try {
+    await runEntityMaintainer(maintainerId, space);
+  } catch (error) {
+    if (!isMaintainerAlreadyRunningError(error)) {
+      throw error;
+    }
+    acceptedInFlightRun = true;
+    log.warn(
+      `Maintainer "${maintainerId}" is already running in space "${space}". Reusing the in-flight run instead of failing.`,
+    );
+  }
 
   const deadline = Date.now() + 90_000;
   let lastHeartbeat = 0;
+  let observedStartedState = false;
   while (Date.now() < deadline) {
     const response = await getEntityMaintainers(space, [maintainerId]);
     const maintainer = response.maintainers.find((m) => m.id === maintainerId);
+    if (maintainer?.taskStatus === 'started') {
+      observedStartedState = true;
+    }
     if (maintainer && maintainer.runs > baselineRuns) {
       log.info(
         `Maintainer "${maintainerId}" run observed (runs=${maintainer.runs}, taskStatus=${maintainer.taskStatus}).`,
@@ -1313,11 +1501,28 @@ const waitForMaintainerRun = async (
       );
       return { runs: maintainer.runs, taskStatus: maintainer.taskStatus, settled: false };
     }
+
+    if (
+      acceptedInFlightRun &&
+      observedStartedState &&
+      maintainer &&
+      maintainer.taskStatus !== 'started'
+    ) {
+      log.info(
+        `Maintainer "${maintainerId}" reused an in-flight run and is now settled (runs=${maintainer.runs}, taskStatus=${maintainer.taskStatus}).`,
+      );
+      return {
+        runs: maintainer.runs,
+        taskStatus: maintainer.taskStatus,
+        settled: true,
+      };
+    }
+
     const now = Date.now();
     if (now - lastHeartbeat >= 10_000) {
       const remainingMs = Math.max(0, deadline - now);
       log.info(
-        `Waiting for maintainer "${maintainerId}" run (baseline=${baselineRuns}, current=${maintainer?.runs ?? 0}, remaining_timeout_ms=${remainingMs})...`,
+        `Waiting for maintainer "${maintainerId}" run (baseline=${baselineRuns}, current=${maintainer?.runs ?? 0}, taskStatus=${maintainer?.taskStatus ?? 'unknown'}, reusing_in_flight=${acceptedInFlightRun ? 'yes' : 'no'}, remaining_timeout_ms=${remainingMs})...`,
       );
       lastHeartbeat = now;
     }
@@ -1364,6 +1569,26 @@ const createWatchlistsForRun = async (space: string) => {
     createWatchlist({ name: `departing-employees-${suffix}`, riskModifier: 1.5, space }),
     createWatchlist({ name: `insider-threat-${suffix}`, riskModifier: 2.0, space }),
   ]);
+};
+
+const createScenarioWatchlists = async ({
+  space,
+  watchlists,
+}: {
+  space: string;
+  watchlists: ScenarioWatchlistDefinition[];
+}): Promise<Map<string, string>> => {
+  const created = await Promise.all(
+    watchlists.map((watchlist) =>
+      createWatchlist({
+        name: watchlist.name,
+        riskModifier: watchlist.riskModifier,
+        space,
+      }),
+    ),
+  );
+
+  return new Map(created.map((item, index) => [watchlists[index].key, item.id]));
 };
 
 const CRITICALITY_LEVELS = [
@@ -2502,6 +2727,47 @@ const reportRiskSummary = async ({
   await printResolutionRows({ rows: snapshot.resolutionRows, pageSize });
   const result = printSnapshotResult(snapshot);
   return { ...result, snapshot };
+};
+
+const logIssue16838ScenarioOutcome = ({
+  snapshot,
+  plan,
+}: {
+  snapshot: RiskSnapshot;
+  plan: RiskScoreV2ScenarioPlan;
+}) => {
+  const byTarget = new Map(snapshot.resolutionRows.map((row) => [row.targetEntityId, row]));
+  const modifierGapRow = byTarget.get(plan.modifierGapTargetId);
+  const targetOnlyAlertsRow = byTarget.get(plan.targetOnlyAlertsTargetId);
+
+  if (!modifierGapRow) {
+    log.warn(
+      `Scenario ${plan.id}: missing resolution row for modifier-gap target ${plan.modifierGapTargetId}. Broken branch is expected to fail here if lookup sync or resolution aggregation drops the group entirely.`,
+    );
+  } else {
+    log.info(
+      `Scenario ${plan.id}: modifier-gap target row => score=${modifierGapRow.score}, level=${modifierGapRow.level}, resolved_alerts=${modifierGapRow.resolvedAlertsCount}, watchlists=${modifierGapRow.resolvedWatchlistsCount}, criticality=${modifierGapRow.resolvedCriticality}`,
+    );
+    if (
+      modifierGapRow.resolvedWatchlistsCount < 2 ||
+      modifierGapRow.resolvedCriticality === '-' ||
+      !modifierGapRow.resolvedCriticality
+    ) {
+      log.warn(
+        `Scenario ${plan.id}: expected both watchlists and the silent alias criticality to contribute to ${plan.modifierGapTargetId}. On the fixed branch you should see watchlists>=2 and criticality=high_impact.`,
+      );
+    }
+  }
+
+  if (!targetOnlyAlertsRow) {
+    log.warn(
+      `Scenario ${plan.id}: missing resolution row for canonical-alert target ${plan.targetOnlyAlertsTargetId}. This is the second issue from GH 16838 and should reproduce on the broken branch.`,
+    );
+  } else {
+    log.info(
+      `Scenario ${plan.id}: canonical-alert target row => score=${targetOnlyAlertsRow.score}, level=${targetOnlyAlertsRow.level}, resolved_alerts=${targetOnlyAlertsRow.resolvedAlertsCount}, watchlists=${targetOnlyAlertsRow.resolvedWatchlistsCount}, criticality=${targetOnlyAlertsRow.resolvedCriticality}`,
+    );
+  }
 };
 
 const printBeforeAfterComparison = ({
@@ -4701,39 +4967,74 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   };
 
   const space = await ensureSpace(options.space ?? 'default');
+  const scenario = parseRiskScoreScenario(options.scenario);
+  const scenarioPlan = scenario === SCENARIO_ISSUE_16838 ? buildIssue16838ScenarioPlan() : null;
+
+  if (scenarioPlan) {
+    if (options.phase2 === false || options.resolution === false) {
+      throw new Error(
+        `Scenario ${scenarioPlan.id} requires phase2 resolution scoring to stay enabled.`,
+      );
+    }
+    if (options.watchlists === false) {
+      throw new Error(`Scenario ${scenarioPlan.id} requires watchlists to stay enabled.`);
+    }
+    if (options.criticality === false) {
+      throw new Error(`Scenario ${scenarioPlan.id} requires criticality to stay enabled.`);
+    }
+    if (options.alerts === false) {
+      throw new Error(`Scenario ${scenarioPlan.id} requires alert generation to stay enabled.`);
+    }
+    logRiskScoreScenarioPlan(scenarioPlan);
+  }
+
   const config = getConfig();
-  const perf = Boolean(options.perf);
-  const seedSource = parseSeedSource(options.seedSource);
+  const perf = scenarioPlan ? false : Boolean(options.perf);
+  const seedSource = scenarioPlan ? 'basic' : parseSeedSource(options.seedSource);
   const orgSize = parseOrgSize(options.orgSize);
   const productivitySuite = parseProductivitySuite(options.orgProductivitySuite);
-  const entityKinds = parseEntityKinds(options.entityKinds);
-  const usersCount = entityKinds.includes('idp_user')
-    ? perf
-      ? 1000
-      : parseOptionInt(options.users, 10)
-    : 0;
-  const hostsCount = entityKinds.includes('host')
-    ? perf
-      ? 1000
-      : parseOptionInt(options.hosts, 10)
-    : 0;
-  const localUsersCount = entityKinds.includes('local_user')
-    ? perf
-      ? 1000
-      : parseOptionInt(options.localUsers, 10)
-    : 0;
-  const servicesCount = entityKinds.includes('service')
-    ? perf
-      ? 1000
-      : parseOptionInt(options.services, 10)
-    : 0;
-  const alertsPerEntity = perf ? 50 : parseOptionInt(options.alertsPerEntity, 5);
+  const entityKinds = scenarioPlan
+    ? (['idp_user'] as EntityKind[])
+    : parseEntityKinds(options.entityKinds);
+  const usersCount = scenarioPlan
+    ? scenarioPlan.users.length
+    : entityKinds.includes('idp_user')
+      ? perf
+        ? 1000
+        : parseOptionInt(options.users, 10)
+      : 0;
+  const hostsCount = scenarioPlan
+    ? scenarioPlan.hosts.length
+    : entityKinds.includes('host')
+      ? perf
+        ? 1000
+        : parseOptionInt(options.hosts, 10)
+      : 0;
+  const localUsersCount = scenarioPlan
+    ? scenarioPlan.localUsers.length
+    : entityKinds.includes('local_user')
+      ? perf
+        ? 1000
+        : parseOptionInt(options.localUsers, 10)
+      : 0;
+  const servicesCount = scenarioPlan
+    ? scenarioPlan.services.length
+    : entityKinds.includes('service')
+      ? perf
+        ? 1000
+        : parseOptionInt(options.services, 10)
+      : 0;
+  const alertsPerEntity = scenarioPlan
+    ? scenarioPlan.alertsPerEntity
+    : perf
+      ? 50
+      : parseOptionInt(options.alertsPerEntity, 5);
   const offsetHours = parseOptionInt(options.offsetHours, 1);
   const eventIndex = options.eventIndex || config.eventIndex || 'logs-testlogs-default';
   const modifierBulkBatchSize = perf ? 500 : 200;
   const phase2Enabled = options.phase2 !== false;
-  const resolutionEnabled = phase2Enabled && options.resolution !== false;
-  const propagationEnabled = phase2Enabled && options.propagation !== false;
+  const resolutionEnabled = scenarioPlan ? true : phase2Enabled && options.resolution !== false;
+  const propagationEnabled = scenarioPlan ? false : phase2Enabled && options.propagation !== false;
   const resolutionGroupRate = Math.min(
     0.9,
     Math.max(0.01, Number.parseFloat(options.resolutionGroupRate ?? '0.2')),
@@ -4749,7 +5050,7 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   const followOnEnabled = options.followOn ?? canUseInteractivePrompts();
 
   log.info(
-    `Starting risk-score-v2 in space "${space}" with seedSource=${seedSource}, kinds=${entityKinds.join(',')}, idp_users=${usersCount}, local_users=${localUsersCount}, hosts=${hostsCount}, services=${servicesCount}, alertsPerEntity=${alertsPerEntity}, eventIndex=${eventIndex}, phase2=${phase2Enabled}, resolution=${resolutionEnabled}, propagation=${propagationEnabled}, dangerous_clean=${dangerousCleanEnabled}`,
+    `Starting risk-score-v2 in space "${space}" with scenario=${scenarioPlan?.id ?? 'default'}, seedSource=${seedSource}, kinds=${entityKinds.join(',')}, idp_users=${usersCount}, local_users=${localUsersCount}, hosts=${hostsCount}, services=${servicesCount}, alertsPerEntity=${alertsPerEntity}, eventIndex=${eventIndex}, phase2=${phase2Enabled}, resolution=${resolutionEnabled}, propagation=${propagationEnabled}, dangerous_clean=${dangerousCleanEnabled}`,
   );
 
   if (options.setup !== false) {
@@ -4772,8 +5073,14 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
     `Baselines in space "${space}": entities=${baselineEntityCount}, risk_scores=${baselineRiskScoreCount}`,
   );
 
-  const seeded =
-    seedSource === 'org'
+  const seeded = scenarioPlan
+    ? {
+        users: scenarioPlan.users,
+        hosts: scenarioPlan.hosts,
+        localUsers: scenarioPlan.localUsers,
+        services: scenarioPlan.services,
+      }
+    : seedSource === 'org'
       ? seedFromOrgData({
           usersCount,
           hostsCount,
@@ -4831,14 +5138,16 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
 
   let relationshipGraph: RelationshipGraphState = { resolutionGroups: [], ownershipEdges: [] };
   if (phase2Enabled) {
-    relationshipGraph = buildRelationshipGraph({
-      entityIds: uniqueEntityIds,
-      enableResolution: resolutionEnabled,
-      enablePropagation: propagationEnabled,
-      resolutionGroupRate,
-      avgAliasesPerTarget,
-      ownershipEdgeRate,
-    });
+    relationshipGraph =
+      scenarioPlan?.relationshipGraph ??
+      buildRelationshipGraph({
+        entityIds: uniqueEntityIds,
+        enableResolution: resolutionEnabled,
+        enablePropagation: propagationEnabled,
+        resolutionGroupRate,
+        avgAliasesPerTarget,
+        ownershipEdgeRate,
+      });
     await runTimedStage('apply_relationships', async () => {
       if (
         relationshipGraph.resolutionGroups.length === 0 &&
@@ -4869,11 +5178,23 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   }
 
   let watchlistIds: string[] = [];
+  let scenarioWatchlistIdsByKey = new Map<string, string>();
   if (options.watchlists !== false) {
     log.info('Creating watchlists...');
-    const watchlists = await createWatchlistsForRun(space);
-    log.info(`Created ${watchlists.length} watchlists.`);
-    watchlistIds = watchlists.map((w) => w.id);
+    if (scenarioPlan) {
+      scenarioWatchlistIdsByKey = await createScenarioWatchlists({
+        space,
+        watchlists: scenarioPlan.watchlists,
+      });
+      watchlistIds = [...scenarioWatchlistIdsByKey.values()];
+      log.info(
+        `Created ${watchlistIds.length} scenario watchlists: ${scenarioPlan.watchlists.map((watchlist) => watchlist.name).join(', ')}`,
+      );
+    } else {
+      const watchlists = await createWatchlistsForRun(space);
+      log.info(`Created ${watchlists.length} watchlists.`);
+      watchlistIds = watchlists.map((w) => w.id);
+    }
   }
 
   if (options.watchlists !== false || options.criticality !== false) {
@@ -4881,11 +5202,13 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
       const modifierEntityIds = allEntityIds.filter(
         (entityId) => toModifierEntityType(entityId) !== null,
       );
-      const assignments = buildEntityModifierAssignments({
-        entityIds: modifierEntityIds,
-        watchlistIds,
-        applyCriticality: options.criticality !== false,
-      });
+      const assignments = scenarioPlan
+        ? scenarioPlan.buildAssignments({ watchlistIdsByKey: scenarioWatchlistIdsByKey })
+        : buildEntityModifierAssignments({
+            entityIds: modifierEntityIds,
+            watchlistIds,
+            applyCriticality: options.criticality !== false,
+          });
       await applyEntityModifiers({
         assignments,
         totalEntities: allEntityIds.length,
@@ -4898,10 +5221,10 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   if (options.alerts !== false) {
     await runTimedStage('index_alerts', async () =>
       indexAlertsForSeededEntities({
-        users,
-        localUsers,
-        hosts,
-        services,
+        users: scenarioPlan?.alertUsers ?? users,
+        localUsers: scenarioPlan?.alertLocalUsers ?? localUsers,
+        hosts: scenarioPlan?.alertHosts ?? hosts,
+        services: scenarioPlan?.alertServices ?? services,
         alertsPerEntity,
         space,
       }),
@@ -4930,7 +5253,7 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   log.info(
     'Maintainer run requested once. Collecting risk summary directly (without strict risk-score count gating).',
   );
-  await runTimedStage('report_summary', async () =>
+  const summary = await runTimedStage('report_summary', async () =>
     reportRiskSummary({
       space,
       baselineRiskScoreCount,
@@ -4942,6 +5265,9 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
       debugResolution: debugResolutionEnabled,
     }),
   );
+  if (scenarioPlan) {
+    logIssue16838ScenarioOutcome({ snapshot: summary.snapshot, plan: scenarioPlan });
+  }
   if (followOnEnabled && canUseInteractivePrompts()) {
     await runFollowOnActionLoop({
       space,
