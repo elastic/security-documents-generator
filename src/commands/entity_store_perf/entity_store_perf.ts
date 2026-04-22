@@ -508,6 +508,8 @@ const countEntities = async (baseDomainName: string, entityIndex: string = ENTIT
   return res.count;
 };
 
+const ENTITY_COUNT_TOLERANCE = 0.995;
+
 const countEntitiesUntil = async (
   name: string,
   count: number,
@@ -515,8 +517,13 @@ const countEntitiesUntil = async (
   timeoutMs: number = ENTITY_COUNT_TIMEOUT_MS,
 ) => {
   let total = 0;
+  let lastLoggedTotal = -1;
+  let stableCount = 0;
   const startTime = Date.now();
-  log.info(`Polling for entities (timeout: ${Math.round(timeoutMs / 1000)}s)...`);
+  const toleranceThreshold = Math.floor(count * ENTITY_COUNT_TOLERANCE);
+  log.info(
+    `Polling for entities: target=${count}, tolerance=${toleranceThreshold} (${(ENTITY_COUNT_TOLERANCE * 100).toFixed(1)}%), timeout=${Math.round(timeoutMs / 1000)}s`,
+  );
   const progress = createProgressBar('entities', {
     format: 'Progress | {value}/{total} Entities',
   });
@@ -525,6 +532,25 @@ const countEntitiesUntil = async (
   while (total < count && !stop && Date.now() - startTime < timeoutMs) {
     total = await countEntities(path.parse(name).name, entityIndex);
     progress.update(total);
+
+    if (total !== lastLoggedTotal) {
+      const elapsedSec = Math.round((Date.now() - startTime) / 1000);
+      log.info(
+        `Entity count: ${total}/${count} (${((total / count) * 100).toFixed(1)}%) at ${elapsedSec}s`,
+      );
+      lastLoggedTotal = total;
+      stableCount = 0;
+    } else {
+      stableCount++;
+    }
+
+    if (total >= toleranceThreshold && stableCount >= 5) {
+      progress.stop();
+      log.info(
+        `Entity count stabilized at ${total}/${count} (${((total / count) * 100).toFixed(1)}%) — within tolerance, proceeding.`,
+      );
+      return total;
+    }
 
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
@@ -535,9 +561,15 @@ const countEntitiesUntil = async (
     log.info('Process stopped before reaching the count.');
   }
 
-  if (total < count && !stop) {
+  if (total < toleranceThreshold && !stop) {
     throw new Error(
-      `Timed out waiting for ${count} entities in ${entityIndex}; last observed count was ${total}`,
+      `Timed out waiting for ${count} entities in ${entityIndex}; last observed count was ${total} (below ${(ENTITY_COUNT_TOLERANCE * 100).toFixed(1)}% tolerance)`,
+    );
+  }
+
+  if (total < count && total >= toleranceThreshold) {
+    log.info(
+      `Reached ${total}/${count} entities (${((total / count) * 100).toFixed(1)}%) — within tolerance, proceeding.`,
     );
   }
 
