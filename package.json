@@ -24,6 +24,8 @@
     "@elastic/elasticsearch": "^9.2.0",
     "@faker-js/faker": "^10.1.0",
     "@inquirer/prompts": "^8.0.0",
+    "@playwright/test": "^1.59.1",
+    "chart.js": "^4.5.1",
     "cli-progress": "^3.12.0",
     "commander": "^14.0.2",
     "dayjs": "^1.11.20",

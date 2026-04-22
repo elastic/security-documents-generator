@@ -16,6 +16,12 @@ data/*
 !data/test_log_data/
 !data/test_log_data/**
 
+# Generated perf test data (large, reproducible via SDG commands)
+data/entity_store_perf_data/*-baseline.jsonl
+data/entity_store_perf_data/flyout-*.jsonl
+data/entity_store_perf_data/localhost-*.jsonl
+data/risk_engine/perf/
+
 # Node.js
 node_modules/
 npm-debug.log*

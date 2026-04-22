@@ -79,7 +79,7 @@ export async function* alertsGenerator(params: {
   }
 }
 
-export const getCmd = (root: Command) => {
+export const getCmd = (root: Command): Command => {
   const riskEngine = root.command('risk-engine').description('Risk engine utilities');
   registerPerfScenarioRiskEngineCommands(riskEngine);
 
@@ -117,4 +117,6 @@ export const getCmd = (root: Command) => {
         });
       }),
     );
+
+  return riskEngine;
 };

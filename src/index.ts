@@ -15,6 +15,7 @@ import { cloudSecurityPostureCommands } from './commands/generate_cloud_security
 import { orgDataCommands } from './commands/org_data/index.ts';
 import { leadGenerationCommands } from './commands/lead_generation/index.ts';
 import { watchlistCommands } from './commands/watchlist/index.ts';
+import { eaPerfCommands } from './commands/ea_perf/index.ts';
 import { parseIntBase10 } from './commands/utils/cli_utils.ts';
 
 await createConfigFileOnFirstRun();
@@ -35,6 +36,7 @@ const commands = [
   orgDataCommands,
   leadGenerationCommands,
   watchlistCommands,
+  eaPerfCommands,
 ];
 
 commands.forEach((cmd) => cmd.register(program));

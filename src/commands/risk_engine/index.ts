@@ -15,6 +15,7 @@ import { runLeadGenMetricsExtraction } from '../../risk_engine/extract_lead_gen_
 import { collectResults } from '../../risk_engine/collect_results.ts';
 import { compareResultFiles, printComparisonReport } from '../../risk_engine/compare_results.ts';
 import { generateHostEvents } from '../../risk_engine/generate_host_events.ts';
+import { captureAndWriteMonitoringWindow } from '../../risk_engine/capture_monitoring_window.ts';
 
 export const riskEngineCommands: CommandModule = {
   register(program: Command) {
@@ -45,7 +46,7 @@ export const riskEngineCommands: CommandModule = {
     // Registers `risk-engine` subcommands including perf-scenario helpers
     // (`create-perf-scenario`, `upload-perf-scenario`, `create-scenario-p90-*`, …); see
     // `src/risk_engine/perf_scenario_commands.ts`.
-    RiskEngineIngest.getCmd(program);
+    const riskEngine = RiskEngineIngest.getCmd(program);
 
     program
       .command('create-risk-engine-data')
@@ -137,6 +138,10 @@ export const riskEngineCommands: CommandModule = {
       .requiredOption('--entity-name <name>', 'host.name value for generated events')
       .requiredOption('--timestamp-start <iso>', 'start timestamp (ISO-8601)')
       .requiredOption('--timestamp-end <iso>', 'end timestamp (ISO-8601)')
+      .option(
+        '--host-id <id>',
+        'optional host.id override (defaults to entity name, matching scenario alert identity)',
+      )
       .option('--count <n>', 'number of events to generate (default: 1000)', parseIntBase10)
       .option('--index <name>', 'target index (default: logs-generic-default)')
       .option('--space <name>', 'Kibana space for security data view (default: default)')
@@ -148,6 +153,7 @@ export const riskEngineCommands: CommandModule = {
             count: (options.count as number | undefined) ?? 1000,
             timestampStart: String(options.timestampStart),
             timestampEnd: String(options.timestampEnd),
+            hostId: options.hostId ? String(options.hostId) : undefined,
             index: options.index ? String(options.index) : undefined,
             space: options.space ? String(options.space) : undefined,
           });
@@ -164,27 +170,139 @@ export const riskEngineCommands: CommandModule = {
         }),
       );
 
-    program
-      .command('extract-risk-scoring-metrics')
-      .argument('<log-file>', 'path to Kibana log file (use "-" for stdin)')
-      .description('Parse risk_score_maintainer log lines and output structured JSON metrics')
+    riskEngine
+      .command('capture-monitoring-window')
+      .requiredOption('--start <iso>', 'window start timestamp (ISO-8601)')
+      .requiredOption('--end <iso>', 'window end timestamp (ISO-8601)')
+      .requiredOption('--output <path>', 'JSON file path for monitoring window output')
+      .description('Capture ES and Kibana monitoring time-series for a specific time window')
       .action(
-        wrapAction(async (logFile: string) => {
-          await runRiskScoringMetricsExtraction(logFile);
+        wrapAction(async (options: Record<string, string>) => {
+          await captureAndWriteMonitoringWindow(options.start, options.end, options.output);
         }),
       );
 
-    program
-      .command('extract-lead-gen-metrics')
-      .argument('<log-file>', 'path to Kibana log file (use "-" for stdin)')
-      .description(
-        'Parse [LeadGeneration] / [LeadGenerationEngine] log lines and output structured JSON',
-      )
-      .action(
-        wrapAction(async (logFile: string) => {
-          await runLeadGenMetricsExtraction(logFile);
-        }),
-      );
+    for (const target of [program, riskEngine]) {
+      target
+        .command('extract-risk-scoring-metrics')
+        .argument('[log-file]', 'path to Kibana log file (use "-" for stdin)')
+        .option(
+          '--from-es',
+          'query risk_score_maintainer logs from Elasticsearch instead of a file',
+        )
+        .option('--env-path <path>', 'path to .env file containing ELASTIC_* credentials')
+        .option('--es-node <url>', 'Elasticsearch node URL')
+        .option('--es-user <user>', 'Elasticsearch username')
+        .option('--es-password <password>', 'Elasticsearch password')
+        .option('--es-api-key <key>', 'Elasticsearch API key')
+        .option(
+          '--log-index <name>',
+          'log index or data stream to query; auto-discovered when omitted',
+        )
+        .option('--space <name>', 'Kibana space for maintainer status/trigger checks', 'default')
+        .option(
+          '--trigger-maintainer',
+          'capture maintainer baseline before issuing a run request; resilient when already started',
+        )
+        .option(
+          '--wait-for-completion',
+          'for ES mode, poll until a fresh maintainer totals log is indexed before extracting',
+        )
+        .option(
+          '--wait-timeout-ms <n>',
+          'for ES mode, max wait time for maintainer completion logs (default: 1800000)',
+          parseIntBase10,
+        )
+        .option(
+          '--poll-interval-ms <n>',
+          'for ES mode, polling interval while waiting for completion logs (default: 10000)',
+          parseIntBase10,
+        )
+        .description(
+          'Parse risk_score_maintainer log lines from a file or Elasticsearch and output structured JSON metrics',
+        )
+        .action(
+          wrapAction(
+            async (
+              logFile: string | undefined,
+              options: Record<string, string | number | boolean>,
+            ) => {
+              await runRiskScoringMetricsExtraction({
+                logFilePath: logFile,
+                fromEs: options.fromEs === true,
+                envPath: options.envPath ? String(options.envPath) : undefined,
+                esNode: options.esNode ? String(options.esNode) : undefined,
+                esUser: options.esUser ? String(options.esUser) : undefined,
+                esPassword: options.esPassword ? String(options.esPassword) : undefined,
+                esApiKey: options.esApiKey ? String(options.esApiKey) : undefined,
+                logIndex: options.logIndex ? String(options.logIndex) : undefined,
+                space: options.space ? String(options.space) : undefined,
+                triggerMaintainer: options.triggerMaintainer === true,
+                waitForCompletion: options.waitForCompletion === true,
+                waitTimeoutMs:
+                  typeof options.waitTimeoutMs === 'number' ? options.waitTimeoutMs : undefined,
+                pollIntervalMs:
+                  typeof options.pollIntervalMs === 'number' ? options.pollIntervalMs : undefined,
+              });
+            },
+          ),
+        );
+
+      target
+        .command('extract-lead-gen-metrics')
+        .argument('[log-file]', 'path to Kibana log file (use "-" for stdin)')
+        .option('--from-es', 'query lead generation logs from Elasticsearch instead of a file')
+        .option('--env-path <path>', 'path to .env file containing ELASTIC_* credentials')
+        .option('--es-node <url>', 'Elasticsearch node URL')
+        .option('--es-user <user>', 'Elasticsearch username')
+        .option('--es-password <password>', 'Elasticsearch password')
+        .option('--es-api-key <key>', 'Elasticsearch API key')
+        .option(
+          '--log-index <name>',
+          'log index or data stream to query; auto-discovered when omitted',
+        )
+        .option(
+          '--wait-for-completion',
+          'for ES mode, poll until a fresh lead generation completion log is indexed before extracting',
+        )
+        .option(
+          '--wait-timeout-ms <n>',
+          'for ES mode, max wait time for lead generation completion logs (default: 600000)',
+          parseIntBase10,
+        )
+        .option(
+          '--poll-interval-ms <n>',
+          'for ES mode, polling interval while waiting for completion logs (default: 10000)',
+          parseIntBase10,
+        )
+        .description(
+          'Parse [LeadGeneration] / [LeadGenerationEngine] log lines from a file or Elasticsearch and output structured JSON',
+        )
+        .action(
+          wrapAction(
+            async (
+              logFile: string | undefined,
+              options: Record<string, string | number | boolean>,
+            ) => {
+              await runLeadGenMetricsExtraction({
+                logFilePath: logFile,
+                fromEs: options.fromEs === true,
+                envPath: options.envPath ? String(options.envPath) : undefined,
+                esNode: options.esNode ? String(options.esNode) : undefined,
+                esUser: options.esUser ? String(options.esUser) : undefined,
+                esPassword: options.esPassword ? String(options.esPassword) : undefined,
+                esApiKey: options.esApiKey ? String(options.esApiKey) : undefined,
+                logIndex: options.logIndex ? String(options.logIndex) : undefined,
+                waitForCompletion: options.waitForCompletion === true,
+                waitTimeoutMs:
+                  typeof options.waitTimeoutMs === 'number' ? options.waitTimeoutMs : undefined,
+                pollIntervalMs:
+                  typeof options.pollIntervalMs === 'number' ? options.pollIntervalMs : undefined,
+              });
+            },
+          ),
+        );
+    }
 
     program
       .command('collect-results')
@@ -192,6 +310,7 @@ export const riskEngineCommands: CommandModule = {
       .requiredOption('--log-file <path>', 'path to Kibana log file')
       .option('--es-stats-pre <path>', 'pre-run ES stats JSON (from capture-es-stats)')
       .option('--es-stats-post <path>', 'post-run ES stats JSON (from capture-es-stats)')
+      .option('--space <name>', 'Kibana space / risk score namespace (default: default)', 'default')
       .option('--user-count <n>', 'user count parameter (for metadata)', parseIntBase10)
       .option('--host-count <n>', 'host count parameter (for metadata)', parseIntBase10)
       .option('--alerts-per-entity <n>', 'alerts per entity (for metadata)', parseIntBase10)
@@ -205,6 +324,7 @@ export const riskEngineCommands: CommandModule = {
               logFile: String(options.logFile),
               esStatsPreFile: options.esStatsPre ? String(options.esStatsPre) : undefined,
               esStatsPostFile: options.esStatsPost ? String(options.esStatsPost) : undefined,
+              space: options.space ? String(options.space) : undefined,
               parameters: {
                 userCount: options.userCount as number | undefined,
                 hostCount: options.hostCount as number | undefined,

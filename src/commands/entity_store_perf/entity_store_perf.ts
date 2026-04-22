@@ -31,6 +31,7 @@ import { getEntityStorePerfDataDir } from '../../utils/data_paths.ts';
 const CHECKPOINT_STABLE_TIME_MS = 10000;
 // Consider stable after this many consecutive checks with the same checkpoint
 const STABLE_CHECKPOINT_THRESHOLD = 3;
+const ENTITY_COUNT_TIMEOUT_MS = 30 * 60 * 1000;
 
 let stop = false;
 
@@ -460,7 +461,37 @@ const countEntities = async (baseDomainName: string, entityIndex: string = ENTIT
           },
           {
             prefix: {
+              'user.name': `${baseDomainName}-user-`,
+            },
+          },
+          {
+            prefix: {
+              'entity.name': `${baseDomainName}-user-`,
+            },
+          },
+          {
+            prefix: {
+              'host.name': `${baseDomainName}-host-`,
+            },
+          },
+          {
+            prefix: {
+              'host.id': `${baseDomainName}-host-`,
+            },
+          },
+          {
+            prefix: {
+              'entity.name': `${baseDomainName}-host-`,
+            },
+          },
+          {
+            prefix: {
               'service.name': `${baseDomainName}-service-`,
+            },
+          },
+          {
+            prefix: {
+              'entity.name': `${baseDomainName}-service-`,
             },
           },
           {
@@ -481,15 +512,17 @@ const countEntitiesUntil = async (
   name: string,
   count: number,
   entityIndex: string = ENTITY_INDEX_V1,
+  timeoutMs: number = ENTITY_COUNT_TIMEOUT_MS,
 ) => {
   let total = 0;
-  log.info('Polling for entities...');
+  const startTime = Date.now();
+  log.info(`Polling for entities (timeout: ${Math.round(timeoutMs / 1000)}s)...`);
   const progress = createProgressBar('entities', {
     format: 'Progress | {value}/{total} Entities',
   });
   progress.start(count, 0);
 
-  while (total < count && !stop) {
+  while (total < count && !stop && Date.now() - startTime < timeoutMs) {
     total = await countEntities(path.parse(name).name, entityIndex);
     progress.update(total);
 
@@ -500,6 +533,12 @@ const countEntitiesUntil = async (
 
   if (stop) {
     log.info('Process stopped before reaching the count.');
+  }
+
+  if (total < count && !stop) {
+    throw new Error(
+      `Timed out waiting for ${count} entities in ${entityIndex}; last observed count was ${total}`,
+    );
   }
 
   return total;
@@ -1157,7 +1196,7 @@ export const uploadPerfDataFile = async (
     const ingestTook = Date.now() - startTime;
     log.info(`Data file ${name} uploaded to index ${index} in ${ingestTook}ms`);
 
-    await countEntitiesUntil(name, entityCount, entityIndex);
+    await countEntitiesUntil(name, entityCount, entityIndex, transformTimeout);
 
     if (metricsEnabled && !noTransforms) {
       log.info(

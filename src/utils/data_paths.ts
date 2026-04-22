@@ -1,3 +1,4 @@
+import os from 'os';
 import path from 'path';
 
 export const getDataDir = () => path.join(process.cwd(), 'data');
@@ -26,3 +27,19 @@ export const getEntityStoreLatestAlias = (namespace: string = 'default') =>
 export const getBaselinesDir = () => getDataPath('baselines');
 
 export const getTestLogDataDir = () => getDataPath('test_log_data');
+
+const DEFAULT_EA_PERF_RESULTS_DIR = path.join(
+  os.homedir(),
+  'Desktop',
+  'performance_testing',
+  'results',
+);
+
+export const getEaPerfResultsRoot = () =>
+  process.env.EA_PERF_RESULTS_DIR || process.env.PERF_RESULTS_DIR || DEFAULT_EA_PERF_RESULTS_DIR;
+
+export const getEaPerfScenarioDir = (feature: string, scenario: string) =>
+  path.join(getEaPerfResultsRoot(), feature, scenario);
+
+export const getEaPerfRunDir = (feature: string, scenario: string, run: number) =>
+  path.join(getEaPerfScenarioDir(feature, scenario), `run-${run}`);
