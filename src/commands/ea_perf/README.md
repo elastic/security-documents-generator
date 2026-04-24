@@ -29,6 +29,12 @@ The local folder still owns:
 
 That split is deliberate: code and repeatable mechanics live here; outputs and coordination remain local.
 
+## Reproducible handover bundle
+
+For a minimal orchestrator/worker handover package (prompts, default scenarios, env template, and deployment script), see:
+
+- `perf-testing/README.md`
+
 ## Current command surface
 
 ### `ea-perf run record`
