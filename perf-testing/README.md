@@ -19,7 +19,7 @@ It is intentionally lightweight:
 
 - Node `24.15.0`
 - Yarn `^1.22.22`
-- `EC_API_KEY` for `https://staging.found.no`
+- Elastic Cloud staging API key exported as `EC_API_KEY` for `https://staging.found.no`
 - Access to Kibana/Elasticsearch test deployments
 
 Setup:
@@ -34,19 +34,26 @@ yarn install
 
 ## Quick start
 
-1. Provision an environment (or reuse an existing one):
+1. Ensure `EC_API_KEY` is set (create one if needed):
+
+```bash
+export EC_API_KEY=<your-staging-key>
+```
+
+2. Provision an environment (or reuse an existing one):
 
 ```bash
 cd ~/dev/security-documents-generator/perf-testing
 EC_API_KEY=<your-key> ./create_perf_env.sh --name ea-perf-scaling --size medium
 ```
 
-2. Give `orchestrator-prompt.md` to an orchestrator agent.
+3. Give `orchestrator-prompt.md` to an orchestrator agent.
    - The orchestrator must first present the defaults in `default-scenarios.md` and ask whether to proceed or customize.
+   - The orchestrator must also check `EC_API_KEY` and explicitly ask the user to create/export it if missing.
 
-3. Orchestrator generates scenario-specific worker prompts from `worker-prompt.md`, and workers execute them.
+4. Orchestrator generates scenario-specific worker prompts from `worker-prompt.md`, and workers execute them.
 
-4. Orchestrator collates results and asks how the user wants output summarized (canvas, markdown, html, etc.).
+5. Orchestrator collates results and asks how the user wants output summarized (canvas, markdown, html, etc.).
 
 ## Where results go
 

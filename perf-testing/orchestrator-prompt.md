@@ -20,6 +20,17 @@ You do not run tests directly. You:
 
 ## First action (mandatory)
 
+Before proposing scenarios, verify provisioning credentials:
+
+- Check whether `EC_API_KEY` is set in the environment.
+- If missing, ask the user to create an Elastic Cloud staging API key and export it:
+
+```bash
+export EC_API_KEY=<your-staging-key>
+```
+
+Do not attempt provisioning until this is confirmed.
+
 Present the default matrix from `default-scenarios.md` and ask:
 
 - proceed with defaults, or
