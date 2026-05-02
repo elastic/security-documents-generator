@@ -16,6 +16,7 @@ import {
   type CloudAccount,
   type Employee,
   type Host,
+  type Service,
 } from '../types.ts';
 import { faker } from '@faker-js/faker';
 
@@ -173,12 +174,31 @@ export class CloudTrailIntegration extends BaseIntegration {
   ];
 
   /**
+   * Lookup of cloud platform services by id (eventSource). Set in
+   * generateDocuments so doc factories can resolve service.entity.id without
+   * threading correlationMap through every helper.
+   */
+  private serviceIdToService?: Map<string, Service>;
+
+  /**
+   * Resolve a service.entity.id attachment for a given CloudTrail eventSource.
+   * Returns `undefined` if the service catalog isn't populated (correlation
+   * map missing) or the eventSource isn't a known platform service, so callers
+   * can spread the result without adding noise to documents.
+   */
+  private serviceAttachmentFor(eventSource: string): { entity: { id: string } } | undefined {
+    const svc = this.serviceIdToService?.get(eventSource);
+    return svc ? { entity: { id: svc.entityId } } : undefined;
+  }
+
+  /**
    * Generate all CloudTrail documents
    */
   generateDocuments(
     org: Organization,
     correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
+    this.serviceIdToService = correlationMap.serviceIdToService;
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
 
@@ -546,6 +566,7 @@ export class CloudTrailIntegration extends BaseIntegration {
       recipientAccountId: account.id,
     };
 
+    const service = this.serviceAttachmentFor('ssm.amazonaws.com');
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
@@ -560,6 +581,7 @@ export class CloudTrailIntegration extends BaseIntegration {
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
       user: { entity: { id: assumedRoleArn } },
       host: { id: host.id, name: host.name },
+      ...(service && { service }),
     } as IntegrationDocument;
   }
 
@@ -617,12 +639,14 @@ export class CloudTrailIntegration extends BaseIntegration {
       recipientAccountId: account.id,
     };
 
+    const service = this.serviceAttachmentFor('sts.amazonaws.com');
     return {
       '@timestamp': timestamp,
       agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
       tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
+      ...(service && { service }),
     } as IntegrationDocument;
   }
 
@@ -679,12 +703,14 @@ export class CloudTrailIntegration extends BaseIntegration {
       recipientAccountId: account.id,
     };
 
+    const service = this.serviceAttachmentFor('sts.amazonaws.com');
     return {
       '@timestamp': timestamp,
       agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
       tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
+      ...(service && { service }),
     } as IntegrationDocument;
   }
 
@@ -762,12 +788,14 @@ export class CloudTrailIntegration extends BaseIntegration {
       recipientAccountId: account.id,
     };
 
+    const serviceAttachment = this.serviceAttachmentFor(serviceConfig.eventSource);
     return {
       '@timestamp': timestamp,
       agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
       tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
+      ...(serviceAttachment && { service: serviceAttachment }),
     } as IntegrationDocument;
   }
 
@@ -818,12 +846,14 @@ export class CloudTrailIntegration extends BaseIntegration {
       recipientAccountId: account.id,
     };
 
+    const serviceAttachment = this.serviceAttachmentFor(serviceConfig.eventSource);
     return {
       '@timestamp': timestamp,
       agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
       tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
+      ...(serviceAttachment && { service: serviceAttachment }),
     } as IntegrationDocument;
   }
 
@@ -888,12 +918,14 @@ export class CloudTrailIntegration extends BaseIntegration {
       rawEvent.errorMessage = 'Failed authentication';
     }
 
+    const service = this.serviceAttachmentFor('signin.amazonaws.com');
     return {
       '@timestamp': timestamp,
       agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
       tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
+      ...(service && { service }),
     } as IntegrationDocument;
   }
 
@@ -931,11 +963,13 @@ export class CloudTrailIntegration extends BaseIntegration {
       recipientAccountId: account.id,
     };
 
+    const service = this.serviceAttachmentFor(hostTargetEvent.eventSource);
     return {
       '@timestamp': timestamp,
       message: JSON.stringify(rawEvent),
       tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
+      ...(service && { service }),
     } as IntegrationDocument;
   }
 

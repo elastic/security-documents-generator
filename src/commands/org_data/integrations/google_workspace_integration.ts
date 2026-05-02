@@ -242,11 +242,26 @@ export class GoogleWorkspaceIntegration extends BaseIntegration {
   private adminDoc(employee: Employee, org: Organization): IntegrationDocument {
     const cfg = GOOGLE_WORKSPACE_SERVICES.admin;
     const eventAction = faker.helpers.arrayElement(cfg.events);
+    // SERVICE_NAME identifies the Google Workspace admin service touched by the
+    // event. The integration's admin pipeline renames this parameter to
+    // `google_workspace.admin.service.name`, so it must be one of the values
+    // Google emits in real admin reports.
+    const serviceName = faker.helpers.arrayElement([
+      'admin_console',
+      'directory',
+      'drive',
+      'gmail',
+      'security',
+      'mobile',
+      'classroom',
+      'data_studio',
+    ]);
     return this.rawActivityDoc('admin', 'admin', employee, org, {
       name: eventAction,
       type: eventAction.includes('SETTING') ? 'APPLICATION_SETTINGS' : 'USER_SETTINGS',
       parameters: [
         param('APPLICATION_NAME', faker.helpers.arrayElement(cfg.applications)),
+        param('SERVICE_NAME', serviceName),
         param('SETTING_NAME', eventAction.toLowerCase().replace(/_/g, ' ')),
         param('OLD_VALUE', faker.helpers.arrayElement(['true', 'false', 'enabled', 'disabled'])),
         param('NEW_VALUE', faker.helpers.arrayElement(['true', 'false', 'enabled', 'disabled'])),
