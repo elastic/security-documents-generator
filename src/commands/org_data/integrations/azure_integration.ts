@@ -12,7 +12,13 @@ import {
   type IntegrationDocument,
   type DataStreamConfig,
 } from './base_integration.ts';
-import { type Organization, type Employee, type Device, type CorrelationMap } from '../types.ts';
+import {
+  type Organization,
+  type Employee,
+  type Device,
+  type CorrelationMap,
+  type Service,
+} from '../types.ts';
 import { faker } from '@faker-js/faker';
 
 const AZURE_RESOURCE_OPERATIONS: Array<{
@@ -306,10 +312,18 @@ export class AzureIntegration extends BaseIntegration {
     { name: 'Spring Cloud Logs', index: 'logs-azure.springcloudlogs-default' },
   ];
 
+  /**
+   * SaaS app services from the org catalog. Used to populate
+   * `properties.servicePrincipalName/Id` on a fraction of sign-in logs so the
+   * azure.signinlogs ingest pipeline can map them to ECS `service.name`.
+   */
+  private saasServices: Service[] = [];
+
   generateDocuments(
     org: Organization,
     _correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
+    this.saasServices = org.services.filter((s) => s.kind === 'saas_app');
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const tenantId = faker.string.uuid();
     const subscriptionId = faker.string.uuid().toUpperCase();
@@ -573,7 +587,21 @@ export class AzureIntegration extends BaseIntegration {
     centralAgent: { id: string; name: string; type: string; version: string },
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(72);
-    const app = faker.helpers.arrayElement(SIGNIN_APPS);
+    // ~25% of sign-ins represent a service principal (SaaS app) authenticating
+    // to the tenant. Those carry servicePrincipalName/Id so the ingest pipeline
+    // can populate ECS service.name on the resulting document.
+    const isServicePrincipalSignIn =
+      this.saasServices.length > 0 &&
+      faker.helpers.weightedArrayElement([
+        { value: true, weight: 25 },
+        { value: false, weight: 75 },
+      ]);
+    const saasService = isServicePrincipalSignIn
+      ? faker.helpers.arrayElement(this.saasServices)
+      : undefined;
+    const app = saasService
+      ? { name: saasService.name, id: faker.string.uuid() }
+      : faker.helpers.arrayElement(SIGNIN_APPS);
     const correlationId = faker.string.uuid();
     const clientIp = faker.internet.ipv4();
     const isInteractive = faker.helpers.weightedArrayElement([
@@ -655,6 +683,10 @@ export class AzureIntegration extends BaseIntegration {
         userDisplayName: displayName,
         userId: employee.entraIdUserId,
         userPrincipalName: employee.email,
+        ...(saasService && {
+          servicePrincipalName: saasService.name,
+          servicePrincipalId: saasService.id,
+        }),
       },
     };
 
@@ -663,6 +695,7 @@ export class AzureIntegration extends BaseIntegration {
       agent: centralAgent,
       message: JSON.stringify(rawAzureJson),
       data_stream: { dataset: 'azure.signinlogs', namespace: 'default', type: 'logs' },
+      ...(saasService && { service: { entity: { id: saasService.entityId } } }),
     } as IntegrationDocument;
   }
 

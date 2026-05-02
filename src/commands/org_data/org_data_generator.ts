@@ -28,6 +28,7 @@ import {
   type OrganizationSize,
   SIZE_CONFIGS,
   type DepartmentName,
+  type Service,
 } from './types.ts';
 import { DEPARTMENTS, getCloudAccessDepartments } from './data/departments.ts';
 import { getRandomCountry, getRandomCity } from './data/countries.ts';
@@ -37,6 +38,16 @@ import {
   IAM_ROLE_NAMES,
   SERVICE_NAMES,
 } from './data/cloud_resources.ts';
+import {
+  CLOUD_PLATFORM_SERVICES,
+  SAAS_APP_CATALOG,
+  PRODUCTIVITY_SAAS_APPS,
+  IDP_TEMPLATES,
+  ORG_SERVICE_TEMPLATES,
+  buildServiceEntityId,
+  type OrgServiceTemplate,
+  type ServiceTemplate,
+} from './data/services.ts';
 
 /**
  * Generate a complete organization based on configuration
@@ -102,6 +113,17 @@ export const generateOrgData = (config: OrganizationConfig): Organization => {
   // Determine productivity suite
   const productivitySuite: ProductivitySuite = config.productivitySuite || 'microsoft';
 
+  // Generate services (cloud platform, SaaS, IdP, org-owned microservices).
+  // Must run after employees + hosts are generated since org services attach to both.
+  const services = generateServices(
+    config.name,
+    sizeConfig.cloudProviders,
+    productivitySuite,
+    config.size,
+    employees,
+    hosts,
+  );
+
   // Generate central agent for cloud/SaaS integrations
   const centralAgent: CentralAgent = {
     id: faker.string.uuid(),
@@ -123,6 +145,7 @@ export const generateOrgData = (config: OrganizationConfig): Organization => {
     githubOrg,
     cloudflareZones,
     onePasswordVaults,
+    services,
     productivitySuite,
     centralAgent,
   };
@@ -858,6 +881,72 @@ const generateOnePasswordVaults = (): OnePasswordVault[] => {
 };
 
 /**
+ * Generate the org's service catalog: cloud platform services, SaaS apps,
+ * the identity provider, and (for medium/enterprise sizes) org-owned services.
+ *
+ * Org services pick a random owner from the appropriate department and attach
+ * to 1-3 hosts so cross-integration correlation (host -> services) works.
+ */
+const generateServices = (
+  orgName: string,
+  cloudProviders: CloudProvider[],
+  productivitySuite: ProductivitySuite,
+  size: OrganizationSize,
+  employees: Employee[],
+  hosts: Host[],
+): Service[] => {
+  const services: Service[] = [];
+
+  const fromTemplate = (tpl: ServiceTemplate): Service => ({
+    id: tpl.id,
+    name: tpl.name,
+    kind: tpl.kind,
+    provider: tpl.provider,
+    entityId: buildServiceEntityId(tpl.kind, tpl.id, orgName),
+  });
+
+  // Cloud platform services for every provider in scope.
+  for (const provider of cloudProviders) {
+    for (const tpl of CLOUD_PLATFORM_SERVICES[provider]) {
+      services.push(fromTemplate(tpl));
+    }
+  }
+
+  // SaaS apps (always present), plus the productivity-suite SaaS app.
+  for (const tpl of SAAS_APP_CATALOG) {
+    services.push(fromTemplate(tpl));
+  }
+  services.push(fromTemplate(PRODUCTIVITY_SAAS_APPS[productivitySuite]));
+
+  // Identity provider (one per org, follows productivity suite).
+  services.push(fromTemplate(IDP_TEMPLATES[productivitySuite]));
+
+  // Org-owned microservices only at medium/enterprise sizes.
+  if (size === 'medium' || size === 'enterprise') {
+    const orgServiceTemplates: OrgServiceTemplate[] =
+      size === 'medium' ? ORG_SERVICE_TEMPLATES.slice(0, 4) : ORG_SERVICE_TEMPLATES;
+
+    for (const tpl of orgServiceTemplates) {
+      const candidates = employees.filter((e) => e.department === tpl.ownedByDepartment);
+      const owner = candidates.length > 0 ? faker.helpers.arrayElement(candidates) : undefined;
+      const hostCount = Math.min(hosts.length, faker.number.int({ min: 1, max: 3 }));
+      const assignedHosts = hosts.length > 0 ? faker.helpers.arrayElements(hosts, hostCount) : [];
+
+      services.push({
+        id: tpl.id,
+        name: tpl.name,
+        kind: tpl.kind,
+        ownerEmployeeId: owner?.id,
+        hostIds: assignedHosts.map((h) => h.id),
+        entityId: buildServiceEntityId(tpl.kind, tpl.id, orgName),
+      });
+    }
+  }
+
+  return services;
+};
+
+/**
  * Get employee count for a given size
  */
 export const getEmployeeCountForSize = (size: OrganizationSize, seed?: number): number => {
@@ -925,6 +1014,12 @@ Cloudflare Zones: ${org.cloudflareZones.length}
   - Domains: ${org.cloudflareZones.map((z) => z.name).join(', ')}
 
 1Password Vaults: ${org.onePasswordVaults.length}
+
+Services: ${org.services.length}
+  - Cloud Platform: ${org.services.filter((s) => s.kind === 'cloud_platform').length}
+  - SaaS Apps: ${org.services.filter((s) => s.kind === 'saas_app').length}
+  - Identity Provider: ${org.services.filter((s) => s.kind === 'identity_provider').length}
+  - Org-Owned: ${org.services.filter((s) => s.kind === 'org_service').length}
 
 Productivity Suite: ${org.productivitySuite === 'microsoft' ? 'Microsoft 365' : 'Google Workspace'}
 `.trim();
