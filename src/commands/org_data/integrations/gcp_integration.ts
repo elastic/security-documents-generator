@@ -14,16 +14,18 @@ import {
   type DataStreamConfig,
   type AgentData,
 } from './base_integration.ts';
-import { type Organization, type Employee, type CorrelationMap } from '../types.ts';
+import { type Organization, type Employee, type CorrelationMap, type Service } from '../types.ts';
+import { CLOUD_PLATFORM_SERVICES } from '../data/services.ts';
 import { faker } from '@faker-js/faker';
 
-const GCP_SERVICES: Array<{
-  serviceName: string;
-  methods: string[];
-  weight: number;
-}> = [
-  {
-    serviceName: 'compute.googleapis.com',
+/**
+ * GCP-specific audit method names + relative weights, keyed by the
+ * `serviceName` (== `id` in the shared catalog). The catalog is the source
+ * of truth for *which* GCP services exist; this map only contributes the
+ * audit-log-specific behavior the catalog doesn't model.
+ */
+const GCP_AUDIT_METHODS: Record<string, { methods: string[]; weight: number }> = {
+  'compute.googleapis.com': {
     methods: [
       'beta.compute.instances.aggregatedList',
       'v1.compute.instances.list',
@@ -34,8 +36,7 @@ const GCP_SERVICES: Array<{
     ],
     weight: 25,
   },
-  {
-    serviceName: 'storage.googleapis.com',
+  'storage.googleapis.com': {
     methods: [
       'storage.buckets.list',
       'storage.buckets.get',
@@ -44,8 +45,7 @@ const GCP_SERVICES: Array<{
     ],
     weight: 20,
   },
-  {
-    serviceName: 'iam.googleapis.com',
+  'iam.googleapis.com': {
     methods: [
       'google.iam.admin.v1.ListServiceAccounts',
       'google.iam.admin.v1.GetServiceAccount',
@@ -54,13 +54,11 @@ const GCP_SERVICES: Array<{
     ],
     weight: 15,
   },
-  {
-    serviceName: 'cloudresourcemanager.googleapis.com',
+  'cloudresourcemanager.googleapis.com': {
     methods: ['GetProject', 'ListProjects', 'GetIamPolicy', 'SetIamPolicy'],
     weight: 10,
   },
-  {
-    serviceName: 'bigquery.googleapis.com',
+  'bigquery.googleapis.com': {
     methods: [
       'google.cloud.bigquery.v2.JobService.InsertJob',
       'google.cloud.bigquery.v2.JobService.GetQueryResults',
@@ -68,28 +66,45 @@ const GCP_SERVICES: Array<{
     ],
     weight: 10,
   },
-  {
-    serviceName: 'container.googleapis.com',
+  'container.googleapis.com': {
     methods: [
       'google.container.v1.ClusterManager.ListClusters',
       'google.container.v1.ClusterManager.GetCluster',
     ],
     weight: 8,
   },
-  {
-    serviceName: 'sqladmin.googleapis.com',
+  'sqladmin.googleapis.com': {
     methods: ['cloudsql.instances.list', 'cloudsql.instances.get'],
     weight: 5,
   },
-  {
-    serviceName: 'logging.googleapis.com',
+  'logging.googleapis.com': {
     methods: [
       'google.logging.v2.LoggingServiceV2.ListLogEntries',
       'google.logging.v2.ConfigServiceV2.ListSinks',
     ],
     weight: 7,
   },
-];
+};
+
+/**
+ * Compose the audit-emitting GCP service list from the shared catalog,
+ * decorating each entry with audit-specific methods/weight. Only catalog
+ * services that have a method definition contribute audit logs.
+ */
+const buildGcpAuditServices = (): Array<{
+  serviceName: string;
+  methods: string[];
+  weight: number;
+}> =>
+  CLOUD_PLATFORM_SERVICES.gcp
+    .filter((tpl) => GCP_AUDIT_METHODS[tpl.id])
+    .map((tpl) => ({
+      serviceName: tpl.id,
+      methods: GCP_AUDIT_METHODS[tpl.id].methods,
+      weight: GCP_AUDIT_METHODS[tpl.id].weight,
+    }));
+
+const GCP_AUDIT_SERVICES = buildGcpAuditServices();
 
 const GCP_REGIONS = [
   'us-central1',
@@ -169,10 +184,17 @@ export class GcpIntegration extends BaseIntegration {
     { name: 'firewall', index: 'logs-gcp.firewall-default' },
   ];
 
+  /**
+   * Lookup of cloud platform services by id (eventSource / serviceName).
+   * Set in generateDocuments so doc factories can resolve service.entity.id.
+   */
+  private serviceIdToService?: Map<string, Service>;
+
   generateDocuments(
     org: Organization,
-    _correlationMap: CorrelationMap,
+    correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
+    this.serviceIdToService = correlationMap.serviceIdToService;
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const centralAgent = this.buildCentralAgent(org);
     const auditDocs: IntegrationDocument[] = [];
@@ -205,7 +227,7 @@ export class GcpIntegration extends BaseIntegration {
     centralAgent: AgentData,
   ): IntegrationDocument {
     const service = faker.helpers.weightedArrayElement(
-      GCP_SERVICES.map((s) => ({ value: s, weight: s.weight })),
+      GCP_AUDIT_SERVICES.map((s) => ({ value: s, weight: s.weight })),
     );
     const methodName = faker.helpers.arrayElement(service.methods);
     const timestamp = this.getRandomTimestamp(72);
@@ -263,11 +285,13 @@ export class GcpIntegration extends BaseIntegration {
       receiveTimestamp,
     };
 
+    const serviceEntity = this.serviceIdToService?.get(service.serviceName);
     return {
       '@timestamp': timestamp,
       agent: centralAgent,
       message: JSON.stringify(rawGcpLogEntry),
       data_stream: { namespace: 'default', type: 'logs', dataset: 'gcp.audit' },
+      ...(serviceEntity && { service: { entity: { id: serviceEntity.entityId } } }),
     } as IntegrationDocument;
   }
 

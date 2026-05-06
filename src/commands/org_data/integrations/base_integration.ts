@@ -261,4 +261,7 @@ export const createEmptyCorrelationMap = (): CorrelationMap => ({
   jamfUdidToDevice: new Map(),
   adDnToEmployee: new Map(),
   windowsSidToEmployee: new Map(),
+  serviceIdToService: new Map(),
+  serviceEntityIdToService: new Map(),
+  hostIdToServices: new Map(),
 });

@@ -119,6 +119,38 @@ export interface CloudAccount {
 }
 
 /**
+ * Service entity kind. Distinguishes the four classes of services we model
+ * across the org so each integration can pick the right slice (cloud audit,
+ * SaaS auth, IdP, microservice telemetry).
+ */
+export type ServiceKind =
+  | 'cloud_platform' // Vendor-provided cloud APIs invoked by users (ec2.amazonaws.com)
+  | 'saas_app' // SaaS applications federated via the IdP (Salesforce, GitHub)
+  | 'identity_provider' // The org's IdP itself (Okta or Entra ID)
+  | 'org_service'; // Org-owned services/microservices (checkout-api, payments-svc)
+
+/**
+ * Service entity in the organization. Modeled as a peer to Employee/Device/Host
+ * so integrations can populate ECS service.* and service.entity.id consistently.
+ *
+ * - cloud_platform: id is the vendor service identifier (e.g. 'ec2.amazonaws.com').
+ * - saas_app: id is the SaaS app slug (e.g. 'salesforce', 'github').
+ * - identity_provider: id is 'okta' or 'entra_id'.
+ * - org_service: id is the kebab-case service name (e.g. 'checkout-api').
+ *
+ * entityId is a deterministic, globally unique identifier used as service.entity.id.
+ */
+export interface Service {
+  id: string;
+  name: string;
+  kind: ServiceKind;
+  provider?: CloudProvider;
+  ownerEmployeeId?: string;
+  hostIds?: string[];
+  entityId: string;
+}
+
+/**
  * Cloud resource in the organization's infrastructure
  */
 export interface CloudResource {
@@ -217,6 +249,7 @@ export interface Organization {
   githubOrg: GitHubOrg;
   cloudflareZones: CloudflareZone[];
   onePasswordVaults: OnePasswordVault[];
+  services: Service[];
   productivitySuite: ProductivitySuite;
   centralAgent: CentralAgent;
 }
@@ -1222,4 +1255,7 @@ export interface CorrelationMap {
   jamfUdidToDevice: Map<string, { employee: Employee; device: Device }>;
   adDnToEmployee: Map<string, Employee>;
   windowsSidToEmployee: Map<string, Employee>;
+  serviceIdToService: Map<string, Service>;
+  serviceEntityIdToService: Map<string, Service>;
+  hostIdToServices: Map<string, Service[]>;
 }

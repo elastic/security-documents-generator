@@ -5,7 +5,7 @@ description: >-
   that extend BaseIntegration for the `yarn start org-data`
   (generate-correlated-organization-data) command. These classes define Fleet
   package installation, data stream configs, and generateDocuments() methods
-  that produce correlated user/device documents across the simulated
+  that produce correlated user/device/service documents across the simulated
   organization.
 
   Use ONLY when the user explicitly asks to add, update, or fix an integration
@@ -204,6 +204,20 @@ integration that references users:
 | `name`           | Server hostname                        | `api-server-prod-a1b2c3` |
 | `elasticAgentId` | Elastic Agent UUID for the server host | `d4e5f6a7-...`           |
 
+#### Stable fields on Service
+
+`org.services` is a catalog of platform services, SaaS apps, the org's identity provider, and (for medium / enterprise sizes) org-owned microservices. It's the source of truth for ECS `service.entity.id`. Generate services from `src/commands/org_data/data/services.ts` -- never invent service IDs in an integration.
+
+| Field             | Description                                                                     | Example                                           |
+| ----------------- | ------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `id`              | Service identifier matching the real eventSource / serviceName / SaaS app id    | `ec2.amazonaws.com`, `salesforce`, `checkout-api` |
+| `name`            | Display name                                                                    | `Amazon EC2`, `Salesforce`, `Checkout API`        |
+| `kind`            | One of `cloud_platform`, `saas_app`, `identity_provider`, `org_service`         | `cloud_platform`                                  |
+| `provider`        | Cloud provider (only on `cloud_platform`)                                       | `aws`                                             |
+| `entityId`        | Deterministic ECS `service.entity.id` value                                     | `service:cloud_platform:ec2.amazonaws.com`        |
+| `ownerEmployeeId` | Employee who owns the service (only on `org_service`, medium / enterprise orgs) | `<Employee.id>`                                   |
+| `hostIds`         | Hosts the service runs on (only on `org_service`, medium / enterprise orgs)     | `['<Host.id>', ...]`                              |
+
 #### CentralAgent on Organization
 
 The `org.centralAgent` represents a single Elastic Agent deployed on a central fleet
@@ -219,20 +233,21 @@ identity in their documents.
 
 When generating documents, map ECS fields to the stable Employee/Device values:
 
-| ECS Field       | Rule                                                                                                                                                                                                                         |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `user.id`       | Windows: `employee.windowsSid`. Mac/Linux: `String(employee.unixUid)`. **Never** generate random SIDs/UIDs per event.                                                                                                        |
-| `user.name`     | Always `employee.userName`.                                                                                                                                                                                                  |
-| `user.email`    | Always `employee.email`.                                                                                                                                                                                                     |
-| `user.domain`   | Windows user-context: derive from employee (e.g. `employee.userName.split('.')[0].toUpperCase()`). Use `'NT AUTHORITY'` only for SYSTEM.                                                                                     |
-| `host.id`       | Always `device.id`.                                                                                                                                                                                                          |
-| `host.name`     | `${employee.userName}-${device.platform}` for employee devices.                                                                                                                                                              |
-| `host.mac`      | Always `device.macAddress`. Convert separator as needed (dash for ECS/endpoint, colon for Jamf). **Never** call `faker.internet.mac()`.                                                                                      |
-| `host.ip`       | Always `device.ipAddress` as the primary IP. **Never** call `faker.internet.ipv4()` for host IPs. Random IPs are OK for `source.ip`, `destination.ip`, or `external_ip`.                                                     |
-| `agent.id`      | Local workstation: `device.elasticAgentId`. Server: `host.elasticAgentId`. Centralized cloud: `org.centralAgent.id`. Use `buildLocalAgent()`, `buildServerAgent()`, or `buildCentralAgent()` helpers from `BaseIntegration`. |
-| `agent.name`    | Local workstation: `${employee.userName}-${device.platform}` (same as `host.name`). Server: `host.name`. Centralized cloud: `org.centralAgent.name` (`fleet-collector-01`).                                                  |
-| `agent.type`    | `'endpoint'` for Elastic Defend, `'filebeat'` for all other integrations.                                                                                                                                                    |
-| `agent.version` | Always `ELASTIC_AGENT_VERSION` (`'8.17.4'`), exported from `base_integration.ts`.                                                                                                                                            |
+| ECS Field           | Rule                                                                                                                                                                                                                                                                                                                                     |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `user.id`           | Windows: `employee.windowsSid`. Mac/Linux: `String(employee.unixUid)`. **Never** generate random SIDs/UIDs per event.                                                                                                                                                                                                                    |
+| `user.name`         | Always `employee.userName`.                                                                                                                                                                                                                                                                                                              |
+| `user.email`        | Always `employee.email`.                                                                                                                                                                                                                                                                                                                 |
+| `user.domain`       | Windows user-context: derive from employee (e.g. `employee.userName.split('.')[0].toUpperCase()`). Use `'NT AUTHORITY'` only for SYSTEM.                                                                                                                                                                                                 |
+| `host.id`           | Always `device.id`.                                                                                                                                                                                                                                                                                                                      |
+| `host.name`         | `${employee.userName}-${device.platform}` for employee devices.                                                                                                                                                                                                                                                                          |
+| `host.mac`          | Always `device.macAddress`. Convert separator as needed (dash for ECS/endpoint, colon for Jamf). **Never** call `faker.internet.mac()`.                                                                                                                                                                                                  |
+| `host.ip`           | Always `device.ipAddress` as the primary IP. **Never** call `faker.internet.ipv4()` for host IPs. Random IPs are OK for `source.ip`, `destination.ip`, or `external_ip`.                                                                                                                                                                 |
+| `agent.id`          | Local workstation: `device.elasticAgentId`. Server: `host.elasticAgentId`. Centralized cloud: `org.centralAgent.id`. Use `buildLocalAgent()`, `buildServerAgent()`, or `buildCentralAgent()` helpers from `BaseIntegration`.                                                                                                             |
+| `agent.name`        | Local workstation: `${employee.userName}-${device.platform}` (same as `host.name`). Server: `host.name`. Centralized cloud: `org.centralAgent.name` (`fleet-collector-01`).                                                                                                                                                              |
+| `agent.type`        | `'endpoint'` for Elastic Defend, `'filebeat'` for all other integrations.                                                                                                                                                                                                                                                                |
+| `agent.version`     | Always `ELASTIC_AGENT_VERSION` (`'8.17.4'`), exported from `base_integration.ts`.                                                                                                                                                                                                                                                        |
+| `service.entity.id` | Look up by integration-specific identifier in `correlationMap.serviceIdToService` (e.g. CloudTrail `eventSource`, GCP `protoPayload.serviceName`, SaaS app id). For org-owned services, iterate `org.services` directly and use `service.entityId`. **Never** synthesize service entity IDs per event. See Step 3d for the full pattern. |
 
 #### When to extend the CorrelationMap
 
@@ -244,6 +259,11 @@ extend the correlation infrastructure:
 3. Add a new `Map` entry to the `CorrelationMap` interface in `src/commands/org_data/types.ts`
 4. Populate it in `buildCorrelationMap()` in `src/commands/org_data/correlation.ts`
 5. Add it to `createEmptyCorrelationMap()` in `src/commands/org_data/integrations/base_integration.ts`
+
+Service entities already use this pattern -- you do **not** need to repeat it for services. The
+existing maps `correlationMap.serviceIdToService` (keyed by service id, e.g. AWS eventSource or GCP
+serviceName), `serviceEntityIdToService`, and `hostIdToServices` are populated automatically for
+every org. Use them directly to resolve `service.entity.id`. See Step 3d.
 
 ### Step 3c: Produce Pre-Pipeline (Raw) Document Format
 
@@ -335,6 +355,123 @@ Some integrations do NOT have ingest pipelines or use non-standard flows:
 - **Cloud Asset Inventory**: No ingest pipeline. Produces documents in the asset inventory format.
 
 When in doubt, always check the pipeline YAML first.
+
+### Step 3d: Attach `service.entity.id` When Applicable
+
+ECS `service.entity.id` is used to correlate logs from the same service across data streams. The
+`org.services` catalog already models the services that exist in the simulated org (see Step 3b).
+Integrations should attach `service.entity.id` only when the events they emit clearly originate
+from a known service.
+
+Pattern depends on the data shape:
+
+#### Cloud platform audit logs (CloudTrail, GCP audit, Azure activitylogs)
+
+Each event names the platform service in a raw payload field. Look it up in
+`correlationMap.serviceIdToService` and attach `service.entity.id` to every doc. ECS `service.name`
+is still derived by the ingest pipeline from the raw payload (CloudTrail's `eventSource`, GCP's
+`protoPayload.serviceName`, Azure's `properties.resource_provider`), so do not pre-set it on the
+generator side.
+
+The recommended pattern adds a private map field on the integration class and a small helper:
+
+```typescript
+import { type Service, ... } from '../types.ts';
+
+export class CloudTrailIntegration extends BaseIntegration {
+  private serviceIdToService?: Map<string, Service>;
+
+  private serviceAttachmentFor(eventSource: string): { entity: { id: string } } | undefined {
+    const svc = this.serviceIdToService?.get(eventSource);
+    return svc ? { entity: { id: svc.entityId } } : undefined;
+  }
+
+  generateDocuments(org: Organization, correlationMap: CorrelationMap) {
+    this.serviceIdToService = correlationMap.serviceIdToService;
+    // ... emit docs ...
+  }
+
+  private createApiCallEvent(...) {
+    const service = this.serviceAttachmentFor(serviceConfig.eventSource);
+    return {
+      '@timestamp': timestamp,
+      message: JSON.stringify(rawEvent),
+      data_stream: { ... },
+      ...(service && { service }),
+    } as IntegrationDocument;
+  }
+}
+```
+
+See `src/commands/org_data/integrations/cloudtrail_integration.ts` for the full implementation
+and `src/commands/org_data/integrations/gcp_integration.ts` for the GCP audit variant.
+
+When the integration owns a fixed list of platform services (like GCP audit), source it from the
+shared catalog (`CLOUD_PLATFORM_SERVICES.<provider>` in `data/services.ts`) rather than redefining
+service IDs locally. Keep audit-specific data (method names, weights, etc.) in a separate map keyed
+by the catalog id.
+
+#### SaaS app sign-ins (Azure signinlogs, Okta SAML, GWS SAML)
+
+A fraction of sign-in events represent a SaaS app authenticating to the IdP rather than a user
+sign-in. Pick a SaaS service from `org.services.filter(s => s.kind === 'saas_app')`, inject the
+vendor-specific raw fields the pipeline expects so it can derive `service.name`, and attach
+`service.entity.id` directly on the doc.
+
+Example from `src/commands/org_data/integrations/azure_integration.ts` (signinlogs):
+
+```typescript
+const isServicePrincipalSignIn =
+  this.saasServices.length > 0 &&
+  faker.helpers.weightedArrayElement([
+    { value: true, weight: 25 },
+    { value: false, weight: 75 },
+  ]);
+const saasService = isServicePrincipalSignIn
+  ? faker.helpers.arrayElement(this.saasServices)
+  : undefined;
+
+// ...
+
+const rawAzureJson = {
+  // ...
+  properties: {
+    // ... user fields ...
+    ...(saasService && {
+      servicePrincipalName: saasService.name, // pipeline -> service.name
+      servicePrincipalId: saasService.id,
+    }),
+  },
+};
+
+return {
+  '@timestamp': timestamp,
+  message: JSON.stringify(rawAzureJson),
+  data_stream: { ... },
+  ...(saasService && { service: { entity: { id: saasService.entityId } } }),
+} as IntegrationDocument;
+```
+
+#### Pipeline-only integrations (namespaced `service.name`)
+
+Some integrations only populate a namespaced field like `google_workspace.admin.service.name`
+(not the top-level ECS `service.name`). For these, just include the raw field the pipeline
+renames -- e.g. a `SERVICE_NAME` parameter in `events.parameters` for Google Workspace admin --
+and do **not** attach a top-level `service.entity.id` (the namespaced field doesn't represent an
+ECS Service entity).
+
+See `src/commands/org_data/integrations/google_workspace_integration.ts:adminDoc()` for the
+example.
+
+#### When to skip
+
+Do **not** attach `service.entity.id` when:
+
+- The event isn't clearly attributable to a single service (e.g. a generic firewall log, an
+  endpoint process event).
+- The integration's `service.name` is namespaced (see previous section).
+
+When in doubt, leave it off rather than synthesizing entity IDs that wouldn't exist in real data.
 
 ### Step 4: Register the Integration (New Integrations Only)
 
@@ -452,7 +589,13 @@ Review and update the following sections if any of them changed:
 5. **Detection rules pattern** (Step 5) -- if the `DetectionRuleDefinition` interface or
    `INTEGRATION_DETECTION_RULES` structure changed, reflect it.
 
-6. **File locations table** -- if any paths moved or new key files were created, update the table
+6. **Service catalog and `service.entity.id` patterns** (Step 3b "Stable fields on Service" and
+   Step 3d) -- if the integration introduced a new SaaS app, cloud platform service, or org-service
+   template, add it to `src/commands/org_data/data/services.ts`. If the attachment pattern changed
+   or a new pattern emerged (beyond the cloud-platform / SaaS-sign-in / pipeline-only cases), add
+   a matching subsection to Step 3d.
+
+7. **File locations table** -- if any paths moved or new key files were created, update the table
    at the bottom.
 
 Only update sections where the session produced actual changes. Do not speculatively rewrite
@@ -470,6 +613,7 @@ unaffected sections.
 | Organization generator    | `src/commands/org_data/org_data_generator.ts`                         |
 | Correlation builder       | `src/commands/org_data/correlation.ts`                                |
 | Detection rules           | `src/commands/org_data/detection_rules.ts`                            |
+| Service catalog           | `src/commands/org_data/data/services.ts`                              |
 | Integrations repo         | `/Users/johndoe/repos/integrations/packages/`                         |
 | Beats repo                | `/Users/johndoe/repos/beats/x-pack/filebeat/module/`                  |
 | Endpoint-package repo     | `/Users/johndoe/repos/endpoint-package/`                              |

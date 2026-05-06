@@ -31,6 +31,9 @@ export const buildCorrelationMap = (org: Organization): CorrelationMap => {
     jamfUdidToDevice: new Map(),
     adDnToEmployee: new Map(),
     windowsSidToEmployee: new Map(),
+    serviceIdToService: new Map(),
+    serviceEntityIdToService: new Map(),
+    hostIdToServices: new Map(),
   };
 
   // Build employee to Okta user correlations
@@ -95,6 +98,17 @@ export const buildCorrelationMap = (org: Organization): CorrelationMap => {
   // Build Windows SID to employee correlations
   for (const employee of org.employees) {
     correlationMap.windowsSidToEmployee.set(employee.windowsSid, employee);
+  }
+
+  // Build service correlations: id -> Service, entityId -> Service, hostId -> Service[]
+  for (const svc of org.services) {
+    correlationMap.serviceIdToService.set(svc.id, svc);
+    correlationMap.serviceEntityIdToService.set(svc.entityId, svc);
+    for (const hostId of svc.hostIds ?? []) {
+      const list = correlationMap.hostIdToServices.get(hostId) ?? [];
+      list.push(svc);
+      correlationMap.hostIdToServices.set(hostId, list);
+    }
   }
 
   return correlationMap;
@@ -191,6 +205,30 @@ export const verifyCorrelationIntegrity = (
     }
   }
 
+  // Service entity integrity: unique entityIds, valid owner/host references.
+  const serviceEntityIds = new Set<string>();
+  const employeeIds = new Set(org.employees.map((e) => e.id));
+  const hostIds = new Set(org.hosts.map((h) => h.id));
+  for (const svc of org.services) {
+    if (serviceEntityIds.has(svc.entityId)) {
+      errors.push(`Duplicate service entity ID: ${svc.entityId}`);
+    }
+    serviceEntityIds.add(svc.entityId);
+
+    if (svc.kind === 'org_service') {
+      if (svc.ownerEmployeeId && !employeeIds.has(svc.ownerEmployeeId)) {
+        errors.push(
+          `Org service ${svc.id} ownerEmployeeId=${svc.ownerEmployeeId} not found in employees`,
+        );
+      }
+      for (const hostId of svc.hostIds ?? []) {
+        if (!hostIds.has(hostId)) {
+          errors.push(`Org service ${svc.id} hostId=${hostId} not found in hosts`);
+        }
+      }
+    }
+  }
+
   return {
     valid: errors.length === 0,
     errors,
@@ -202,6 +240,10 @@ export const verifyCorrelationIntegrity = (
       serviceAccounts: org.cloudIamUsers.filter((u) => !u.isFederated).length,
       oktaGroups: org.oktaGroups.length,
       entraIdGroups: org.entraIdGroups.length,
+      services: org.services.length,
+      cloudPlatformServices: org.services.filter((s) => s.kind === 'cloud_platform').length,
+      saasApps: org.services.filter((s) => s.kind === 'saas_app').length,
+      orgServices: org.services.filter((s) => s.kind === 'org_service').length,
     },
   };
 };
@@ -220,6 +262,10 @@ export interface CorrelationVerificationResult {
     serviceAccounts: number;
     oktaGroups: number;
     entraIdGroups: number;
+    services: number;
+    cloudPlatformServices: number;
+    saasApps: number;
+    orgServices: number;
   };
 }
 
@@ -249,6 +295,9 @@ CrowdStrike Agent -> Device mappings: ${correlationMap.crowdstrikeAgentIdToDevic
 Jamf UDID -> Device mappings: ${correlationMap.jamfUdidToDevice.size}
 AD DN -> Employee mappings: ${correlationMap.adDnToEmployee.size}
 Windows SID -> Employee mappings: ${correlationMap.windowsSidToEmployee.size}
+Service ID -> Service mappings: ${correlationMap.serviceIdToService.size}
+Service EntityID -> Service mappings: ${correlationMap.serviceEntityIdToService.size}
+Host ID -> Services mappings: ${correlationMap.hostIdToServices.size}
 
 AWS Access Group: ${awsAccessGroup?.name || 'Not found'}
 Employees with AWS Access: ${awsEmployees.length}
@@ -259,6 +308,11 @@ Service Accounts: ${verification.stats.serviceAccounts}
 
 Okta Groups: ${verification.stats.oktaGroups}
 Entra ID Groups: ${verification.stats.entraIdGroups}
+
+Services: ${verification.stats.services}
+  - Cloud Platform: ${verification.stats.cloudPlatformServices}
+  - SaaS Apps: ${verification.stats.saasApps}
+  - Org-Owned: ${verification.stats.orgServices}
 
 Verification: ${verification.valid ? '✓ PASSED' : '✗ FAILED'}
 ${verification.errors.length > 0 ? `Errors:\n  - ${verification.errors.join('\n  - ')}` : ''}
