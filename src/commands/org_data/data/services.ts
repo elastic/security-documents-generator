@@ -215,9 +215,15 @@ export const ORG_SERVICE_TEMPLATES: OrgServiceTemplate[] = [
  * `service:<kind>:<id>` for global services, with `@<orgname>` appended for
  * org-owned services so two different orgs don't collide on `checkout-api`.
  */
+const sanitizeOrgNameForEntityId = (orgName: string): string =>
+  orgName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
 export const buildServiceEntityId = (kind: ServiceKind, id: string, orgName: string): string => {
   if (kind === 'org_service') {
-    const suffix = orgName.toLowerCase().replace(/\s+/g, '-');
+    const suffix = sanitizeOrgNameForEntityId(orgName);
     return `service:org_service:${id}@${suffix}`;
   }
   return `service:${kind}:${id}`;
