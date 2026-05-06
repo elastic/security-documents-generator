@@ -600,7 +600,7 @@ export class AzureIntegration extends BaseIntegration {
       ? faker.helpers.arrayElement(this.saasServices)
       : undefined;
     const app = saasService
-      ? { name: saasService.name, id: faker.string.uuid() }
+      ? { name: saasService.name, id: saasService.id }
       : faker.helpers.arrayElement(SIGNIN_APPS);
     const correlationId = faker.string.uuid();
     const clientIp = faker.internet.ipv4();
