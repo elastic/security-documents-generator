@@ -1021,12 +1021,14 @@ export const uploadFile = async ({
   lineCount,
   modifyDoc,
   onComplete,
+  timestampSpreadMs,
 }: {
   filePath: string;
   index: string;
   lineCount: number;
   modifyDoc?: (doc: Record<string, any>) => Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   onComplete?: () => void;
+  timestampSpreadMs?: number;
 }) => {
   const stream = fs.createReadStream(filePath);
   const progress = createProgressBar('upload', {
@@ -1045,6 +1047,10 @@ export const uploadFile = async ({
     }
   };
 
+  // End of spread window is fixed at the start of the upload so all timestamps
+  // fall in [endTime - spread, endTime] regardless of upload duration.
+  const spreadEndTime = Date.now();
+
   await streamingBulkIngest({
     index,
     datasource: lineGenerator(),
@@ -1055,7 +1061,10 @@ export const uploadFile = async ({
         throw new Error('Stopped');
       }
       const record = doc as Record<string, unknown>;
-      record['@timestamp'] = new Date().toISOString();
+      record['@timestamp'] =
+        timestampSpreadMs !== undefined
+          ? new Date(spreadEndTime - Math.floor(Math.random() * timestampSpreadMs)).toISOString()
+          : new Date().toISOString();
       const payload = modifyDoc ? modifyDoc(doc as Record<string, any>) : doc; // eslint-disable-line @typescript-eslint/no-explicit-any
       return [{ create: { _index: index } }, { ...payload }];
     },
@@ -1092,6 +1101,7 @@ export const uploadPerfDataFile = async (
     samplingIntervalMs: number;
     transformTimeoutMs: number;
   },
+  timestampSpreadMs?: number,
 ) => {
   const index = indexOverride || `logs-perftest.${name}-default`;
   const entityIndex = noTransforms ? ENTITY_INDEX_V2 : ENTITY_INDEX_V1;
@@ -1152,8 +1162,12 @@ export const uploadPerfDataFile = async (
     }
   }
 
+  if (timestampSpreadMs !== undefined) {
+    log.info(`Spreading document @timestamp values randomly over the last ${timestampSpreadMs}ms`);
+  }
+
   try {
-    await uploadFile({ filePath, index, lineCount });
+    await uploadFile({ filePath, index, lineCount, timestampSpreadMs });
     const ingestTook = Date.now() - startTime;
     log.info(`Data file ${name} uploaded to index ${index} in ${ingestTook}ms`);
 
