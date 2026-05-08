@@ -1,7 +1,12 @@
 import { type Command } from 'commander';
 import { type CommandModule } from '../types.ts';
 import { log } from '../../utils/logger.ts';
-import { parseIntBase10, promptForFileSelection, wrapAction } from '../utils/cli_utils.ts';
+import {
+  parseDuration,
+  parseIntBase10,
+  promptForFileSelection,
+  wrapAction,
+} from '../utils/cli_utils.ts';
 import {
   createPerfDataFile,
   listPerfDataFiles,
@@ -127,9 +132,17 @@ export const entityStorePerfCommands: CommandModule = {
         30,
       )
       .option('--noTransforms', 'Use Entity Store V2 / ESQL flow (no transforms)')
+      .option(
+        '--timestamp-spread <duration>',
+        'Spread document @timestamp values randomly over the given duration ending at now (e.g., 2h, 30m, 1d, 500ms)',
+      )
       .description('Upload performance data file')
       .action(
         wrapAction(async (file, options) => {
+          const timestampSpreadMs =
+            options.timestampSpread !== undefined
+              ? parseDuration(options.timestampSpread as string)
+              : undefined;
           await uploadPerfDataFile(
             file ?? (await promptForFileSelection(listPerfDataFiles())),
             options.index,
@@ -140,6 +153,7 @@ export const entityStorePerfCommands: CommandModule = {
               samplingIntervalMs: options.samplingInterval * 1000,
               transformTimeoutMs: options.transformTimeout * 60 * 1000,
             },
+            timestampSpreadMs,
           );
         }),
       );

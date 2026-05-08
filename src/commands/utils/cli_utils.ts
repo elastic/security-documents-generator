@@ -6,6 +6,24 @@ export const parseIntBase10 = (input: string) => parseInt(input, 10);
 export const parseOptionInt = (input: string | undefined, fallback: number): number =>
   input ? parseIntBase10(input) : fallback;
 
+const DURATION_UNIT_MS: Record<string, number> = {
+  ms: 1,
+  s: 1000,
+  m: 60 * 1000,
+  h: 60 * 60 * 1000,
+  d: 24 * 60 * 60 * 1000,
+};
+
+export const parseDuration = (input: string): number => {
+  const match = /^(\d+(?:\.\d+)?)(ms|s|m|h|d)$/.exec(input.trim());
+  if (!match) {
+    throw new Error(
+      `Invalid duration "${input}". Expected format: <number><ms|s|m|h|d> (e.g., 2h, 30m, 500ms)`,
+    );
+  }
+  return Math.floor(parseFloat(match[1]) * DURATION_UNIT_MS[match[2]]);
+};
+
 const formatCauseChain = (error: unknown): string[] => {
   const chain: string[] = [];
   let cursor: unknown = error;
