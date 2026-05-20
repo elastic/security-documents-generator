@@ -174,10 +174,14 @@ export const entityStorePerfCommands: CommandModule = {
       .command('upload-perf-data-interval')
       .argument('[file]', 'File to upload')
       .option('--interval <interval>', 'interval in s', parseIntBase10, 30)
-      .option('--count <count>', 'number of times to upload', parseIntBase10, 10)
+      .option(
+        '--count <count>',
+        'number of times to upload (default: 10; ignored when --duration is set)',
+        parseIntBase10,
+      )
       .option(
         '--duration <duration>',
-        'wall-clock run limit (e.g. 3h, 30m); mutually exclusive with --count',
+        'wall-clock run limit (e.g. 3h, 30m, 45s); takes precedence over --count',
       )
       .option(
         '--ingest-rate <docsPerSecond>',
@@ -212,11 +216,6 @@ export const entityStorePerfCommands: CommandModule = {
       .description('Upload performance data file repeatedly at intervals')
       .action(
         wrapAction(async (file, options) => {
-          if (options.count !== undefined && options.duration !== undefined) {
-            log.error('❌ --count and --duration are mutually exclusive');
-            process.exit(1);
-          }
-
           if (options.ingestRate !== undefined && options.ingestRate < 1) {
             log.error('❌ --ingest-rate must be at least 1 docs/sec');
             process.exit(1);
@@ -229,6 +228,11 @@ export const entityStorePerfCommands: CommandModule = {
 
           const durationMs =
             options.duration !== undefined ? parseDuration(options.duration as string) : undefined;
+
+          if (durationMs !== undefined && options.count !== undefined) {
+            log.warn('--count is ignored when --duration is set');
+          }
+
           const uploadCount = durationMs === undefined ? (options.count ?? 10) : undefined;
 
           if (durationMs !== undefined) {

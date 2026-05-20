@@ -78,8 +78,8 @@ yarn start upload-perf-data-interval [file] [options]
 ### Options
 
 - `--interval <seconds>`: Pause between completed uploads (default: `30`)
-- `--count <count>`: Number of uploads (default: `10`; mutually exclusive with `--duration`)
-- `--duration <duration>`: Wall-clock run limit (e.g. `3h`, `30m`, `45s`); keeps uploading until the deadline, pausing `--interval` seconds between uploads when time allows. Mutually exclusive with `--count`.
+- `--duration <duration>`: Wall-clock run limit (e.g. `3h`, `30m`, `45s`); keeps uploading until the deadline, pausing `--interval` seconds between uploads when time allows. **Takes precedence over `--count`** when both are set.
+- `--count <count>`: Number of uploads (default: `10`); used only when `--duration` is not set.
 - `--ingest-rate <docsPerSecond>`: **Maximum** documents per second per upload (default: unlimited). Throttle pauses between 5k-doc batches; it does not speed up Elasticsearch. Each upload logs achieved docs/sec when it finishes.
 - `--bulk-concurrency <n>`: Parallel `_bulk` requests per upload (default: `8`). Tune for experiments; ~13k docs/sec was observed at 8 on a typical test cluster.
 - `--deleteData`: Delete entities and data stream/index first
