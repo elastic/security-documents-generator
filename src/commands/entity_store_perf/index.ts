@@ -174,7 +174,7 @@ export const entityStorePerfCommands: CommandModule = {
       .command('upload-perf-data-interval')
       .argument('[file]', 'File to upload')
       .option('--interval <interval>', 'interval in s', parseIntBase10, 30)
-      .option('--count <count>', 'number of times to upload', parseIntBase10)
+      .option('--count <count>', 'number of times to upload', parseIntBase10, 10)
       .option(
         '--duration <duration>',
         'wall-clock run limit (e.g. 3h, 30m); mutually exclusive with --count',

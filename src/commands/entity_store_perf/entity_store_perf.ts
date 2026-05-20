@@ -518,6 +518,10 @@ const countEntitiesUntil = async (
   });
   progress.start(count, 0);
 
+  let lastLoggedTotal = -1;
+  let pollIterations = 0;
+  const entityPollLogEvery = 15; // ~30s at 2s poll interval
+
   while (total < count && !stop) {
     if (Date.now() - pollStart >= timeoutMs) {
       log.warn(
@@ -530,7 +534,11 @@ const countEntitiesUntil = async (
     progress.update(total);
 
     if (total < count) {
-      log.info(`Entity count ${total}/${count}, polling again in 2s...`);
+      pollIterations++;
+      if (total !== lastLoggedTotal || pollIterations % entityPollLogEvery === 0) {
+        log.info(`Entity count ${total}/${count}, polling again in 2s...`);
+        lastLoggedTotal = total;
+      }
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
   }
@@ -1094,6 +1102,8 @@ export const uploadFile = async ({
       ? (UPLOAD_BATCH_SIZE / ingestRateDocsPerSecond) * 1000
       : undefined;
 
+  // Parallel fixed-size batches via pMap (not streamingBulkIngest): supports batch-level
+  // ingest-rate throttling and ~13k docs/sec vs ~800 with helpers.bulk on our test clusters.
   const prepareDoc = (parsed: Record<string, unknown>) => {
     parsed['@timestamp'] =
       timestampSpreadMs !== undefined
@@ -1350,6 +1360,7 @@ const runIntervalUploadLoop = async ({
 
   const count = uploadCount ?? 10;
   let previousUpload = Promise.resolve();
+  let uploadsScheduled = 0;
 
   for (let i = 0; i < count; i++) {
     if (stop) {
@@ -1368,6 +1379,7 @@ const runIntervalUploadLoop = async ({
         modifyDoc: addIdPrefix(i.toString()),
       }),
     );
+    uploadsScheduled++;
     let progress: ReturnType<typeof createProgressBar> | null = null;
     for (let j = 0; j < intervalS; j++) {
       if (stop) {
@@ -1390,7 +1402,7 @@ const runIntervalUploadLoop = async ({
   }
 
   await previousUpload;
-  return count;
+  return uploadsScheduled;
 };
 
 /**
