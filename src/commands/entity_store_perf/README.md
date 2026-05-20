@@ -53,6 +53,7 @@ yarn start upload-perf-data [file] [--index <index>] [--delete] [options]
 - `--samplingInterval <seconds>`: Metrics sampling interval when `--metrics` is enabled (default: `5`)
 - `--transformTimeout <minutes>`: Generic transform wait timeout in metrics mode for V1 flow (default: `30`)
 - `--noTransforms`: Run Entity Store V2 / ESQL flow (enable V2, install V2, no transforms, v2 indices)
+- `--bulk-concurrency <n>`: Parallel `_bulk` requests per upload (default: `8`). Values above ~8 often do not increase throughput once the cluster is saturated.
 
 When `--metrics` is enabled, log files can be used with `create-baseline`/`compare-metrics` by passing the emitted prefix. In V2 mode (`--noTransforms`), transform stats are skipped.
 
@@ -76,8 +77,11 @@ yarn start upload-perf-data-interval [file] [options]
 
 ### Options
 
-- `--interval <seconds>`: Upload interval (default: `30`)
-- `--count <count>`: Number of uploads (default: `10`)
+- `--interval <seconds>`: Pause between completed uploads (default: `30`)
+- `--count <count>`: Number of uploads (default: `10`; mutually exclusive with `--duration`)
+- `--duration <duration>`: Wall-clock run limit (e.g. `3h`, `30m`, `45s`); keeps uploading until the deadline, pausing `--interval` seconds between uploads when time allows. Mutually exclusive with `--count`.
+- `--ingest-rate <docsPerSecond>`: **Maximum** documents per second per upload (default: unlimited). Throttle pauses between 5k-doc batches; it does not speed up Elasticsearch. Each upload logs achieved docs/sec when it finishes.
+- `--bulk-concurrency <n>`: Parallel `_bulk` requests per upload (default: `8`). Tune for experiments; ~13k docs/sec was observed at 8 on a typical test cluster.
 - `--deleteData`: Delete entities and data stream/index first
 - `--deleteEngines`: Delete entity engines first
 - `--transformTimeout <minutes>`: Generic transform wait timeout (default: `30`)
@@ -92,7 +96,13 @@ yarn start upload-perf-data-interval large --deleteData
 yarn start upload-perf-data-interval large --deleteData --interval 60 --count 100
 yarn start upload-perf-data-interval large --deleteData --interval 60 --count 100 --samplingInterval 10
 yarn start upload-perf-data-interval large --deleteData --noTransforms
+yarn start upload-perf-data-interval large --deleteData --noTransforms \
+  --interval 60 --duration 3h --ingest-rate 500
 ```
+
+Note: `--duration 3h --interval 60` does not mean exactly 180 uploads. It means the command keeps ingesting for up to 3 hours with ~60s pauses between uploads (each upload may take longer when `--ingest-rate` is set).
+
+After uploads complete, the command polls the entity index until the expected entity count is reached (or until `--transformTimeout` minutes elapse, default 30). Entity Store V2 can lag behind log ingest; if polling times out, the command continues with a warning instead of hanging indefinitely. With `--deleteData`, entity counting uses `match_all` on the entity index (accurate for multi-upload interval runs).
 
 ### Output logs
 

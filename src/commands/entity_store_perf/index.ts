@@ -12,6 +12,7 @@ import {
   listPerfDataFiles,
   uploadPerfDataFile,
   uploadPerfDataFileInterval,
+  DEFAULT_UPLOAD_BULK_CONCURRENCY,
   isValidDistributionType,
   type DistributionType,
   ENTITY_DISTRIBUTIONS,
@@ -136,9 +137,19 @@ export const entityStorePerfCommands: CommandModule = {
         '--timestamp-spread <duration>',
         'Spread document @timestamp values randomly over the given duration ending at now (e.g., 2h, 30m, 1d, 500ms)',
       )
+      .option(
+        '--bulk-concurrency <n>',
+        'Parallel _bulk requests per upload (default: 8)',
+        parseIntBase10,
+        DEFAULT_UPLOAD_BULK_CONCURRENCY,
+      )
       .description('Upload performance data file')
       .action(
         wrapAction(async (file, options) => {
+          if (options.bulkConcurrency < 1) {
+            log.error('❌ --bulk-concurrency must be at least 1');
+            process.exit(1);
+          }
           const timestampSpreadMs =
             options.timestampSpread !== undefined
               ? parseDuration(options.timestampSpread as string)
@@ -154,6 +165,7 @@ export const entityStorePerfCommands: CommandModule = {
               transformTimeoutMs: options.transformTimeout * 60 * 1000,
             },
             timestampSpreadMs,
+            options.bulkConcurrency,
           );
         }),
       );
@@ -162,7 +174,22 @@ export const entityStorePerfCommands: CommandModule = {
       .command('upload-perf-data-interval')
       .argument('[file]', 'File to upload')
       .option('--interval <interval>', 'interval in s', parseIntBase10, 30)
-      .option('--count <count>', 'number of times to upload', parseIntBase10, 10)
+      .option('--count <count>', 'number of times to upload', parseIntBase10)
+      .option(
+        '--duration <duration>',
+        'wall-clock run limit (e.g. 3h, 30m); mutually exclusive with --count',
+      )
+      .option(
+        '--ingest-rate <docsPerSecond>',
+        'max documents per second per upload (default: unlimited)',
+        parseIntBase10,
+      )
+      .option(
+        '--bulk-concurrency <n>',
+        'Parallel _bulk requests per upload (default: 8)',
+        parseIntBase10,
+        DEFAULT_UPLOAD_BULK_CONCURRENCY,
+      )
       .option('--deleteData', 'Delete all entities before uploading')
       .option('--deleteEngines', 'Delete all entities before uploading')
       .option(
@@ -182,19 +209,51 @@ export const entityStorePerfCommands: CommandModule = {
         'Run Entity Store V2 / ESQL flow (enable V2, install V2, no transforms, v2 indices)',
       )
       .option('--index <index>', 'Destination index')
-      .description('Upload performance data file')
+      .description('Upload performance data file repeatedly at intervals')
       .action(
         wrapAction(async (file, options) => {
+          if (options.count !== undefined && options.duration !== undefined) {
+            log.error('❌ --count and --duration are mutually exclusive');
+            process.exit(1);
+          }
+
+          if (options.ingestRate !== undefined && options.ingestRate < 1) {
+            log.error('❌ --ingest-rate must be at least 1 docs/sec');
+            process.exit(1);
+          }
+
+          if (options.bulkConcurrency < 1) {
+            log.error('❌ --bulk-concurrency must be at least 1');
+            process.exit(1);
+          }
+
+          const durationMs =
+            options.duration !== undefined ? parseDuration(options.duration as string) : undefined;
+          const uploadCount = durationMs === undefined ? (options.count ?? 10) : undefined;
+
+          if (durationMs !== undefined) {
+            log.info(
+              `Interval upload mode: duration (${options.duration}), interval ${options.interval}s, ingest rate ${options.ingestRate ?? 'unlimited'}, bulk concurrency ${options.bulkConcurrency}`,
+            );
+          } else {
+            log.info(
+              `Interval upload mode: count ${uploadCount}, interval ${options.interval}s, ingest rate ${options.ingestRate ?? 'unlimited'}, bulk concurrency ${options.bulkConcurrency}`,
+            );
+          }
+
           await uploadPerfDataFileInterval(
             file ?? (await promptForFileSelection(listPerfDataFiles())),
             options.interval * 1000,
-            options.count,
+            uploadCount,
             options.deleteData,
             options.deleteEngines,
             options.transformTimeout * 60 * 1000,
             options.samplingInterval * 1000,
             options.noTransforms,
             options.index,
+            options.ingestRate,
+            durationMs,
+            options.bulkConcurrency,
           );
         }),
       );
