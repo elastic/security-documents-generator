@@ -6,6 +6,14 @@ export const parseIntBase10 = (input: string) => parseInt(input, 10);
 export const parseOptionInt = (input: string | undefined, fallback: number): number =>
   input ? parseIntBase10(input) : fallback;
 
+/** Exit if value is not a positive integer (guards against NaN from parseIntBase10). */
+export const assertPositiveInt = (value: number, flagName: string): void => {
+  if (!Number.isFinite(value) || !Number.isInteger(value) || value < 1) {
+    log.error(`❌ ${flagName} must be a positive integer`);
+    process.exit(1);
+  }
+};
+
 const DURATION_UNIT_MS: Record<string, number> = {
   ms: 1,
   s: 1000,

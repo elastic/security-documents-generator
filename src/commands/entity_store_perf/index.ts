@@ -3,6 +3,7 @@ import { type CommandModule } from '../types.ts';
 import { log } from '../../utils/logger.ts';
 import {
   parseDuration,
+  assertPositiveInt,
   parseIntBase10,
   promptForFileSelection,
   wrapAction,
@@ -146,10 +147,7 @@ export const entityStorePerfCommands: CommandModule = {
       .description('Upload performance data file')
       .action(
         wrapAction(async (file, options) => {
-          if (options.bulkConcurrency < 1) {
-            log.error('❌ --bulk-concurrency must be at least 1');
-            process.exit(1);
-          }
+          assertPositiveInt(options.bulkConcurrency, '--bulk-concurrency');
           const timestampSpreadMs =
             options.timestampSpread !== undefined
               ? parseDuration(options.timestampSpread as string)
@@ -195,7 +193,7 @@ export const entityStorePerfCommands: CommandModule = {
         DEFAULT_UPLOAD_BULK_CONCURRENCY,
       )
       .option('--deleteData', 'Delete all entities before uploading')
-      .option('--deleteEngines', 'Delete all entities before uploading')
+      .option('--deleteEngines', 'Delete entity engines first (V1 transform flow only)')
       .option(
         '--transformTimeout <timeout>',
         'Timeout in minutes for waiting for generic transform to complete (default: 30)',
@@ -216,15 +214,11 @@ export const entityStorePerfCommands: CommandModule = {
       .description('Upload performance data file repeatedly at intervals')
       .action(
         wrapAction(async (file, options) => {
-          if (options.ingestRate !== undefined && options.ingestRate < 1) {
-            log.error('❌ --ingest-rate must be at least 1 docs/sec');
-            process.exit(1);
+          if (options.ingestRate !== undefined) {
+            assertPositiveInt(options.ingestRate, '--ingest-rate');
           }
 
-          if (options.bulkConcurrency < 1) {
-            log.error('❌ --bulk-concurrency must be at least 1');
-            process.exit(1);
-          }
+          assertPositiveInt(options.bulkConcurrency, '--bulk-concurrency');
 
           const durationMs =
             options.duration !== undefined ? parseDuration(options.duration as string) : undefined;
@@ -233,7 +227,12 @@ export const entityStorePerfCommands: CommandModule = {
             log.warn('--count is ignored when --duration is set');
           }
 
-          const uploadCount = durationMs === undefined ? (options.count ?? 10) : undefined;
+          let uploadCount: number | undefined;
+          if (durationMs === undefined) {
+            const count = options.count ?? 10;
+            assertPositiveInt(count, '--count');
+            uploadCount = count;
+          }
 
           if (durationMs !== undefined) {
             log.info(

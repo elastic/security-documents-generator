@@ -1154,7 +1154,7 @@ export const uploadFile = async ({
 
   progress.stop();
 
-  const uploadMs = Date.now() - uploadStart;
+  const uploadMs = Math.max(Date.now() - uploadStart, 1);
   const achievedDocsPerSecond = Math.round((lineCount / uploadMs) * 1000);
   log.info(
     `Upload finished: ${lineCount} docs in ${uploadMs}ms (~${achievedDocsPerSecond} docs/sec achieved)`,
