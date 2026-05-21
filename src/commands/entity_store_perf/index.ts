@@ -211,6 +211,10 @@ export const entityStorePerfCommands: CommandModule = {
         'Run Entity Store V2 / ESQL flow (enable V2, install V2, no transforms, v2 indices)',
       )
       .option('--index <index>', 'Destination index')
+      .option(
+        '--no-id-increment',
+        'Do not append a per-upload suffix to entity IDs — every upload reuses the same entity IDs, keeping the entity count constant (useful for sustained load tests)',
+      )
       .description('Upload performance data file repeatedly at intervals')
       .action(
         wrapAction(async (file, options) => {
@@ -257,6 +261,7 @@ export const entityStorePerfCommands: CommandModule = {
             options.ingestRate,
             durationMs,
             options.bulkConcurrency,
+            options.idIncrement === false,
           );
         }),
       );

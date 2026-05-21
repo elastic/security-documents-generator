@@ -1305,7 +1305,7 @@ type IntervalUploadLoopParams = {
   index: string;
   lineCount: number;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  addIdPrefix: (prefix: string) => (doc: Record<string, any>) => Record<string, any>;
+  addIdPrefix?: (prefix: string) => (doc: Record<string, any>) => Record<string, any>;
 };
 
 const runIntervalUploadLoop = async ({
@@ -1337,7 +1337,7 @@ const runIntervalUploadLoop = async ({
       );
       await uploadFile({
         ...uploadFileParams,
-        modifyDoc: addIdPrefix(uploadIndex.toString()),
+        modifyDoc: addIdPrefix ? addIdPrefix(uploadIndex.toString()) : undefined,
       });
       uploadIndex++;
 
@@ -1376,7 +1376,7 @@ const runIntervalUploadLoop = async ({
       uploadFile({
         ...uploadFileParams,
         onComplete,
-        modifyDoc: addIdPrefix(i.toString()),
+        modifyDoc: addIdPrefix ? addIdPrefix(i.toString()) : undefined,
       }),
     );
     uploadsScheduled++;
@@ -1420,20 +1420,24 @@ const runUploadPerfDataIntervalV2 = async (
   ingestRateDocsPerSecond?: number,
   durationMs?: number,
   bulkConcurrency: number = DEFAULT_UPLOAD_BULK_CONCURRENCY,
+  noIdIncrement?: boolean,
 ) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const addIdPrefix = (prefix: string) => (doc: Record<string, any>) => {
-    if (doc.host) {
-      return changeHostName(doc, prefix);
-    } else if (doc.user) {
-      return changeUserName(doc, prefix);
-    } else if (doc.service) {
-      return changeServiceName(doc, prefix);
-    } else if (doc.entity && doc.cloud) {
-      return changeGenericEntityName(doc, prefix);
-    }
-    return doc;
-  };
+  const addIdPrefix = noIdIncrement
+    ? undefined
+    : (prefix: string) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (doc: Record<string, any>) => {
+          if (doc.host) {
+            return changeHostName(doc, prefix);
+          } else if (doc.user) {
+            return changeUserName(doc, prefix);
+          } else if (doc.service) {
+            return changeServiceName(doc, prefix);
+          } else if (doc.entity && doc.cloud) {
+            return changeGenericEntityName(doc, prefix);
+          }
+          return doc;
+        };
 
   const entityWaitTimeoutMs = transformTimeoutMs ?? 30 * 60 * 1000;
   const index = indexOverride ?? `logs-perftest.${name}-default`;
@@ -1533,20 +1537,24 @@ const runUploadPerfDataIntervalV1 = async (
   ingestRateDocsPerSecond?: number,
   durationMs?: number,
   bulkConcurrency: number = DEFAULT_UPLOAD_BULK_CONCURRENCY,
+  noIdIncrement?: boolean,
 ) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const addIdPrefix = (prefix: string) => (doc: Record<string, any>) => {
-    if (doc.host) {
-      return changeHostName(doc, prefix);
-    } else if (doc.user) {
-      return changeUserName(doc, prefix);
-    } else if (doc.service) {
-      return changeServiceName(doc, prefix);
-    } else if (doc.entity && doc.cloud) {
-      return changeGenericEntityName(doc, prefix);
-    }
-    return doc;
-  };
+  const addIdPrefix = noIdIncrement
+    ? undefined
+    : (prefix: string) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (doc: Record<string, any>) => {
+          if (doc.host) {
+            return changeHostName(doc, prefix);
+          } else if (doc.user) {
+            return changeUserName(doc, prefix);
+          } else if (doc.service) {
+            return changeServiceName(doc, prefix);
+          } else if (doc.entity && doc.cloud) {
+            return changeGenericEntityName(doc, prefix);
+          }
+          return doc;
+        };
 
   const index = indexOverride ?? `logs-perftest.${name}-default`;
   const filePath = getFilePath(name);
@@ -1665,6 +1673,7 @@ export const uploadPerfDataFileInterval = async (
   ingestRateDocsPerSecond?: number,
   durationMs?: number,
   bulkConcurrency: number = DEFAULT_UPLOAD_BULK_CONCURRENCY,
+  noIdIncrement?: boolean,
 ) => {
   if (noTransforms) {
     return runUploadPerfDataIntervalV2(
@@ -1679,6 +1688,7 @@ export const uploadPerfDataFileInterval = async (
       ingestRateDocsPerSecond,
       durationMs,
       bulkConcurrency,
+      noIdIncrement,
     );
   }
   return runUploadPerfDataIntervalV1(
@@ -1693,5 +1703,6 @@ export const uploadPerfDataFileInterval = async (
     ingestRateDocsPerSecond,
     durationMs,
     bulkConcurrency,
+    noIdIncrement,
   );
 };
