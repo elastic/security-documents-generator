@@ -105,6 +105,19 @@ export class EntraIdIntegration extends BaseIntegration {
     const mobilePhone = faker.phone.number({ style: 'international' });
     const businessPhone = faker.phone.number({ style: 'international' });
 
+    // Direct reports (managerId references the manager's shared person id / oktaUserId)
+    // become the supervises relationship. The raw azure_ad.directReports shape is the
+    // expanded Graph object; the entity pipeline renames it and builds
+    // user.entity.relationships.supervises.user.{id,name,email}.
+    const directReports = org.employees
+      .filter((report) => report.managerId === employee.oktaUserId)
+      .map((report) => ({
+        id: report.entraIdUserId,
+        displayName: `${report.firstName} ${report.lastName}`,
+        userPrincipalName: report.email,
+        mail: report.email,
+      }));
+
     return {
       '@timestamp': timestamp,
       agent: this.buildCentralAgent(org),
@@ -120,6 +133,7 @@ export class EntraIdIntegration extends BaseIntegration {
         mobilePhone: mobilePhone,
         businessPhones: [businessPhone],
         accountEnabled: true,
+        ...(directReports.length > 0 && { directReports }),
       },
       event: {
         action: 'user-discovered',

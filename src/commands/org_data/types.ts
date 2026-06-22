@@ -627,6 +627,12 @@ export interface EntraIdUserDocument {
     mobilePhone?: string;
     businessPhones?: string[];
     accountEnabled: boolean;
+    directReports?: Array<{
+      id: string;
+      displayName: string;
+      userPrincipalName: string;
+      mail: string;
+    }>;
   };
   event: {
     action: string;
