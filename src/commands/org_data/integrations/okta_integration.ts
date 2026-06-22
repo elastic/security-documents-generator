@@ -101,10 +101,21 @@ export class OktaIntegration extends BaseIntegration {
     const state = faker.location.state();
     const zipCode = faker.location.zipCode();
 
+    // Direct reports (managerId references the manager's oktaUserId) become the
+    // supervises relationship. The entity pipeline reads the raw top-level `supervises`
+    // array of { user_id, email, username } and builds user.entity.relationships.supervises.
+    const supervises = org.employees
+      .filter((report) => report.managerId === employee.oktaUserId)
+      .map((report) => ({
+        user_id: report.oktaUserId,
+        email: report.email,
+        username: report.email,
+      }));
+
     return {
       '@timestamp': timestamp,
       agent: this.buildCentralAgent(org),
-      event: { action: 'user-discovered' },
+      event: { action: 'user-discovered', id: faker.string.uuid() },
       okta: {
         id: employee.oktaUserId,
         status: 'ACTIVE',
@@ -167,6 +178,7 @@ export class OktaIntegration extends BaseIntegration {
         lastUpdated: r.last_updated ?? r.created ?? lastUpdated,
       })),
       user: { id: employee.oktaUserId },
+      ...(supervises.length > 0 && { supervises }),
       labels: { identity_source: IDENTITY_SOURCE },
       data_stream: {
         namespace: 'default',
@@ -207,7 +219,7 @@ export class OktaIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       agent: this.buildCentralAgent(org),
-      event: { action: 'device-discovered' },
+      event: { action: 'device-discovered', id: faker.string.uuid() },
       okta: {
         id: device.id,
         status: 'ACTIVE',
