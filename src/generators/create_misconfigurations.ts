@@ -4,12 +4,14 @@ import dayjs from 'dayjs';
 export interface CreateMisconfigurationsParams {
   username?: string;
   hostname?: string;
+  hostId?: string;
   space?: string;
 }
 
 export default function createMisconfigurations({
   username = 'user-1',
   hostname = 'host-1',
+  hostId,
   space = 'default',
 }: CreateMisconfigurationsParams) {
   const now = dayjs().format('YYYY-MM-DDTHH:mm:ss.SSSZ');
@@ -160,6 +162,9 @@ export default function createMisconfigurations({
     },
     host: {
       name: hostname,
+      // host.id drives the entity EUID (host:<id>) that the v2 entity flyout / AI summary
+      // matches findings on; only set it when correlating to a real entity.
+      ...(hostId ? { id: hostId } : {}),
     },
   };
 }
