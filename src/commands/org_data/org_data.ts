@@ -176,7 +176,7 @@ const runOrgDataHelper = async (
     size,
     seed,
     productivitySuite: validatedOptions.productivitySuite,
-    employeeCount: employeeCountOverride,
+    employeeCount: employeeCountOverride ?? validatedOptions.employeeCount,
   };
 
   const organization = generateOrgData(orgConfig);
