@@ -233,6 +233,18 @@ const runOrgDataHelper = async (
 export const runOrgData = async (options: OrganizationOptions): Promise<void> => {
   log.info('\n=== Correlated Organization Data Generator ===\n');
 
+  // Validate --doc-count up front, before any prompts. An invalid value (NaN,
+  // zero, or negative) would otherwise be treated as "defined" — skipping the
+  // size prompt and defaulting to enterprise — while the scaling is silently
+  // dropped later because it only applies when docCount > 0.
+  if (
+    options.docCount !== undefined &&
+    (!Number.isInteger(options.docCount) || options.docCount <= 0)
+  ) {
+    log.error('--doc-count must be a positive integer.');
+    process.exit(1);
+  }
+
   // Prompt for organization size only if not provided via CLI. When --doc-count is
   // set, the employee population is derived from the target instead, so default the
   // size (it only affects non-employee config like hosts/cloud) to avoid blocking
