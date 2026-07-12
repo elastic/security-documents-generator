@@ -172,7 +172,7 @@ Each prompt is skipped individually when its flag is present. Omit any flag to b
 
 | Flag                   | Values                                      | Default (when omitted)    |
 | ---------------------- | ------------------------------------------- | ------------------------- |
-| `--size`               | `john-doe`, `small`, `medium`, `enterprise` | interactive prompt        |
+| `--size`               | `john_doe`, `small`, `medium`, `enterprise` | interactive prompt        |
 | `--productivity-suite` | `microsoft`, `google`                       | interactive prompt        |
 | `--detection-rules`    | flag (boolean)                              | interactive prompt        |
 | `--integrations`       | comma-separated list                        | all default integrations  |
