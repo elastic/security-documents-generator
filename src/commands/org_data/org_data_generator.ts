@@ -61,11 +61,15 @@ export const generateOrgData = (config: OrganizationConfig): Organization => {
   const sizeConfig = SIZE_CONFIGS[config.size];
   const domain = config.domain || `${config.name.toLowerCase().replace(/\s+/g, '')}.com`;
 
-  // Calculate total employees
-  const employeeCount = faker.number.int({
-    min: sizeConfig.employeeRange.min,
-    max: sizeConfig.employeeRange.max,
-  });
+  // Calculate total employees. An explicit employeeCount override (e.g. from the
+  // --doc-count scaling option) takes precedence over the size-based range.
+  const employeeCount =
+    config.employeeCount !== undefined && config.employeeCount > 0
+      ? config.employeeCount
+      : faker.number.int({
+          min: sizeConfig.employeeRange.min,
+          max: sizeConfig.employeeRange.max,
+        });
 
   // Generate departments with Okta groups
   const oktaGroups = generateOktaGroups();

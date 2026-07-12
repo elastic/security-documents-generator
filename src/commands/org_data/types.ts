@@ -225,6 +225,11 @@ export interface OrganizationConfig {
   size: OrganizationSize;
   seed?: number;
   productivitySuite?: ProductivitySuite;
+  /**
+   * Explicit employee count override. When set, this takes precedence over the
+   * size-based employee range (used by the --doc-count scaling option).
+   */
+  employeeCount?: number;
 }
 
 /**
@@ -1088,6 +1093,11 @@ export interface OrganizationOptions {
   seed?: number;
   integrations: string;
   employeeCount?: number;
+  /**
+   * Target total document count. When set, the employee population is scaled so
+   * the enabled integrations produce approximately this many documents.
+   */
+  docCount?: number;
   productivitySuite?: ProductivitySuite;
   all?: boolean;
   detectionRules?: boolean;
