@@ -11,6 +11,7 @@ import {
   type OrganizationSize,
   type OrganizationConfig,
   type ProductivitySuite,
+  type IntegrationName,
 } from './types.ts';
 import { generateOrgData, getOrgDataSummary } from './org_data_generator.ts';
 import { buildCorrelationMap, verifyCorrelationIntegrity } from './correlation.ts';
@@ -86,6 +87,48 @@ const promptForProductivitySuite = async (): Promise<ProductivitySuite> => {
   });
 };
 
+/**
+ * Approximate number of documents each integration emits per employee.
+ *
+ * Used by the --doc-count option to back-compute the employee population needed
+ * to hit a target document count. Each employee has ~2 devices (1 laptop + 1 mobile);
+ * the laptop platform is weighted mac 50% / windows 35% / linux 15%.
+ *
+ *  - okta (entityanalytics_okta): 1 user doc + ~2 device docs ≈ 3
+ *  - entra_id (entityanalytics_entra_id): 1 user doc + ~2 device docs ≈ 3
+ *  - active_directory: 1 user doc + ~0.35 windows computer doc ≈ 1.35
+ *
+ * Anything not listed here is a log-style integration whose volume varies; we use
+ * a conservative default so the estimate doesn't wildly under-count.
+ */
+const DOCS_PER_EMPLOYEE_ESTIMATE: Partial<Record<IntegrationName, number>> = {
+  okta: 3,
+  entra_id: 3,
+  active_directory: 1.35,
+};
+
+const DEFAULT_DOCS_PER_EMPLOYEE = 3;
+
+/**
+ * Estimate the employee count required for the enabled integrations to produce
+ * approximately `docCount` total documents.
+ */
+const estimateEmployeeCountForDocCount = (
+  docCount: number,
+  enabledIntegrations: IntegrationName[],
+): number => {
+  const docsPerEmployee = enabledIntegrations.reduce(
+    (sum, name) => sum + (DOCS_PER_EMPLOYEE_ESTIMATE[name] ?? DEFAULT_DOCS_PER_EMPLOYEE),
+    0,
+  );
+
+  if (docsPerEmployee <= 0) {
+    return 1;
+  }
+
+  return Math.max(1, Math.round(docCount / docsPerEmployee));
+};
+
 const runOrgDataHelper = async (
   options: Omit<OrganizationOptions, 'detectionRules'> & {
     detectionRules: boolean;
@@ -106,11 +149,23 @@ const runOrgDataHelper = async (
     process.exit(1);
   }
 
+  // When a target doc count is requested, scale the employee population to hit it.
+  const docCount = validatedOptions.docCount;
+  const employeeCountOverride =
+    docCount !== undefined && docCount > 0
+      ? estimateEmployeeCountForDocCount(docCount, enabledIntegrations)
+      : undefined;
+
   log.info(`Organization: ${name}`);
   log.info(`Size: ${size}`);
   log.info(`Space: ${space}`);
   log.info(`Seed: ${seed}`);
   log.info(`Integrations: ${enabledIntegrations.join(', ')}`);
+  if (employeeCountOverride !== undefined) {
+    log.info(
+      `Target doc count: ${docCount} → scaling to ~${employeeCountOverride} employees for the enabled integrations`,
+    );
+  }
   log.info('');
 
   // Generate organization
@@ -121,6 +176,7 @@ const runOrgDataHelper = async (
     size,
     seed,
     productivitySuite: validatedOptions.productivitySuite,
+    employeeCount: employeeCountOverride,
   };
 
   const organization = generateOrgData(orgConfig);
@@ -177,8 +233,12 @@ const runOrgDataHelper = async (
 export const runOrgData = async (options: OrganizationOptions): Promise<void> => {
   log.info('\n=== Correlated Organization Data Generator ===\n');
 
-  // Prompt for organization size only if not provided via CLI
-  const size = options.size ?? (await promptForSize());
+  // Prompt for organization size only if not provided via CLI. When --doc-count is
+  // set, the employee population is derived from the target instead, so default the
+  // size (it only affects non-employee config like hosts/cloud) to avoid blocking
+  // the command on an interactive prompt.
+  const size =
+    options.size ?? (options.docCount === undefined ? await promptForSize() : 'enterprise');
 
   // Prompt for productivity suite only if not provided via CLI
   const productivitySuite = options.productivitySuite ?? (await promptForProductivitySuite());
@@ -209,6 +269,7 @@ interface ValidatedOptions {
   seed: number;
   integrations: string;
   employeeCount?: number;
+  docCount?: number;
   productivitySuite: ProductivitySuite;
   detectionRules?: boolean;
 }
@@ -236,6 +297,7 @@ const validateOptions = async (options: OrganizationOptions): Promise<ValidatedO
     seed,
     integrations,
     employeeCount: options.employeeCount,
+    docCount: options.docCount,
     productivitySuite,
   };
 };

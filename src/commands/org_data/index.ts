@@ -19,6 +19,11 @@ export const orgDataCommands: CommandModule = {
         `Comma-separated integrations to enable (available: ${getAvailableIntegrations().join(', ')})`,
       )
       .option('--all', 'Generate all integrations regardless of company size')
+      .option(
+        '--doc-count <count>',
+        'Target total document count; scales the employee population for the enabled integrations to approximately hit this number (overrides size-based employee count)',
+        parseIntBase10,
+      )
       .option('--detection-rules', 'Include sample detection rules for applicable integrations')
       .option(
         '--size <size>',
@@ -38,6 +43,7 @@ export const orgDataCommands: CommandModule = {
             seed: options.seed,
             integrations: options.integrations,
             all: options.all,
+            docCount: options.docCount,
             detectionRules: options.detectionRules,
             productivitySuite: options.productivitySuite,
           });

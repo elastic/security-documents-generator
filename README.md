@@ -160,18 +160,34 @@ Enable detection rules without prompting:
 yarn start org-data --size medium --detection-rules
 ```
 
+Scale the dataset to an approximate total document count with `--doc-count`. The employee
+population is sized so the enabled integrations produce roughly the requested number of documents
+(overriding the size-based employee count):
+
+```bash
+yarn start org-data --integrations active_directory,okta --doc-count 100000
+```
+
 Each prompt is skipped individually when its flag is present. Omit any flag to be prompted for it:
 
-| Flag                   | Values                                      | Default (when omitted)   |
-| ---------------------- | ------------------------------------------- | ------------------------ |
-| `--size`               | `john-doe`, `small`, `medium`, `enterprise` | interactive prompt       |
-| `--productivity-suite` | `microsoft`, `google`                       | interactive prompt       |
-| `--detection-rules`    | flag (boolean)                              | interactive prompt       |
-| `--integrations`       | comma-separated list                        | all default integrations |
-| `--all`                | flag (boolean)                              | —                        |
-| `--name`               | string                                      | `Acme CRM`               |
-| `--space`              | string                                      | `default`                |
-| `--seed`               | number                                      | random                   |
+| Flag                   | Values                                      | Default (when omitted)    |
+| ---------------------- | ------------------------------------------- | ------------------------- |
+| `--size`               | `john-doe`, `small`, `medium`, `enterprise` | interactive prompt        |
+| `--productivity-suite` | `microsoft`, `google`                       | interactive prompt        |
+| `--detection-rules`    | flag (boolean)                              | interactive prompt        |
+| `--integrations`       | comma-separated list                        | all default integrations  |
+| `--all`                | flag (boolean)                              | —                         |
+| `--doc-count`          | number                                      | size-based employee count |
+| `--name`               | string                                      | `Acme CRM`                |
+| `--space`              | string                                      | `default`                 |
+| `--seed`               | number                                      | random                    |
+
+> **Note on `--doc-count`**: the total is an approximation — it back-computes the employee count
+> from the enabled integrations' per-employee document yield (e.g. Okta ≈ 3 docs/employee,
+> Active Directory ≈ 1.35 docs/employee), so the actual count lands near the target rather than
+> exactly on it. When `--doc-count` is set and `--size` is omitted, size defaults to `enterprise`
+> (it only affects non-employee config such as hosts and cloud resources), so the command runs
+> without prompting.
 
 ## Commands
 
