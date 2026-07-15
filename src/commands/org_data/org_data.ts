@@ -705,7 +705,7 @@ Available Integrations:
 
   Log Integrations (Original):
     okta_system        - Okta System Logs (authentication, SSO, MFA events)
-    cloudtrail         - AWS CloudTrail (API calls, console logins, role assumptions)
+    aws                - AWS CloudTrail (API calls, console logins, role assumptions)
 
   Endpoint Security:
     crowdstrike        - CrowdStrike Falcon (host inventory + EDR alerts)
@@ -767,7 +767,7 @@ Examples:
   yarn start org-data --name "MegaCorp CRM"
 
   # Generate with only original integrations
-  yarn start org-data --integrations okta,entra_id,cloud_asset,okta_system,cloudtrail
+  yarn start org-data --integrations okta,entra_id,cloud_asset,okta_system,aws
 
   # Generate with endpoint + identity stack
   yarn start org-data --integrations okta,entra_id,crowdstrike,cisco_duo,1password

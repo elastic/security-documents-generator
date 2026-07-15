@@ -721,16 +721,30 @@ const generateCloudIamUsers = (employees: Employee[], accounts: CloudAccount[]):
   // Get employees with AWS access (Product & Engineering)
   const awsEmployees = employees.filter((e) => e.hasAwsAccess);
 
-  // Use the production account for federated users
+  // Use the production account as the default/fallback (e.g. for service accounts)
   const prodAccount = awsAccounts.find((a) => a.environment === 'production') || awsAccounts[0];
 
+  // Distribute federated users across all AWS accounts so CloudTrail activity
+  // (and cloud.account.id) isn't concentrated on a single account. Production
+  // is weighted highest since most employees primarily work against prod.
+  const pickAccountForEmployee = (): CloudAccount => {
+    if (awsAccounts.length === 1) return awsAccounts[0];
+    return faker.helpers.weightedArrayElement(
+      awsAccounts.map((account) => ({
+        value: account,
+        weight: account.environment === 'production' ? 5 : 2,
+      })),
+    );
+  };
+
   for (const employee of awsEmployees) {
+    const account = pickAccountForEmployee();
     iamUsers.push({
       id: faker.string.alphanumeric(21).toUpperCase(),
-      arn: `arn:aws:iam::${prodAccount.id}:user/${employee.userName}`,
+      arn: `arn:aws:iam::${account.id}:user/${employee.userName}`,
       userName: employee.userName,
       provider: 'aws',
-      accountId: prodAccount.id,
+      accountId: account.id,
       isFederated: true,
       oktaUserId: employee.oktaUserId,
       createdAt: faker.date.past({ years: 2 }).toISOString(),

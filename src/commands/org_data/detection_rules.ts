@@ -99,7 +99,7 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
     },
   ],
 
-  cloudtrail: [
+  aws: [
     {
       name: 'AWS Console Login Failure',
       description: 'Detects failed AWS Management Console login attempts',

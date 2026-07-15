@@ -62,6 +62,7 @@ import { TeleportIntegration } from './teleport_integration.ts';
 import { ThycoticSsIntegration } from './thycotic_ss_integration.ts';
 import { ZoomIntegration } from './zoom_integration.ts';
 import { type IntegrationName } from '../types.ts';
+import { log } from '../../../utils/logger.ts';
 
 // Re-export types and classes from base_integration
 export type { IntegrationRegistry, IntegrationResult, IntegrationDocument, DataStreamConfig };
@@ -130,7 +131,7 @@ export const createIntegrationRegistry = (): IntegrationRegistry => {
 
   // Register log integrations
   registry.set('okta_system', new OktaSystemIntegration());
-  registry.set('cloudtrail', new CloudTrailIntegration());
+  registry.set('aws', new CloudTrailIntegration());
 
   // Register new integrations
   registry.set('crowdstrike', new CrowdStrikeIntegration());
@@ -222,7 +223,7 @@ export const getAvailableIntegrations = (): IntegrationName[] => {
     'okta',
     'cloud_asset',
     'okta_system',
-    'cloudtrail',
+    'aws',
     'entra_id',
     'crowdstrike',
     'o365',
@@ -273,10 +274,28 @@ export const getAvailableIntegrations = (): IntegrationName[] => {
 };
 
 /**
+ * Deprecated CLI integration names that still resolve, mapped to their current
+ * IntegrationName. Keeps existing scripts/docs working after a rename.
+ */
+const DEPRECATED_INTEGRATION_ALIASES: Record<string, IntegrationName> = {
+  cloudtrail: 'aws',
+};
+
+/**
  * Parse comma-separated integration list
  */
 export const parseIntegrationList = (list: string): IntegrationName[] => {
   const available = getAvailableIntegrations();
-  const requested = list.split(',').map((s) => s.trim() as IntegrationName);
-  return requested.filter((name) => available.includes(name));
+  const requested = list.split(',').map((s) => {
+    const trimmed = s.trim();
+    const alias = DEPRECATED_INTEGRATION_ALIASES[trimmed];
+    if (alias) {
+      log.warn(`Integration name "${trimmed}" is deprecated, use "${alias}" instead.`);
+      return alias;
+    }
+    return trimmed as IntegrationName;
+  });
+  // Dedupe so specifying both the alias and the canonical name doesn't run it twice
+  const deduped = Array.from(new Set(requested));
+  return deduped.filter((name) => available.includes(name));
 };

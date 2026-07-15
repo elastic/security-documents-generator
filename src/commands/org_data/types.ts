@@ -1110,7 +1110,7 @@ export type IntegrationName =
   | 'okta'
   | 'cloud_asset'
   | 'okta_system'
-  | 'cloudtrail'
+  | 'aws'
   | 'entra_id'
   | 'crowdstrike'
   | 'o365'
