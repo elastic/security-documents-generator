@@ -130,7 +130,7 @@ export const createIntegrationRegistry = (): IntegrationRegistry => {
 
   // Register log integrations
   registry.set('okta_system', new OktaSystemIntegration());
-  registry.set('cloudtrail', new CloudTrailIntegration());
+  registry.set('aws', new CloudTrailIntegration());
 
   // Register new integrations
   registry.set('crowdstrike', new CrowdStrikeIntegration());
@@ -222,7 +222,7 @@ export const getAvailableIntegrations = (): IntegrationName[] => {
     'okta',
     'cloud_asset',
     'okta_system',
-    'cloudtrail',
+    'aws',
     'entra_id',
     'crowdstrike',
     'o365',

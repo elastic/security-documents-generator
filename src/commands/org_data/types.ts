@@ -16,7 +16,11 @@ export type DeviceType = 'laptop' | 'mobile';
 
 // Department names as a union type for type safety
 export type DepartmentName =
-  'Product & Engineering' | 'Sales & Marketing' | 'Customer Success' | 'Operations' | 'Executive';
+  | 'Product & Engineering'
+  | 'Sales & Marketing'
+  | 'Customer Success'
+  | 'Operations'
+  | 'Executive';
 
 // Productivity suite type (Microsoft 365 vs Google Workspace)
 export type ProductivitySuite = 'microsoft' | 'google';
@@ -1069,7 +1073,11 @@ export interface CloudTrailDocument {
  * CloudTrail user identity types
  */
 export type CloudTrailUserIdentityType =
-  'IAMUser' | 'AssumedRole' | 'FederatedUser' | 'Root' | 'AWSService';
+  | 'IAMUser'
+  | 'AssumedRole'
+  | 'FederatedUser'
+  | 'Root'
+  | 'AWSService';
 
 /**
  * Okta system log event types
@@ -1110,7 +1118,7 @@ export type IntegrationName =
   | 'okta'
   | 'cloud_asset'
   | 'okta_system'
-  | 'cloudtrail'
+  | 'aws'
   | 'entra_id'
   | 'crowdstrike'
   | 'o365'

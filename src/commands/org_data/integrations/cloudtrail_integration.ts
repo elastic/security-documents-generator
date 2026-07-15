@@ -192,6 +192,18 @@ export class CloudTrailIntegration extends BaseIntegration {
   }
 
   /**
+   * Build ECS cloud.* metadata for a CloudTrail document. In real deployments this
+   * is added by the Filebeat AWS input (not the ingest pipeline), so the generator
+   * must set it directly -- otherwise cloud.provider is never populated.
+   */
+  private buildCloud(
+    accountId: string,
+    region: string,
+  ): { provider: 'aws'; account: { id: string }; region: string } {
+    return { provider: 'aws', account: { id: accountId }, region };
+  }
+
+  /**
    * Generate all CloudTrail documents
    */
   generateDocuments(
@@ -275,7 +287,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     const events: IntegrationDocument[] = [];
     const account = org.cloudAccounts.find((a) => a.id === iamUser.accountId);
     const accountResources = resources.filter((r) => r.accountId === iamUser.accountId);
-    const sessionCount = faker.number.int({ min: 1, max: 3 });
+    const sessionCount = faker.number.int({ min: 2, max: 5 });
 
     for (let s = 0; s < sessionCount; s++) {
       const sessionStart = this.getRandomTimestamp(48);
@@ -316,7 +328,7 @@ export class CloudTrailIntegration extends BaseIntegration {
       );
 
       // Generate API calls within the session
-      const apiCallCount = faker.number.int({ min: 2, max: 8 });
+      const apiCallCount = faker.number.int({ min: 4, max: 12 });
       const availableServices = this.getServicesForResources(accountResources);
 
       for (let i = 0; i < apiCallCount; i++) {
@@ -378,6 +390,7 @@ export class CloudTrailIntegration extends BaseIntegration {
               account!,
               apiTime,
               targetInstance,
+              org,
             ),
           );
         }
@@ -398,7 +411,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     const events: IntegrationDocument[] = [];
     const account = org.cloudAccounts.find((a) => a.id === iamUser.accountId);
     const accountResources = resources.filter((r) => r.accountId === iamUser.accountId);
-    const eventCount = faker.number.int({ min: 5, max: 15 });
+    const eventCount = faker.number.int({ min: 10, max: 25 });
     const accessKeyId = this.generatePermanentAccessKeyId();
 
     for (let i = 0; i < eventCount; i++) {
@@ -441,6 +454,7 @@ export class CloudTrailIntegration extends BaseIntegration {
             account!,
             timestamp,
             targetInstance,
+            org,
           ),
         );
       }
@@ -484,7 +498,7 @@ export class CloudTrailIntegration extends BaseIntegration {
   ): IntegrationDocument[] {
     const events: IntegrationDocument[] = [];
     const account = org.cloudAccounts.find((a) => a.id === iamUser.accountId);
-    const sessionCount = faker.number.int({ min: 1, max: 3 });
+    const sessionCount = faker.number.int({ min: 2, max: 4 });
 
     for (let i = 0; i < sessionCount; i++) {
       const host = faker.helpers.arrayElement(awsHosts);
@@ -500,6 +514,7 @@ export class CloudTrailIntegration extends BaseIntegration {
           assumedRoleArn,
           timestamp,
           accessKeyId,
+          org,
         ),
       );
     }
@@ -517,6 +532,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     assumedRoleArn: string,
     timestamp: string,
     accessKeyId: string,
+    org: Organization,
   ): IntegrationDocument {
     const eventId = faker.string.uuid();
     const sourceIp = faker.internet.ipv4();
@@ -569,6 +585,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     const service = this.serviceAttachmentFor('ssm.amazonaws.com');
     return {
       '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
       event: {
         dataset: 'aws.cloudtrail',
@@ -579,6 +596,7 @@ export class CloudTrailIntegration extends BaseIntegration {
         kind: 'event',
       },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
+      cloud: this.buildCloud(account.id, region),
       user: { entity: { id: assumedRoleArn } },
       host: { id: host.id, name: host.name },
       ...(service && { service }),
@@ -646,6 +664,7 @@ export class CloudTrailIntegration extends BaseIntegration {
       message: JSON.stringify(rawEvent),
       tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
+      cloud: this.buildCloud(account.id, 'us-east-1'),
       ...(service && { service }),
     } as IntegrationDocument;
   }
@@ -710,6 +729,7 @@ export class CloudTrailIntegration extends BaseIntegration {
       message: JSON.stringify(rawEvent),
       tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
+      cloud: this.buildCloud(account.id, 'us-east-1'),
       ...(service && { service }),
     } as IntegrationDocument;
   }
@@ -795,6 +815,7 @@ export class CloudTrailIntegration extends BaseIntegration {
       message: JSON.stringify(rawEvent),
       tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
+      cloud: this.buildCloud(account.id, region),
       ...(serviceAttachment && { service: serviceAttachment }),
     } as IntegrationDocument;
   }
@@ -853,6 +874,7 @@ export class CloudTrailIntegration extends BaseIntegration {
       message: JSON.stringify(rawEvent),
       tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
+      cloud: this.buildCloud(account.id, region),
       ...(serviceAttachment && { service: serviceAttachment }),
     } as IntegrationDocument;
   }
@@ -925,6 +947,7 @@ export class CloudTrailIntegration extends BaseIntegration {
       message: JSON.stringify(rawEvent),
       tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
+      cloud: this.buildCloud(account.id, 'us-east-1'),
       ...(service && { service }),
     } as IntegrationDocument;
   }
@@ -939,6 +962,7 @@ export class CloudTrailIntegration extends BaseIntegration {
     account: CloudAccount,
     timestamp: string,
     instance: CloudResource,
+    org: Organization,
   ): IntegrationDocument {
     const hostTargetEvent = faker.helpers.arrayElement(HOST_TARGET_EVENTS);
     const params = hostTargetEvent.buildParams(instance.id);
@@ -966,9 +990,11 @@ export class CloudTrailIntegration extends BaseIntegration {
     const service = this.serviceAttachmentFor(hostTargetEvent.eventSource);
     return {
       '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
       tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
+      cloud: this.buildCloud(account.id, instance.region),
       ...(service && { service }),
     } as IntegrationDocument;
   }
