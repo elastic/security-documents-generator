@@ -71,7 +71,9 @@ export class CloudAssetIntegration extends BaseIntegration {
     // Generate user-centric Cloud Asset Discovery documents so the Kibana
     // entity store can extract users into per-provider namespaces (aws, gcp,
     // entra_id). These require event.module: "asset_discovery" and a user.name.
-    const providers: CloudProvider[] = ['aws', 'gcp', 'azure'];
+    const providers: CloudProvider[] = Array.from(
+      new Set(org.cloudAccounts.map((a) => a.provider)),
+    );
     for (const provider of providers) {
       for (const employee of org.employees) {
         documents.push(this.createCloudAssetUserDocument(employee, provider, org));
