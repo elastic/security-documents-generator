@@ -14,6 +14,8 @@ import {
   type CloudIamUser,
   type CloudAssetDocument,
   type CorrelationMap,
+  type CloudProvider,
+  type Employee,
   type Host,
 } from '../types.ts';
 import { faker } from '@faker-js/faker';
@@ -64,6 +66,16 @@ export class CloudAssetIntegration extends BaseIntegration {
     // Generate documents for hosts as cloud instances
     for (const host of org.hosts) {
       documents.push(this.createHostAsCloudInstance(host, org));
+    }
+
+    // Generate user-centric Cloud Asset Discovery documents so the Kibana
+    // entity store can extract users into per-provider namespaces (aws, gcp,
+    // entra_id). These require event.module: "asset_discovery" and a user.name.
+    const providers: CloudProvider[] = ['aws', 'gcp', 'azure'];
+    for (const provider of providers) {
+      for (const employee of org.employees) {
+        documents.push(this.createCloudAssetUserDocument(employee, provider, org));
+      }
     }
 
     documentsMap.set(this.dataStreams[0].index, documents);
@@ -183,6 +195,103 @@ export class CloudAssetIntegration extends BaseIntegration {
       ],
       related: {
         entity: [iamUser.id],
+      },
+    };
+  }
+
+  /**
+   * Create a user-centric Cloud Asset Discovery document for a single employee
+   * under a specific cloud provider.
+   *
+   * These documents are what the Kibana entity store picks up for per-provider
+   * user namespace routing. They require ALL of:
+   *   - event.kind: "asset"
+   *   - event.module: "asset_discovery"
+   *   - cloud.provider: "aws" | "gcp" | "azure"
+   *   - user.name: <string>
+   *
+   * The entity store routes azure -> the entra_id namespace, so a single set of
+   * employees is emitted per provider (aws, gcp, azure).
+   */
+  private createCloudAssetUserDocument(
+    employee: Employee,
+    provider: CloudProvider,
+    org: Organization,
+  ): CloudAssetDocument {
+    const timestamp = this.getRandomTimestamp(48);
+    const account = org.cloudAccounts.find((a) => a.provider === provider);
+
+    // Provider-specific identity sub_type / service name, mirroring cloudbeat.
+    const subTypeByProvider: Record<CloudProvider, string> = {
+      aws: 'AWS IAM User',
+      gcp: 'GCP Principal',
+      azure: 'Azure Microsoft Entra ID User',
+    };
+    const serviceByProvider: Record<CloudProvider, string> = {
+      aws: 'AWS IAM',
+      gcp: 'iam.googleapis.com/ServiceAccount',
+      azure: 'Azure Entra',
+    };
+
+    // Stable, provider-appropriate identifiers derived from the employee so the
+    // same person correlates across integrations. Never random per event.
+    const accountId = account?.id || 'unknown';
+    const userIdByProvider: Record<CloudProvider, string> = {
+      aws: `arn:aws:iam::${accountId}:user/${employee.userName}`,
+      gcp: employee.email,
+      azure: employee.entraIdUserId,
+    };
+    const userId = userIdByProvider[provider];
+    const entityId = `cloud-asset-user:${provider}:${employee.id}`;
+
+    return {
+      '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
+      event: {
+        kind: 'asset',
+        module: 'asset_discovery',
+      },
+      cloud: {
+        provider,
+        region: 'global', // Identities are global
+        account: {
+          id: accountId,
+          name: account?.name || 'unknown',
+        },
+        service: {
+          name: serviceByProvider[provider],
+        },
+        ...(provider === 'gcp' && {
+          project: {
+            id: account?.id,
+            name: account?.name,
+          },
+        }),
+      },
+      entity: {
+        id: entityId,
+        name: employee.userName,
+        type: 'Identity',
+        sub_type: subTypeByProvider[provider],
+        source: provider,
+      },
+      user: {
+        id: userId,
+        name: employee.userName,
+        email: employee.email,
+      },
+      data_stream: {
+        dataset: 'cloud_asset_inventory.asset_inventory',
+        namespace: 'default',
+        type: 'logs',
+      },
+      tags: [
+        `provider:${provider}`,
+        `department:${employee.department}`,
+        `email:${employee.email}`,
+      ],
+      related: {
+        entity: [entityId],
       },
     };
   }
