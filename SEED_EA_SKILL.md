@@ -1,4 +1,4 @@
-# `/seed-ea` — Claude Code Skill
+# `/seed-ea` 
 
 A [Claude Code](https://claude.ai/code) skill that helps you populate every Entity Analytics page in Kibana using `security-documents-generator` commands.
 
