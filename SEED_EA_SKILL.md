@@ -11,6 +11,7 @@ Instead of remembering which command covers which page, you describe what you wa
 - [Claude Code](https://claude.ai/code) installed — this skill uses the `.claude/commands/` format and is **Claude Code only**. It will not work in Cursor or other AI editors.
 - This repo cloned locally and opened in Claude Code (the skill is auto-discovered from `.claude/commands/seed-ea.md`)
 - A running Kibana instance with a valid `config.json` in the repo root ([see setup](README.md#configuration))
+- The correct Node version active — run `nvm use` from the repo root before invoking the skill. The repo includes an `.nvmrc` that pins the required version, so this avoids version mismatch errors at runtime.
 
 ---
 
@@ -39,6 +40,12 @@ Type `/seed-ea` followed by what you want to populate. Claude Code will respond 
 ```
 /seed-ea give me a quick host-only seed, entity store is already set up
 ```
+
+```
+/seed-ea seed into my BC environment
+```
+
+> **Targeting a specific cluster:** the generator reads connection details from `config.json` in the repo root. If you want to seed a different environment, update `config.json` to point at the right cluster before running — or keep separate config files (e.g. `config.bc.json`) and swap them in as needed.
 
 ---
 
