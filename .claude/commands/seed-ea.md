@@ -9,6 +9,8 @@ Use `security-documents-generator` to populate Entity Analytics pages for develo
 
 Run commands from the repo root with: `yarn start <command>`
 
+Before running any command, ensure the correct Node version is active. The repo includes an `.nvmrc` pinned to the required version — if you have nvm installed, run `nvm use` from the repo root first to avoid version mismatch errors.
+
 ## Input
 
 The user will either:
@@ -16,8 +18,9 @@ The user will either:
 - Ask for a full end-to-end seed of all EA pages
 - Provide flags or modifications (e.g. "more hosts", "non-default space", "skip setup")
 - Ask what command to use for something specific
+- Specify a target cluster (e.g. "seed into my BC environment" or "use the cloud deployment in config.bc.json")
 
-If no input is given, ask what they want to populate.
+If no input is given, ask what they want to populate. If a target cluster is mentioned, remind the user that the generator reads from `config.json` in the repo root — they should ensure that file points to the right cluster before running.
 
 ## Page → Command Mapping
 
