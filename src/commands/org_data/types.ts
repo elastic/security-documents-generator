@@ -16,7 +16,11 @@ export type DeviceType = 'laptop' | 'mobile';
 
 // Department names as a union type for type safety
 export type DepartmentName =
-  'Product & Engineering' | 'Sales & Marketing' | 'Customer Success' | 'Operations' | 'Executive';
+  | 'Product & Engineering'
+  | 'Sales & Marketing'
+  | 'Customer Success'
+  | 'Operations'
+  | 'Executive';
 
 // Productivity suite type (Microsoft 365 vs Google Workspace)
 export type ProductivitySuite = 'microsoft' | 'google';
@@ -744,6 +748,7 @@ export interface CloudAssetDocument {
   '@timestamp': string;
   event: {
     kind: string; // Always "asset" in cloudbeat
+    module?: string; // e.g. "asset_discovery" for entity-store user extraction
   };
   cloud?: {
     provider: string;
@@ -1069,7 +1074,11 @@ export interface CloudTrailDocument {
  * CloudTrail user identity types
  */
 export type CloudTrailUserIdentityType =
-  'IAMUser' | 'AssumedRole' | 'FederatedUser' | 'Root' | 'AWSService';
+  | 'IAMUser'
+  | 'AssumedRole'
+  | 'FederatedUser'
+  | 'Root'
+  | 'AWSService';
 
 /**
  * Okta system log event types
