@@ -34,7 +34,7 @@ export const miscCommands: CommandModule = {
       .option('--v2', 'generate v2 ML anomaly data with user.id, host.id, and event.module fields')
       .option(
         '--correlate-with-entity-store',
-        'correlate generated anomaly data with entities from the entity store',
+        'correlate generated anomaly, vulnerability and misconfiguration data with entities from the entity store',
       )
       .description(
         'Generate vulnerabilities, misconfigurations, ML jobs, and anomalous behavior for entities.',
