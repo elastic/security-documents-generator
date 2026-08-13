@@ -3,9 +3,9 @@
 
 
 "@elastic/elasticsearch@^9.2.0":
-  version "9.4.3"
-  resolved "https://registry.yarnpkg.com/@elastic/elasticsearch/-/elasticsearch-9.4.3.tgz#55d99e4a68914faa738803bd7e5b228a87cf89a6"
-  integrity sha512-SF8FEzWVdYO7X0X0NcuzDqwj5jGOu6kbvKhbx+mLtHZG5NBzlBrP9Jk7XfwACjoXtwXszqdGRzuCRYsKZhitHw==
+  version "9.5.0"
+  resolved "https://registry.yarnpkg.com/@elastic/elasticsearch/-/elasticsearch-9.5.0.tgz#97699f53a9dccbc83281c7c6ca9a3c7310af4f1b"
+  integrity sha512-6PApbQaAgVHpOvZJrAUSMrU+Nm2PznuIuTUoV29jCezL9Yze1keptiTvtsMqBsnw8v8wvfN6e4L1RTlwa5624A==
   dependencies:
     "@elastic/transport" "^9.4.0"
     tslib "^2.4.0"
