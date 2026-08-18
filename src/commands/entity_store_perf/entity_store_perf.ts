@@ -1195,6 +1195,7 @@ export const uploadPerfDataFile = async (
   },
   timestampSpreadMs?: number,
   bulkConcurrency: number = DEFAULT_UPLOAD_BULK_CONCURRENCY,
+  noSetup?: boolean,
 ) => {
   const index = indexOverride || `logs-perftest.${name}-default`;
   const entityIndex = noTransforms ? ENTITY_INDEX_V2 : ENTITY_INDEX_V1;
@@ -1221,7 +1222,9 @@ export const uploadPerfDataFile = async (
     process.exit(1);
   }
 
-  if (noTransforms) {
+  if (noSetup) {
+    log.info('Skipping Entity Store setup (--no-setup flag set)');
+  } else if (noTransforms) {
     log.info('Enabling Entity Store V2...');
     await enableEntityStoreV2('default');
     await installEntityStoreV2('default');

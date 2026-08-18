@@ -134,6 +134,7 @@ export const entityStorePerfCommands: CommandModule = {
         30,
       )
       .option('--noTransforms', 'Use Entity Store V2 / ESQL flow (no transforms)')
+      .option('--no-setup', 'Skip Entity Store enable/install (use when already installed)')
       .option(
         '--timestamp-spread <duration>',
         'Spread document @timestamp values randomly over the given duration ending at now (e.g., 2h, 30m, 1d, 500ms)',
@@ -164,6 +165,7 @@ export const entityStorePerfCommands: CommandModule = {
             },
             timestampSpreadMs,
             options.bulkConcurrency,
+            options.setup === false,
           );
         }),
       );

@@ -53,6 +53,7 @@ yarn start upload-perf-data [file] [--index <index>] [--delete] [options]
 - `--samplingInterval <seconds>`: Metrics sampling interval when `--metrics` is enabled (default: `5`)
 - `--transformTimeout <minutes>`: Generic transform wait timeout in metrics mode for V1 flow (default: `30`)
 - `--noTransforms`: Run Entity Store V2 / ESQL flow (enable V2, install V2, no transforms, v2 indices)
+- `--no-setup`: Skip the Entity Store enable/install step. Use when the target already has Entity Store installed — the install endpoint returns 500 when called against an installed store, which otherwise aborts the upload.
 - `--bulk-concurrency <n>`: Parallel `_bulk` requests per upload (default: `8`). Values above ~8 often do not increase throughput once the cluster is saturated.
 
 When `--metrics` is enabled, log files can be used with `create-baseline`/`compare-metrics` by passing the emitted prefix. In V2 mode (`--noTransforms`), transform stats are skipped.
