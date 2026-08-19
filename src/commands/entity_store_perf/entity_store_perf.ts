@@ -1222,14 +1222,18 @@ export const uploadPerfDataFile = async (
     process.exit(1);
   }
 
-  if (noSetup) {
-    log.info('Skipping Entity Store setup (--no-setup flag set)');
-  } else if (noTransforms) {
-    log.info('Enabling Entity Store V2...');
-    await enableEntityStoreV2('default');
-    await installEntityStoreV2('default');
-    log.info('Entity Store V2 ready');
+  if (noTransforms) {
+    if (noSetup) {
+      log.info('Skipping Entity Store V2 enable/install (--no-setup)');
+    } else {
+      log.info('Enabling Entity Store V2...');
+      await enableEntityStoreV2('default');
+      await installEntityStoreV2('default');
+      log.info('Entity Store V2 ready');
+    }
   } else {
+    // V1 engine init is already a no-op when the engines are started, so it
+    // needs no --no-setup escape hatch.
     log.info('initialising entity engines');
     await initEntityEngineForEntityTypes(['host', 'user', 'service', 'generic']);
     log.info('entity engines initialised');
