@@ -1195,6 +1195,7 @@ export const uploadPerfDataFile = async (
   },
   timestampSpreadMs?: number,
   bulkConcurrency: number = DEFAULT_UPLOAD_BULK_CONCURRENCY,
+  noSetup?: boolean,
 ) => {
   const index = indexOverride || `logs-perftest.${name}-default`;
   const entityIndex = noTransforms ? ENTITY_INDEX_V2 : ENTITY_INDEX_V1;
@@ -1222,11 +1223,17 @@ export const uploadPerfDataFile = async (
   }
 
   if (noTransforms) {
-    log.info('Enabling Entity Store V2...');
-    await enableEntityStoreV2('default');
-    await installEntityStoreV2('default');
-    log.info('Entity Store V2 ready');
+    if (noSetup) {
+      log.info('Skipping Entity Store V2 enable/install (--no-setup)');
+    } else {
+      log.info('Enabling Entity Store V2...');
+      await enableEntityStoreV2('default');
+      await installEntityStoreV2('default');
+      log.info('Entity Store V2 ready');
+    }
   } else {
+    // V1 engine init is already a no-op when the engines are started, so it
+    // needs no --no-setup escape hatch.
     log.info('initialising entity engines');
     await initEntityEngineForEntityTypes(['host', 'user', 'service', 'generic']);
     log.info('entity engines initialised');
