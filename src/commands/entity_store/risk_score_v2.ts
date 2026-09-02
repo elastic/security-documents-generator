@@ -59,6 +59,8 @@ type RiskScoreV2Options = {
   tablePageSize?: string;
   dangerousClean?: boolean;
   debugResolution?: boolean;
+  alertRiskScoreMin?: string;
+  alertRiskScoreMax?: string;
 };
 
 type SeededUser = { userName: string; userId: string; userEmail: string };
@@ -1132,6 +1134,8 @@ function* buildAlertOpChunks({
   localUsers,
   services,
   alertsPerEntity,
+  alertRiskScoreMin,
+  alertRiskScoreMax,
   space,
   maxOperationsPerChunk,
 }: {
@@ -1140,6 +1144,8 @@ function* buildAlertOpChunks({
   localUsers: SeededLocalUser[];
   services: SeededService[];
   alertsPerEntity: number;
+  alertRiskScoreMin: number;
+  alertRiskScoreMax: number;
   space: string;
   maxOperationsPerChunk: number;
 }): Generator<unknown[]> {
@@ -1148,7 +1154,7 @@ function* buildAlertOpChunks({
 
   for (const user of idpUsers) {
     for (let i = 0; i < alertsPerEntity; i++) {
-      const riskScore = faker.number.int({ min: 20, max: 100 });
+      const riskScore = faker.number.int({ min: alertRiskScoreMin, max: alertRiskScoreMax });
       const alert = createAlerts(
         {
           'kibana.alert.risk_score': riskScore,
@@ -1178,7 +1184,7 @@ function* buildAlertOpChunks({
 
   for (const user of localUsers) {
     for (let i = 0; i < alertsPerEntity; i++) {
-      const riskScore = faker.number.int({ min: 20, max: 100 });
+      const riskScore = faker.number.int({ min: alertRiskScoreMin, max: alertRiskScoreMax });
       const alert = createAlerts(
         {
           'kibana.alert.risk_score': riskScore,
@@ -1208,7 +1214,7 @@ function* buildAlertOpChunks({
 
   for (const host of hosts) {
     for (let i = 0; i < alertsPerEntity; i++) {
-      const riskScore = faker.number.int({ min: 20, max: 100 });
+      const riskScore = faker.number.int({ min: alertRiskScoreMin, max: alertRiskScoreMax });
       const alert = createAlerts(
         {
           'kibana.alert.risk_score': riskScore,
@@ -1234,7 +1240,7 @@ function* buildAlertOpChunks({
 
   for (const service of services) {
     for (let i = 0; i < alertsPerEntity; i++) {
-      const riskScore = faker.number.int({ min: 20, max: 100 });
+      const riskScore = faker.number.int({ min: alertRiskScoreMin, max: alertRiskScoreMax });
       const alert = createAlerts(
         {
           'kibana.alert.risk_score': riskScore,
@@ -2892,6 +2898,8 @@ const indexAlertsForSeededEntities = async ({
   hosts,
   services,
   alertsPerEntity,
+  alertRiskScoreMin,
+  alertRiskScoreMax,
   space,
 }: {
   users: SeededUser[];
@@ -2899,6 +2907,8 @@ const indexAlertsForSeededEntities = async ({
   hosts: SeededHost[];
   services: SeededService[];
   alertsPerEntity: number;
+  alertRiskScoreMin: number;
+  alertRiskScoreMax: number;
   space: string;
 }) => {
   log.info('Generating and indexing alerts for seeded entities...');
@@ -2917,6 +2927,8 @@ const indexAlertsForSeededEntities = async ({
     hosts,
     services,
     alertsPerEntity,
+    alertRiskScoreMin,
+    alertRiskScoreMax,
     space,
     maxOperationsPerChunk,
   })) {
@@ -3533,6 +3545,8 @@ const runFollowOnActionLoop = async ({
   enableCriticality,
   enableWatchlists,
   alertsPerEntity,
+  alertRiskScoreMin,
+  alertRiskScoreMax,
   modifierBulkBatchSize,
   pageSize,
   phase2Enabled,
@@ -3558,6 +3572,8 @@ const runFollowOnActionLoop = async ({
   enableCriticality: boolean;
   enableWatchlists: boolean;
   alertsPerEntity: number;
+  alertRiskScoreMin: number;
+  alertRiskScoreMax: number;
   modifierBulkBatchSize: number;
   pageSize: number;
   phase2Enabled: boolean;
@@ -3631,6 +3647,8 @@ const runFollowOnActionLoop = async ({
           hosts: trackedHosts,
           services: trackedServices,
           alertsPerEntity: extraAlerts,
+          alertRiskScoreMin,
+          alertRiskScoreMax,
           space,
         }),
       );
@@ -3841,6 +3859,8 @@ const runFollowOnActionLoop = async ({
             hosts: newHosts,
             services: newServices,
             alertsPerEntity: addAlertsPerEntity,
+            alertRiskScoreMin,
+            alertRiskScoreMax,
             space,
           }),
         );
@@ -4013,6 +4033,8 @@ const runFollowOnActionLoop = async ({
               hosts: selection.kind === 'host' ? [selection.host] : [],
               services: selection.kind === 'service' ? [selection.service] : [],
               alertsPerEntity: extraAlerts,
+              alertRiskScoreMin,
+              alertRiskScoreMax,
               space,
             });
           });
@@ -4728,6 +4750,14 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
       : parseOptionInt(options.services, 10)
     : 0;
   const alertsPerEntity = perf ? 50 : parseOptionInt(options.alertsPerEntity, 5);
+  const alertRiskScoreMin = Math.min(
+    100,
+    Math.max(0, parseOptionInt(options.alertRiskScoreMin, 20)),
+  );
+  const alertRiskScoreMax = Math.min(
+    100,
+    Math.max(alertRiskScoreMin, parseOptionInt(options.alertRiskScoreMax, 100)),
+  );
   const offsetHours = parseOptionInt(options.offsetHours, 1);
   const eventIndex = options.eventIndex || config.eventIndex || 'logs-testlogs-default';
   const modifierBulkBatchSize = perf ? 500 : 200;
@@ -4749,7 +4779,7 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
   const followOnEnabled = options.followOn ?? canUseInteractivePrompts();
 
   log.info(
-    `Starting risk-score-v2 in space "${space}" with seedSource=${seedSource}, kinds=${entityKinds.join(',')}, idp_users=${usersCount}, local_users=${localUsersCount}, hosts=${hostsCount}, services=${servicesCount}, alertsPerEntity=${alertsPerEntity}, eventIndex=${eventIndex}, phase2=${phase2Enabled}, resolution=${resolutionEnabled}, propagation=${propagationEnabled}, dangerous_clean=${dangerousCleanEnabled}`,
+    `Starting risk-score-v2 in space "${space}" with seedSource=${seedSource}, kinds=${entityKinds.join(',')}, idp_users=${usersCount}, local_users=${localUsersCount}, hosts=${hostsCount}, services=${servicesCount}, alertsPerEntity=${alertsPerEntity}, alertRiskScoreMin=${alertRiskScoreMin}, alertRiskScoreMax=${alertRiskScoreMax}, eventIndex=${eventIndex}, phase2=${phase2Enabled}, resolution=${resolutionEnabled}, propagation=${propagationEnabled}, dangerous_clean=${dangerousCleanEnabled}`,
   );
 
   if (options.setup !== false) {
@@ -4903,6 +4933,8 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
         hosts,
         services,
         alertsPerEntity,
+        alertRiskScoreMin,
+        alertRiskScoreMax,
         space,
       }),
     );
@@ -4957,6 +4989,8 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
       enableCriticality: options.criticality !== false,
       enableWatchlists: options.watchlists !== false,
       alertsPerEntity,
+      alertRiskScoreMin,
+      alertRiskScoreMax,
       modifierBulkBatchSize,
       pageSize,
       phase2Enabled,
