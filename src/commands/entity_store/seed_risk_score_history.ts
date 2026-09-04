@@ -87,7 +87,7 @@ const buildRiskScoreDoc = (
         calculated_level: level,
         id_field: idField,
         id_value: name,
-        score_type: 'risk_score',
+        score_type: 'base',
       },
     },
   };
