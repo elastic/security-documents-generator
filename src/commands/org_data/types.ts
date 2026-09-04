@@ -744,6 +744,7 @@ export interface CloudAssetDocument {
   '@timestamp': string;
   event: {
     kind: string; // Always "asset" in cloudbeat
+    module?: string; // e.g. "asset_discovery" for entity-store user extraction
   };
   cloud?: {
     provider: string;
