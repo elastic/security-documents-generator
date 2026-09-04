@@ -304,7 +304,11 @@ export const entityStoreCommands: CommandModule = {
         '--newly-high <n>',
         'number of entities that move from Low/Moderate → High/Critical (default 2)',
       )
-      .option('--clean', 'delete existing docs in the seeded time window before writing', false)
+      .option(
+        '--clean',
+        'delete previously-seeded docs (by deterministic ID) before writing — safe to use alongside real risk engine data',
+        false,
+      )
       .action(
         wrapAction(async (options) => {
           const count = parseOptionInt(options.count, 10);

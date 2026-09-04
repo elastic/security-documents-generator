@@ -137,7 +137,7 @@ yarn start seed-risk-score-history [options]
 - `--today-hours <n>`: hours ago for the "today" batch (default `2`)
 - `--movers <n>`: entities guaranteed to have score delta ≥15 between batches (default `3`)
 - `--newly-high <n>`: entities that move from Low/Moderate → High/Critical between batches (default `2`)
-- `--clean`: delete existing docs in the seeded time window before writing — prevents tile counts inflating on repeated runs
+- `--clean`: delete previously-seeded docs before writing — prevents count inflation on re-runs. Safe alongside real risk engine data: only removes docs with the deterministic IDs this command assigns, not auto-ID'd docs written by the risk engine.
 
 ### Scenario assignment
 

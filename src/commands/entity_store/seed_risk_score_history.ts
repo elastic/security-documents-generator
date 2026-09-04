@@ -1,6 +1,7 @@
 import { log } from '../../utils/logger.ts';
 import { faker } from '@faker-js/faker';
-import { bulkIngest } from '../shared/elasticsearch.ts';
+import { bulkUpsert } from '../shared/elasticsearch.ts';
+import { getEsClient } from '../utils/indices.ts';
 import { fetchEntities, type EntityHit } from '../utils/entity_store.ts';
 
 // Real Kibana risk score level boundaries (matches EntityRiskLevelsEnum in Kibana).
@@ -41,7 +42,7 @@ const assignScenarios = (
     let todayScore: number;
 
     if (i < clampedNewlyHigh) {
-      // Yesterday: Low or Medium (< 70). Today: High or Critical (≥ 70).
+      // Yesterday: Low or Moderate (< 70). Today: High or Critical (≥ 70).
       scenario = 'newly_high';
       yesterdayScore = randScore(5, 65);
       todayScore = randScore(72, 98);
@@ -67,7 +68,9 @@ const buildRiskScoreDoc = (
   entityType: 'host' | 'user',
   scoreNorm: number,
   timestamp: Date,
-): object => {
+  space: string,
+  slot: 'yesterday' | 'today',
+): { _id: string; doc: object } => {
   const src = entity._source;
   const rawName =
     entityType === 'user'
@@ -79,7 +82,10 @@ const buildRiskScoreDoc = (
   const entityId = src.entity?.id ?? `${entityType}:${rawName ?? entity._id}`;
   const level = scoreNormToLevel(scoreNorm);
 
-  return {
+  // Deterministic ID: re-runs overwrite the same doc instead of accumulating duplicates.
+  const _id = `seed-rsh-${space}-${entityId}-${slot}`;
+
+  const doc = {
     '@timestamp': timestamp.toISOString(),
     [entityType]: {
       name: entityId,
@@ -93,6 +99,8 @@ const buildRiskScoreDoc = (
       },
     },
   };
+
+  return { _id, doc };
 };
 
 const logSummary = (scored: ScoredEntity[]) => {
@@ -166,13 +174,26 @@ export const seedRiskScoreHistory = async (opts: SeedRiskScoreHistoryOptions) =>
   const yesterdayTs = new Date(Date.now() - yesterdayHours * 3600_000);
   const todayTs = new Date(Date.now() - todayHours * 3600_000);
 
+  const yesterdayResults = scored.map(({ entity, entityType, yesterdayScore }) =>
+    buildRiskScoreDoc(entity, entityType, yesterdayScore, yesterdayTs, space, 'yesterday'),
+  );
+
+  const todayResults = scored.map(({ entity, entityType, todayScore }) =>
+    buildRiskScoreDoc(entity, entityType, todayScore, todayTs, space, 'today'),
+  );
+
+  const allResults = [...yesterdayResults, ...todayResults];
+
   if (clean) {
-    const esClient = (await import('../utils/indices.ts')).getEsClient();
-    log.info(`Cleaning existing docs from ${riskScoreIndex} within the last ${yesterdayHours}h...`);
+    const allIds = allResults.map(({ _id }) => _id);
+    log.info(`Deleting ${allIds.length} previously-seeded docs from ${riskScoreIndex}...`);
+    const esClient = getEsClient();
     await esClient.deleteByQuery({
       index: riskScoreIndex,
       ignore_unavailable: true,
-      query: { range: { '@timestamp': { gte: `now-${yesterdayHours}h` } } },
+      // Target only our own seeded docs by their deterministic IDs — real risk engine
+      // docs have auto-generated IDs and will not be matched.
+      query: { ids: { values: allIds } },
     });
     log.info('Clean complete.');
   }
@@ -180,20 +201,16 @@ export const seedRiskScoreHistory = async (opts: SeedRiskScoreHistoryOptions) =>
   log.info(
     `Building two batches: yesterday=${yesterdayTs.toISOString()}, today=${todayTs.toISOString()}`,
   );
+  log.info(`Indexing ${allResults.length} documents into ${riskScoreIndex}...`);
 
-  const yesterdayDocs = scored.map(({ entity, entityType, yesterdayScore }) =>
-    buildRiskScoreDoc(entity, entityType, yesterdayScore, yesterdayTs),
-  );
+  // Use pre-built bulk body with deterministic _ids.
+  // Data streams require op_type=create, but custom _id is accepted.
+  const bulkBody = allResults.flatMap(({ _id, doc }) => [
+    { create: { _index: riskScoreIndex, _id } },
+    doc,
+  ]);
 
-  const todayDocs = scored.map(({ entity, entityType, todayScore }) =>
-    buildRiskScoreDoc(entity, entityType, todayScore, todayTs),
-  );
-
-  const allDocs = [...yesterdayDocs, ...todayDocs];
-
-  log.info(`Indexing ${allDocs.length} documents into ${riskScoreIndex}...`);
-
-  await bulkIngest({ index: riskScoreIndex, documents: allDocs, action: 'create' });
+  await bulkUpsert({ documents: bulkBody });
 
   logSummary(scored);
   log.info(`\nDone. Indexed into ${riskScoreIndex}.`);
