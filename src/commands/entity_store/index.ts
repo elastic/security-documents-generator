@@ -299,7 +299,7 @@ export const entityStoreCommands: CommandModule = {
       .option('--count <n>', 'max entities to use per entity type (user/host) (default 10)')
       .option('--yesterday-hours <n>', 'hours ago for the "yesterday" batch (default 36)')
       .option('--today-hours <n>', 'hours ago for the "today" batch (default 2)')
-      .option('--movers <n>', 'number of entities with score delta ≥10 between batches (default 3)')
+      .option('--movers <n>', 'number of entities with score delta ≥15 between batches (default 3)')
       .option(
         '--newly-high <n>',
         'number of entities that move from Low/Moderate to High/Critical (default 2)',

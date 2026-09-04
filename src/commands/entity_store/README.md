@@ -135,18 +135,18 @@ yarn start seed-risk-score-history [options]
 - `--count <n>`: max entities to use per entity type — user and host (default `10`)
 - `--yesterday-hours <n>`: hours ago for the "yesterday" batch (default `36`)
 - `--today-hours <n>`: hours ago for the "today" batch (default `2`)
-- `--movers <n>`: entities guaranteed to have score delta ≥10 between batches (default `3`)
-- `--newly-high <n>`: entities that move from Low/Moderate → High/Critical between batches (default `2`)
+- `--movers <n>`: entities guaranteed to have score delta ≥15 between batches (default `3`)
+- `--newly-high <n>`: entities that move from Low/Medium → High/Critical between batches (default `2`)
 
 ### Scenario assignment
 
 Entities are assigned scenarios in order:
 
-| Scenario     | Yesterday score      | Today score           | Drives tile |
-| ------------ | -------------------- | --------------------- | ----------- |
-| `newly_high` | 21–58 (Low/Moderate) | 65–98 (High/Critical) | Newly H/C   |
-| `mover`      | 10–75                | yesterday + 15–50     | Risk Movers |
-| `stable`     | 5–95                 | yesterday ± 5         | —           |
+| Scenario     | Yesterday score    | Today score           | Drives tile |
+| ------------ | ------------------ | --------------------- | ----------- |
+| `newly_high` | 21–58 (Low/Medium) | 65–98 (High/Critical) | Newly H/C   |
+| `mover`      | 10–75              | yesterday + 15–50     | Risk Movers |
+| `stable`     | 5–95               | yesterday ± 5         | —           |
 
 ### Example
 
