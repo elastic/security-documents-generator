@@ -133,10 +133,11 @@ export interface SeedRiskScoreHistoryOptions {
   todayHours: number;
   newlyHighCount: number;
   moverCount: number;
+  clean?: boolean;
 }
 
 export const seedRiskScoreHistory = async (opts: SeedRiskScoreHistoryOptions) => {
-  const { count, space, yesterdayHours, todayHours, newlyHighCount, moverCount } = opts;
+  const { count, space, yesterdayHours, todayHours, newlyHighCount, moverCount, clean } = opts;
   const riskScoreIndex = `risk-score.risk-score-${space}`;
 
   log.info(`Fetching entities from entity store in space "${space}"...`);
@@ -164,6 +165,17 @@ export const seedRiskScoreHistory = async (opts: SeedRiskScoreHistoryOptions) =>
 
   const yesterdayTs = new Date(Date.now() - yesterdayHours * 3600_000);
   const todayTs = new Date(Date.now() - todayHours * 3600_000);
+
+  if (clean) {
+    const esClient = (await import('../utils/indices.ts')).getEsClient();
+    log.info(`Cleaning existing docs from ${riskScoreIndex} within the last ${yesterdayHours}h...`);
+    await esClient.deleteByQuery({
+      index: riskScoreIndex,
+      ignore_unavailable: true,
+      query: { range: { '@timestamp': { gte: `now-${yesterdayHours}h` } } },
+    });
+    log.info('Clean complete.');
+  }
 
   log.info(
     `Building two batches: yesterday=${yesterdayTs.toISOString()}, today=${todayTs.toISOString()}`,

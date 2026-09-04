@@ -304,6 +304,7 @@ export const entityStoreCommands: CommandModule = {
         '--newly-high <n>',
         'number of entities that move from Low/Moderate → High/Critical (default 2)',
       )
+      .option('--clean', 'delete existing docs in the seeded time window before writing', false)
       .action(
         wrapAction(async (options) => {
           const count = parseOptionInt(options.count, 10);
@@ -328,6 +329,7 @@ export const entityStoreCommands: CommandModule = {
             todayHours,
             newlyHighCount: parseOptionInt(options.newlyHigh, 2),
             moverCount: parseOptionInt(options.movers, 3),
+            clean: Boolean(options.clean),
           });
         }),
       );
