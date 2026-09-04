@@ -69,20 +69,20 @@ const buildRiskScoreDoc = (
   timestamp: Date,
 ): object => {
   const src = entity._source;
-  const entityName =
+  const rawName =
     entityType === 'user'
       ? (src.user?.name ?? src.entity?.name)
       : (src.host?.name ?? src.entity?.name);
-  const name = entityName ?? entity._id;
-  // V2 risk score docs use id_field='entity.id' and id_value=EUID so Kibana's
-  // risk score history queries (which filter on id_field='entity.id') include them.
-  const entityId = src.entity?.id ?? `${entityType}:${name}`;
+  // Real risk engine docs write the full EUID (e.g. 'host:my-host') as the
+  // type-specific name field. The tile LOOKUP JOIN keys on COALESCE(host.name,
+  // user.name) so it must match entity.id in entities-latest — which is the EUID.
+  const entityId = src.entity?.id ?? `${entityType}:${rawName ?? entity._id}`;
   const level = scoreNormToLevel(scoreNorm);
 
   return {
     '@timestamp': timestamp.toISOString(),
     [entityType]: {
-      name,
+      name: entityId,
       risk: {
         calculated_score: scoreNorm,
         calculated_score_norm: scoreNorm,
