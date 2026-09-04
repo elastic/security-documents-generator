@@ -25,11 +25,19 @@ export const PAD_JOB_IDS = [
   'pad_linux_rare_process_executed_by_user',
   'pad_linux_high_count_privileged_process_events_by_user',
 ];
+export const PAD_JOB_IDS_V2 = [
+  'pad_linux_rare_process_executed_by_user_ea',
+  'pad_linux_high_count_privileged_process_events_by_user_ea',
+];
 
 export const LMD_MODULE = 'lmd-ml';
 export const LMD_JOB_IDS = [
   'lmd_high_count_remote_file_transfer',
   'lmd_high_file_size_remote_file_transfer',
+];
+export const LMD_JOB_IDS_V2 = [
+  'lmd_high_count_remote_file_transfer_ea',
+  'lmd_high_file_size_remote_file_transfer_ea',
 ];
 
 export const SECURITY_PACKETBEAT_MODULE = 'security_packetbeat';
@@ -43,6 +51,12 @@ export const DED_JOB_IDS = [
   'ded_high_sent_bytes_destination_geo_country_iso_code',
   'ded_high_sent_bytes_destination_ip',
 ];
+export const DED_JOB_IDS_V2 = [
+  'ded_high_bytes_written_to_external_device_ea',
+  'ded_high_bytes_written_to_external_device_airdrop_ea',
+  'ded_high_sent_bytes_destination_geo_country_iso_code_ea',
+  'ded_high_sent_bytes_destination_ip_ea',
+];
 
 export const ALL_ANOMALY_JOB_IDS = [
   ...SECURITY_AUTH_JOB_IDS,
@@ -54,10 +68,10 @@ export const ALL_ANOMALY_JOB_IDS = [
 
 export const ALL_ANOMALY_JOB_IDS_V2 = [
   ...SECURITY_AUTH_JOB_IDS_V2,
-  ...PAD_JOB_IDS, // wait for https://github.com/elastic/integrations/pull/17626
-  ...LMD_JOB_IDS, // wait for https://github.com/elastic/integrations/pull/17626
+  ...PAD_JOB_IDS_V2,
+  ...LMD_JOB_IDS_V2,
   ...SECURITY_PACKETBEAT_JOB_IDS_V2,
-  ...DED_JOB_IDS, // wait for https://github.com/elastic/integrations/pull/17626
+  ...DED_JOB_IDS_V2,
 ];
 
 const DEFAULT_INDEX_PATTERN = 'ecs_compliant,auditbeat-*,winlogbeat-*';
