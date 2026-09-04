@@ -302,7 +302,7 @@ export const entityStoreCommands: CommandModule = {
       .option('--movers <n>', 'number of entities with score delta ≥15 between batches (default 3)')
       .option(
         '--newly-high <n>',
-        'number of entities that move from Low/Moderate to High/Critical (default 2)',
+        'number of entities that move from Low/Moderate → High/Critical (default 2)',
       )
       .action(
         wrapAction(async (options) => {

@@ -3,12 +3,13 @@ import { faker } from '@faker-js/faker';
 import { bulkIngest } from '../shared/elasticsearch.ts';
 import { fetchEntities, type EntityHit } from '../utils/entity_store.ts';
 
-// Real Kibana risk score level boundaries (matches the risk engine output).
-type RiskLevel = 'Low' | 'Medium' | 'High' | 'Critical';
+// Real Kibana risk score level boundaries (matches EntityRiskLevelsEnum in Kibana).
+type RiskLevel = 'Unknown' | 'Low' | 'Moderate' | 'High' | 'Critical';
 
 const scoreNormToLevel = (score: number): RiskLevel => {
+  if (score < 20) return 'Unknown';
   if (score < 40) return 'Low';
-  if (score < 70) return 'Medium';
+  if (score < 70) return 'Moderate';
   if (score < 90) return 'High';
   return 'Critical';
 };
