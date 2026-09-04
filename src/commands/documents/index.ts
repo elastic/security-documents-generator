@@ -1,7 +1,7 @@
 import { type Command } from 'commander';
 import { type CommandModule } from '../types.ts';
 import { ensureSpace } from '../../utils/index.ts';
-import { parseIntBase10, parseOptionInt, wrapAction } from '../utils/cli_utils.ts';
+import { parseDuration, parseIntBase10, parseOptionInt, wrapAction } from '../utils/cli_utils.ts';
 import {
   deleteAllAlerts,
   deleteAllEvents,
@@ -26,15 +26,23 @@ export const documentCommands: CommandModule = {
       .option('-h <h>', 'number of hosts')
       .option('-u <h>', 'number of users')
       .option('-s <h>', 'space (will be created if it does not exist)')
+      .option(
+        '--time-spread <duration>',
+        'Spread alert @timestamp values randomly over the given duration ending at now (e.g., 7d, 12h, 30m). Without it, every alert lands at the moment of generation',
+      )
       .description('Generate fake alerts')
       .action(
         wrapAction(async (options) => {
           const alertsCount = parseOptionInt(options.n, 1);
           const hostCount = parseOptionInt(options.h, 1);
           const userCount = parseOptionInt(options.u, 1);
+          const timeSpreadMs =
+            options.timeSpread !== undefined
+              ? parseDuration(options.timeSpread as string)
+              : undefined;
           const space = await ensureSpace(options.s);
 
-          await generateAlerts(alertsCount, userCount, hostCount, space);
+          await generateAlerts(alertsCount, hostCount, userCount, space, timeSpreadMs);
         }),
       );
 
