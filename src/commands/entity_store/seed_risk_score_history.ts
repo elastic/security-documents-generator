@@ -74,7 +74,9 @@ const buildRiskScoreDoc = (
       ? (src.user?.name ?? src.entity?.name)
       : (src.host?.name ?? src.entity?.name);
   const name = entityName ?? entity._id;
-  const idField = `${entityType}.name`;
+  // V2 risk score docs use id_field='entity.id' and id_value=EUID so Kibana's
+  // risk score history queries (which filter on id_field='entity.id') include them.
+  const entityId = src.entity?.id ?? `${entityType}:${name}`;
   const level = scoreNormToLevel(scoreNorm);
 
   return {
@@ -85,8 +87,8 @@ const buildRiskScoreDoc = (
         calculated_score: scoreNorm,
         calculated_score_norm: scoreNorm,
         calculated_level: level,
-        id_field: idField,
-        id_value: name,
+        id_field: 'entity.id',
+        id_value: entityId,
         score_type: 'base',
       },
     },

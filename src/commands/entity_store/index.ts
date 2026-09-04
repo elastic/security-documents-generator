@@ -306,11 +306,26 @@ export const entityStoreCommands: CommandModule = {
       )
       .action(
         wrapAction(async (options) => {
+          const count = parseOptionInt(options.count, 10);
+          const yesterdayHours = parseOptionInt(options.yesterdayHours, 36);
+          const todayHours = parseOptionInt(options.todayHours, 2);
+          if (count <= 0) {
+            log.error('--count must be a positive integer');
+            process.exit(1);
+          }
+          if (yesterdayHours < 0 || todayHours < 0) {
+            log.error('--yesterday-hours and --today-hours must be non-negative');
+            process.exit(1);
+          }
+          if (todayHours >= yesterdayHours) {
+            log.error('--today-hours must be less than --yesterday-hours');
+            process.exit(1);
+          }
           await seedRiskScoreHistory({
             space: options.space ?? 'default',
-            count: parseOptionInt(options.count, 10),
-            yesterdayHours: parseOptionInt(options.yesterdayHours, 36),
-            todayHours: parseOptionInt(options.todayHours, 2),
+            count,
+            yesterdayHours,
+            todayHours,
             newlyHighCount: parseOptionInt(options.newlyHigh, 2),
             moverCount: parseOptionInt(options.movers, 3),
           });
