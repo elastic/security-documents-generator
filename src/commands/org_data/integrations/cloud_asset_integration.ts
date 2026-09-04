@@ -265,8 +265,8 @@ export class CloudAssetIntegration extends BaseIntegration {
         },
         ...(provider === 'gcp' && {
           project: {
-            id: account?.id,
-            name: account?.name,
+            id: accountId,
+            name: account?.name || 'unknown',
           },
         }),
       },
