@@ -51,18 +51,18 @@ Type `/seed-ea` followed by what you want to populate. Claude Code will respond 
 
 ## What it covers
 
-| Page                                                     | Commands used                                                           |
-| -------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Home page (entities table, risk KPI/history, watchlists) | `risk-score-v2`                                                         |
-| Entity store management                                  | `risk-score-v2`                                                         |
-| Asset criticality                                        | `risk-score-v2` or `generate-asset-criticality`                         |
-| Privileged user monitoring                               | `privmon-quick`                                                         |
-| Threat hunting leads                                     | `leads`                                                                 |
-| AI summary / anomalies                                   | `generate-entity-ai-insights --v2`                                      |
-| Entity flyouts — host/user/service                       | `generate-entity-maintainers-data` + `generate-entity-ai-insights --v2` |
-| Entity flyout — generic                                  | `quick-entity-store`                                                    |
-| Explore pages (hosts/users/network)                      | `risk-score-v2` alerts + `generate-alerts`                              |
-| CSP / cloud posture                                      | `csp --data-sources elastic_all`                                        |
+| Page                                                     | Commands used                                                                                                 |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Home page (entities table, risk KPI/history, watchlists) | `risk-score-v2`                                                                                               |
+| Entity store management                                  | `risk-score-v2`                                                                                               |
+| Asset criticality                                        | `risk-score-v2` or `generate-asset-criticality`                                                               |
+| Privileged user monitoring                               | `privmon-quick`                                                                                               |
+| Threat hunting leads                                     | `leads`                                                                                                       |
+| AI summary / anomalies                                   | `generate-entity-ai-insights --v2 --correlate-with-entity-store`                                              |
+| Entity flyouts — host/user/service                       | `generate-entity-maintainers-data --quick` + `generate-entity-ai-insights --v2 --correlate-with-entity-store` |
+| Entity flyout — generic                                  | `quick-entity-store`                                                                                          |
+| Explore pages (hosts/users/network)                      | `risk-score-v2` alerts + `generate-alerts`                                                                    |
+| CSP / cloud posture                                      | `csp --data-sources elastic_all --csp-scores`                                                                 |
 
 ### Known gaps
 
