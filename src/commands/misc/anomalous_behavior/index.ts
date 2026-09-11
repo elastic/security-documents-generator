@@ -29,7 +29,7 @@ import {
 } from './generators/index.ts';
 import { fetchHostIdentitiesForDed, fetchUserIdentitiesForDed } from '../../utils/entity_store.ts';
 
-const ENTITY_STORE_CORRELATION_MAX = 10;
+const ENTITY_STORE_CORRELATION_MAX = 200;
 
 const WINDOWS_SERVICES_INDEX = 'winlogbeat-windows-services';
 const AUDITBEAT_HOSTS_INDEX = 'auditbeat-hosts';
