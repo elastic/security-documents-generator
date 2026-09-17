@@ -3,6 +3,7 @@ import { faker } from '@faker-js/faker';
 import { bulkUpsert } from '../shared/elasticsearch.ts';
 import { getEsClient } from '../utils/indices.ts';
 import { fetchEntities, type EntityHit } from '../utils/entity_store.ts';
+import { forceBulkUpdateEntitiesViaCrud } from '../../utils/kibana_api.ts';
 
 // Real Kibana risk score level boundaries (matches EntityRiskLevelsEnum in Kibana).
 type RiskLevel = 'Unknown' | 'Low' | 'Moderate' | 'High' | 'Critical';
@@ -134,6 +135,40 @@ const logSummary = (scored: ScoredEntity[]) => {
   }
 
   log.info(`  Stable (${stable.length}): score variation ≤5`);
+};
+
+const ENTITY_STORE_UPDATE_BATCH_SIZE = 100;
+
+const updateEntityStoreRiskLevels = async (scored: ScoredEntity[], space: string) => {
+  const entities = scored.map(({ entity, entityType, todayScore }) => {
+    const src = entity._source;
+    const rawName =
+      entityType === 'user'
+        ? (src.user?.name ?? src.entity?.name)
+        : (src.host?.name ?? src.entity?.name);
+    const entityId = src.entity?.id ?? `${entityType}:${rawName ?? entity._id}`;
+    const level = scoreNormToLevel(todayScore);
+    return {
+      type: entityType as 'user' | 'host',
+      doc: {
+        'entity.id': entityId,
+        'entity.risk.calculated_level': level,
+        'entity.risk.calculated_score': todayScore,
+        'entity.risk.calculated_score_norm': todayScore,
+      } as Record<string, unknown>,
+    };
+  });
+
+  let updated = 0;
+  for (let i = 0; i < entities.length; i += ENTITY_STORE_UPDATE_BATCH_SIZE) {
+    const batch = entities.slice(i, i + ENTITY_STORE_UPDATE_BATCH_SIZE);
+    await forceBulkUpdateEntitiesViaCrud({ entities: batch, space });
+    updated += batch.length;
+    if (updated % 500 === 0 || updated === entities.length) {
+      log.info(`  Updated ${updated}/${entities.length} entity store docs...`);
+    }
+  }
+  log.info(`Entity store risk levels updated for ${entities.length} entities.`);
 };
 
 export interface SeedRiskScoreHistoryOptions {
@@ -273,5 +308,7 @@ export const seedRiskScoreHistory = async (opts: SeedRiskScoreHistoryOptions) =>
   await bulkUpsert({ documents: bulkBody });
 
   logSummary(scored);
+  log.info(`\nUpdating entity store risk levels (needed for "entities with alerts" tile)...`);
+  await updateEntityStoreRiskLevels(scored, space);
   log.info(`\nDone. Indexed into ${riskScoreIndex}.`);
 };
