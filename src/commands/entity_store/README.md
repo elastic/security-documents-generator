@@ -74,6 +74,8 @@ yarn start risk-score-v2 [options]
 - `--entity-kinds <kinds>`: `host,idp_user,local_user,service`
 - `--users <n>`, `--hosts <n>`, `--local-users <n>`, `--services <n>`
 - `--alerts-per-entity <n>`
+- `--alert-risk-score-min <n>`: minimum `kibana.alert.risk_score` per alert, 0–100 (default `20`)
+- `--alert-risk-score-max <n>`: maximum `kibana.alert.risk_score` per alert, 0–100 (default `100`)
 - `--seed-source <source>`: `basic|org`
 - `--perf`: high-volume preset
 - `--no-setup`, `--no-criticality`, `--no-watchlists`, `--no-alerts`
@@ -116,3 +118,40 @@ When phase2 is enabled (default) and no topology overrides are provided:
 - aliases are assigned with `avg-aliases-per-target=2`
 - ownership links use `ownership-edge-rate=0.3` (only with `--propagation`)
 - summary table page size defaults to `30` rows
+
+## `seed-risk-score-history`
+
+Populate `risk-score.risk-score-<space>` with two backdated batches to drive the **Risk Movers** and **Newly High/Critical** tiles on the EA home page. Reads entities already in the entity store and writes synthetic scoring runs at controllable timestamps.
+
+### Usage
+
+```bash
+yarn start seed-risk-score-history [options]
+```
+
+### Options
+
+- `--space <space>`: Kibana space ID (default `default`)
+- `--count <n>`: max entities to use per entity type — user and host (default `10`)
+- `--yesterday-hours <n>`: hours ago for the "yesterday" batch (default `36`)
+- `--today-hours <n>`: hours ago for the "today" batch (default `2`)
+- `--movers <n>`: entities guaranteed to have score delta ≥15 between batches (default `3`)
+- `--newly-high <n>`: entities that move from Low/Moderate → High/Critical between batches (default `2`)
+- `--clean`: delete previously-seeded docs before writing — prevents count inflation on re-runs. Safe alongside real risk engine data: only removes docs with the deterministic IDs this command assigns, not auto-ID'd docs written by the risk engine.
+
+### Scenario assignment
+
+Entities are assigned scenarios in order:
+
+| Scenario     | Yesterday score             | Today score           | Drives tile |
+| ------------ | --------------------------- | --------------------- | ----------- |
+| `newly_high` | 5–65 (Unknown/Low/Moderate) | 72–98 (High/Critical) | Newly H/C   |
+| `mover`      | 5–75                        | yesterday + 15–50     | Risk Movers |
+| `stable`     | 5–95                        | yesterday ± 5         | —           |
+
+### Example
+
+```bash
+# Requires entities to be in the store first (run risk-score-v2 if needed)
+yarn start seed-risk-score-history --space default --count 10 --movers 4 --newly-high 3
+```

@@ -121,8 +121,11 @@ const applyCorpusToRecord = (
     delete result['user.name'];
     delete result['user.id'];
     delete result['event.module'];
+    // Clear synthetic host.id so entities without a host.id fall back to
+    // host.name when the tile computes the EUID (EUID ranking: host.id > host.name).
+    delete result['host.id'];
 
-    // Inject real host ECS fields (host.name, host.id).
+    // Inject real host ECS fields (host.name, host.id if present in entity store).
     Object.assign(result, hostFields);
 
     result.influencers = [
