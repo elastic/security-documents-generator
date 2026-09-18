@@ -91,14 +91,16 @@ export class MicrosoftDefenderEndpointIntegration extends BaseIntegration {
 
     for (const [, { employee, device }] of laptops) {
       machineDocs.push(this.machineDoc(employee, device));
-      const alertCount = faker.number.int({ min: 1, max: 3 });
-      for (let i = 0; i < alertCount; i++) {
-        logDocs.push(this.logDoc(employee, device, org));
+      if (device.platform === 'windows') {
+        const alertCount = faker.number.int({ min: 1, max: 3 });
+        for (let i = 0; i < alertCount; i++) {
+          logDocs.push(this.logDoc(employee, device, org));
+        }
       }
       if (faker.datatype.boolean(0.25)) {
         actionDocs.push(this.actionDoc(employee, device));
       }
-      if (faker.datatype.boolean(0.35)) {
+      if (device.platform === 'windows' && faker.datatype.boolean(0.35)) {
         vulnDocs.push(this.vulnerabilityDoc(employee, device));
       }
     }
@@ -166,25 +168,27 @@ export class MicrosoftDefenderEndpointIntegration extends BaseIntegration {
         domainName: netbiosFor(employee),
       },
       comments: [],
-      evidence: {
-        entityType: 'User',
-        sha1: null,
-        sha256: faker.helpers.arrayElement(MALWARE_HASHES),
-        fileName: 'powershell.exe',
-        filePath: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
-        processId: faker.number.int({ min: 1000, max: 65000 }),
-        processCommandLine: 'powershell.exe -ep bypass -file C:\\temp\\script.ps1',
-        processCreationTime: timestamp,
-        parentProcessId: faker.number.int({ min: 100, max: 999 }),
-        parentProcessCreationTime: timestamp,
-        ipAddress: device.ipAddress,
-        url: null,
-        accountName: employee.userName,
-        domainName: netbiosFor(employee),
-        userSid: employee.windowsSid,
-        aadUserId: employee.entraIdUserId,
-        userPrincipalName: employee.email,
-      },
+      evidence: [
+        {
+          entityType: 'User',
+          sha1: null,
+          sha256: faker.helpers.arrayElement(MALWARE_HASHES),
+          fileName: 'powershell.exe',
+          filePath: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+          processId: faker.number.int({ min: 1000, max: 65000 }),
+          processCommandLine: 'powershell.exe -ep bypass -file C:\\temp\\script.ps1',
+          processCreationTime: timestamp,
+          parentProcessId: faker.number.int({ min: 100, max: 999 }),
+          parentProcessCreationTime: timestamp,
+          ipAddress: device.ipAddress,
+          url: null,
+          accountName: employee.userName,
+          domainName: netbiosFor(employee),
+          userSid: employee.windowsSid,
+          aadUserId: employee.entraIdUserId,
+          userPrincipalName: employee.email,
+        },
+      ],
       orgName: org.name,
     };
     return this.wrap('microsoft_defender_endpoint.log', timestamp, raw, employee, device);

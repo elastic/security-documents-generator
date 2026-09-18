@@ -1,7 +1,7 @@
 /**
  * Microsoft Defender XDR (m365_defender) integration.
  * Raw pre-pipeline documents: message = JSON.stringify(Graph / Advanced Hunting payload).
- * Alert evidence is the kibana#281611 XDR-forwarding shape (userEvidence + deviceEvidence).
+ * Alert evidence follows the Microsoft Graph alert shape (userEvidence + deviceEvidence).
  */
 
 import {
@@ -12,7 +12,7 @@ import {
 import { type Organization, type CorrelationMap, type Employee, type Device } from '../types.ts';
 import { faker } from '@faker-js/faker';
 
-const TENANT_ID = '3adb963c-8e61-48e8-a06d-6dbb0dacea39';
+const TENANT_ID = 'a839b112-1253-6432-9bf6-94542403f21c';
 const DETECTOR_ID = '7f1c3609-a3ff-40e2-995b-c01770161d68';
 
 const ALERT_TITLES = [
@@ -32,6 +32,16 @@ const laptopEntries = (correlationMap: CorrelationMap) =>
   [...correlationMap.defenderDeviceIdToDevice.entries()].filter(
     ([, { device }]) => device.type === 'laptop',
   );
+
+const osEvidenceFor = (platform: Device['platform']): { osPlatform: string; osBuild: number } => {
+  if (platform === 'windows') {
+    return { osPlatform: 'Windows11', osBuild: 22621 };
+  }
+  if (platform === 'mac') {
+    return { osPlatform: 'macOS', osBuild: 0 };
+  }
+  return { osPlatform: 'Linux', osBuild: 0 };
+};
 
 export class M365DefenderIntegration extends BaseIntegration {
   readonly packageName = 'm365_defender';
@@ -59,14 +69,16 @@ export class M365DefenderIntegration extends BaseIntegration {
       for (let i = 0; i < alertCount; i++) {
         alertDocs.push(this.alertDoc(employee, device, org));
       }
-      const eventCount = faker.number.int({ min: 2, max: 5 });
-      for (let i = 0; i < eventCount; i++) {
-        eventDocs.push(this.eventDoc(employee, device, org));
+      if (device.platform === 'windows') {
+        const eventCount = faker.number.int({ min: 2, max: 5 });
+        for (let i = 0; i < eventCount; i++) {
+          eventDocs.push(this.eventDoc(employee, device, org));
+        }
       }
       if (faker.datatype.boolean(0.2)) {
         incidentDocs.push(this.incidentDoc(employee, device, org));
       }
-      if (faker.datatype.boolean(0.3)) {
+      if (device.platform === 'windows' && faker.datatype.boolean(0.3)) {
         vulnDocs.push(this.vulnerabilityDoc(employee, device));
       }
     }
@@ -97,6 +109,7 @@ export class M365DefenderIntegration extends BaseIntegration {
   private alertDoc(employee: Employee, device: Device, org: Organization): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(48);
     const hostname = hostnameFor(employee, device);
+    const osEvidence = osEvidenceFor(device.platform);
     const alertId = `da${faker.string.hexadecimal({ length: 8, prefix: '' })}-${faker.string.uuid()}_1`;
     const incidentId = String(faker.number.int({ min: 10, max: 5000 }));
     const title = faker.helpers.arrayElement(ALERT_TITLES);
@@ -139,8 +152,8 @@ export class M365DefenderIntegration extends BaseIntegration {
           ],
           mdeDeviceId: device.defenderDeviceId,
           onboardingStatus: 'onboarded',
-          osBuild: 22621,
-          osPlatform: device.platform === 'windows' ? 'Windows11' : device.platform,
+          osBuild: osEvidence.osBuild,
+          osPlatform: osEvidence.osPlatform,
           rbacGroupId: 0,
           rbacGroupName: null,
           remediationStatus: 'none',
@@ -257,6 +270,7 @@ export class M365DefenderIntegration extends BaseIntegration {
     const hostname = hostnameFor(employee, device);
     const incidentId = String(faker.number.int({ min: 1000, max: 99999 }));
     const alertId = `da${faker.string.numeric(18)}_${faker.string.numeric(9)}`;
+    const osEvidence = osEvidenceFor(device.platform);
     const raw = {
       '@odata.type': '#microsoft.graph.security.incident',
       assignedTo: employee.email,
@@ -271,56 +285,58 @@ export class M365DefenderIntegration extends BaseIntegration {
       redirectIncidentId: null,
       severity: 'medium',
       status: 'active',
-      tags: [org.name],
+      customTags: [org.name],
       tenantId: TENANT_ID,
-      alerts: {
-        '@odata.type': '#microsoft.graph.security.alert',
-        id: alertId,
-        incidentId,
-        title: faker.helpers.arrayElement(ALERT_TITLES),
-        severity: 'medium',
-        status: 'new',
-        category: 'Execution',
-        serviceSource: 'microsoftDefenderForEndpoint',
-        detectionSource: 'microsoftDefenderForEndpoint',
-        productName: 'Microsoft Defender for Endpoint',
-        tenantId: TENANT_ID,
-        createdDateTime: timestamp,
-        firstActivityDateTime: timestamp,
-        lastActivityDateTime: timestamp,
-        lastUpdateDateTime: timestamp,
-        description: `Suspicious activity on ${hostname}.`,
-        alertWebUrl: `https://security.microsoft.com/alerts/${alertId}?tid=${TENANT_ID}`,
-        incidentWebUrl: `https://security.microsoft.com/incidents/${incidentId}?tid=${TENANT_ID}`,
-        evidence: [
-          {
-            '@odata.type': '#microsoft.graph.security.deviceEvidence',
-            deviceDnsName: hostname,
-            mdeDeviceId: device.defenderDeviceId,
-            azureAdDeviceId: device.id,
-            createdDateTime: timestamp,
-            firstSeenDateTime: timestamp,
-            healthStatus: 'active',
-            onboardingStatus: 'onboarded',
-            osPlatform: 'Windows11',
-            osBuild: 22621,
-            rbacGroupId: 0,
-            loggedOnUsers: [{ accountName: employee.userName, domainName: netbiosFor(employee) }],
-            verdict: 'unknown',
-          },
-          {
-            '@odata.type': '#microsoft.graph.security.userEvidence',
-            createdDateTime: timestamp,
-            userAccount: {
-              accountName: employee.userName,
-              domainName: netbiosFor(employee),
-              userPrincipalName: employee.email,
-              azureAdUserId: employee.entraIdUserId,
-              userSid: employee.windowsSid,
+      alerts: [
+        {
+          '@odata.type': '#microsoft.graph.security.alert',
+          id: alertId,
+          incidentId,
+          title: faker.helpers.arrayElement(ALERT_TITLES),
+          severity: 'medium',
+          status: 'new',
+          category: 'Execution',
+          serviceSource: 'microsoftDefenderForEndpoint',
+          detectionSource: 'microsoftDefenderForEndpoint',
+          productName: 'Microsoft Defender for Endpoint',
+          tenantId: TENANT_ID,
+          createdDateTime: timestamp,
+          firstActivityDateTime: timestamp,
+          lastActivityDateTime: timestamp,
+          lastUpdateDateTime: timestamp,
+          description: `Suspicious activity on ${hostname}.`,
+          alertWebUrl: `https://security.microsoft.com/alerts/${alertId}?tid=${TENANT_ID}`,
+          incidentWebUrl: `https://security.microsoft.com/incidents/${incidentId}?tid=${TENANT_ID}`,
+          evidence: [
+            {
+              '@odata.type': '#microsoft.graph.security.deviceEvidence',
+              deviceDnsName: hostname,
+              mdeDeviceId: device.defenderDeviceId,
+              azureAdDeviceId: device.id,
+              createdDateTime: timestamp,
+              firstSeenDateTime: timestamp,
+              healthStatus: 'active',
+              onboardingStatus: 'onboarded',
+              osPlatform: osEvidence.osPlatform,
+              osBuild: osEvidence.osBuild,
+              rbacGroupId: 0,
+              loggedOnUsers: [{ accountName: employee.userName, domainName: netbiosFor(employee) }],
+              verdict: 'unknown',
             },
-          },
-        ],
-      },
+            {
+              '@odata.type': '#microsoft.graph.security.userEvidence',
+              createdDateTime: timestamp,
+              userAccount: {
+                accountName: employee.userName,
+                domainName: netbiosFor(employee),
+                userPrincipalName: employee.email,
+                azureAdUserId: employee.entraIdUserId,
+                userSid: employee.windowsSid,
+              },
+            },
+          ],
+        },
+      ],
     };
     return this.wrap('m365_defender.incident', timestamp, raw, employee, device);
   }
