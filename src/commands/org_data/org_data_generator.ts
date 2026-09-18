@@ -483,6 +483,7 @@ const generateDevice = (type: DeviceType, platform: LaptopPlatform | MobilePlatf
     diskEncryptionEnabled: faker.datatype.boolean(0.9), // 90% have encryption
     crowdstrikeAgentId: faker.string.hexadecimal({ length: 32, prefix: '' }).toLowerCase(),
     crowdstrikeDeviceId: faker.string.hexadecimal({ length: 32, prefix: '' }).toLowerCase(),
+    defenderDeviceId: faker.string.hexadecimal({ length: 40, prefix: '' }).toLowerCase(),
     macAddress: faker.internet.mac({ separator: '-' }),
     ipAddress: faker.internet.ipv4(),
     elasticAgentId: faker.string.uuid(),

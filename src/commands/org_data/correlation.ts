@@ -28,6 +28,7 @@ export const buildCorrelationMap = (org: Organization): CorrelationMap => {
     duoUserIdToEmployee: new Map(),
     onePasswordUuidToEmployee: new Map(),
     crowdstrikeAgentIdToDevice: new Map(),
+    defenderDeviceIdToDevice: new Map(),
     jamfUdidToDevice: new Map(),
     adDnToEmployee: new Map(),
     windowsSidToEmployee: new Map(),
@@ -89,6 +90,10 @@ export const buildCorrelationMap = (org: Organization): CorrelationMap => {
   for (const employee of org.employees) {
     for (const device of employee.devices) {
       correlationMap.crowdstrikeAgentIdToDevice.set(device.crowdstrikeAgentId, {
+        employee,
+        device,
+      });
+      correlationMap.defenderDeviceIdToDevice.set(device.defenderDeviceId, {
         employee,
         device,
       });
@@ -292,6 +297,7 @@ GitHub Username -> Employee mappings: ${correlationMap.githubUsernameToEmployee.
 Duo User ID -> Employee mappings: ${correlationMap.duoUserIdToEmployee.size}
 1Password UUID -> Employee mappings: ${correlationMap.onePasswordUuidToEmployee.size}
 CrowdStrike Agent -> Device mappings: ${correlationMap.crowdstrikeAgentIdToDevice.size}
+Defender Device -> Device mappings: ${correlationMap.defenderDeviceIdToDevice.size}
 Jamf UDID -> Device mappings: ${correlationMap.jamfUdidToDevice.size}
 AD DN -> Employee mappings: ${correlationMap.adDnToEmployee.size}
 Windows SID -> Employee mappings: ${correlationMap.windowsSidToEmployee.size}

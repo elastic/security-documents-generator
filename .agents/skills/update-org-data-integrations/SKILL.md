@@ -186,15 +186,16 @@ integration that references users:
 
 #### Stable fields on Device
 
-| Field                 | Description                                    | Example             |
-| --------------------- | ---------------------------------------------- | ------------------- |
-| `id`                  | Device UUID, used as `host.id`                 | `276e59a0-...`      |
-| `macAddress`          | Stable MAC address (dash-separated)            | `8a-d3-02-ed-99-a2` |
-| `ipAddress`           | Stable IPv4 address                            | `234.22.230.186`    |
-| `crowdstrikeAgentId`  | CrowdStrike Falcon agent ID                    | `e045e02b...`       |
-| `crowdstrikeDeviceId` | CrowdStrike device ID                          | `efb573dc...`       |
-| `serialNumber`        | Hardware serial number                         | `A1B2C3D4E5F6`      |
-| `elasticAgentId`      | Elastic Agent UUID for local workstation agent | `c3f1a9d2-...`      |
+| Field                 | Description                                                                                                | Example                       |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| `id`                  | Device UUID, used as `host.id`                                                                             | `276e59a0-...`                |
+| `macAddress`          | Stable MAC address (dash-separated)                                                                        | `8a-d3-02-ed-99-a2`           |
+| `ipAddress`           | Stable IPv4 address                                                                                        | `234.22.230.186`              |
+| `crowdstrikeAgentId`  | CrowdStrike Falcon agent ID                                                                                | `e045e02b...`                 |
+| `crowdstrikeDeviceId` | CrowdStrike device ID                                                                                      | `efb573dc...`                 |
+| `defenderDeviceId`    | Microsoft Defender for Endpoint machine id (`host.id` after MDE ingest; distinct from Elastic `device.id`) | `c114cb1c0b...` (40-char hex) |
+| `serialNumber`        | Hardware serial number                                                                                     | `A1B2C3D4E5F6`                |
+| `elasticAgentId`      | Elastic Agent UUID for local workstation agent                                                             | `c3f1a9d2-...`                |
 
 #### Stable fields on Host
 

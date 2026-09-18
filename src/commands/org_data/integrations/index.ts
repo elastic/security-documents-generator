@@ -17,6 +17,8 @@ import { OktaSystemIntegration } from './okta_system_integration.ts';
 import { CloudTrailIntegration } from './cloudtrail_integration.ts';
 import { EntraIdIntegration } from './entra_id_integration.ts';
 import { CrowdStrikeIntegration } from './crowdstrike_integration.ts';
+import { MicrosoftDefenderEndpointIntegration } from './microsoft_defender_endpoint_integration.ts';
+import { M365DefenderIntegration } from './m365_defender_integration.ts';
 import { O365Integration } from './o365_integration.ts';
 import { GitHubIntegration } from './github_integration.ts';
 import { CiscoDuoIntegration } from './cisco_duo_integration.ts';
@@ -73,6 +75,8 @@ export { OktaSystemIntegration } from './okta_system_integration.ts';
 export { CloudTrailIntegration } from './cloudtrail_integration.ts';
 export { EntraIdIntegration } from './entra_id_integration.ts';
 export { CrowdStrikeIntegration } from './crowdstrike_integration.ts';
+export { MicrosoftDefenderEndpointIntegration } from './microsoft_defender_endpoint_integration.ts';
+export { M365DefenderIntegration } from './m365_defender_integration.ts';
 export { O365Integration } from './o365_integration.ts';
 export { GitHubIntegration } from './github_integration.ts';
 export { CiscoDuoIntegration } from './cisco_duo_integration.ts';
@@ -135,6 +139,8 @@ export const createIntegrationRegistry = (): IntegrationRegistry => {
 
   // Register new integrations
   registry.set('crowdstrike', new CrowdStrikeIntegration());
+  registry.set('microsoft_defender_endpoint', new MicrosoftDefenderEndpointIntegration());
+  registry.set('m365_defender', new M365DefenderIntegration());
   registry.set('o365', new O365Integration());
   registry.set('github', new GitHubIntegration());
   registry.set('cisco_duo', new CiscoDuoIntegration());
@@ -226,6 +232,8 @@ export const getAvailableIntegrations = (): IntegrationName[] => {
     'aws',
     'entra_id',
     'crowdstrike',
+    'microsoft_defender_endpoint',
+    'm365_defender',
     'o365',
     'github',
     'cisco_duo',
