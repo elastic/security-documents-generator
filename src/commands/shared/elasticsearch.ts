@@ -123,6 +123,7 @@ export interface StreamingBulkIngestParams {
   datasource: AsyncIterable<object>;
   flushBytes?: number;
   flushInterval?: number;
+  concurrency?: number;
   onDrop?: (doc: unknown) => void;
   onDocument?: (doc: object) => BulkOperationTuple;
   onSuccess?: () => void;
@@ -138,6 +139,7 @@ export async function streamingBulkIngest(params: StreamingBulkIngestParams): Pr
     datasource,
     flushBytes = 1024 * 1024,
     flushInterval = 3000,
+    concurrency = 1,
     onDrop,
     onDocument,
     onSuccess,
@@ -160,6 +162,7 @@ export async function streamingBulkIngest(params: StreamingBulkIngestParams): Pr
     onDocument: (doc: object) => docTransform(doc) as any,
     flushBytes,
     flushInterval,
+    concurrency,
     onDrop: onDrop ? (d) => onDrop(d.document) : undefined,
     onSuccess,
   });

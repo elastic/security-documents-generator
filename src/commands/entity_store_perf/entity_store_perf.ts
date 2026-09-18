@@ -2,7 +2,7 @@ import { log } from '../../utils/logger.ts';
 import { faker } from '@faker-js/faker';
 import fs from 'fs';
 import { getEsClient, getFileLineCount } from '../utils/indices.ts';
-import { streamingBulkIngest } from '../shared/elasticsearch.ts';
+import { logBulkErrors, streamingBulkIngest } from '../shared/elasticsearch.ts';
 import { createProgressBar } from '../utils/cli_utils.ts';
 import { ensureSecurityDefaultDataView } from '../../utils/security_default_data_view.ts';
 import readline from 'readline';
@@ -18,6 +18,7 @@ import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { getConfig } from '../../get_config.ts';
 import * as path from 'path';
+import { createHash } from 'crypto';
 import {
   type GenericEntityFields,
   type HostFields,
@@ -412,6 +413,7 @@ export const listPerfDataFiles = () => fs.readdirSync(DATA_DIRECTORY);
 
 const ENTITY_INDEX_V1 = '.entities.v1.latest*';
 const ENTITY_INDEX_V2 = '.entities.v2.latest*';
+const DEFAULT_SEED_TIMESTAMP = '2020-01-01T00:00:00.000Z';
 
 const deleteAllEntities = async (entityIndex: string = ENTITY_INDEX_V1) => {
   const esClient = getEsClient();
@@ -1022,6 +1024,7 @@ export const uploadFile = async ({
   modifyDoc,
   onComplete,
   timestampSpreadMs,
+  bulkConcurrency = 1,
 }: {
   filePath: string;
   index: string;
@@ -1029,6 +1032,7 @@ export const uploadFile = async ({
   modifyDoc?: (doc: Record<string, any>) => Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   onComplete?: () => void;
   timestampSpreadMs?: number;
+  bulkConcurrency?: number;
 }) => {
   const stream = fs.createReadStream(filePath);
   const progress = createProgressBar('upload', {
@@ -1056,6 +1060,7 @@ export const uploadFile = async ({
     datasource: lineGenerator(),
     flushBytes: 1024 * 1024 * 1,
     flushInterval: 3000,
+    concurrency: bulkConcurrency,
     onDocument: (doc) => {
       if (stop) {
         throw new Error('Stopped');
@@ -1214,6 +1219,10 @@ const runUploadPerfDataIntervalV2 = async (
   _transformTimeoutMs?: number,
   samplingIntervalMs?: number,
   indexOverride?: string,
+  noIdIncrement: boolean = false,
+  durationMs?: number,
+  ingestRateDocsPerSecond?: number,
+  bulkConcurrency: number = 1,
 ) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addIdPrefix = (prefix: string) => (doc: Record<string, any>) => {
@@ -1274,48 +1283,62 @@ const runUploadPerfDataIntervalV2 = async (
   const stopNodeStatsLogging = logNodeStatsEvery(name, samplingInterval);
   const stopKibanaStatsLogging = logKibanaStatsEvery(name, samplingInterval);
 
-  for (let i = 0; i < uploadCount; i++) {
+  const targetUploadCount =
+    durationMs !== undefined ? Math.max(1, Math.ceil(durationMs / intervalMs)) : uploadCount;
+  if (durationMs !== undefined) {
+    log.info(
+      `Using --duration=${durationMs}ms with interval=${intervalMs}ms -> planned uploads=${targetUploadCount}`,
+    );
+  }
+  const targetCycleMsFromRate =
+    ingestRateDocsPerSecond !== undefined && ingestRateDocsPerSecond > 0
+      ? (lineCount / ingestRateDocsPerSecond) * 1000
+      : undefined;
+
+  for (let i = 0; i < targetUploadCount; i++) {
     if (stop) break;
-    let uploadCompleted = false;
-    const onComplete = () => {
-      uploadCompleted = true;
-    };
-    const intervalS = intervalMs / 1000;
-    log.info(`Uploading ${i + 1} of ${uploadCount}, next upload in ${intervalS}s...`);
+    const cycleStart = Date.now();
+    log.info(`Uploading ${i + 1} of ${targetUploadCount}...`);
     previousUpload = previousUpload.then(() =>
       uploadFile({
-        onComplete,
         filePath,
         index,
         lineCount,
-        modifyDoc: addIdPrefix(i.toString()),
+        modifyDoc: noIdIncrement ? undefined : addIdPrefix(i.toString()),
+        bulkConcurrency,
       }),
     );
+    await previousUpload;
+
+    const cycleElapsedMs = Date.now() - cycleStart;
+    const targetCycleMs = targetCycleMsFromRate ?? intervalMs;
+    const waitMs = Math.max(0, targetCycleMs - cycleElapsedMs);
+    const intervalS = Math.floor(waitMs / 1000);
     let progress: ReturnType<typeof createProgressBar> | null = null;
     for (let j = 0; j < intervalS; j++) {
       if (stop) break;
-      if (uploadCompleted) {
-        if (!progress) {
-          progress = createProgressBar('interval', {
-            format: '{bar} | {value}s | waiting {total}s until next upload',
-          });
-          progress.start(intervalS, j + 1);
-        } else {
-          progress.update(j + 1);
-        }
+      if (!progress) {
+        progress = createProgressBar('interval', {
+          format: '{bar} | {value}s | waiting {total}s until next upload',
+        });
+        progress.start(intervalS, j + 1);
+      } else {
+        progress.update(j + 1);
       }
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
-    progress?.update(intervalS);
+    if (waitMs > intervalS * 1000) {
+      await new Promise((resolve) => setTimeout(resolve, waitMs - intervalS * 1000));
+    }
+    progress?.update(intervalS > 0 ? intervalS : 0);
     progress?.stop();
   }
-
-  await previousUpload;
 
   const ingestTook = Date.now() - startTime;
   log.info(`Data file ${name} uploaded to index ${index} in ${ingestTook}ms`);
 
-  await countEntitiesUntil(name, entityCount * uploadCount, ENTITY_INDEX_V2);
+  const expectedEntityCount = noIdIncrement ? entityCount : entityCount * targetUploadCount;
+  await countEntitiesUntil(name, expectedEntityCount, ENTITY_INDEX_V2);
 
   log.info('Skipping transform completion wait (Entity Store V2 / ESQL mode)');
 
@@ -1338,6 +1361,10 @@ const runUploadPerfDataIntervalV1 = async (
   transformTimeoutMs?: number,
   samplingIntervalMs?: number,
   indexOverride?: string,
+  noIdIncrement: boolean = false,
+  durationMs?: number,
+  ingestRateDocsPerSecond?: number,
+  bulkConcurrency: number = 1,
 ) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addIdPrefix = (prefix: string) => (doc: Record<string, any>) => {
@@ -1404,50 +1431,64 @@ const runUploadPerfDataIntervalV1 = async (
   const stopNodeStatsLogging = logNodeStatsEvery(name, samplingInterval);
   const stopKibanaStatsLogging = logKibanaStatsEvery(name, samplingInterval);
 
-  for (let i = 0; i < uploadCount; i++) {
+  const targetUploadCount =
+    durationMs !== undefined ? Math.max(1, Math.ceil(durationMs / intervalMs)) : uploadCount;
+  if (durationMs !== undefined) {
+    log.info(
+      `Using --duration=${durationMs}ms with interval=${intervalMs}ms -> planned uploads=${targetUploadCount}`,
+    );
+  }
+  const targetCycleMsFromRate =
+    ingestRateDocsPerSecond !== undefined && ingestRateDocsPerSecond > 0
+      ? (lineCount / ingestRateDocsPerSecond) * 1000
+      : undefined;
+
+  for (let i = 0; i < targetUploadCount; i++) {
     if (stop) break;
-    let uploadCompleted = false;
-    const onComplete = () => {
-      uploadCompleted = true;
-    };
-    const intervalS = intervalMs / 1000;
-    log.info(`Uploading ${i + 1} of ${uploadCount}, next upload in ${intervalS}s...`);
+    const cycleStart = Date.now();
+    log.info(`Uploading ${i + 1} of ${targetUploadCount}...`);
     previousUpload = previousUpload.then(() =>
       uploadFile({
-        onComplete,
         filePath,
         index,
         lineCount,
-        modifyDoc: addIdPrefix(i.toString()),
+        modifyDoc: noIdIncrement ? undefined : addIdPrefix(i.toString()),
+        bulkConcurrency,
       }),
     );
+    await previousUpload;
+
+    const cycleElapsedMs = Date.now() - cycleStart;
+    const targetCycleMs = targetCycleMsFromRate ?? intervalMs;
+    const waitMs = Math.max(0, targetCycleMs - cycleElapsedMs);
+    const intervalS = Math.floor(waitMs / 1000);
     let progress: ReturnType<typeof createProgressBar> | null = null;
     for (let j = 0; j < intervalS; j++) {
       if (stop) break;
-      if (uploadCompleted) {
-        if (!progress) {
-          progress = createProgressBar('interval', {
-            format: '{bar} | {value}s | waiting {total}s until next upload',
-          });
-          progress.start(intervalS, j + 1);
-        } else {
-          progress.update(j + 1);
-        }
+      if (!progress) {
+        progress = createProgressBar('interval', {
+          format: '{bar} | {value}s | waiting {total}s until next upload',
+        });
+        progress.start(intervalS, j + 1);
+      } else {
+        progress.update(j + 1);
       }
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
-    progress?.update(intervalS);
+    if (waitMs > intervalS * 1000) {
+      await new Promise((resolve) => setTimeout(resolve, waitMs - intervalS * 1000));
+    }
+    progress?.update(intervalS > 0 ? intervalS : 0);
     progress?.stop();
   }
-
-  await previousUpload;
 
   const ingestTook = Date.now() - startTime;
   log.info(`Data file ${name} uploaded to index ${index} in ${ingestTook}ms`);
 
-  await countEntitiesUntil(name, entityCount * uploadCount, ENTITY_INDEX_V1);
+  const expectedEntityCount = noIdIncrement ? entityCount : entityCount * targetUploadCount;
+  await countEntitiesUntil(name, expectedEntityCount, ENTITY_INDEX_V1);
 
-  const totalDocumentsIngested = lineCount * uploadCount;
+  const totalDocumentsIngested = lineCount * targetUploadCount;
   const timeout = transformTimeoutMs ?? 1800000;
   log.info(
     `Waiting for generic transform to process ${totalDocumentsIngested} documents (timeout: ${timeout / 1000 / 60} minutes)...`,
@@ -1482,6 +1523,10 @@ export const uploadPerfDataFileInterval = async (
   samplingIntervalMs?: number,
   noTransforms?: boolean,
   indexOverride?: string,
+  noIdIncrement: boolean = false,
+  durationMs?: number,
+  ingestRateDocsPerSecond?: number,
+  bulkConcurrency: number = 1,
 ) => {
   if (noTransforms) {
     return runUploadPerfDataIntervalV2(
@@ -1493,6 +1538,10 @@ export const uploadPerfDataFileInterval = async (
       transformTimeoutMs,
       samplingIntervalMs,
       indexOverride,
+      noIdIncrement,
+      durationMs,
+      ingestRateDocsPerSecond,
+      bulkConcurrency,
     );
   }
   return runUploadPerfDataIntervalV1(
@@ -1504,5 +1553,98 @@ export const uploadPerfDataFileInterval = async (
     transformTimeoutMs,
     samplingIntervalMs,
     indexOverride,
+    noIdIncrement,
+    durationMs,
+    ingestRateDocsPerSecond,
+    bulkConcurrency,
   );
+};
+
+const hashEntityId = (entityType: 'host', id: string) =>
+  createHash('sha256').update(`${entityType}:${id}`).digest('hex');
+
+export const seedLatestEntities = async ({
+  name,
+  hosts,
+  space = 'default',
+  seedTimestamp = DEFAULT_SEED_TIMESTAMP,
+  init = false,
+}: {
+  name: string;
+  hosts: number;
+  space?: string;
+  seedTimestamp?: string;
+  init?: boolean;
+}) => {
+  if (!Number.isInteger(hosts) || hosts <= 0) {
+    throw new Error(`hosts must be a positive integer, got: ${String(hosts)}`);
+  }
+  const seedDate = new Date(seedTimestamp);
+  if (Number.isNaN(seedDate.getTime())) {
+    throw new Error(`Invalid seed timestamp: ${seedTimestamp}`);
+  }
+  const normalizedSeedTimestamp = seedDate.toISOString();
+
+  if (init) {
+    log.info(`Initializing Entity Store V2 for space "${space}"...`);
+    await enableEntityStoreV2(space);
+    await installEntityStoreV2(space);
+  }
+
+  const esClient = getEsClient();
+  const aliasName = `entities-latest-${space}`;
+  const progress = createProgressBar('seed', {
+    format: '{bar} | {percentage}% | {value}/{total} Seeded Hosts',
+  });
+  progress.start(hosts, 0);
+
+  const batchSize = 1000;
+  for (let start = 1; start <= hosts; start += batchSize) {
+    const end = Math.min(start + batchSize - 1, hosts);
+    const operations = [];
+    for (let i = start; i <= end; i++) {
+      const hostId = `${name}-host-${i}`;
+      const entityId = `host:${hostId}`;
+      const doc = {
+        '@timestamp': normalizedSeedTimestamp,
+        event: { ingested: normalizedSeedTimestamp },
+        entity: {
+          EngineMetadata: { Type: 'host' },
+          id: entityId,
+          name: hostId,
+          source: 'sdg-seed-latest-entities',
+          lifecycle: {
+            first_seen: normalizedSeedTimestamp,
+            last_seen: normalizedSeedTimestamp,
+          },
+        },
+        host: {
+          id: hostId,
+          name: hostId,
+          hostname: `${hostId}.example.${name}.com`,
+          domain: `example.${name}.com`,
+          ip: [`10.${(i >> 16) & 255}.${(i >> 8) & 255}.${i & 255}`],
+          mac: [
+            `00:11:22:33:${((i >> 8) & 255).toString(16).padStart(2, '0')}:${(i & 255).toString(16).padStart(2, '0')}`,
+          ],
+          type: 'server',
+          architecture: ['x86_64'],
+        },
+      };
+      operations.push({ index: { _index: aliasName, _id: hashEntityId('host', hostId) } }, doc);
+    }
+    const result = await esClient.bulk({ operations, refresh: false, pipeline: '_none' });
+    logBulkErrors(result, `Bulk seed for ${aliasName} reported errors.`);
+    progress.increment(end - start + 1);
+  }
+
+  progress.stop();
+  await esClient.indices.refresh({ index: aliasName });
+
+  const sampleHostId = `${name}-host-1`;
+  const sampleDocId = hashEntityId('host', sampleHostId);
+  log.info(`Seeded ${hosts} host entities into ${aliasName}`);
+  log.info(`Sample host.id: ${sampleHostId}`);
+  log.info(`Sample latest _id (sha256('host:${sampleHostId}')): ${sampleDocId}`);
+  log.info(`Seed timestamp used for lifecycle: ${normalizedSeedTimestamp}`);
 };

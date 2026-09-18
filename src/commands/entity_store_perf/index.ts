@@ -10,6 +10,7 @@ import {
 import {
   createPerfDataFile,
   listPerfDataFiles,
+  seedLatestEntities,
   uploadPerfDataFile,
   uploadPerfDataFileInterval,
   isValidDistributionType,
@@ -114,6 +115,30 @@ export const entityStorePerfCommands: CommandModule = {
       );
 
     program
+      .command('seed-latest-entities')
+      .argument('<name>', 'base name/prefix for seeded host IDs')
+      .option('--hosts <n>', 'number of host entities to seed', parseIntBase10, 1000)
+      .option('--space <space>', 'Kibana space', 'default')
+      .option(
+        '--seed-timestamp <timestamp>',
+        'Seed timestamp for entity.lifecycle.first_seen/last_seen (default: 2020-01-01T00:00:00.000Z)',
+        '2020-01-01T00:00:00.000Z',
+      )
+      .option('--init', 'Enable/install Entity Store V2 before seeding')
+      .description('Seed Entity Store latest index with host entities')
+      .action(
+        wrapAction(async (name, options) => {
+          await seedLatestEntities({
+            name,
+            hosts: options.hosts,
+            space: options.space,
+            seedTimestamp: options.seedTimestamp,
+            init: options.init,
+          });
+        }),
+      );
+
+    program
       .command('upload-perf-data')
       .argument('[file]', 'File to upload')
       .option('--index <index>', 'Destination index')
@@ -181,10 +206,23 @@ export const entityStorePerfCommands: CommandModule = {
         '--noTransforms',
         'Run Entity Store V2 / ESQL flow (enable V2, install V2, no transforms, v2 indices)',
       )
+      .option('--no-id-increment', 'Reuse source entity IDs on each upload iteration')
+      .option(
+        '--duration <duration>',
+        'Run uploads for this wall-clock duration (e.g., 10m, 2h). Overrides --count.',
+      )
+      .option(
+        '--ingest-rate <docsPerSecond>',
+        'Target average ingest rate in docs/s (used to pace iterations)',
+        parseIntBase10,
+      )
+      .option('--bulk-concurrency <n>', 'Bulk helper concurrency (default: 1)', parseIntBase10, 1)
       .option('--index <index>', 'Destination index')
       .description('Upload performance data file')
       .action(
         wrapAction(async (file, options) => {
+          const durationMs =
+            options.duration !== undefined ? parseDuration(options.duration as string) : undefined;
           await uploadPerfDataFileInterval(
             file ?? (await promptForFileSelection(listPerfDataFiles())),
             options.interval * 1000,
@@ -195,6 +233,10 @@ export const entityStorePerfCommands: CommandModule = {
             options.samplingInterval * 1000,
             options.noTransforms,
             options.index,
+            options.idIncrement === false,
+            durationMs,
+            options.ingestRate,
+            options.bulkConcurrency,
           );
         }),
       );

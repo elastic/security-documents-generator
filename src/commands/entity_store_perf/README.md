@@ -1,5 +1,28 @@
 # Entity Store Performance Commands
 
+## `seed-latest-entities`
+
+Seed host entities directly into the Entity Store V2 latest index alias.
+
+### Usage
+
+```bash
+yarn start seed-latest-entities <name> [options]
+```
+
+### Options
+
+- `--hosts <n>`: Number of host entities to seed (default: `1000`)
+- `--space <space>`: Kibana space / latest alias suffix (default: `default`)
+- `--seed-timestamp <timestamp>`: Lifecycle seed timestamp (default: `2020-01-01T00:00:00.000Z`)
+- `--init`: Enable and install Entity Store V2 before seeding
+
+### Example
+
+```bash
+yarn start seed-latest-entities smoke --hosts 1000 --init
+```
+
 ## `create-perf-data`
 
 Create an Entity Store performance JSONL data file.
@@ -83,6 +106,10 @@ yarn start upload-perf-data-interval [file] [options]
 - `--transformTimeout <minutes>`: Generic transform wait timeout (default: `30`)
 - `--samplingInterval <seconds>`: Metrics sampling interval (default: `5`)
 - `--noTransforms`: Run Entity Store V2 / ESQL flow (enable V2, install V2, no transforms, v2 indices). When set, the tool enables and installs Entity Store V2 via Kibana APIs and uses `.entities.v2.latest*` for entity delete/count; the default (no flag) runs the V1/transform flow.
+- `--no-id-increment`: Reuse source entity IDs on each iteration (update-heavy runs)
+- `--duration <duration>`: Wall-clock run duration (e.g., `10m`, `2h`); overrides `--count`
+- `--ingest-rate <docsPerSecond>`: Target average ingest rate used to pace upload cycles
+- `--bulk-concurrency <n>`: Elasticsearch bulk helper concurrency (default: `1`)
 - `--index <index>`: Destination index override
 
 ### Examples
@@ -92,6 +119,7 @@ yarn start upload-perf-data-interval large --deleteData
 yarn start upload-perf-data-interval large --deleteData --interval 60 --count 100
 yarn start upload-perf-data-interval large --deleteData --interval 60 --count 100 --samplingInterval 10
 yarn start upload-perf-data-interval large --deleteData --noTransforms
+yarn start upload-perf-data-interval large --noTransforms --duration 10m --ingest-rate 100 --no-id-increment
 ```
 
 ### Output logs
