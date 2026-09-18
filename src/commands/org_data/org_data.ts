@@ -419,6 +419,20 @@ const displaySummary = (
       );
     }
 
+    const mdeResult = results.find((r) => r.integrationName === 'microsoft_defender_endpoint');
+    if (mdeResult?.success) {
+      log.info(
+        `  Defender Endpoint Logs: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-microsoft_defender_endpoint.log-*')", space })}`,
+      );
+    }
+
+    const m365DefenderResult = results.find((r) => r.integrationName === 'm365_defender');
+    if (m365DefenderResult?.success) {
+      log.info(
+        `  Defender XDR Alerts: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-m365_defender.alert-*')", space })}`,
+      );
+    }
+
     // O365 link
     const o365Result = results.find((r) => r.integrationName === 'o365');
     if (o365Result?.success) {
@@ -708,7 +722,9 @@ Available Integrations:
     aws                - AWS CloudTrail (API calls, console logins, role assumptions)
 
   Endpoint Security:
-    crowdstrike        - CrowdStrike Falcon (host inventory + EDR alerts)
+    crowdstrike                    - CrowdStrike Falcon (host inventory + EDR alerts)
+    microsoft_defender_endpoint    - Microsoft Defender for Endpoint (log/machine/action/vuln)
+    m365_defender                  - Microsoft Defender XDR (alert/event/incident/vuln)
 
   Productivity & Code:
     o365               - Microsoft 365 (Exchange, SharePoint, OneDrive, Teams, AzureAD)
@@ -748,7 +764,8 @@ Detection Rules:
 
 Correlation Features:
   - Employees are created with realistic departments and roles
-  - Each employee has 2 devices (laptop + mobile) with CrowdStrike agents
+  - Each employee has 2 devices (laptop + mobile) with CrowdStrike and Defender device ids
+  - Microsoft Defender host.id is device.defenderDeviceId (distinct from Elastic device.id)
   - Product & Engineering employees have AWS + GitHub access
   - All employees have Duo MFA, 1Password, and Zscaler
   - CrowdStrike alert hashes cross-correlate with TI AbuseCH indicators

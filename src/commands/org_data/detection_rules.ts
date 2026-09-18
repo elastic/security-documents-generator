@@ -290,6 +290,162 @@ const INTEGRATION_DETECTION_RULES: Partial<Record<IntegrationName, DetectionRule
     },
   ],
 
+  microsoft_defender_endpoint: [
+    {
+      name: 'Microsoft Defender Endpoint High Severity Alert',
+      description: 'Detects high-severity Microsoft Defender for Endpoint alerts',
+      query: 'data_stream.dataset: "microsoft_defender_endpoint.log" AND event.severity >= 73',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-microsoft_defender_endpoint.log-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('microsoft_defender_endpoint.log', {
+            event: {
+              action: 'Execution',
+              category: ['host'],
+              type: ['start'],
+              kind: 'alert',
+              severity: faker.helpers.arrayElement([73, 99]),
+              provider: 'defender_endpoint',
+            },
+            host: { name: faker.internet.domainWord(), os: { family: 'windows' } },
+            user: { name: faker.internet.username() },
+          }),
+        ),
+    },
+    {
+      name: 'Microsoft Defender Endpoint Isolation Action',
+      description: 'Detects machine isolation actions issued from Defender for Endpoint',
+      query:
+        'data_stream.dataset: "microsoft_defender_endpoint.machine_action" AND event.action: "Isolate"',
+      severity: 'medium',
+      riskScore: 55,
+      index: ['logs-microsoft_defender_endpoint.machine_action-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('microsoft_defender_endpoint.machine_action', {
+            event: {
+              action: 'Isolate',
+              category: ['host'],
+              type: ['info'],
+              kind: 'event',
+              outcome: 'success',
+            },
+            host: { name: faker.internet.domainWord() },
+          }),
+        ),
+    },
+    {
+      name: 'Microsoft Defender Endpoint High Vulnerability',
+      description: 'Detects high-severity vulnerabilities reported by Defender for Endpoint',
+      query:
+        'data_stream.dataset: "microsoft_defender_endpoint.vulnerability" AND vulnerability.severity: "High"',
+      severity: 'high',
+      riskScore: 70,
+      index: ['logs-microsoft_defender_endpoint.vulnerability-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('microsoft_defender_endpoint.vulnerability', {
+            event: {
+              category: ['vulnerability'],
+              type: ['info'],
+              kind: 'event',
+            },
+            vulnerability: { severity: 'High', id: 'CVE-2024-21412' },
+            host: { name: faker.internet.domainWord() },
+          }),
+        ),
+    },
+  ],
+
+  m365_defender: [
+    {
+      name: 'Microsoft Defender XDR High Severity Alert',
+      description: 'Detects high-severity Microsoft Defender XDR alerts',
+      query: 'data_stream.dataset: "m365_defender.alert" AND event.severity >= 73',
+      severity: 'high',
+      riskScore: 73,
+      index: ['logs-m365_defender.alert-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('m365_defender.alert', {
+            event: {
+              action: 'Execution',
+              category: ['host'],
+              type: ['info'],
+              kind: 'alert',
+              severity: faker.helpers.arrayElement([73, 99]),
+              provider: 'microsoftDefenderForEndpoint',
+            },
+            host: { name: faker.internet.domainWord() },
+            user: { name: faker.internet.username() },
+          }),
+        ),
+    },
+    {
+      name: 'Microsoft Defender XDR Suspicious PowerShell',
+      description: 'Detects Defender XDR alerts titled around suspicious PowerShell',
+      query:
+        'data_stream.dataset: "m365_defender.alert" AND message: "Suspicious PowerShell command line"',
+      severity: 'high',
+      riskScore: 70,
+      index: ['logs-m365_defender.alert-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('m365_defender.alert', {
+            event: {
+              category: ['host'],
+              type: ['info'],
+              kind: 'alert',
+            },
+            message: 'Suspicious PowerShell command line',
+            host: { name: faker.internet.domainWord() },
+          }),
+        ),
+    },
+    {
+      name: 'Microsoft Defender XDR Multi-stage Incident',
+      description: 'Detects active multi-stage incidents in Defender XDR',
+      query: 'data_stream.dataset: "m365_defender.incident" AND event.kind: "alert"',
+      severity: 'critical',
+      riskScore: 85,
+      index: ['logs-m365_defender.incident-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('m365_defender.incident', {
+            event: {
+              kind: 'alert',
+              category: ['intrusion_detection'],
+              type: ['info'],
+            },
+            host: { name: faker.internet.domainWord() },
+          }),
+        ),
+    },
+    {
+      name: 'Microsoft Defender XDR Device Process Event',
+      description: 'Detects Advanced Hunting DeviceProcessEvents from Defender XDR',
+      query: 'data_stream.dataset: "m365_defender.event" AND event.action: "ProcessCreated"',
+      severity: 'medium',
+      riskScore: 47,
+      index: ['logs-m365_defender.event-*'],
+      generateMatchingEvents: (count) =>
+        Array.from({ length: count }, () =>
+          baseEvent('m365_defender.event', {
+            event: {
+              action: 'ProcessCreated',
+              category: ['process'],
+              type: ['start'],
+              kind: 'event',
+            },
+            process: { name: 'powershell.exe' },
+            host: { name: faker.internet.domainWord() },
+          }),
+        ),
+    },
+  ],
+
   o365: [
     {
       name: 'Microsoft 365 Failed Login',

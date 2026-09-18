@@ -34,6 +34,7 @@ export interface Device {
   diskEncryptionEnabled: boolean;
   crowdstrikeAgentId: string;
   crowdstrikeDeviceId: string;
+  defenderDeviceId: string;
   macAddress: string;
   ipAddress: string;
   elasticAgentId: string;
@@ -1113,6 +1114,8 @@ export type IntegrationName =
   | 'aws'
   | 'entra_id'
   | 'crowdstrike'
+  | 'microsoft_defender_endpoint'
+  | 'm365_defender'
   | 'o365'
   | 'github'
   | 'cisco_duo'
@@ -1260,6 +1263,7 @@ export interface CorrelationMap {
   duoUserIdToEmployee: Map<string, Employee>;
   onePasswordUuidToEmployee: Map<string, Employee>;
   crowdstrikeAgentIdToDevice: Map<string, { employee: Employee; device: Device }>;
+  defenderDeviceIdToDevice: Map<string, { employee: Employee; device: Device }>;
   jamfUdidToDevice: Map<string, { employee: Employee; device: Device }>;
   adDnToEmployee: Map<string, Employee>;
   windowsSidToEmployee: Map<string, Employee>;
