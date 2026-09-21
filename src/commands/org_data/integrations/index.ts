@@ -63,6 +63,7 @@ import { MongoDbAtlasIntegration } from './mongodb_atlas_integration.ts';
 import { TeleportIntegration } from './teleport_integration.ts';
 import { ThycoticSsIntegration } from './thycotic_ss_integration.ts';
 import { ZoomIntegration } from './zoom_integration.ts';
+import { WindowsIntegration } from './windows_integration.ts';
 import { type IntegrationName } from '../types.ts';
 import { log } from '../../../utils/logger.ts';
 
@@ -121,6 +122,7 @@ export { MongoDbAtlasIntegration } from './mongodb_atlas_integration.ts';
 export { TeleportIntegration } from './teleport_integration.ts';
 export { ThycoticSsIntegration } from './thycotic_ss_integration.ts';
 export { ZoomIntegration } from './zoom_integration.ts';
+export { WindowsIntegration } from './windows_integration.ts';
 
 /**
  * Create integration registry with all available integrations
@@ -208,6 +210,9 @@ export const createIntegrationRegistry = (): IntegrationRegistry => {
   registry.set('thycotic_ss', new ThycoticSsIntegration());
   registry.set('zoom', new ZoomIntegration());
 
+  // Register Windows Event Forwarding (WEF) integration
+  registry.set('windows', new WindowsIntegration());
+
   return registry;
 };
 
@@ -278,6 +283,7 @@ export const getAvailableIntegrations = (): IntegrationName[] => {
     'teleport',
     'thycotic_ss',
     'zoom',
+    'windows',
   ];
 };
 

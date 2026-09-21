@@ -370,9 +370,9 @@ export class SystemIntegration extends BaseIntegration {
   }
 
   /**
-   * Create a failed SSH login document (brute force attempt) - raw pre-pipeline format
+   * Create a failed SSH login document (brute force attempt)
    */
-  private createFailedSshLoginDocument(host: Host, _ctx: HostContext): IntegrationDocument {
+  private createFailedSshLoginDocument(host: Host, ctx: HostContext): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(48);
     const attackerIp = faker.helpers.arrayElement(ATTACKER_IPS);
     const bruteForceUser = faker.helpers.arrayElement(BRUTE_FORCE_USERNAMES);
@@ -384,22 +384,43 @@ export class SystemIntegration extends BaseIntegration {
     return {
       '@timestamp': timestamp,
       agent: this.buildServerAgent(host),
-      message,
-      input: { type: 'log' },
-      data_stream: {
-        namespace: 'default',
-        type: 'logs',
-        dataset: 'system.auth',
+      cloud: ctx.cloud,
+      data_stream: { namespace: 'default', type: 'logs', dataset: 'system.auth' },
+      ecs: { version: '8.11.0' },
+      elastic_agent: {
+        id: ctx.agentId,
+        snapshot: false,
+        version: this.buildServerAgent(host).version,
       },
+      event: {
+        action: 'ssh_login',
+        agent_id_status: 'auth_metadata_missing',
+        category: ['authentication'],
+        created: timestamp,
+        dataset: 'system.auth',
+        kind: 'event',
+        module: 'system',
+        outcome: 'failure',
+        type: ['start'],
+      },
+      host: ctx.host,
+      input: { type: 'journald' },
+      log: { syslog: { appname: 'sshd', facility: { code: 10 } } },
+      message,
+      process: { name: 'sshd', pid: procId },
+      related: { ip: [attackerIp], user: [bruteForceUser] },
+      source: { address: attackerIp, ip: attackerIp, port },
+      system: { auth: { ssh: { event: 'Invalid' } } },
+      user: { name: bruteForceUser },
     };
   }
 
   /**
-   * Create a successful SSH login document (legitimate employee) - raw pre-pipeline format
+   * Create a successful SSH login document (legitimate employee)
    */
   private createSuccessfulSshLoginDocument(
     host: Host,
-    _ctx: HostContext,
+    ctx: HostContext,
     employee: Employee,
   ): IntegrationDocument {
     const timestamp = this.getRandomTimestamp(48);
@@ -413,16 +434,47 @@ export class SystemIntegration extends BaseIntegration {
       ? `Accepted ${method} for ${employee.userName} from ${sourceIp} port ${sourcePort} ssh2: ${signature}`
       : `Accepted ${method} for ${employee.userName} from ${sourceIp} port ${sourcePort}`;
     const message = `${this.formatSyslogTimestamp(timestamp)} ${host.name} sshd[${procId}]: ${logLine}`;
+    const userId = String(employee.unixUid);
 
     return {
       '@timestamp': timestamp,
       agent: this.buildServerAgent(host),
-      message,
-      input: { type: 'log' },
-      data_stream: {
-        namespace: 'default',
-        type: 'logs',
+      cloud: ctx.cloud,
+      data_stream: { namespace: 'default', type: 'logs', dataset: 'system.auth' },
+      ecs: { version: '8.11.0' },
+      elastic_agent: {
+        id: ctx.agentId,
+        snapshot: false,
+        version: this.buildServerAgent(host).version,
+      },
+      event: {
+        action: 'ssh_login',
+        agent_id_status: 'auth_metadata_missing',
+        category: ['authentication', 'session'],
+        created: timestamp,
         dataset: 'system.auth',
+        kind: 'event',
+        module: 'system',
+        outcome: 'success',
+        type: ['end'],
+      },
+      host: ctx.host,
+      input: { type: 'journald' },
+      log: { syslog: { appname: 'sshd', facility: { code: 10 } } },
+      message,
+      process: { name: 'sshd', pid: procId },
+      related: {
+        hosts: [host.name],
+        ip: [sourceIp],
+        user: [employee.userName],
+      },
+      source: { address: sourceIp, ip: sourceIp, port: sourcePort },
+      system: { auth: { ssh: { event: 'Accepted', method } } },
+      user: {
+        name: employee.userName,
+        id: userId,
+        group: { id: userId, name: employee.userName },
+        effective: { id: userId, group: { id: userId } },
       },
     };
   }
