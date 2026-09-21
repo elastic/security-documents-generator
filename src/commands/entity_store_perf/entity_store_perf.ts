@@ -1,8 +1,9 @@
 import { log } from '../../utils/logger.ts';
 import { faker } from '@faker-js/faker';
 import fs from 'fs';
+import { createHash } from 'crypto';
 import { getEsClient, getFileLineCount } from '../utils/indices.ts';
-import { bulkUpsert } from '../shared/elasticsearch.ts';
+import { bulkUpsert, logBulkErrors } from '../shared/elasticsearch.ts';
 import pMap from 'p-map';
 import { createProgressBar } from '../utils/cli_utils.ts';
 import { ensureSecurityDefaultDataView } from '../../utils/security_default_data_view.ts';
@@ -1712,4 +1713,220 @@ export const uploadPerfDataFileInterval = async (
     bulkConcurrency,
     noIdIncrement,
   );
+};
+
+const DEFAULT_SEED_TIMESTAMP = '2020-01-01T00:00:00.000Z';
+
+const hashEntityId = (entityType: 'host', id: string) =>
+  createHash('sha256')
+    .update(`${entityType}:${id}`)
+    .digest('hex');
+
+/** Small vocabularies so 5M docs compress (~260 B stored on QAF) instead of unique-per-row noise. Production V2 latest is ~400–520 B; this payload will not hit that. */
+const SEED_HOST_OS = [
+  {
+    name: 'Ubuntu',
+    type: 'linux',
+    family: 'debian',
+    platform: 'ubuntu',
+    version: '22.04.5',
+    kernel: '5.15.0-118-generic',
+    full: 'Ubuntu 22.04.5 LTS',
+  },
+  {
+    name: 'Windows Server',
+    type: 'windows',
+    family: 'windows',
+    platform: 'windows',
+    version: '2022',
+    kernel: '10.0.20348.1',
+    full: 'Windows Server 2022 Datacenter',
+  },
+  {
+    name: 'Amazon Linux',
+    type: 'linux',
+    family: 'redhat',
+    platform: 'amzn',
+    version: '2023',
+    kernel: '6.1.115-126.197.amzn2023.x86_64',
+    full: 'Amazon Linux 2023',
+  },
+  {
+    name: 'macOS',
+    type: 'macos',
+    family: 'darwin',
+    platform: 'darwin',
+    version: '14.6.1',
+    kernel: '23.6.0',
+    full: 'macOS 14.6.1',
+  },
+] as const;
+
+const SEED_HOST_CLOUD = [
+  { provider: 'gcp', region: 'us-west1', machineType: 'n2-standard-4' },
+  { provider: 'aws', region: 'us-east-1', machineType: 'm6i.xlarge' },
+  { provider: 'azure', region: 'eastus', machineType: 'Standard_D4s_v5' },
+] as const;
+
+const SEED_HOST_GEO = [
+  {
+    city_name: 'Portland',
+    continent_code: 'NA',
+    continent_name: 'North America',
+    country_iso_code: 'US',
+    country_name: 'United States',
+    name: 'us-west',
+    postal_code: '97201',
+    region_iso_code: 'US-OR',
+    region_name: 'Oregon',
+    timezone: 'America/Los_Angeles',
+  },
+  {
+    city_name: 'Ashburn',
+    continent_code: 'NA',
+    continent_name: 'North America',
+    country_iso_code: 'US',
+    country_name: 'United States',
+    name: 'us-east',
+    postal_code: '20147',
+    region_iso_code: 'US-VA',
+    region_name: 'Virginia',
+    timezone: 'America/New_York',
+  },
+  {
+    city_name: 'Frankfurt',
+    continent_code: 'EU',
+    continent_name: 'Europe',
+    country_iso_code: 'DE',
+    country_name: 'Germany',
+    name: 'eu-central',
+    postal_code: '60311',
+    region_iso_code: 'DE-HE',
+    region_name: 'Hesse',
+    timezone: 'Europe/Berlin',
+  },
+] as const;
+
+const padMacOctet = (value: number): string => value.toString(16).padStart(2, '0');
+
+const buildSeedHostDocument = ({
+  name,
+  index,
+  timestamp,
+}: {
+  name: string;
+  index: number;
+  timestamp: string;
+}) => {
+  const hostId = `${name}-host-${index}`;
+  const entityId = `host:${hostId}`;
+  const os = SEED_HOST_OS[index % SEED_HOST_OS.length];
+  const cloud = SEED_HOST_CLOUD[index % SEED_HOST_CLOUD.length];
+  const geo = SEED_HOST_GEO[index % SEED_HOST_GEO.length];
+  const octetA = (index >> 16) & 255;
+  const octetB = (index >> 8) & 255;
+  const octetC = index & 255;
+
+  return {
+    '@timestamp': timestamp,
+    event: { ingested: timestamp },
+    entity: {
+      EngineMetadata: { Type: 'host' },
+      id: entityId,
+      name: hostId,
+      source: 'sdg-seed-latest-entities',
+      lifecycle: {
+        first_seen: timestamp,
+        last_seen: timestamp,
+      },
+    },
+    host: {
+      id: hostId,
+      name: hostId,
+      hostname: `${hostId}.example.${name}.com`,
+      domain: `example.${name}.com`,
+      ip: [`10.${octetA}.${octetB}.${octetC}`, `10.${octetA ^ 1}.${octetB}.${(octetC + 17) & 255}`],
+      mac: [
+        `00:11:22:33:${padMacOctet(octetB)}:${padMacOctet(octetC)}`,
+        `00:11:22:44:${padMacOctet(octetB)}:${padMacOctet(octetC)}`,
+      ],
+      type: index % 5 === 0 ? 'desktop' : 'server',
+      architecture: ['x86_64'],
+      os: { ...os },
+      geo: { ...geo },
+      boot: { id: `boot-${padMacOctet(octetA)}${padMacOctet(octetB)}${padMacOctet(octetC)}` },
+    },
+    cloud: {
+      provider: cloud.provider,
+      region: cloud.region,
+      instance: { id: `i-${index.toString(16).padStart(8, '0')}` },
+      machine: { type: cloud.machineType },
+    },
+    agent: { id: `agent-${index.toString(16).padStart(8, '0')}`, type: 'endpoint' },
+    endpoint: { id: `endpoint-${index.toString(16).padStart(8, '0')}` },
+  };
+};
+
+export const seedLatestEntities = async ({
+  name,
+  hosts,
+  space = 'default',
+  seedTimestamp = DEFAULT_SEED_TIMESTAMP,
+  init = false,
+}: {
+  name: string;
+  hosts: number;
+  space?: string;
+  seedTimestamp?: string;
+  init?: boolean;
+}) => {
+  if (!Number.isInteger(hosts) || hosts <= 0) {
+    throw new Error(`hosts must be a positive integer, got: ${String(hosts)}`);
+  }
+  const seedDate = new Date(seedTimestamp);
+  if (Number.isNaN(seedDate.getTime())) {
+    throw new Error(`Invalid seed timestamp: ${seedTimestamp}`);
+  }
+  const normalizedSeedTimestamp = seedDate.toISOString();
+
+  if (init) {
+    log.info(`Initializing Entity Store V2 for space "${space}"...`);
+    await enableEntityStoreV2(space);
+    await installEntityStoreV2(space);
+  }
+
+  const esClient = getEsClient();
+  const aliasName = `entities-latest-${space}`;
+  const progress = createProgressBar('seed', {
+    format: '{bar} | {percentage}% | {value}/{total} Seeded Hosts',
+  });
+  progress.start(hosts, 0);
+
+  const batchSize = 1000;
+  for (let start = 1; start <= hosts; start += batchSize) {
+    const end = Math.min(start + batchSize - 1, hosts);
+    const operations = [];
+    for (let i = start; i <= end; i++) {
+      const hostId = `${name}-host-${i}`;
+      const doc = buildSeedHostDocument({
+        name,
+        index: i,
+        timestamp: normalizedSeedTimestamp,
+      });
+      operations.push({ index: { _index: aliasName, _id: hashEntityId('host', hostId) } }, doc);
+    }
+    const result = await esClient.bulk({ operations, refresh: false, pipeline: '_none' });
+    logBulkErrors(result, `Bulk seed for ${aliasName} reported errors.`);
+    progress.increment(end - start + 1);
+  }
+
+  progress.stop();
+  await esClient.indices.refresh({ index: aliasName });
+
+  const sampleHostId = `${name}-host-1`;
+  const sampleDocId = hashEntityId('host', sampleHostId);
+  log.info(`Seeded ${hosts} host entities into ${aliasName}`);
+  log.info(`Sample host.id: ${sampleHostId}`);
+  log.info(`Sample latest _id (sha256('host:${sampleHostId}')): ${sampleDocId}`);
+  log.info(`Seed timestamp used for lifecycle: ${normalizedSeedTimestamp}`);
 };
