@@ -1160,7 +1160,8 @@ export type IntegrationName =
   | 'mongodb_atlas'
   | 'teleport'
   | 'thycotic_ss'
-  | 'zoom';
+  | 'zoom'
+  | 'windows';
 
 /**
  * @deprecated Legacy type from entityanalytics_jamf integration.

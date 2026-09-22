@@ -26,6 +26,78 @@ import { faker } from '@faker-js/faker';
 const IDENTITY_SOURCE = 'entra_id-saas-organization';
 
 /**
+ * Tags applied to every published document.
+ *
+ * `preserve_duplicate_custom_fields` is load-bearing, not cosmetic. Without it the
+ * entity default pipeline strips every subfield of
+ * entityanalytics_entra_id.device.registered_owners (id, mail, user_principal_name,
+ * ...) as "duplicates", on the assumption they are already covered by related.user:
+ *
+ *   default.yml -> foreach entityanalytics_entra_id.device.registered_owners
+ *                  remove [id, user_principal_name, mail, ...]
+ *                  if: !ctx.tags.contains('preserve_duplicate_custom_fields')
+ *
+ * That would leave only the flat related.user array (UPN/mail/display_name mixed
+ * together, no id), which is too weak to resolve a device's owner back to a user.
+ * The package's own pipeline fixtures set the same tag via test-common-config.yml,
+ * which is why their expected output retains populated owners.
+ *
+ * Note this models a policy with "Preserve duplicate custom fields" enabled; real
+ * Filebeat leaves it off by default.
+ */
+const ENTITY_TAGS = [
+  'forwarded',
+  'entityanalytics_entra_id-entity',
+  'preserve_duplicate_custom_fields',
+];
+
+/**
+ * Entra ID exposes two distinct login/contact identifiers per user, and they are
+ * routinely different in real tenants: userPrincipalName is the sign-in name,
+ * while mail is the SMTP address of the mailbox (and is absent entirely for
+ * accounts without one).
+ *
+ * The entity pipeline maps them to two different ECS fields:
+ *   azure_ad.userPrincipalName -> user.name
+ *   azure_ad.mail              -> user.email
+ *
+ * Employee.email is a single value shared by ~40 other integrations, so deriving
+ * mail from it verbatim would make user.name and user.email identical. Anything
+ * resolving a device's registered owner back to a user by ranking id > UPN > mail
+ * would then pass even if it matched on the wrong field. Deriving mail with a
+ * different local-part separator keeps the two independently verifiable without
+ * touching the shared Employee.email that other integrations correlate on.
+ */
+const entraUserPrincipalName = (employee: Employee): string => employee.email;
+
+const entraMail = (employee: Employee): string => {
+  const atIndex = employee.email.lastIndexOf('@');
+  if (atIndex === -1) return employee.email;
+  const localPart = employee.email.slice(0, atIndex).replaceAll('.', '_');
+  return `${localPart}${employee.email.slice(atIndex)}`;
+};
+
+/**
+ * Build the registered owner/user object for a device, in the raw camelCase Graph
+ * shape that Filebeat publishes. The entity pipeline snake-cases these keys into
+ * entityanalytics_entra_id.device.registered_owners.*
+ *
+ * The id/userPrincipalName/mail triple is what lets a device document be joined
+ * back to its owner's user document on user.id / user.name / user.email.
+ */
+const buildOwnerInfo = (employee: Employee) => ({
+  id: employee.entraIdUserId,
+  userPrincipalName: entraUserPrincipalName(employee),
+  mail: entraMail(employee),
+  displayName: `${employee.firstName} ${employee.lastName}`,
+  givenName: employee.firstName,
+  surname: employee.lastName,
+  jobTitle: employee.role,
+  mobilePhone: faker.phone.number({ style: 'international' }),
+  businessPhones: [faker.phone.number({ style: 'international' })],
+});
+
+/**
  * Entra ID Entity Analytics Integration
  * Generates users and devices synced from Microsoft Entra ID (formerly Azure AD)
  */
@@ -77,6 +149,12 @@ export class EntraIdIntegration extends BaseIntegration {
       }
     }
 
+    // Shared workstation with multiple registered owners
+    const sharedWorkstation = this.createSharedDeviceDocument(org, timestamp);
+    if (sharedWorkstation) {
+      documents.push(sharedWorkstation);
+    }
+
     // Sync end marker
     documents.push(this.createSyncMarker('completed', timestamp, entityDataset, centralAgent));
 
@@ -114,16 +192,16 @@ export class EntraIdIntegration extends BaseIntegration {
       .map((report) => ({
         id: report.entraIdUserId,
         displayName: `${report.firstName} ${report.lastName}`,
-        userPrincipalName: report.email,
-        mail: report.email,
+        userPrincipalName: entraUserPrincipalName(report),
+        mail: entraMail(report),
       }));
 
     return {
       '@timestamp': timestamp,
       agent: this.buildCentralAgent(org),
       azure_ad: {
-        userPrincipalName: employee.email,
-        mail: employee.email,
+        userPrincipalName: entraUserPrincipalName(employee),
+        mail: entraMail(employee),
         displayName: `${employee.firstName} ${employee.lastName}`,
         givenName: employee.firstName,
         surname: employee.lastName,
@@ -148,7 +226,7 @@ export class EntraIdIntegration extends BaseIntegration {
       labels: {
         identity_source: IDENTITY_SOURCE,
       },
-      tags: ['forwarded', 'entityanalytics_entra_id-entity'],
+      tags: ENTITY_TAGS,
     };
   }
 
@@ -182,17 +260,7 @@ export class EntraIdIntegration extends BaseIntegration {
     const deviceGroups = this.getDeviceGroups(device, org.entraIdGroups);
 
     // Create registered owner/user info
-    const ownerInfo = {
-      id: employee.entraIdUserId,
-      userPrincipalName: employee.email,
-      mail: employee.email,
-      displayName: `${employee.firstName} ${employee.lastName}`,
-      givenName: employee.firstName,
-      surname: employee.lastName,
-      jobTitle: employee.role,
-      mobilePhone: faker.phone.number({ style: 'international' }),
-      businessPhones: [faker.phone.number({ style: 'international' })],
-    };
+    const ownerInfo = buildOwnerInfo(employee);
 
     // Generate device display name in Entra ID format
     const entraDisplayName = this.generateEntraDeviceName(device.platform, employee);
@@ -241,7 +309,85 @@ export class EntraIdIntegration extends BaseIntegration {
       labels: {
         identity_source: IDENTITY_SOURCE,
       },
-      tags: ['forwarded', 'entityanalytics_entra_id-entity'],
+      tags: ENTITY_TAGS,
+    };
+  }
+
+  /**
+   * Create a shared workstation registered to multiple owners.
+   *
+   * Per-employee devices always carry exactly one registered owner, which leaves
+   * the multi-owner case untested. It matters because
+   * entityanalytics_entra_id.device.registered_owners is mapped as an object
+   * group rather than `nested`, so Elasticsearch flattens the array at index
+   * time:
+   *
+   *   registered_owners.id                  = [<owner A id>, <owner B id>]
+   *   registered_owners.user_principal_name  = [<owner A upn>, <owner B upn>]
+   *
+   * The per-object correlation is lost, so a query combining two owner attributes
+   * matches this document even when no single owner has that combination. Any
+   * owner-to-user resolver needs a device like this to exercise that ambiguity,
+   * and to confirm it emits one match per owner rather than collapsing to one.
+   *
+   * Returns null for organizations too small to have two distinct owners.
+   */
+  private createSharedDeviceDocument(
+    org: Organization,
+    timestamp: string,
+  ): EntraIdDeviceDocument | null {
+    const owners = org.employees.slice(0, 2);
+    if (owners.length < 2) return null;
+
+    const registrationDate = faker.date.past({ years: 1 }).toISOString();
+    const lastSignIn = faker.date.recent({ days: 7 }).toISOString();
+    const osInfo = this.getOsInfo('windows');
+    const deviceGroups = this.getDeviceGroups(
+      { diskEncryptionEnabled: true, platform: 'windows' } as Device,
+      org.entraIdGroups,
+    );
+
+    return {
+      '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
+      azure_ad: {
+        accountEnabled: true,
+        displayName: `SHARED-WORKSTATION-${faker.string.alphanumeric(5).toUpperCase()}`,
+        operatingSystem: osInfo.name,
+        operatingSystemVersion: osInfo.version,
+        manufacturer: 'Dell Inc.',
+        model: 'OptiPlex 7090',
+        isManaged: true,
+        isCompliant: true,
+        trustType: 'AzureAd',
+        deviceId: faker.string.uuid(),
+        registrationDateTime: registrationDate,
+        approximateLastSignInDateTime: lastSignIn,
+        onPremisesSyncEnabled: false,
+        physicalIds: [`[OrderId]:${faker.string.alphanumeric(12).toUpperCase()}`],
+        alternativeSecurityIds: [
+          {
+            type: 2,
+            key: faker.string.alphanumeric(64),
+          },
+        ],
+      },
+      event: {
+        action: 'device-discovered',
+      },
+      device: {
+        id: faker.string.uuid(), // Entra ID device object ID
+        group: deviceGroups.map((g) => ({
+          id: g.id,
+          name: g.name,
+        })),
+        registered_owners: owners.map((owner) => buildOwnerInfo(owner)),
+        registered_users: owners.map((owner) => buildOwnerInfo(owner)),
+      },
+      labels: {
+        identity_source: IDENTITY_SOURCE,
+      },
+      tags: ENTITY_TAGS,
     };
   }
 
