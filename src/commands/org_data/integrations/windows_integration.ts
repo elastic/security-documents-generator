@@ -599,9 +599,13 @@ export class WindowsIntegration extends BaseIntegration {
       agentId: device.elasticAgentId,
       hostname,
       host: {
+        id: device.id,
+        ip: [device.ipAddress],
+        mac: [device.macAddress],
         name: hostname,
         os: {
           family: 'windows',
+          platform: 'windows',
           type: 'windows',
         },
       },
