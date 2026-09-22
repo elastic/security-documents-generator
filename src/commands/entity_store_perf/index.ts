@@ -11,6 +11,7 @@ import {
 import {
   createPerfDataFile,
   listPerfDataFiles,
+  seedLatestEntities,
   uploadPerfDataFile,
   uploadPerfDataFileInterval,
   DEFAULT_UPLOAD_BULK_CONCURRENCY,
@@ -112,6 +113,30 @@ export const entityStorePerfCommands: CommandModule = {
               distribution: distributionType,
             });
           }
+        }),
+      );
+
+    program
+      .command('seed-latest-entities')
+      .argument('<name>', 'base name/prefix for seeded host IDs')
+      .option('--hosts <n>', 'number of host entities to seed', parseIntBase10, 1000)
+      .option('--space <space>', 'Kibana space', 'default')
+      .option(
+        '--seed-timestamp <timestamp>',
+        'Seed timestamp for entity.lifecycle.first_seen/last_seen (default: 2020-01-01T00:00:00.000Z)',
+        '2020-01-01T00:00:00.000Z',
+      )
+      .option('--init', 'Enable/install Entity Store V2 before seeding')
+      .description('Seed Entity Store V2 latest index with host entities (direct bulk, not JSONL)')
+      .action(
+        wrapAction(async (name, options) => {
+          await seedLatestEntities({
+            name,
+            hosts: options.hosts,
+            space: options.space,
+            seedTimestamp: options.seedTimestamp,
+            init: options.init,
+          });
         }),
       );
 
