@@ -48,7 +48,7 @@ const assignScenarios = (
       yesterdayScore = randScore(5, 65);
       todayScore = randScore(72, 98);
     } else if (i < clampedNewlyHigh + clampedMover) {
-      // Today score fixed at High (80–98) so the delta is ≥10 vs the real risk
+      // Today score fixed at High (80–98) so the delta is ≥15 vs the real risk
       // engine's typical stable score (~67–70). A relative offset from a seeded
       // yesterday value can land below that threshold and produce a false negative.
       scenario = 'mover';
@@ -126,7 +126,7 @@ const logSummary = (scored: ScoredEntity[]) => {
     );
   }
 
-  log.info(`  Risk Movers ≥10pt delta (${movers.length}):`);
+  log.info(`  Risk Movers ≥15pt delta (${movers.length}):`);
   for (const e of movers) {
     const delta = e.todayScore - e.yesterdayScore;
     log.info(

@@ -59,10 +59,6 @@ export const natPerfCommand = async (opts: NatPerfOptions): Promise<void> => {
       `${totalBatches} batch(es) of up to ${batchSize} | kinds=[${entityKinds.join(',')}]`,
   );
 
-  // Seed anomaly records once upfront (tile 2) — correlates with whatever is in the entity store at this point
-  log.info('\n[Tile 2] Seeding ML anomaly records once (correlated with entity store)...');
-  await generateAnomalousBehaviorDataWithMlJobs(space, 10, false, true, true);
-
   let totalSeeded = 0;
 
   for (let batch = 0; batch < totalBatches; batch++) {
@@ -93,6 +89,12 @@ export const natPerfCommand = async (opts: NatPerfOptions): Promise<void> => {
     applyCounts(riskScoreOpts, kindCounts);
 
     await riskScoreV2Command(riskScoreOpts);
+
+    // Seed anomaly records after the first batch so entity store is populated for correlation
+    if (isFirst) {
+      log.info('\n[Tile 2] Seeding ML anomaly records once (correlated with entity store)...');
+      await generateAnomalousBehaviorDataWithMlJobs(space, 10, false, true, true);
+    }
 
     const moverCount = Math.max(1, Math.round(currentBatchSize * 0.2));
     const newlyHighCount = Math.max(1, Math.min(Math.round(currentBatchSize * 0.1), moverCount));

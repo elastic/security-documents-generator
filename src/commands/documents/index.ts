@@ -24,8 +24,8 @@ export const documentCommands: CommandModule = {
       .command('generate-alerts')
       .option('-n <n>', 'number of alerts')
       .option('-h <h>', 'number of hosts')
-      .option('-u <h>', 'number of users')
-      .option('-s <h>', 'space (will be created if it does not exist)')
+      .option('-u <u>', 'number of users')
+      .option('-s <s>', 'space (will be created if it does not exist)')
       .option(
         '--time-spread <duration>',
         'Spread alert @timestamp values randomly over the given duration ending at now (e.g., 7d, 12h, 30m). Without it, every alert lands at the moment of generation',
