@@ -23,14 +23,14 @@ type EntityScenario = 'newly_high' | 'mover' | 'stable';
 
 interface ScoredEntity {
   entity: EntityHit;
-  entityType: 'host' | 'user';
+  entityType: 'host' | 'user' | 'service';
   scenario: EntityScenario;
   yesterdayScore: number;
   todayScore: number;
 }
 
 const assignScenarios = (
-  entities: Array<{ entity: EntityHit; entityType: 'host' | 'user' }>,
+  entities: Array<{ entity: EntityHit; entityType: 'host' | 'user' | 'service' }>,
   newlyHighCount: number,
   moverCount: number,
 ): ScoredEntity[] => {
@@ -68,7 +68,7 @@ const assignScenarios = (
 
 const buildRiskScoreDoc = (
   entity: EntityHit,
-  entityType: 'host' | 'user',
+  entityType: 'host' | 'user' | 'service',
   scoreNorm: number,
   timestamp: Date,
   space: string,
@@ -78,7 +78,9 @@ const buildRiskScoreDoc = (
   const rawName =
     entityType === 'user'
       ? (src.user?.name ?? src.entity?.name)
-      : (src.host?.name ?? src.entity?.name);
+      : entityType === 'service'
+        ? (src.service?.name ?? src.entity?.name)
+        : (src.host?.name ?? src.entity?.name);
   // Real risk engine docs write the full EUID (e.g. 'host:my-host') as the
   // type-specific name field. The tile LOOKUP JOIN keys on COALESCE(host.name,
   // user.name) so it must match entity.id in entities-latest — which is the EUID.
@@ -145,11 +147,13 @@ const updateEntityStoreRiskLevels = async (scored: ScoredEntity[], space: string
     const rawName =
       entityType === 'user'
         ? (src.user?.name ?? src.entity?.name)
-        : (src.host?.name ?? src.entity?.name);
+        : entityType === 'service'
+          ? (src.service?.name ?? src.entity?.name)
+          : (src.host?.name ?? src.entity?.name);
     const entityId = src.entity?.id ?? `${entityType}:${rawName ?? entity._id}`;
     const level = scoreNormToLevel(todayScore);
     return {
-      type: entityType as 'user' | 'host',
+      type: entityType as 'user' | 'host' | 'service',
       doc: {
         'entity.id': entityId,
         'entity.risk.calculated_level': level,
@@ -225,9 +229,10 @@ export const seedRiskScoreHistory = async (opts: SeedRiskScoreHistoryOptions) =>
   const riskScoreIndex = `risk-score.risk-score-${space}`;
 
   log.info(`Fetching entities from entity store in space "${space}"...`);
-  const [userHits, hostHits, resolutionTargetIds] = await Promise.all([
+  const [userHits, hostHits, serviceHits, resolutionTargetIds] = await Promise.all([
     fetchEntities(count, space, 'Identity'),
     fetchEntities(count, space, 'Host'),
+    fetchEntities(count, space, 'Service'),
     fetchResolutionGroupIds(riskScoreIndex),
   ]);
 
@@ -240,6 +245,7 @@ export const seedRiskScoreHistory = async (opts: SeedRiskScoreHistoryOptions) =>
   const allEntities = [
     ...userHits.map((entity) => ({ entity, entityType: 'user' as const })),
     ...hostHits.map((entity) => ({ entity, entityType: 'host' as const })),
+    ...serviceHits.map((entity) => ({ entity, entityType: 'service' as const })),
   ].filter(({ entity }) => {
     const src = entity._source;
     const entityId = src?.entity?.id;
@@ -253,7 +259,7 @@ export const seedRiskScoreHistory = async (opts: SeedRiskScoreHistoryOptions) =>
   }
 
   log.info(
-    `Found ${allEntities.length} entities (${userHits.length} users, ${hostHits.length} hosts) after excluding resolution targets.`,
+    `Found ${allEntities.length} entities (${userHits.length} users, ${hostHits.length} hosts, ${serviceHits.length} services) after excluding resolution targets.`,
   );
 
   const scored = assignScenarios(allEntities, newlyHighCount, moverCount);

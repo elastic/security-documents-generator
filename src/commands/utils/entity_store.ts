@@ -34,6 +34,9 @@ export interface EntityHitSource {
     name?: string;
     id?: string;
   };
+  service?: {
+    name?: string;
+  };
   asset?: {
     criticality?: string;
     [key: string]: unknown;
@@ -50,7 +53,7 @@ export interface EntityHit {
 export const fetchEntities = async (
   count: number,
   space?: string,
-  type: 'Identity' | 'Host' = 'Identity',
+  type: 'Identity' | 'Host' | 'Service' = 'Identity',
 ): Promise<EntityHit[]> => {
   if (count <= 0) return [];
 
