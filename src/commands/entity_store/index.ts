@@ -18,6 +18,9 @@ import {
 } from '../utils/interactive_prompts.ts';
 import { ensureSpace } from '../../utils/index.ts';
 import { riskScoreV2Command } from './risk_score_v2.ts';
+import { seedRiskScoreHistory } from './seed_risk_score_history.ts';
+import { natPerfCommand } from './nat_perf.ts';
+import { parseOptionInt } from '../utils/cli_utils.ts';
 
 export const entityStoreCommands: CommandModule = {
   register(program: Command) {
@@ -220,6 +223,14 @@ export const entityStoreCommands: CommandModule = {
       .option('--local-users <n>', 'number of local user entities when local_user kind is enabled')
       .option('--services <n>', 'number of service entities when service kind is enabled')
       .option('--alerts-per-entity <n>', 'number of alerts per entity (default 5)')
+      .option(
+        '--alert-risk-score-min <n>',
+        'minimum kibana.alert.risk_score value, 0–100 (default 20)',
+      )
+      .option(
+        '--alert-risk-score-max <n>',
+        'maximum kibana.alert.risk_score value, 0–100 (default 100)',
+      )
       .option('--space <space>', 'space to use', 'default')
       .option('--event-index <index>', 'event index to ingest source documents into')
       .option('--seed-source <source>', 'entity seed source: basic|org (default basic)')
@@ -277,6 +288,96 @@ export const entityStoreCommands: CommandModule = {
       .action(
         wrapAction(async (options) => {
           await riskScoreV2Command(options);
+        }),
+      );
+
+    program
+      .command('seed-risk-score-history')
+      .description(
+        'Seed risk-score.risk-score-<space> with two backdated batches (yesterday + today) to populate the Risk Movers and Newly High/Critical tiles',
+      )
+      .option('--space <space>', 'Kibana space ID', 'default')
+      .option('--count <n>', 'max entities to use per entity type (user/host) (default 10)')
+      .option('--yesterday-hours <n>', 'hours ago for the "yesterday" batch (default 36)')
+      .option('--today-hours <n>', 'hours ago for the "today" batch (default 2)')
+      .option('--movers <n>', 'number of entities with score delta ≥15 between batches (default 3)')
+      .option(
+        '--newly-high <n>',
+        'number of entities that move from Low/Moderate → High/Critical (default 2)',
+      )
+      .option(
+        '--clean',
+        'delete previously-seeded docs (by deterministic ID) before writing — safe to use alongside real risk engine data',
+        false,
+      )
+      .action(
+        wrapAction(async (options) => {
+          const count = parseOptionInt(options.count, 10);
+          const yesterdayHours = parseOptionInt(options.yesterdayHours, 36);
+          const todayHours = parseOptionInt(options.todayHours, 2);
+          if (count <= 0) {
+            log.error('--count must be a positive integer');
+            process.exit(1);
+          }
+          if (yesterdayHours < 0 || todayHours < 0) {
+            log.error('--yesterday-hours and --today-hours must be non-negative');
+            process.exit(1);
+          }
+          if (todayHours >= yesterdayHours) {
+            log.error('--today-hours must be less than --yesterday-hours');
+            process.exit(1);
+          }
+          await seedRiskScoreHistory({
+            space: options.space ?? 'default',
+            count,
+            yesterdayHours,
+            todayHours,
+            newlyHighCount: parseOptionInt(options.newlyHigh, 2),
+            moverCount: parseOptionInt(options.movers, 3),
+            clean: Boolean(options.clean),
+          });
+        }),
+      );
+
+    program
+      .command('nat-perf')
+      .description(
+        'Seed all 6 NAT tile data requirements in batches towards a total entity target. ' +
+          'Runs risk-score-v2 + seed-risk-score-history per batch, and seeds ML anomaly records once upfront.',
+      )
+      .option('--total-entities <n>', 'target total entity count (default 10000)')
+      .option('--batch-size <n>', 'entities per batch (default 2000)')
+      .option(
+        '--entity-kinds <kinds>',
+        'comma-separated: host,idp_user,local_user,service (default host,idp_user)',
+      )
+      .option('--alerts-per-entity <n>', 'alerts per entity per batch (default 5)')
+      .option('--alert-risk-score-min <n>', 'minimum alert risk score 0–100 (default 70)')
+      .option('--alert-risk-score-max <n>', 'maximum alert risk score 0–100 (default 100)')
+      .option('--space <space>', 'Kibana space ID (default: "default")', 'default')
+      .option('--delay-seconds <n>', 'seconds to wait between batches (default 0)')
+      .option(
+        '--clean-history',
+        'delete previously-seeded risk score history docs before each batch write — suppresses 409 conflicts on repeat runs',
+        false,
+      )
+      .action(
+        wrapAction(async (options) => {
+          const kinds = (options.entityKinds ?? 'host,idp_user')
+            .split(',')
+            .map((k: string) => k.trim())
+            .filter(Boolean);
+          await natPerfCommand({
+            totalEntities: parseOptionInt(options.totalEntities, 10000),
+            batchSize: parseOptionInt(options.batchSize, 2000),
+            entityKinds: kinds,
+            alertsPerEntity: parseOptionInt(options.alertsPerEntity, 5),
+            alertRiskScoreMin: parseOptionInt(options.alertRiskScoreMin, 70),
+            alertRiskScoreMax: parseOptionInt(options.alertRiskScoreMax, 100),
+            space: options.space ?? 'default',
+            delaySeconds: parseOptionInt(options.delaySeconds, 0),
+            cleanHistory: Boolean(options.cleanHistory),
+          });
         }),
       );
   },
