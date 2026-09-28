@@ -3,8 +3,11 @@ import { select } from '@inquirer/prompts';
 import { log } from '../../utils/logger.ts';
 
 export const parseIntBase10 = (input: string) => parseInt(input, 10);
-export const parseOptionInt = (input: string | undefined, fallback: number): number =>
-  input ? parseIntBase10(input) : fallback;
+export const parseOptionInt = (input: string | undefined, fallback: number): number => {
+  if (!input) return fallback;
+  const parsed = parseIntBase10(input);
+  return Number.isNaN(parsed) ? fallback : parsed;
+};
 
 /** Exit if value is not a positive integer (guards against NaN from parseIntBase10). */
 export const assertPositiveInt = (value: number, flagName: string): void => {
