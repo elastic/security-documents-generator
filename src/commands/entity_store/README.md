@@ -133,7 +133,6 @@ yarn start seed-risk-score-history [options]
 
 - `--space <space>`: Kibana space ID (default `default`)
 - `--count <n>`: max entities to use per entity type — user, host, and service (default `10`)
-- `--yesterday-hours <n>`: hours ago for the "yesterday" batch (default `36`)
 - `--today-hours <n>`: hours ago for the "today" batch (default `2`)
 - `--movers <n>`: entities guaranteed to have score delta ≥15 between batches (default `3`)
 - `--newly-high <n>`: entities that move from Low/Moderate → High/Critical between batches (default `2`)
@@ -143,11 +142,13 @@ yarn start seed-risk-score-history [options]
 
 Entities are assigned scenarios in order:
 
-| Scenario     | Yesterday score             | Today score           | Drives tile |
+Boundary docs are written at 25h, 169h, and 721h ago so the Risk Movers tile sees a valid "before" score regardless of whether the user selects the 24h, 7d, or 30d view.
+
+| Scenario     | Boundary score              | Today score           | Drives tile |
 | ------------ | --------------------------- | --------------------- | ----------- |
 | `newly_high` | 5–65 (Unknown/Low/Moderate) | 72–98 (High/Critical) | Newly H/C   |
 | `mover`      | 5–65 (Unknown/Low/Moderate) | 80–98 (High/Critical) | Risk Movers |
-| `stable`     | 5–95                        | yesterday ± 5         | —           |
+| `stable`     | 5–95                        | boundary ± 5          | —           |
 
 ### Example
 

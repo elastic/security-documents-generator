@@ -72,7 +72,7 @@ const buildRiskScoreDoc = (
   scoreNorm: number,
   timestamp: Date,
   space: string,
-  slot: 'yesterday' | 'today',
+  slot: 'boundary-24h' | 'boundary-7d' | 'boundary-30d' | 'today',
 ): { _id: string; doc: object } => {
   const src = entity._source;
   const rawName =
@@ -175,10 +175,15 @@ const updateEntityStoreRiskLevels = async (scored: ScoredEntity[], space: string
   log.info(`Entity store risk levels updated for ${entities.length} entities.`);
 };
 
+// Boundary timestamps that place one doc just past each tile's period boundary,
+// within its fetch window (+2h buffer). Covers 24h (26h window), 7d (170h window),
+// and 30d (722h window) tile views simultaneously.
+const BOUNDARY_HOURS_AGO = [25, 169, 721] as const;
+const BOUNDARY_SLOTS = ['boundary-24h', 'boundary-7d', 'boundary-30d'] as const;
+
 export interface SeedRiskScoreHistoryOptions {
   count: number;
   space: string;
-  yesterdayHours: number;
   todayHours: number;
   newlyHighCount: number;
   moverCount: number;
@@ -225,7 +230,7 @@ const fetchResolutionGroupIds = async (riskScoreIndex: string): Promise<Set<stri
 };
 
 export const seedRiskScoreHistory = async (opts: SeedRiskScoreHistoryOptions) => {
-  const { count, space, yesterdayHours, todayHours, newlyHighCount, moverCount, clean } = opts;
+  const { count, space, todayHours, newlyHighCount, moverCount, clean } = opts;
   const riskScoreIndex = `risk-score.risk-score-${space}`;
 
   log.info(`Fetching entities from entity store in space "${space}"...`);
@@ -264,28 +269,32 @@ export const seedRiskScoreHistory = async (opts: SeedRiskScoreHistoryOptions) =>
 
   const scored = assignScenarios(allEntities, newlyHighCount, moverCount);
 
-  const yesterdayTs = new Date(Date.now() - yesterdayHours * 3600_000);
-  const todayTs = new Date(Date.now() - todayHours * 3600_000);
+  const now = Date.now();
+  const todayTs = new Date(now - todayHours * 3600_000);
+  const boundaryTimestamps = BOUNDARY_HOURS_AGO.map((h) => new Date(now - h * 3600_000));
 
-  const yesterdayResults = scored.map(({ entity, entityType, yesterdayScore }) =>
-    buildRiskScoreDoc(entity, entityType, yesterdayScore, yesterdayTs, space, 'yesterday'),
+  // One boundary doc per time-window (24h/7d/30d) so the tile always finds a
+  // "before" score regardless of which view the user has selected.
+  const boundaryResults = scored.flatMap(({ entity, entityType, yesterdayScore }) =>
+    boundaryTimestamps.map((ts, i) =>
+      buildRiskScoreDoc(entity, entityType, yesterdayScore, ts, space, BOUNDARY_SLOTS[i]),
+    ),
   );
 
   const todayResults = scored.map(({ entity, entityType, todayScore }) =>
     buildRiskScoreDoc(entity, entityType, todayScore, todayTs, space, 'today'),
   );
 
-  const allResults = [...yesterdayResults, ...todayResults];
+  const allResults = [...boundaryResults, ...todayResults];
 
   if (clean) {
     const seededIds = allResults.map(({ _id }) => _id);
-    // Also delete stale seeded docs for resolution targets (which are excluded from
-    // the current run). Without this, old seeded docs from a previous run remain as
-    // the most-recent doc for those entities and break the risk contributions flyout.
-    const staleResolutionIds = [...resolutionTargetIds].flatMap((entityId) => [
-      `seed-rsh-${space}-${entityId}-today`,
-      `seed-rsh-${space}-${entityId}-yesterday`,
-    ]);
+    // Also delete stale seeded docs for resolution targets and old 'yesterday' slot
+    // from previous runs (slot was renamed to boundary-* in a later version).
+    const staleSlots = [...BOUNDARY_SLOTS, 'today', 'yesterday'];
+    const staleResolutionIds = [...resolutionTargetIds].flatMap((entityId) =>
+      staleSlots.map((slot) => `seed-rsh-${space}-${entityId}-${slot}`),
+    );
     const allIdsToDelete = [...seededIds, ...staleResolutionIds];
     log.info(`Deleting ${allIdsToDelete.length} previously-seeded docs from ${riskScoreIndex}...`);
     const esClient = getEsClient();
@@ -300,7 +309,7 @@ export const seedRiskScoreHistory = async (opts: SeedRiskScoreHistoryOptions) =>
   }
 
   log.info(
-    `Building two batches: yesterday=${yesterdayTs.toISOString()}, today=${todayTs.toISOString()}`,
+    `Building 4 docs per entity: boundaries at ${boundaryTimestamps.map((t) => t.toISOString()).join(', ')}; today=${todayTs.toISOString()}`,
   );
   log.info(`Indexing ${allResults.length} documents into ${riskScoreIndex}...`);
 

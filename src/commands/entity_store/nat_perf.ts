@@ -102,7 +102,6 @@ export const natPerfCommand = async (opts: NatPerfOptions): Promise<void> => {
     await seedRiskScoreHistory({
       space,
       count: currentBatchSize,
-      yesterdayHours: 36,
       todayHours: 2,
       moverCount,
       newlyHighCount,

@@ -294,11 +294,10 @@ export const entityStoreCommands: CommandModule = {
     program
       .command('seed-risk-score-history')
       .description(
-        'Seed risk-score.risk-score-<space> with two backdated batches (yesterday + today) to populate the Risk Movers and Newly High/Critical tiles',
+        'Seed risk-score.risk-score-<space> with backdated boundary docs (covering 24h, 7d, 30d tile views) + a today batch to populate the Risk Movers and Newly High/Critical tiles',
       )
       .option('--space <space>', 'Kibana space ID', 'default')
-      .option('--count <n>', 'max entities to use per entity type (user/host) (default 10)')
-      .option('--yesterday-hours <n>', 'hours ago for the "yesterday" batch (default 36)')
+      .option('--count <n>', 'max entities to use per entity type (user/host/service) (default 10)')
       .option('--today-hours <n>', 'hours ago for the "today" batch (default 2)')
       .option('--movers <n>', 'number of entities with score delta ≥15 between batches (default 3)')
       .option(
@@ -313,24 +312,18 @@ export const entityStoreCommands: CommandModule = {
       .action(
         wrapAction(async (options) => {
           const count = parseOptionInt(options.count, 10);
-          const yesterdayHours = parseOptionInt(options.yesterdayHours, 36);
           const todayHours = parseOptionInt(options.todayHours, 2);
           if (count <= 0) {
             log.error('--count must be a positive integer');
             process.exit(1);
           }
-          if (yesterdayHours < 0 || todayHours < 0) {
-            log.error('--yesterday-hours and --today-hours must be non-negative');
-            process.exit(1);
-          }
-          if (todayHours >= yesterdayHours) {
-            log.error('--today-hours must be less than --yesterday-hours');
+          if (todayHours < 0) {
+            log.error('--today-hours must be non-negative');
             process.exit(1);
           }
           await seedRiskScoreHistory({
             space: options.space ?? 'default',
             count,
-            yesterdayHours,
             todayHours,
             newlyHighCount: parseOptionInt(options.newlyHigh, 2),
             moverCount: parseOptionInt(options.movers, 3),
