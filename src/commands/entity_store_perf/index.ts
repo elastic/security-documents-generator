@@ -11,10 +11,12 @@ import {
 import {
   createPerfDataFile,
   listPerfDataFiles,
+  seedLatestEntities,
   uploadPerfDataFile,
   uploadPerfDataFileInterval,
   DEFAULT_UPLOAD_BULK_CONCURRENCY,
   isValidDistributionType,
+  isEntitySize,
   type DistributionType,
   ENTITY_DISTRIBUTIONS,
 } from './entity_store_perf.ts';
@@ -112,6 +114,42 @@ export const entityStorePerfCommands: CommandModule = {
               distribution: distributionType,
             });
           }
+        }),
+      );
+
+    program
+      .command('seed-latest-entities')
+      .argument('<name>', 'base name/prefix for seeded host IDs')
+      .option('--hosts <n>', 'number of host entities to seed', parseIntBase10, 1000)
+      .option('--space <space>', 'Kibana space', 'default')
+      .option(
+        '--seed-timestamp <timestamp>',
+        'Seed timestamp for entity.lifecycle.first_seen/last_seen (default: 2020-01-01T00:00:00.000Z)',
+        '2020-01-01T00:00:00.000Z',
+      )
+      .option(
+        '--entity-size <size>',
+        'small, medium (default), or large. small repeats a few OS, cloud, and geo profiles so existing scale seeds can be recreated. medium picks host.os, host.geo, and cloud from a larger fixed catalog based on production telemetry. large uses that catalog and a longer unique host.os.full so stored entities are about 1024 bytes',
+        'medium',
+      )
+      .option('--init', 'Enable/install Entity Store V2 before seeding')
+      .description('Seed Entity Store V2 latest index with host entities (direct bulk, not JSONL)')
+      .action(
+        wrapAction(async (name, options) => {
+          const entitySize = options.entitySize as string;
+          if (!isEntitySize(entitySize)) {
+            log.error(`❌ Invalid entity size: ${entitySize}`);
+            log.error('   Available sizes: small, medium, large');
+            process.exit(1);
+          }
+          await seedLatestEntities({
+            name,
+            hosts: options.hosts,
+            space: options.space,
+            seedTimestamp: options.seedTimestamp,
+            entitySize,
+            init: options.init,
+          });
         }),
       );
 

@@ -1,6 +1,7 @@
 import { log } from '../../utils/logger.ts';
 import { faker } from '@faker-js/faker';
 import fs from 'fs';
+import { createHash } from 'crypto';
 import { getEsClient, getFileLineCount } from '../utils/indices.ts';
 import { bulkUpsert } from '../shared/elasticsearch.ts';
 import pMap from 'p-map';
@@ -1712,4 +1713,559 @@ export const uploadPerfDataFileInterval = async (
     bulkConcurrency,
     noIdIncrement,
   );
+};
+
+const DEFAULT_SEED_TIMESTAMP = '2020-01-01T00:00:00.000Z';
+
+const hashEntityId = (entityType: 'host', id: string) =>
+  createHash('sha256').update(`${entityType}:${id}`).digest('hex');
+
+/** Repeating OS, cloud, and geo profiles. `--entity-size small` uses these to recreate existing scale seeds. */
+const SEED_HOST_OS_SMALL = [
+  {
+    name: 'Ubuntu',
+    type: 'linux',
+    family: 'debian',
+    platform: 'ubuntu',
+    version: '22.04.5',
+    kernel: '5.15.0-118-generic',
+    full: 'Ubuntu 22.04.5 LTS',
+  },
+  {
+    name: 'Windows Server',
+    type: 'windows',
+    family: 'windows',
+    platform: 'windows',
+    version: '2022',
+    kernel: '10.0.20348.1',
+    full: 'Windows Server 2022 Datacenter',
+  },
+  {
+    name: 'Amazon Linux',
+    type: 'linux',
+    family: 'redhat',
+    platform: 'amzn',
+    version: '2023',
+    kernel: '6.1.115-126.197.amzn2023.x86_64',
+    full: 'Amazon Linux 2023',
+  },
+  {
+    name: 'macOS',
+    type: 'macos',
+    family: 'darwin',
+    platform: 'darwin',
+    version: '14.6.1',
+    kernel: '23.6.0',
+    full: 'macOS 14.6.1',
+  },
+] as const;
+
+const SEED_HOST_CLOUD_SMALL = [
+  { provider: 'gcp', region: 'us-west1', machineType: 'n2-standard-4' },
+  { provider: 'aws', region: 'us-east-1', machineType: 'm6i.xlarge' },
+  { provider: 'azure', region: 'eastus', machineType: 'Standard_D4s_v5' },
+] as const;
+
+const SEED_HOST_GEO_SMALL = [
+  {
+    city_name: 'Portland',
+    continent_code: 'NA',
+    continent_name: 'North America',
+    country_iso_code: 'US',
+    country_name: 'United States',
+    name: 'us-west',
+    postal_code: '97201',
+    region_iso_code: 'US-OR',
+    region_name: 'Oregon',
+    timezone: 'America/Los_Angeles',
+  },
+  {
+    city_name: 'Ashburn',
+    continent_code: 'NA',
+    continent_name: 'North America',
+    country_iso_code: 'US',
+    country_name: 'United States',
+    name: 'us-east',
+    postal_code: '20147',
+    region_iso_code: 'US-VA',
+    region_name: 'Virginia',
+    timezone: 'America/New_York',
+  },
+  {
+    city_name: 'Frankfurt',
+    continent_code: 'EU',
+    continent_name: 'Europe',
+    country_iso_code: 'DE',
+    country_name: 'Germany',
+    name: 'eu-central',
+    postal_code: '60311',
+    region_iso_code: 'DE-HE',
+    region_name: 'Hesse',
+    timezone: 'Europe/Berlin',
+  },
+] as const;
+
+type SeedOsProfile = {
+  readonly name: string;
+  readonly type: string;
+  readonly family: string;
+  readonly platform: string;
+  readonly version: string;
+  readonly kernel: string;
+  readonly full: string;
+};
+
+type SeedCloudProfile = {
+  readonly provider: string;
+  readonly region: string;
+  readonly machineType: string;
+};
+
+type SeedGeoProfile = {
+  readonly city_name: string;
+  readonly continent_code: string;
+  readonly continent_name: string;
+  readonly country_iso_code: string;
+  readonly country_name: string;
+  readonly name: string;
+  readonly postal_code: string;
+  readonly region_iso_code: string;
+  readonly region_name: string;
+  readonly timezone: string;
+};
+
+export const ENTITY_SIZES = ['small', 'medium', 'large'] as const;
+export type EntitySize = (typeof ENTITY_SIZES)[number];
+
+export const isEntitySize = (value: string): value is EntitySize =>
+  (ENTITY_SIZES as readonly string[]).includes(value);
+
+/**
+ * Fixed catalog length. A normal seed indexes into these lists, so os, geo, and cloud rarely repeat.
+ * The varied fields follow production latest-index telemetry: low-churn stores are about 400 bytes
+ * per entity, not a handful of repeated profiles.
+ */
+const MEDIUM_CATALOG_LENGTH = 32768;
+
+const MEDIUM_OS_BASES = [
+  { name: 'Ubuntu', type: 'linux', family: 'debian', platform: 'ubuntu', label: 'Ubuntu' },
+  {
+    name: 'Windows Server',
+    type: 'windows',
+    family: 'windows',
+    platform: 'windows',
+    label: 'Windows Server',
+  },
+  {
+    name: 'Amazon Linux',
+    type: 'linux',
+    family: 'redhat',
+    platform: 'amzn',
+    label: 'Amazon Linux',
+  },
+  { name: 'macOS', type: 'macos', family: 'darwin', platform: 'darwin', label: 'macOS' },
+  {
+    name: 'Red Hat Enterprise Linux',
+    type: 'linux',
+    family: 'redhat',
+    platform: 'rhel',
+    label: 'Red Hat Enterprise Linux',
+  },
+  {
+    name: 'Debian',
+    type: 'linux',
+    family: 'debian',
+    platform: 'debian',
+    label: 'Debian GNU/Linux',
+  },
+  {
+    name: 'Oracle Linux',
+    type: 'linux',
+    family: 'redhat',
+    platform: 'ol',
+    label: 'Oracle Linux Server',
+  },
+  {
+    name: 'SUSE Linux Enterprise',
+    type: 'linux',
+    family: 'suse',
+    platform: 'sles',
+    label: 'SUSE Linux Enterprise Server',
+  },
+] as const;
+
+const mediumOsAt = (slot: number): SeedOsProfile => {
+  const base = MEDIUM_OS_BASES[slot % MEDIUM_OS_BASES.length];
+  const version = `${(slot % 24) + 1}.${Math.floor(slot / 8) % 20}.${slot % 90}`;
+  const kernel = `${base.platform}.${5 + (slot % 4)}.${slot % 30}.${slot}-1`;
+  return {
+    name: base.name,
+    type: base.type,
+    family: base.family,
+    platform: base.platform,
+    version,
+    kernel,
+    full: `${base.label} ${version} (${kernel})`,
+  };
+};
+
+const MEDIUM_CLOUD_BASES = [
+  { provider: 'aws', region: 'us-east-1', family: 'm6i' },
+  { provider: 'aws', region: 'us-west-2', family: 'm7g' },
+  { provider: 'aws', region: 'eu-west-1', family: 'c6i' },
+  { provider: 'aws', region: 'ap-southeast-1', family: 'r6i' },
+  { provider: 'gcp', region: 'us-central1', family: 'n2-standard' },
+  { provider: 'gcp', region: 'europe-west1', family: 'e2-standard' },
+  { provider: 'gcp', region: 'asia-east1', family: 'c2-standard' },
+  { provider: 'azure', region: 'eastus', family: 'Standard_D' },
+  { provider: 'azure', region: 'westeurope', family: 'Standard_E' },
+  { provider: 'azure', region: 'southeastasia', family: 'Standard_F' },
+] as const;
+
+const mediumCloudAt = (slot: number): SeedCloudProfile => {
+  const base = MEDIUM_CLOUD_BASES[slot % MEDIUM_CLOUD_BASES.length];
+  return {
+    provider: base.provider,
+    region: `${base.region}-az${slot % 12}-${Math.floor(slot / MEDIUM_CLOUD_BASES.length)}`,
+    machineType: `${base.family}-${(slot % 96) + 2}v${slot % 17}`,
+  };
+};
+
+const MEDIUM_GEO_BASES = [
+  {
+    city_name: 'Portland',
+    continent_code: 'NA',
+    continent_name: 'North America',
+    country_iso_code: 'US',
+    country_name: 'United States',
+    name: 'us-west',
+    region_iso_code: 'US-OR',
+    region_name: 'Oregon',
+    timezone: 'America/Los_Angeles',
+  },
+  {
+    city_name: 'Ashburn',
+    continent_code: 'NA',
+    continent_name: 'North America',
+    country_iso_code: 'US',
+    country_name: 'United States',
+    name: 'us-east',
+    region_iso_code: 'US-VA',
+    region_name: 'Virginia',
+    timezone: 'America/New_York',
+  },
+  {
+    city_name: 'Frankfurt',
+    continent_code: 'EU',
+    continent_name: 'Europe',
+    country_iso_code: 'DE',
+    country_name: 'Germany',
+    name: 'eu-central',
+    region_iso_code: 'DE-HE',
+    region_name: 'Hesse',
+    timezone: 'Europe/Berlin',
+  },
+  {
+    city_name: 'London',
+    continent_code: 'EU',
+    continent_name: 'Europe',
+    country_iso_code: 'GB',
+    country_name: 'United Kingdom',
+    name: 'eu-west',
+    region_iso_code: 'GB-LND',
+    region_name: 'London',
+    timezone: 'Europe/London',
+  },
+  {
+    city_name: 'Tokyo',
+    continent_code: 'AS',
+    continent_name: 'Asia',
+    country_iso_code: 'JP',
+    country_name: 'Japan',
+    name: 'ap-northeast',
+    region_iso_code: 'JP-13',
+    region_name: 'Tokyo',
+    timezone: 'Asia/Tokyo',
+  },
+  {
+    city_name: 'Sydney',
+    continent_code: 'OC',
+    continent_name: 'Oceania',
+    country_iso_code: 'AU',
+    country_name: 'Australia',
+    name: 'ap-southeast',
+    region_iso_code: 'AU-NSW',
+    region_name: 'New South Wales',
+    timezone: 'Australia/Sydney',
+  },
+  {
+    city_name: 'Sao Paulo',
+    continent_code: 'SA',
+    continent_name: 'South America',
+    country_iso_code: 'BR',
+    country_name: 'Brazil',
+    name: 'sa-east',
+    region_iso_code: 'BR-SP',
+    region_name: 'Sao Paulo',
+    timezone: 'America/Sao_Paulo',
+  },
+  {
+    city_name: 'Mumbai',
+    continent_code: 'AS',
+    continent_name: 'Asia',
+    country_iso_code: 'IN',
+    country_name: 'India',
+    name: 'ap-south',
+    region_iso_code: 'IN-MH',
+    region_name: 'Maharashtra',
+    timezone: 'Asia/Kolkata',
+  },
+  {
+    city_name: 'Singapore',
+    continent_code: 'AS',
+    continent_name: 'Asia',
+    country_iso_code: 'SG',
+    country_name: 'Singapore',
+    name: 'ap-southeast',
+    region_iso_code: 'SG-01',
+    region_name: 'Singapore',
+    timezone: 'Asia/Singapore',
+  },
+  {
+    city_name: 'Toronto',
+    continent_code: 'NA',
+    continent_name: 'North America',
+    country_iso_code: 'CA',
+    country_name: 'Canada',
+    name: 'ca-central',
+    region_iso_code: 'CA-ON',
+    region_name: 'Ontario',
+    timezone: 'America/Toronto',
+  },
+  {
+    city_name: 'Dublin',
+    continent_code: 'EU',
+    continent_name: 'Europe',
+    country_iso_code: 'IE',
+    country_name: 'Ireland',
+    name: 'eu-west',
+    region_iso_code: 'IE-D',
+    region_name: 'Leinster',
+    timezone: 'Europe/Dublin',
+  },
+  {
+    city_name: 'Johannesburg',
+    continent_code: 'AF',
+    continent_name: 'Africa',
+    country_iso_code: 'ZA',
+    country_name: 'South Africa',
+    name: 'af-south',
+    region_iso_code: 'ZA-GP',
+    region_name: 'Gauteng',
+    timezone: 'Africa/Johannesburg',
+  },
+] as const;
+
+const mediumGeoAt = (slot: number): SeedGeoProfile => {
+  const base = MEDIUM_GEO_BASES[slot % MEDIUM_GEO_BASES.length];
+  const locality = Math.floor(slot / MEDIUM_GEO_BASES.length);
+  return {
+    city_name: base.city_name,
+    continent_code: base.continent_code,
+    continent_name: base.continent_name,
+    country_iso_code: base.country_iso_code,
+    country_name: base.country_name,
+    name: `${base.name}-${locality.toString(36)}-${slot.toString(36)}`,
+    postal_code: String(10000 + (slot % 89999)).padStart(5, '0'),
+    region_iso_code: base.region_iso_code,
+    region_name: `${base.region_name} ${locality}`,
+    timezone: base.timezone,
+  };
+};
+
+const buildMediumCatalog = <T>(at: (slot: number) => T): T[] => {
+  const catalog: T[] = [];
+  for (let slot = 0; slot < MEDIUM_CATALOG_LENGTH; slot++) {
+    catalog.push(at(slot));
+  }
+  return catalog;
+};
+
+const MEDIUM_HOST_OS = buildMediumCatalog(mediumOsAt);
+const MEDIUM_HOST_CLOUD = buildMediumCatalog(mediumCloudAt);
+const MEDIUM_HOST_GEO = buildMediumCatalog(mediumGeoAt);
+
+/**
+ * Extra unique characters on large OS profiles. Tuned so a 20k one-shard
+ * best_compression index stores about 1024 bytes per entity.
+ */
+const LARGE_OS_PAD_LENGTH = 268;
+
+const largePad = (index: number, length: number): string => {
+  const alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
+  const chars: string[] = [];
+  let state = index >>> 0;
+  for (let i = 0; i < length; i++) {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    chars.push(alphabet[state % alphabet.length]);
+  }
+  return chars.join('');
+};
+
+const seedProfilesAt = (entitySize: EntitySize, index: number) => {
+  if (entitySize === 'small') {
+    return {
+      os: SEED_HOST_OS_SMALL[index % SEED_HOST_OS_SMALL.length],
+      cloud: SEED_HOST_CLOUD_SMALL[index % SEED_HOST_CLOUD_SMALL.length],
+      geo: SEED_HOST_GEO_SMALL[index % SEED_HOST_GEO_SMALL.length],
+    };
+  }
+  const slot = index % MEDIUM_CATALOG_LENGTH;
+  const os = MEDIUM_HOST_OS[slot];
+  return {
+    os:
+      entitySize === 'large'
+        ? { ...os, full: `${os.full} ${largePad(index, LARGE_OS_PAD_LENGTH)}` }
+        : os,
+    cloud: MEDIUM_HOST_CLOUD[slot],
+    geo: MEDIUM_HOST_GEO[slot],
+  };
+};
+
+const padMacOctet = (value: number): string => value.toString(16).padStart(2, '0');
+
+const buildSeedHostDocument = ({
+  name,
+  index,
+  timestamp,
+  entitySize,
+}: {
+  name: string;
+  index: number;
+  timestamp: string;
+  entitySize: EntitySize;
+}) => {
+  const hostId = `${name}-host-${index}`;
+  const entityId = `host:${hostId}`;
+  const { os, cloud, geo } = seedProfilesAt(entitySize, index);
+  const octetA = (index >> 16) & 255;
+  const octetB = (index >> 8) & 255;
+  const octetC = index & 255;
+
+  return {
+    '@timestamp': timestamp,
+    event: { ingested: timestamp },
+    entity: {
+      EngineMetadata: { Type: 'host' },
+      id: entityId,
+      name: hostId,
+      type: 'Host',
+      source: 'sdg-seed-latest-entities',
+      lifecycle: {
+        first_seen: timestamp,
+        last_seen: timestamp,
+      },
+    },
+    host: {
+      id: hostId,
+      name: hostId,
+      hostname: `${hostId}.example.${name}.com`,
+      domain: `example.${name}.com`,
+      ip: [`10.${octetA}.${octetB}.${octetC}`, `10.${octetA ^ 1}.${octetB}.${(octetC + 17) & 255}`],
+      mac: [
+        `00:11:22:33:${padMacOctet(octetB)}:${padMacOctet(octetC)}`,
+        `00:11:22:44:${padMacOctet(octetB)}:${padMacOctet(octetC)}`,
+      ],
+      type: index % 5 === 0 ? 'desktop' : 'server',
+      architecture: ['x86_64'],
+      os: { ...os },
+      geo: { ...geo },
+      boot: { id: `boot-${padMacOctet(octetA)}${padMacOctet(octetB)}${padMacOctet(octetC)}` },
+    },
+    cloud: {
+      provider: cloud.provider,
+      region: cloud.region,
+      instance: { id: `i-${index.toString(16).padStart(8, '0')}` },
+      machine: { type: cloud.machineType },
+    },
+    agent: { id: `agent-${index.toString(16).padStart(8, '0')}`, type: 'endpoint' },
+    endpoint: { id: `endpoint-${index.toString(16).padStart(8, '0')}` },
+  };
+};
+
+export const seedLatestEntities = async ({
+  name,
+  hosts,
+  space = 'default',
+  seedTimestamp = DEFAULT_SEED_TIMESTAMP,
+  entitySize = 'medium',
+  init = false,
+}: {
+  name: string;
+  hosts: number;
+  space?: string;
+  seedTimestamp?: string;
+  entitySize?: EntitySize;
+  init?: boolean;
+}) => {
+  if (!Number.isInteger(hosts) || hosts <= 0) {
+    throw new Error(`hosts must be a positive integer, got: ${String(hosts)}`);
+  }
+  if (!isEntitySize(entitySize)) {
+    throw new Error(`entitySize must be small, medium, or large, got: ${String(entitySize)}`);
+  }
+  const seedDate = new Date(seedTimestamp);
+  if (Number.isNaN(seedDate.getTime())) {
+    throw new Error(`Invalid seed timestamp: ${seedTimestamp}`);
+  }
+  const normalizedSeedTimestamp = seedDate.toISOString();
+
+  if (init) {
+    log.info(`Initializing Entity Store V2 for space "${space}"...`);
+    await enableEntityStoreV2(space);
+    await installEntityStoreV2(space);
+  }
+
+  const esClient = getEsClient();
+  const aliasName = `entities-latest-${space}`;
+  const progress = createProgressBar('seed', {
+    format: '{bar} | {percentage}% | {value}/{total} Seeded Hosts',
+  });
+  progress.start(hosts, 0);
+
+  const batchSize = 1000;
+  for (let start = 1; start <= hosts; start += batchSize) {
+    const end = Math.min(start + batchSize - 1, hosts);
+    const operations = [];
+    for (let i = start; i <= end; i++) {
+      const hostId = `${name}-host-${i}`;
+      const doc = buildSeedHostDocument({
+        name,
+        index: i,
+        timestamp: normalizedSeedTimestamp,
+        entitySize,
+      });
+      operations.push({ index: { _index: aliasName, _id: hashEntityId('host', hostId) } }, doc);
+    }
+    const result = await bulkUpsert({
+      documents: operations,
+      refresh: false,
+      pipeline: '_none',
+    });
+    if (result.errors) {
+      progress.stop();
+      throw new Error(`Bulk seed for ${aliasName} reported errors.`);
+    }
+    progress.increment(end - start + 1);
+  }
+
+  progress.stop();
+  await esClient.indices.refresh({ index: aliasName });
+
+  const sampleHostId = `${name}-host-1`;
+  const sampleDocId = hashEntityId('host', sampleHostId);
+  log.info(`Seeded ${hosts} host entities into ${aliasName}`);
+  log.info(`Sample host.id: ${sampleHostId}`);
+  log.info(`Sample latest _id (sha256('host:${sampleHostId}')): ${sampleDocId}`);
+  log.info(`Seed timestamp used for lifecycle: ${normalizedSeedTimestamp}`);
 };
