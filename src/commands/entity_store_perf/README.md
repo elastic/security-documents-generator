@@ -4,11 +4,11 @@
 
 Seed host entities directly into the Entity Store V2 latest index alias (`entities-latest-<space>`).
 
-Each seeded document includes ECS `host` (id/name/hostname/ip/mac/os/geo), `cloud`, `agent`, and `endpoint` fields with a small cycling vocabulary.
+Each document writes ECS `host` (id, name, hostname, ip, mac, os, geo), `cloud`, `agent`, and `endpoint`, plus entity lifecycle timestamps. Host ids look like `<name>-host-N`. The document `_id` is `sha256('host:' + host.id)`. Seeding the same `<name>` again starts at `host-1` and overwrites those documents.
 
-On a 5M QAF V2 latest index this stored at **~263 B/entity** (primaries, after expunge). Production V2 latest is **~400–520 B** because live collected multi-values compress less. Do not treat ~263 B as a seed failure.
+`--init` creates the Entity Store. Without `--init`, the `entities-latest-<space>` alias must already exist.
 
-Do **not** `create-perf-data` at store size (5M or 20M hosts). Seed latest with this command and generate a small update-ID JSONL (1k or 20k–50k hosts) with the same name.
+Use the same `<name>` with `create-perf-data` when the next step is an update file.
 
 ### Usage
 
@@ -21,13 +21,14 @@ yarn start seed-latest-entities <name> [options]
 - `--hosts <n>`: Number of host entities to seed (default: `1000`)
 - `--space <space>`: Kibana space / latest alias suffix (default: `default`)
 - `--seed-timestamp <timestamp>`: Lifecycle seed timestamp (default: `2020-01-01T00:00:00.000Z`)
+- `--entity-size <small|medium>`: `medium` (default) picks `host.os`, `host.geo`, and `cloud` from a fixed catalog so those objects rarely repeat. `small` repeats a few OS, cloud, and geo profiles, which is how existing scale seeds are recreated.
 - `--init`: Enable and install Entity Store V2 before seeding
 
 ### Example
 
 ```bash
-yarn start seed-latest-entities smoke --hosts 1000 --init
-yarn start seed-latest-entities proof-5m --hosts 5000000
+yarn start seed-latest-entities lab --hosts 1000 --init
+yarn start seed-latest-entities lab --hosts 1000 --init --entity-size small
 ```
 
 ## `create-perf-data`
@@ -131,7 +132,7 @@ yarn start upload-perf-data-interval large --deleteData --noTransforms \
   --interval 60 --duration 3h --ingest-rate 500
 ```
 
-Note: `--duration 3h --interval 60` does not mean exactly 180 uploads. It means the command keeps ingesting until the deadline, pausing `--interval` after each **full JSONL** upload (each upload may take longer when `--ingest-rate` is set). A 50k-line file at `--ingest-rate 100` takes ~500s per cycle; without `--ingest-rate`, `--duration 30m --interval 30` can still burst ~60 full-file uploads. Never generate the JSONL at store size.
+With `--duration`, each cycle uploads the whole file. The command keeps doing that until the deadline, and waits `--interval` between cycles when time remains.
 
 After uploads complete, the command polls the entity index until the expected entity count is reached (or until `--transformTimeout` minutes elapse, default 30). Entity Store V2 can lag behind log ingest; if polling times out, the command continues with a warning instead of hanging indefinitely. With `--deleteData`, entity counting uses `match_all` on the entity index (accurate for multi-upload interval runs).
 

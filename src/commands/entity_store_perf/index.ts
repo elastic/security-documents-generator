@@ -16,6 +16,7 @@ import {
   uploadPerfDataFileInterval,
   DEFAULT_UPLOAD_BULK_CONCURRENCY,
   isValidDistributionType,
+  isEntitySize,
   type DistributionType,
   ENTITY_DISTRIBUTIONS,
 } from './entity_store_perf.ts';
@@ -126,15 +127,27 @@ export const entityStorePerfCommands: CommandModule = {
         'Seed timestamp for entity.lifecycle.first_seen/last_seen (default: 2020-01-01T00:00:00.000Z)',
         '2020-01-01T00:00:00.000Z',
       )
+      .option(
+        '--entity-size <size>',
+        'small or medium (default: medium). small repeats a few OS, cloud, and geo profiles so existing scale seeds can be recreated. medium picks host.os, host.geo, and cloud from a larger fixed catalog',
+        'medium',
+      )
       .option('--init', 'Enable/install Entity Store V2 before seeding')
       .description('Seed Entity Store V2 latest index with host entities (direct bulk, not JSONL)')
       .action(
         wrapAction(async (name, options) => {
+          const entitySize = options.entitySize as string;
+          if (!isEntitySize(entitySize)) {
+            log.error(`❌ Invalid entity size: ${entitySize}`);
+            log.error('   Available sizes: small, medium');
+            process.exit(1);
+          }
           await seedLatestEntities({
             name,
             hosts: options.hosts,
             space: options.space,
             seedTimestamp: options.seedTimestamp,
+            entitySize,
             init: options.init,
           });
         }),
