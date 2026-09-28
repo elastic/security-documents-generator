@@ -4,7 +4,7 @@
 
 Seed host entities directly into the Entity Store V2 latest index alias (`entities-latest-<space>`).
 
-Each document writes ECS `host` (id, name, hostname, ip, mac, os, geo), `cloud`, `agent`, and `endpoint`, plus entity lifecycle timestamps. Host ids look like `<name>-host-N`. The document `_id` is `sha256('host:' + host.id)`. Seeding the same `<name>` again starts at `host-1` and overwrites those documents.
+Each document writes ECS `host` (id, name, hostname, ip, mac, os, geo), `cloud`, `agent`, and `endpoint`, plus `entity.type: Host` and entity lifecycle timestamps. The seed uses `pipeline: '_none'`, so `entity.type` is written on the document instead of being derived by an ingest pipeline. Host ids look like `<name>-host-N`. The document `_id` is `sha256('host:' + host.id)`. Seeding the same `<name>` again starts at `host-1` and overwrites those documents.
 
 `--init` creates the Entity Store. Without `--init`, the `entities-latest-<space>` alias must already exist.
 

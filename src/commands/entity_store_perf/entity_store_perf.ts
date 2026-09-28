@@ -3,7 +3,7 @@ import { faker } from '@faker-js/faker';
 import fs from 'fs';
 import { createHash } from 'crypto';
 import { getEsClient, getFileLineCount } from '../utils/indices.ts';
-import { bulkUpsert, logBulkErrors } from '../shared/elasticsearch.ts';
+import { bulkUpsert } from '../shared/elasticsearch.ts';
 import pMap from 'p-map';
 import { createProgressBar } from '../utils/cli_utils.ts';
 import { ensureSecurityDefaultDataView } from '../../utils/security_default_data_view.ts';
@@ -2159,6 +2159,7 @@ const buildSeedHostDocument = ({
       EngineMetadata: { Type: 'host' },
       id: entityId,
       name: hostId,
+      type: 'Host',
       source: 'sdg-seed-latest-entities',
       lifecycle: {
         first_seen: timestamp,
@@ -2246,12 +2247,14 @@ export const seedLatestEntities = async ({
       });
       operations.push({ index: { _index: aliasName, _id: hashEntityId('host', hostId) } }, doc);
     }
-    const result = await esClient.bulk({ operations, refresh: false, pipeline: '_none' });
-    const bulkErrorContext = `Bulk seed for ${aliasName} reported errors.`;
-    logBulkErrors(result, bulkErrorContext);
+    const result = await bulkUpsert({
+      documents: operations,
+      refresh: false,
+      pipeline: '_none',
+    });
     if (result.errors) {
       progress.stop();
-      throw new Error(bulkErrorContext);
+      throw new Error(`Bulk seed for ${aliasName} reported errors.`);
     }
     progress.increment(end - start + 1);
   }
