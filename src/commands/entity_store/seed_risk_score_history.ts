@@ -72,7 +72,7 @@ const buildRiskScoreDoc = (
   scoreNorm: number,
   timestamp: Date,
   space: string,
-  slot: 'yesterday' | 'today',
+  slot: string,
 ): { _id: string; doc: object } => {
   const src = entity._source;
   const rawName =
@@ -180,6 +180,7 @@ export interface SeedRiskScoreHistoryOptions {
   space: string;
   yesterdayHours: number;
   todayHours: number;
+  extraRefs?: Array<{ slot: string; hours: number }>;
   newlyHighCount: number;
   moverCount: number;
   clean?: boolean;
@@ -212,10 +213,7 @@ const fetchResolutionGroupIds = async (riskScoreIndex: string): Promise<Set<stri
     const src = hit._source as Record<string, Record<string, Record<string, unknown>>>;
     const riskData = src?.user?.risk ?? src?.host?.risk;
     if (!riskData) continue;
-    // Add resolution target
-    const id = riskData.id_value as string | undefined;
-    if (id) ids.add(id);
-    // Add alias members (related_entities with relationship_type resolved_to)
+    // Exclude alias members only — targets get their own risk score history for the risk change column.
     const related = (riskData.related_entities ?? []) as Array<{ entity_id?: string }>;
     for (const rel of related) {
       if (rel?.entity_id) ids.add(rel.entity_id);
@@ -225,7 +223,8 @@ const fetchResolutionGroupIds = async (riskScoreIndex: string): Promise<Set<stri
 };
 
 export const seedRiskScoreHistory = async (opts: SeedRiskScoreHistoryOptions) => {
-  const { count, space, yesterdayHours, todayHours, newlyHighCount, moverCount, clean } = opts;
+  const { count, space, yesterdayHours, todayHours, extraRefs, newlyHighCount, moverCount, clean } =
+    opts;
   const riskScoreIndex = `risk-score.risk-score-${space}`;
 
   log.info(`Fetching entities from entity store in space "${space}"...`);
@@ -238,7 +237,7 @@ export const seedRiskScoreHistory = async (opts: SeedRiskScoreHistoryOptions) =>
 
   if (resolutionTargetIds.size > 0) {
     log.info(
-      `Excluding ${resolutionTargetIds.size} resolution group entities (targets + aliases) to avoid flyout conflicts.`,
+      `Excluding ${resolutionTargetIds.size} resolution alias entities from seeding (targets will receive their own risk score history).`,
     );
   }
 
@@ -264,29 +263,40 @@ export const seedRiskScoreHistory = async (opts: SeedRiskScoreHistoryOptions) =>
 
   const scored = assignScenarios(allEntities, newlyHighCount, moverCount);
 
-  const yesterdayTs = new Date(Date.now() - yesterdayHours * 3600_000);
   const todayTs = new Date(Date.now() - todayHours * 3600_000);
+  const yesterdayTs = new Date(Date.now() - yesterdayHours * 3600_000);
 
-  const yesterdayResults = scored.map(({ entity, entityType, yesterdayScore }) =>
-    buildRiskScoreDoc(entity, entityType, yesterdayScore, yesterdayTs, space, 'yesterday'),
+  const extraBatches: Array<{ slot: string; ts: Date }> = (extraRefs ?? []).map(
+    ({ slot, hours }) => ({
+      slot,
+      ts: new Date(Date.now() - hours * 3600_000),
+    }),
   );
 
   const todayResults = scored.map(({ entity, entityType, todayScore }) =>
     buildRiskScoreDoc(entity, entityType, todayScore, todayTs, space, 'today'),
   );
+  const yesterdayResults = scored.map(({ entity, entityType, yesterdayScore }) =>
+    buildRiskScoreDoc(entity, entityType, yesterdayScore, yesterdayTs, space, 'yesterday'),
+  );
+  const extraResults = extraBatches.flatMap(({ slot, ts }) =>
+    scored.map(({ entity, entityType }) =>
+      buildRiskScoreDoc(entity, entityType, randScore(5, 65), ts, space, slot),
+    ),
+  );
 
-  const allResults = [...yesterdayResults, ...todayResults];
+  const allResults = [...todayResults, ...yesterdayResults, ...extraResults];
 
   if (clean) {
     const seededIds = allResults.map(({ _id }) => _id);
-    // Also delete stale seeded docs for resolution targets (which are excluded from
+    // Also delete stale seeded docs for resolution aliases (which are excluded from
     // the current run). Without this, old seeded docs from a previous run remain as
     // the most-recent doc for those entities and break the risk contributions flyout.
-    const staleResolutionIds = [...resolutionTargetIds].flatMap((entityId) => [
-      `seed-rsh-${space}-${entityId}-today`,
-      `seed-rsh-${space}-${entityId}-yesterday`,
-    ]);
-    const allIdsToDelete = [...seededIds, ...staleResolutionIds];
+    const staleSlots = ['today', 'yesterday', '7d', '30d'];
+    const staleAliasIds = [...resolutionTargetIds].flatMap((entityId) =>
+      staleSlots.map((slot) => `seed-rsh-${space}-${entityId}-${slot}`),
+    );
+    const allIdsToDelete = [...seededIds, ...staleAliasIds];
     log.info(`Deleting ${allIdsToDelete.length} previously-seeded docs from ${riskScoreIndex}...`);
     const esClient = getEsClient();
     await esClient.deleteByQuery({
@@ -299,9 +309,12 @@ export const seedRiskScoreHistory = async (opts: SeedRiskScoreHistoryOptions) =>
     log.info('Clean complete.');
   }
 
-  log.info(
-    `Building two batches: yesterday=${yesterdayTs.toISOString()}, today=${todayTs.toISOString()}`,
-  );
+  const batchLabels = [
+    `today=${todayTs.toISOString()}`,
+    `yesterday=${yesterdayTs.toISOString()}`,
+    ...extraBatches.map(({ slot, ts }) => `${slot}=${ts.toISOString()}`),
+  ];
+  log.info(`Building batches: ${batchLabels.join(', ')}`);
   log.info(`Indexing ${allResults.length} documents into ${riskScoreIndex}...`);
 
   // Use pre-built bulk body with deterministic _ids.

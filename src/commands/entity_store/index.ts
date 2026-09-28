@@ -20,7 +20,7 @@ import { ensureSpace } from '../../utils/index.ts';
 import { riskScoreV2Command } from './risk_score_v2.ts';
 import { seedRiskScoreHistory } from './seed_risk_score_history.ts';
 import { natPerfCommand } from './nat_perf.ts';
-import { parseOptionInt } from '../utils/cli_utils.ts';
+import { parseDuration, parseOptionInt } from '../utils/cli_utils.ts';
 
 export const entityStoreCommands: CommandModule = {
   register(program: Command) {
@@ -281,6 +281,11 @@ export const entityStoreCommands: CommandModule = {
         false,
       )
       .option(
+        '--apply-relationships',
+        'call applyRelationshipGraph to link resolution groups (skipped by default at XL scale)',
+        false,
+      )
+      .option(
         '--debug-resolution',
         'enable verbose resolution diagnostics (relationship sync + debug read traces)',
         false,
@@ -294,12 +299,19 @@ export const entityStoreCommands: CommandModule = {
     program
       .command('seed-risk-score-history')
       .description(
-        'Seed risk-score.risk-score-<space> with two backdated batches (yesterday + today) to populate the Risk Movers and Newly High/Critical tiles',
+        'Seed risk-score.risk-score-<space> with backdated batches to populate the Risk Movers, Newly High/Critical tiles, and risk score change column',
       )
       .option('--space <space>', 'Kibana space ID', 'default')
       .option('--count <n>', 'max entities to use per entity type (user/host) (default 10)')
-      .option('--yesterday-hours <n>', 'hours ago for the "yesterday" batch (default 36)')
+      .option(
+        '--yesterday-hours <n>',
+        'hours ago for the "yesterday" batch — reference for 24h risk change (default 36)',
+      )
       .option('--today-hours <n>', 'hours ago for the "today" batch (default 2)')
+      .option(
+        '--extra-refs <durations>',
+        'comma-separated durations for extra reference batches (e.g. 7d,30d or 1d,7d,30d). Each adds a backdated snapshot for that risk change window.',
+      )
       .option('--movers <n>', 'number of entities with score delta ≥15 between batches (default 3)')
       .option(
         '--newly-high <n>',
@@ -315,6 +327,13 @@ export const entityStoreCommands: CommandModule = {
           const count = parseOptionInt(options.count, 10);
           const yesterdayHours = parseOptionInt(options.yesterdayHours, 36);
           const todayHours = parseOptionInt(options.todayHours, 2);
+          const extraRefs = options.extraRefs
+            ? (options.extraRefs as string).split(',').map((raw) => {
+                const slot = raw.trim();
+                const ms = parseDuration(slot);
+                return { slot, hours: ms / 3_600_000 };
+              })
+            : undefined;
           if (count <= 0) {
             log.error('--count must be a positive integer');
             process.exit(1);
@@ -332,6 +351,7 @@ export const entityStoreCommands: CommandModule = {
             count,
             yesterdayHours,
             todayHours,
+            extraRefs,
             newlyHighCount: parseOptionInt(options.newlyHigh, 2),
             moverCount: parseOptionInt(options.movers, 3),
             clean: Boolean(options.clean),

@@ -58,6 +58,7 @@ export type RiskScoreV2Options = {
   ownershipEdgeRate?: string;
   tablePageSize?: string;
   dangerousClean?: boolean;
+  applyRelationships?: boolean;
   debugResolution?: boolean;
   alertRiskScoreMin?: string;
   alertRiskScoreMax?: string;
@@ -4910,7 +4911,9 @@ export const riskScoreV2Command = async (options: RiskScoreV2Options) => {
         log.info('Phase2 relationships enabled but no relationship rows generated; continuing.');
         return;
       }
-      // await applyRelationshipGraph({ graph: relationshipGraph, space }); // SKIPPED: entities not all in entity-latest at XL scale
+      if (options.applyRelationships) {
+        await applyRelationshipGraph({ graph: relationshipGraph, space });
+      }
       if (debugResolutionEnabled) {
         await waitForEntityRelationshipState({
           space,
