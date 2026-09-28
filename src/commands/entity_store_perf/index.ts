@@ -129,7 +129,7 @@ export const entityStorePerfCommands: CommandModule = {
       )
       .option(
         '--entity-size <size>',
-        'small or medium (default: medium). small repeats a few OS, cloud, and geo profiles so existing scale seeds can be recreated. medium picks host.os, host.geo, and cloud from a larger fixed catalog',
+        'small, medium (default), or large. small repeats a few OS, cloud, and geo profiles so existing scale seeds can be recreated. medium picks host.os, host.geo, and cloud from a larger fixed catalog. large uses that catalog and a longer unique host.os.full so stored entities are about 1024 bytes',
         'medium',
       )
       .option('--init', 'Enable/install Entity Store V2 before seeding')
@@ -139,7 +139,7 @@ export const entityStorePerfCommands: CommandModule = {
           const entitySize = options.entitySize as string;
           if (!isEntitySize(entitySize)) {
             log.error(`❌ Invalid entity size: ${entitySize}`);
-            log.error('   Available sizes: small, medium');
+            log.error('   Available sizes: small, medium, large');
             process.exit(1);
           }
           await seedLatestEntities({

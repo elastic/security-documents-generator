@@ -1834,7 +1834,7 @@ type SeedGeoProfile = {
   readonly timezone: string;
 };
 
-export const ENTITY_SIZES = ['small', 'medium'] as const;
+export const ENTITY_SIZES = ['small', 'medium', 'large'] as const;
 export type EntitySize = (typeof ENTITY_SIZES)[number];
 
 export const isEntitySize = (value: string): value is EntitySize =>
@@ -2091,6 +2091,23 @@ const MEDIUM_HOST_OS = buildMediumCatalog(mediumOsAt);
 const MEDIUM_HOST_CLOUD = buildMediumCatalog(mediumCloudAt);
 const MEDIUM_HOST_GEO = buildMediumCatalog(mediumGeoAt);
 
+/**
+ * Extra unique characters on large OS profiles. Tuned so a 20k one-shard
+ * best_compression index stores about 1024 bytes per entity.
+ */
+const LARGE_OS_PAD_LENGTH = 268;
+
+const largePad = (index: number, length: number): string => {
+  const alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
+  const chars: string[] = [];
+  let state = index >>> 0;
+  for (let i = 0; i < length; i++) {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    chars.push(alphabet[state % alphabet.length]);
+  }
+  return chars.join('');
+};
+
 const seedProfilesAt = (entitySize: EntitySize, index: number) => {
   if (entitySize === 'small') {
     return {
@@ -2100,8 +2117,12 @@ const seedProfilesAt = (entitySize: EntitySize, index: number) => {
     };
   }
   const slot = index % MEDIUM_CATALOG_LENGTH;
+  const os = MEDIUM_HOST_OS[slot];
   return {
-    os: MEDIUM_HOST_OS[slot],
+    os:
+      entitySize === 'large'
+        ? { ...os, full: `${os.full} ${largePad(index, LARGE_OS_PAD_LENGTH)}` }
+        : os,
     cloud: MEDIUM_HOST_CLOUD[slot],
     geo: MEDIUM_HOST_GEO[slot],
   };
@@ -2186,7 +2207,7 @@ export const seedLatestEntities = async ({
     throw new Error(`hosts must be a positive integer, got: ${String(hosts)}`);
   }
   if (!isEntitySize(entitySize)) {
-    throw new Error(`entitySize must be small or medium, got: ${String(entitySize)}`);
+    throw new Error(`entitySize must be small, medium, or large, got: ${String(entitySize)}`);
   }
   const seedDate = new Date(seedTimestamp);
   if (Number.isNaN(seedDate.getTime())) {
