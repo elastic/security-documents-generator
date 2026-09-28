@@ -21,7 +21,7 @@ yarn start seed-latest-entities <name> [options]
 - `--hosts <n>`: Number of host entities to seed (default: `1000`)
 - `--space <space>`: Kibana space / latest alias suffix (default: `default`)
 - `--seed-timestamp <timestamp>`: Lifecycle seed timestamp (default: `2020-01-01T00:00:00.000Z`)
-- `--entity-size <small|medium|large>`: `medium` (default) picks `host.os`, `host.geo`, and `cloud` from a fixed catalog so those objects rarely repeat. `small` repeats a few OS, cloud, and geo profiles, which is how existing scale seeds are recreated. `large` uses the medium catalog and a longer unique `host.os.full`, which stores at about 1024 bytes per entity.
+- `--entity-size <small|medium|large>`: `medium` (default) picks `host.os`, `host.geo`, and `cloud` from a fixed catalog so those objects rarely repeat. That catalog is based on production latest-index telemetry, where low-churn stores are about 400 bytes per entity because those fields are not a handful of repeated values. `small` repeats a few OS, cloud, and geo profiles, which is how existing scale seeds are recreated. `large` uses the medium catalog and a longer unique `host.os.full`, which stores at about 1024 bytes per entity.
 - `--init`: Enable and install Entity Store V2 before seeding
 
 ### Example

@@ -1840,7 +1840,11 @@ export type EntitySize = (typeof ENTITY_SIZES)[number];
 export const isEntitySize = (value: string): value is EntitySize =>
   (ENTITY_SIZES as readonly string[]).includes(value);
 
-/** Fixed catalog length. A normal seed indexes into these lists, so os, geo, and cloud rarely repeat. */
+/**
+ * Fixed catalog length. A normal seed indexes into these lists, so os, geo, and cloud rarely repeat.
+ * The varied fields follow production latest-index telemetry: low-churn stores are about 400 bytes
+ * per entity, not a handful of repeated profiles.
+ */
 const MEDIUM_CATALOG_LENGTH = 32768;
 
 const MEDIUM_OS_BASES = [
