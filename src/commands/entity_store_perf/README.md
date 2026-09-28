@@ -57,6 +57,8 @@ With `equal` or `standard`, do not pass the `--*-count` flags (the command will 
 
 In generated perf data, the top-level `entity` field is emitted only for generic entities.
 
+User logs are Okta identity-provider asset events (`event.kind: asset`, `event.module: entityanalytics_okta`), so Entity Store V2 creates them as `okta` users keyed on `user.email`. V2 does not create users from IAM lifecycle events without `host.id`.
+
 ### Examples
 
 ```bash

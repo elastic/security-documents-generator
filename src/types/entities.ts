@@ -34,9 +34,10 @@ export interface UserFields {
     hash?: string[];
     entity?: { id: string };
   };
-  /** Event metadata for UEBA postAggFilter (e.g. IAM so user entities are kept after LOOKUP) */
+  /** Event metadata for the user postAggFilter: only `event.kind: asset` creates IdP users. */
   event?: {
     kind?: string;
+    module?: string;
     category?: string;
     type?: string;
   };
