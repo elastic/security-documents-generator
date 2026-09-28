@@ -212,7 +212,8 @@ const generateUserFields = ({ idPrefix, entityIndex }: GeneratorOptions): UserFi
       entity: { id },
     },
     event: {
-      kind: 'event',
+      kind: 'asset',
+      module: 'entityanalytics_okta',
       category: 'iam',
       type: 'user',
     },
