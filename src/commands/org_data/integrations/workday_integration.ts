@@ -209,6 +209,7 @@ export class WorkdayIntegration extends BaseIntegration {
         category: ['iam'],
         type: ['user'],
         dataset: 'workday.user',
+        module: 'workday',
       },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'workday.user' },
       user: {
@@ -258,6 +259,7 @@ export class WorkdayIntegration extends BaseIntegration {
         type: ['info'],
         action: eventAction,
         dataset: 'workday.activity',
+        module: 'workday',
       },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'workday.activity' },
       user: { name: employee.userName },
@@ -342,6 +344,7 @@ export class WorkdayIntegration extends BaseIntegration {
         outcome: isFailed ? 'failure' : 'success',
         created: signOnTime,
         dataset: 'workday.sign_on',
+        module: 'workday',
         ...(failureMessage && { reason: failureMessage }),
       },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'workday.sign_on' },
