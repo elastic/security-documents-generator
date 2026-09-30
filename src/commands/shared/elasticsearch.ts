@@ -3,6 +3,7 @@ import {
   type BulkOperationContainer,
   type BulkCreateOperation,
   type DeleteByQueryResponse,
+  type Refresh,
 } from '@elastic/elasticsearch/lib/api/types';
 import { chunk } from 'lodash-es';
 import { getEsClient } from '../utils/indices.ts';
@@ -76,7 +77,7 @@ export interface BulkIngestParams {
   action?: 'index' | 'create';
   showProgress?: boolean;
   metadata?: boolean;
-  refresh?: boolean;
+  refresh?: Refresh;
   pipeline?: string;
 }
 

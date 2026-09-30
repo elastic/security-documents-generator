@@ -97,6 +97,7 @@ const promptForProductivitySuite = async (): Promise<ProductivitySuite> => {
  *  - okta (entityanalytics_okta): 1 user doc + ~2 device docs ≈ 3
  *  - entra_id (entityanalytics_entra_id): 1 user doc + ~2 device docs ≈ 3
  *  - active_directory: 1 user doc + ~0.35 windows computer doc ≈ 1.35
+ *  - workday: 1 user doc + 1–5 activity docs + 1–3 sign_on docs ≈ 6
  *
  * Anything not listed here is a log-style integration whose volume varies; we use
  * a conservative default so the estimate doesn't wildly under-count.
@@ -105,6 +106,7 @@ const DOCS_PER_EMPLOYEE_ESTIMATE: Partial<Record<IntegrationName, number>> = {
   okta: 3,
   entra_id: 3,
   active_directory: 1.35,
+  workday: 6,
 };
 
 const DEFAULT_DOCS_PER_EMPLOYEE = 3;
@@ -548,11 +550,11 @@ const displaySummary = (
       );
     }
 
-    // Workday link (custom integration)
+    // Workday link
     const workdayResult = results.find((r) => r.integrationName === 'workday');
     if (workdayResult?.success) {
       log.info(
-        `  Workday People: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-workday.people-*')", space })}`,
+        `  Workday Users: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-workday.user-*')", space })}`,
       );
     }
 

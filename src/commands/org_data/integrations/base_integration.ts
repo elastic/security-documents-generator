@@ -7,10 +7,14 @@ import { log } from '../../../utils/logger.ts';
 import { type Organization, type CorrelationMap, type Device, type Host } from '../types.ts';
 import { installPackage } from '../../../utils/kibana_api.ts';
 import { ingest } from '../../utils/indices.ts';
+import { bulkIngest, DEFAULT_BULK_CONCURRENCY } from '../../shared/elasticsearch.ts';
 import cliProgress from 'cli-progress';
 import { chunk } from 'lodash-es';
+import pMap from 'p-map';
 
 export const ELASTIC_AGENT_VERSION = '8.17.4';
+
+const BULK_BATCH_SIZE = 5000;
 
 export interface AgentData {
   id: string;
@@ -71,6 +75,13 @@ export abstract class BaseIntegration {
   readonly prerelease: boolean = false;
 
   /**
+   * Ingest pipeline sent with bulk requests. Undefined runs each data stream's
+   * default pipeline; use '_none' when documents are generated post-pipeline,
+   * since the package pipelines expect the raw `message` / `event.original`.
+   */
+  readonly ingestPipeline?: string;
+
+  /**
    * Install the integration package via Fleet API
    */
   async install(space: string = 'default'): Promise<void> {
@@ -119,17 +130,32 @@ export abstract class BaseIntegration {
           cliProgress.Presets.shades_classic,
         );
 
-        const chunks = chunk(documents, 1000);
         progress.start(documents.length, 0);
 
-        for (const docChunk of chunks) {
-          await ingest(index, docChunk);
-          progress.increment(docChunk.length);
-        }
+        // Parallel bulk requests (same approach as upload-perf-data). `wait_for`
+        // rather than a forced refresh per request, and rather than refreshing
+        // `index` afterwards: ingest pipelines may reroute documents (e.g.
+        // entityanalytics_ad.entity → .user/.device), so `index` may never exist.
+        await pMap(
+          chunk(documents, BULK_BATCH_SIZE),
+          async (docChunk) => {
+            await bulkIngest({
+              index,
+              documents: docChunk,
+              chunkSize: docChunk.length,
+              action: 'create',
+              metadata: true,
+              refresh: 'wait_for',
+              pipeline: this.ingestPipeline,
+            });
+            progress.increment(docChunk.length);
+          },
+          { concurrency: DEFAULT_BULK_CONCURRENCY },
+        );
 
         progress.stop();
       } else {
-        await ingest(index, documents);
+        await ingest(index, documents, { pipeline: this.ingestPipeline });
       }
 
       totalIndexed += documents.length;

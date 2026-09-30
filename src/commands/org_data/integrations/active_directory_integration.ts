@@ -261,10 +261,10 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
     const { managedObjects, directReports } = relationshipDns;
     const whenCreated = faker.date.past({ years: 2 }).toISOString();
     const whenChanged = faker.date.recent({ days: 30 }).toISOString();
-    // Windows NT time: 100ns intervals since 1601-01-01
-    // We'll use a realistic looking large integer
-    const lastLogon = this.generateWindowsNtTime(faker.date.recent({ days: 3 }));
-    const lastLogonTimestamp = this.generateWindowsNtTime(faker.date.recent({ days: 7 }));
+    // The Beats provider converts Windows NT times to timestamps before publishing,
+    // and the pipeline date-parses lastLogonTimestamp as ISO8601.
+    const lastLogon = faker.date.recent({ days: 3 }).toISOString();
+    const lastLogonTimestamp = faker.date.recent({ days: 7 }).toISOString();
     const pwdLastSet = faker.date.recent({ days: 60 }).toISOString();
     // Account never expires
     const accountExpires = '9223372036854775807';
@@ -400,8 +400,8 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
   ): ActiveDirectoryDocument {
     const whenCreated = faker.date.past({ years: 1 }).toISOString();
     const whenChanged = faker.date.recent({ days: 14 }).toISOString();
-    const lastLogon = this.generateWindowsNtTime(faker.date.recent({ days: 3 }));
-    const lastLogonTimestamp = this.generateWindowsNtTime(faker.date.recent({ days: 7 }));
+    const lastLogon = faker.date.recent({ days: 3 }).toISOString();
+    const lastLogonTimestamp = faker.date.recent({ days: 7 }).toISOString();
 
     const osInfo = faker.helpers.arrayElement(WINDOWS_OS_VERSIONS);
     const computerName = this.buildComputerName(employee);
@@ -485,18 +485,6 @@ export class ActiveDirectoryIntegration extends BaseIntegration {
       return this.buildUserDn(manager, baseDn);
     }
     return undefined;
-  }
-
-  /**
-   * Generate a Windows NT time value (100ns intervals since 1601-01-01)
-   */
-  private generateWindowsNtTime(date: Date): string {
-    // Offset between Unix epoch (1970) and Windows NT epoch (1601) in milliseconds
-    const ntEpochOffset = 11644473600000n;
-    const dateMs = BigInt(date.getTime());
-    // Convert to 100ns intervals
-    const ntTime = (dateMs + ntEpochOffset) * 10000n;
-    return ntTime.toString();
   }
 
   /**
