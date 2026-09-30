@@ -313,8 +313,13 @@ export class WorkdayIntegration extends BaseIntegration {
     org: Organization,
     centralAgent: AgentData,
   ): IntegrationDocument {
-    const signOnTime = faker.date.recent({ days: 14 }).toISOString();
     const sessionDurationMs = faker.number.int({ min: 5 * 60 * 1000, max: 8 * 60 * 60 * 1000 });
+    const signOnTime = faker.date
+      .between({
+        from: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
+        to: new Date(Date.now() - sessionDurationMs),
+      })
+      .toISOString();
     const sessionEnd = new Date(new Date(signOnTime).getTime() + sessionDurationMs).toISOString();
     const isFailed = faker.datatype.boolean(0.08);
     const failureMessage = isFailed
