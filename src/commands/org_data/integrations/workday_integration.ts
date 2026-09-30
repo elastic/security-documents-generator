@@ -193,7 +193,7 @@ export class WorkdayIntegration extends BaseIntegration {
     // Occasional terminated employees.
     if (faker.datatype.boolean(0.05)) {
       workdayUser.termination_date = faker.date
-        .past({ years: faker.number.int({ min: 1, max: 2 }) })
+        .between({ from: new Date(`${hireDate}T00:00:00.000Z`), to: new Date() })
         .toISOString();
     }
 
