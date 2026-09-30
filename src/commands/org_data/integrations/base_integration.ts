@@ -7,10 +7,14 @@ import { log } from '../../../utils/logger.ts';
 import { type Organization, type CorrelationMap, type Device, type Host } from '../types.ts';
 import { installPackage } from '../../../utils/kibana_api.ts';
 import { ingest } from '../../utils/indices.ts';
+import { bulkIngest, DEFAULT_BULK_CONCURRENCY } from '../../shared/elasticsearch.ts';
 import cliProgress from 'cli-progress';
 import { chunk } from 'lodash-es';
+import pMap from 'p-map';
 
 export const ELASTIC_AGENT_VERSION = '8.17.4';
+
+const BULK_BATCH_SIZE = 5000;
 
 export interface AgentData {
   id: string;
@@ -119,13 +123,27 @@ export abstract class BaseIntegration {
           cliProgress.Presets.shades_classic,
         );
 
-        const chunks = chunk(documents, 1000);
         progress.start(documents.length, 0);
 
-        for (const docChunk of chunks) {
-          await ingest(index, docChunk);
-          progress.increment(docChunk.length);
-        }
+        // Parallel bulk requests (same approach as upload-perf-data). `wait_for`
+        // rather than a forced refresh per request, and rather than refreshing
+        // `index` afterwards: ingest pipelines may reroute documents (e.g.
+        // entityanalytics_ad.entity → .user/.device), so `index` may never exist.
+        await pMap(
+          chunk(documents, BULK_BATCH_SIZE),
+          async (docChunk) => {
+            await bulkIngest({
+              index,
+              documents: docChunk,
+              chunkSize: docChunk.length,
+              action: 'create',
+              metadata: true,
+              refresh: 'wait_for',
+            });
+            progress.increment(docChunk.length);
+          },
+          { concurrency: DEFAULT_BULK_CONCURRENCY },
+        );
 
         progress.stop();
       } else {

@@ -358,14 +358,21 @@ const generateEmployees = (
 
   // Second pass: assign managers
   for (const employee of employees) {
-    const deptManagers = managersByDept.get(employee.department) || [];
-    // Don't assign manager to themselves, and only non-executives get managers
-    const potentialManagers = deptManagers.filter(
-      (m) => m.id !== employee.id && !employee.role.includes('Chief'),
-    );
+    // Only non-executives get managers
+    if (employee.role.includes('Chief')) continue;
 
-    if (potentialManagers.length > 0 && !employee.role.includes('Chief')) {
-      employee.managerId = faker.helpers.arrayElement(potentialManagers).oktaUserId;
+    // Pick in O(1) rather than filtering the manager list per employee, which is
+    // quadratic and stalls --doc-count runs with hundreds of thousands of employees.
+    // An employee appears in their department's list at most once, so stepping to
+    // the neighbour is enough to avoid self-assignment.
+    const deptManagers = managersByDept.get(employee.department) || [];
+    let managerIndex = faker.number.int({ min: 0, max: Math.max(0, deptManagers.length - 1) });
+    if (deptManagers[managerIndex] === employee) {
+      managerIndex = (managerIndex + 1) % deptManagers.length;
+    }
+    const manager = deptManagers[managerIndex];
+    if (manager && manager !== employee) {
+      employee.managerId = manager.oktaUserId;
     }
   }
 
