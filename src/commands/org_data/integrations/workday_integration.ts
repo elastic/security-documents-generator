@@ -169,7 +169,11 @@ export class WorkdayIntegration extends BaseIntegration {
 
     const relatedUser = [employee.employeeNumber, employee.userName, employee.email];
     if (manager) {
-      relatedUser.push(manager.employeeNumber, manager.email);
+      relatedUser.push(
+        manager.employeeNumber,
+        manager.email,
+        `${manager.firstName} ${manager.lastName} (${manager.employeeNumber})`,
+      );
     }
 
     const workdayUser: Record<string, unknown> = {
