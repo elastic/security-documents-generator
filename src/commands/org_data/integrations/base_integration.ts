@@ -75,6 +75,13 @@ export abstract class BaseIntegration {
   readonly prerelease: boolean = false;
 
   /**
+   * Ingest pipeline sent with bulk requests. Undefined runs each data stream's
+   * default pipeline; use '_none' when documents are generated post-pipeline,
+   * since the package pipelines expect the raw `message` / `event.original`.
+   */
+  readonly ingestPipeline?: string;
+
+  /**
    * Install the integration package via Fleet API
    */
   async install(space: string = 'default'): Promise<void> {
@@ -139,6 +146,7 @@ export abstract class BaseIntegration {
               action: 'create',
               metadata: true,
               refresh: 'wait_for',
+              pipeline: this.ingestPipeline,
             });
             progress.increment(docChunk.length);
           },
@@ -147,7 +155,7 @@ export abstract class BaseIntegration {
 
         progress.stop();
       } else {
-        await ingest(index, documents);
+        await ingest(index, documents, { pipeline: this.ingestPipeline });
       }
 
       totalIndexed += documents.length;

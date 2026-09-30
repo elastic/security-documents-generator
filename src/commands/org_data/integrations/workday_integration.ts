@@ -4,9 +4,11 @@
  * Generates post-pipeline shaped documents for the Elastic Fleet `workday`
  * package's `user`, `activity`, and `sign_on` data streams.
  *
- * Documents are indexed directly via bulk API (no ingest pipeline runs), so
- * they must already be in the final ECS + workday.* field shape that the
- * package's ingest pipelines would produce — NOT the raw `message` blob.
+ * Documents are indexed with `pipeline: '_none'`, bypassing the package's
+ * default pipelines (the activity pipeline unconditionally JSON-parses
+ * `event.original` and would mark these documents `pipeline_error`), so they
+ * must already be in the final ECS + workday.* field shape those pipelines
+ * would produce — NOT the raw `message` blob.
  *
  * Field shapes are derived from the pipeline YAMLs and the sample_event.json
  * in packages/workday/data_stream/{user,activity,sign_on}/.
@@ -67,6 +69,7 @@ const DEVICE_TYPES_SIGNON = ['Computer', 'Mobile', 'Tablet'];
 export class WorkdayIntegration extends BaseIntegration {
   readonly packageName = 'workday';
   readonly displayName = 'Workday';
+  readonly ingestPipeline = '_none';
 
   readonly dataStreams: DataStreamConfig[] = [
     { name: 'user', index: 'logs-workday.user-default' },
