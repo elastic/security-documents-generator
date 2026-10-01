@@ -143,6 +143,7 @@ const buildAnomalyDoc = (
   entity: SeedEntity,
   timestamp: number,
   windowIndex: number,
+  writeAtTimestamp: boolean,
 ): Record<string, unknown> | null => {
   if (entity.kind === 'service') return null;
 
@@ -156,16 +157,29 @@ const buildAnomalyDoc = (
   const record = records[windowIndex % records.length];
   if (!record) return null;
 
+  const ts = new Date(timestamp).toISOString();
   return {
     ...applyV2Fields(record),
-    // ML result docs carry `timestamp`; in the shared-anomalies mapping `@timestamp` is an alias
-    // onto it, and writing to an alias is rejected.
-    timestamp: new Date(timestamp).toISOString(),
+    // `timestamp` is the ML result field. The tile ES|QL filters on `@timestamp`, so set it too
+    // when the index maps it as a real date (writing to a field alias is rejected).
+    timestamp: ts,
+    ...(writeAtTimestamp && { '@timestamp': ts }),
     result_type: 'record',
     is_interim: false,
     record_score: ANOMALY_RECORD_SCORE,
     initial_record_score: ANOMALY_RECORD_SCORE,
   };
+};
+
+const hasRealAtTimestamp = async (index: string): Promise<boolean> => {
+  try {
+    const res = await getEsClient().indices.getFieldMapping({ index, fields: '@timestamp' });
+    return Object.values(res).some(
+      (i) => i.mappings['@timestamp']?.mapping['@timestamp']?.type === 'date',
+    );
+  } catch {
+    return false;
+  }
 };
 
 const bulkWrite = async (
@@ -256,6 +270,12 @@ export const seedAlertDeltas = async (opts: SeedAlertDeltasOptions): Promise<voi
   );
 
   const alertIndex = getAlertIndex(space);
+  const writeAtTimestamp = await hasRealAtTimestamp(SHARED_ANOMALIES_INDEX);
+  if (!writeAtTimestamp) {
+    log.warn(
+      `${SHARED_ANOMALIES_INDEX} has no real @timestamp date field (alias or missing) — anomalies will only set \`timestamp\`. A tile query filtering on @timestamp won't see them.`,
+    );
+  }
   const now = Date.now();
 
   for (const [windowIndex, w] of DELTA_WINDOWS.entries()) {
@@ -273,7 +293,7 @@ export const seedAlertDeltas = async (opts: SeedAlertDeltasOptions): Promise<voi
     );
 
     const anomalyDocs = anomalyEntities.flatMap((entity) => {
-      const doc = buildAnomalyDoc(entity, randomTimestampMs(now, w), windowIndex);
+      const doc = buildAnomalyDoc(entity, randomTimestampMs(now, w), windowIndex, writeAtTimestamp);
       const _id = `seed-ad-${space}-${entity.entityId}-${w.slot}-${bucket}-anom`;
       return doc ? [{ _id, doc }] : [];
     });
