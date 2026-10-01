@@ -84,7 +84,7 @@ export interface UserIdentityForDed {
   ecsArrays: Record<string, string[]>;
 }
 
-const parseUserHit = (hit: EntityHit): UserIdentityForDed | null => {
+export const parseUserHit = (hit: EntityHit): UserIdentityForDed | null => {
   const src = hit._source;
   const entityId = src.entity?.id;
   if (typeof entityId !== 'string' || !entityId.startsWith('user:')) return null;
