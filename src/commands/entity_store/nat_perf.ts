@@ -1,6 +1,7 @@
 import { log } from '../../utils/logger.ts';
 import { riskScoreV2Command, type RiskScoreV2Options } from './risk_score_v2.ts';
 import { seedRiskScoreHistory } from './seed_risk_score_history.ts';
+import { seedAlertDeltas } from './seed_alert_deltas.ts';
 import { generateAnomalousBehaviorDataWithMlJobs } from '../misc/anomalous_behavior/index.ts';
 
 export interface NatPerfOptions {
@@ -13,6 +14,7 @@ export interface NatPerfOptions {
   space: string;
   delaySeconds: number;
   cleanHistory: boolean;
+  withDeltas: boolean;
 }
 
 type EntityKind = 'host' | 'idp_user' | 'local_user' | 'service';
@@ -50,6 +52,7 @@ export const natPerfCommand = async (opts: NatPerfOptions): Promise<void> => {
     space,
     delaySeconds,
     cleanHistory,
+    withDeltas,
   } = opts;
 
   const totalBatches = Math.ceil(totalEntities / batchSize);
@@ -107,6 +110,14 @@ export const natPerfCommand = async (opts: NatPerfOptions): Promise<void> => {
       newlyHighCount,
       clean: cleanHistory,
     });
+
+    if (withDeltas) {
+      await seedAlertDeltas({
+        space,
+        count: Math.floor(currentBatchSize * 0.2),
+        anomalyCount: Math.floor(currentBatchSize * 0.1),
+      });
+    }
 
     totalSeeded += currentBatchSize;
     log.info(
