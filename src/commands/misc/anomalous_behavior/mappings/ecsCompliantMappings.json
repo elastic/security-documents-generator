@@ -14,6 +14,12 @@
         "name": { "type": "keyword" },
         "path": { "type": "keyword" },
         "size": { "type": "long" },
+        "extension": { "type": "keyword" },
+        "hash": {
+          "properties": {
+            "sha256": { "type": "keyword" }
+          }
+        },
         "Ext": {
           "properties": {
             "device": {
@@ -28,7 +34,12 @@
     "source": {
       "properties": {
         "ip": { "type": "ip" },
-        "bytes": { "type": "long" }
+        "bytes": { "type": "long" },
+        "geo": {
+          "properties": {
+            "region_iso_code": { "type": "keyword" }
+          }
+        }
       }
     },
     "server": {
@@ -39,11 +50,21 @@
     "destination": {
       "properties": {
         "ip": { "type": "ip" },
+        "port": { "type": "long" },
         "geo": {
           "properties": {
             "continent_name": { "type": "keyword" },
             "country_iso_code": { "type": "keyword" },
             "country_name": { "type": "keyword" }
+          }
+        },
+        "as": {
+          "properties": {
+            "organization": {
+              "properties": {
+                "name": { "type": "keyword" }
+              }
+            }
           }
         }
       }
@@ -70,6 +91,17 @@
     },
     "process": {
       "properties": {
+        "parent": {
+          "properties": {
+            "name": { "type": "keyword" }
+          }
+        },
+        "code_signature": {
+          "properties": {
+            "subject_name": { "type": "keyword" },
+            "trusted": { "type": "boolean" }
+          }
+        },
         "entry_leader": {
           "properties": {
             "name": {
