@@ -2730,7 +2730,7 @@ const deleteAllDocsFromIndex = async (index: string, label: string): Promise<num
 const dangerousCleanSpaceData = async (space: string): Promise<void> => {
   const alertIndex = getAlertIndex(space);
   const entityLatestIndex = getEntityStoreIndex(space);
-  const entityHistoryIndex = `.entities.v2.history.security_${space}`;
+  const entityHistoryIndex = `.entities.v2.history.${space}.*`;
   const riskIndex = `risk-score.risk-score-${space}`;
   const riskLookupIndex = `.entity_analytics.risk_score.lookup-${space}`;
 

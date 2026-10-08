@@ -14,6 +14,7 @@ import { baselineMetricsCommands } from './commands/baseline_metrics/index.ts';
 import { cloudSecurityPostureCommands } from './commands/generate_cloud_security_posture/index.ts';
 import { orgDataCommands } from './commands/org_data/index.ts';
 import { leadGenerationCommands } from './commands/lead_generation/index.ts';
+import { execBriefCommands } from './commands/exec_brief/index.ts';
 import { parseIntBase10 } from './commands/utils/cli_utils.ts';
 
 await createConfigFileOnFirstRun();
@@ -33,6 +34,7 @@ const commands = [
   cloudSecurityPostureCommands,
   orgDataCommands,
   leadGenerationCommands,
+  execBriefCommands,
 ];
 
 commands.forEach((cmd) => cmd.register(program));
