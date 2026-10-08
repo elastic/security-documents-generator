@@ -75,6 +75,13 @@ export const buildGroundTruth = ({
     generatedAt: new Date().toISOString(),
     anchor: anchor.toISOString(),
     space,
+    // Shape hints for poc-results/scripts/check_ground_truth.py (entity ids are display names there).
+    checkerHints: {
+      s1Entities: ['a.rodriguez', 'LAPTOP-FIN03', 'jump-box-01', 'docker-host-prod-01'],
+      s2ResponseStatus: 'in_progress',
+      attackStageFlags: { TA0008: ['limited_coverage'] },
+      expectedGapIds: ['B5', 'B6'],
+    },
     storylines: {
       S1: {
         label: 'Stolen privileged credentials -> jump box -> prod container escape',
