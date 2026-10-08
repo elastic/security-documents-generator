@@ -107,3 +107,45 @@ export const cleanScenario = async (space: string): Promise<void> => {
   );
   await deleteScenarioCases(space);
 };
+
+/** Remove the risk engine's output for the scenario (used before re-running the day loop). */
+export const cleanRiskDocs = async (space: string): Promise<void> => {
+  const entityIds = scenarioEntityIds();
+  await deleteByQuery(
+    `risk-score.risk-score-${space}`,
+    {
+      bool: {
+        minimum_should_match: 1,
+        should: ['host', 'user', 'service'].map((type) => ({
+          terms: { [`${type}.risk.id_value`]: entityIds },
+        })),
+      },
+    },
+    'risk score',
+  );
+  await deleteByQuery(
+    `.entity_analytics.risk_score.lookup-${space}`,
+    { match_all: {} },
+    'risk lookup',
+  );
+};
+
+/** Stop and delete Security ML jobs left by earlier runs (so `--no-ml` really means no ML). */
+export const cleanMlJobs = async (): Promise<void> => {
+  const client = getEsClient();
+  try {
+    const jobs = await client.ml.getJobs({ job_id: '_all', allow_no_match: true });
+    const ids = jobs.jobs.filter((j) => j.groups?.includes('security')).map((j) => j.job_id);
+    for (const jobId of ids) {
+      await client.ml
+        .deleteDatafeed({ datafeed_id: `datafeed-${jobId}`, force: true })
+        .catch(() => undefined);
+      await client.ml
+        .deleteJob({ job_id: jobId, force: true, wait_for_completion: true })
+        .catch(() => undefined);
+    }
+    if (ids.length > 0) log.info(`Clean: deleted ${ids.length} Security ML job(s)`);
+  } catch (error) {
+    log.warn(`Clean: ML jobs failed: ${String(error).slice(0, 200)}`);
+  }
+};

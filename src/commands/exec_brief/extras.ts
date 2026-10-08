@@ -180,6 +180,15 @@ export const createAttackDiscoveries = async ({
   };
   if (mode === 'none') return result;
 
+  // Idempotent on step retries: drop earlier scenario discoveries first.
+  await getEsClient().deleteByQuery({
+    index: adIndexPattern(space),
+    refresh: true,
+    ignore_unavailable: true,
+    conflicts: 'proceed',
+    query: { term: { 'kibana.alert.attack_discovery.api_config.name': AD_CONNECTOR_NAME } },
+  });
+
   if (mode === 'dev-route') {
     try {
       await createDiscoveriesViaDevRoute({ anchor, space });
@@ -270,7 +279,7 @@ export const deleteScenarioCases = async (space: string): Promise<void> => {
     );
     const ids = (found.cases ?? []).map((c) => c.id);
     if (ids.length === 0) return;
-    const query = ids.map((id) => `ids=${encodeURIComponent(id)}`).join('&');
+    const query = `ids=${encodeURIComponent(JSON.stringify(ids))}`;
     await kibanaFetch(
       `/api/cases?${query}`,
       { method: 'DELETE' },
@@ -472,15 +481,7 @@ export const seedS1Lead = async ({
   const client = getEsClient();
   const index = `${LEADS_INDEX_PREFIX}${space}`;
 
-  try {
-    await kibanaFetch(
-      '/internal/entity_analytics/leads/enable',
-      { method: 'POST' },
-      { apiVersion: '1', space },
-    );
-  } catch (error) {
-    log.warn(`Lead generation enable failed (${String(error)}); creating the index directly.`);
-  }
+  // The enable route requires an LLM connector, so the index is created directly.
   const exists = await client.indices.exists({ index });
   if (!exists) {
     await client.indices.create({

@@ -4,7 +4,7 @@ import { log } from '../../utils/logger.ts';
 import { ensureSpace } from '../../utils/ensure_space.ts';
 import { ensureSecurityDefaultDataView } from '../../utils/security_default_data_view.ts';
 import { enableEntityStoreV2, installEntityStoreV2, kibanaFetch } from '../../utils/kibana_api.ts';
-import { cleanScenario } from './clean.ts';
+import { cleanMlJobs, cleanRiskDocs, cleanScenario } from './clean.ts';
 import { setupRules } from './rules.ts';
 import { indexPhaseEvents } from './source_events.ts';
 import {
@@ -113,7 +113,12 @@ export const execBriefScenarioCommand = async (
   );
 
   await waitForKibana();
-  if (clean) await timed('1. Clean', () => cleanScenario(space));
+  if (clean) {
+    await timed('1. Clean', async () => {
+      await cleanScenario(space);
+      if (!ml) await cleanMlJobs();
+    });
+  }
 
   const packages = await timed('2. Setup', async () => {
     await ensureSpace(space);
@@ -147,6 +152,8 @@ export const execBriefScenarioCommand = async (
   });
 
   await timed('9. Alerts and day-by-day risk', async () => {
+    // Idempotent on retries: the day loop rebuilds the whole risk history.
+    await cleanRiskDocs(space);
     const alerts = buildAlerts();
     for (let daysAgo = 30; daysAgo >= 1; daysAgo--) {
       const dayAlerts = alerts.filter((a) => a.daysAgo === daysAgo);
