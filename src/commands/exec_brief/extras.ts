@@ -261,6 +261,27 @@ export interface CaseResult {
   attachedAlertIds: string[];
 }
 
+export const deleteScenarioCases = async (space: string): Promise<void> => {
+  try {
+    const found = await kibanaFetch<{ cases?: Array<{ id: string }> }>(
+      `/api/cases/_find?tags=${SCENARIO_TAG}&owner=securitySolution&perPage=100`,
+      { method: 'GET' },
+      { apiVersion: API_VERSIONS.public.v1, space },
+    );
+    const ids = (found.cases ?? []).map((c) => c.id);
+    if (ids.length === 0) return;
+    const query = ids.map((id) => `ids=${encodeURIComponent(id)}`).join('&');
+    await kibanaFetch(
+      `/api/cases?${query}`,
+      { method: 'DELETE' },
+      { apiVersion: API_VERSIONS.public.v1, space },
+    );
+    log.info(`Clean: deleted ${ids.length} case(s)`);
+  } catch (error) {
+    log.warn(`Clean: cases failed: ${String(error).slice(0, 200)}`);
+  }
+};
+
 export const createS2Case = async ({
   anchor,
   space,
@@ -270,6 +291,8 @@ export const createS2Case = async ({
   space: string;
   rules: Map<string, InstalledRule>;
 }): Promise<CaseResult> => {
+  // Idempotent on step retries: drop any earlier scenario case first.
+  await deleteScenarioCases(space);
   const created = await kibanaFetch<{ id: string }>(
     '/api/cases',
     {

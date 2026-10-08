@@ -183,7 +183,8 @@ export const applyEntityModifiers = async (space: string): Promise<void> => {
   }
   for (const user of USERS) {
     if (!user.criticality) continue;
-    const ids = [idpUserEuid(user), ...aliasHostsFor(user).map((h) => localUserEuid(user, h))];
+    // Aliases only: the golden identity is left without criticality on purpose (blind spot B6).
+    const ids = aliasHostsFor(user).map((h) => localUserEuid(user, h));
     for (const id of ids) {
       entities.push({
         type: kindOf(id),

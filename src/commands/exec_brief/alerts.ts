@@ -200,7 +200,7 @@ export const indexAlerts = async ({
     const rule = rules.get(spec.ruleKey);
     if (!rule) throw new Error(`Rule "${spec.ruleKey}" missing for alert ${spec.key}`);
     const doc = buildAlertDoc({ spec, rule, anchor, space });
-    operations.push({ create: { _index: index, _id: doc['kibana.alert.uuid'] as string } }, doc);
+    operations.push({ index: { _index: index, _id: doc['kibana.alert.uuid'] as string } }, doc);
   }
   return bulkCreate({ operations, label: 'alerts' });
 };

@@ -3,7 +3,7 @@ import path from 'path';
 import { log } from '../../utils/logger.ts';
 import { ensureSpace } from '../../utils/ensure_space.ts';
 import { ensureSecurityDefaultDataView } from '../../utils/security_default_data_view.ts';
-import { enableEntityStoreV2, installEntityStoreV2 } from '../../utils/kibana_api.ts';
+import { enableEntityStoreV2, installEntityStoreV2, kibanaFetch } from '../../utils/kibana_api.ts';
 import { cleanScenario } from './clean.ts';
 import { setupRules } from './rules.ts';
 import { indexPhaseEvents } from './source_events.ts';
@@ -30,7 +30,7 @@ import { runMlStep } from './ml.ts';
 import { runVerification, type CheckResult } from './verify.ts';
 import { buildGroundTruth } from './ground_truth.ts';
 import { RELATIONSHIP_PHASES, RISK_DAYS, buildAlerts } from './scenario.ts';
-import { endOfDay } from './utils.ts';
+import { endOfDay, sleep } from './utils.ts';
 
 export interface ExecBriefScenarioOptions {
   space: string;
@@ -44,16 +44,47 @@ export interface ExecBriefScenarioOptions {
   verify: boolean;
 }
 
+const isNetworkError = (error: unknown): boolean =>
+  String(error).includes('Network request failed') || String(error).includes('ECONNREFUSED');
+
+/** Kibana dev mode restarts on file changes; wait for it before retrying a step. */
+const waitForKibana = async (timeoutMs: number = 10 * 60 * 1000): Promise<void> => {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const status = await kibanaFetch<{ status?: { overall?: { level?: string } } }>(
+        '/api/status',
+        { method: 'GET' },
+        { omitApiVersion: true, ignoreStatuses: [503] },
+      );
+      if (status.status?.overall?.level === 'available') return;
+    } catch {
+      // still restarting
+    }
+    await sleep(5000);
+  }
+  throw new Error('Kibana did not become available');
+};
+
+const MAX_STEP_ATTEMPTS = 3;
+
 const timed = async <T>(label: string, fn: () => Promise<T>): Promise<T> => {
   const start = Date.now();
   log.info(`--- ${label}`);
-  try {
-    const result = await fn();
-    log.info(`--- ${label} done in ${((Date.now() - start) / 1000).toFixed(1)}s`);
-    return result;
-  } catch (error) {
-    log.error(`--- ${label} FAILED: ${String(error)}`);
-    throw error;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const result = await fn();
+      log.info(`--- ${label} done in ${((Date.now() - start) / 1000).toFixed(1)}s`);
+      return result;
+    } catch (error) {
+      if (isNetworkError(error) && attempt < MAX_STEP_ATTEMPTS) {
+        log.warn(`--- ${label}: Kibana unreachable (attempt ${attempt}); waiting and retrying`);
+        await waitForKibana();
+        continue;
+      }
+      log.error(`--- ${label} FAILED: ${String(error)}`);
+      throw error;
+    }
   }
 };
 
@@ -81,6 +112,7 @@ export const execBriefScenarioCommand = async (
     `exec-brief-scenario: space=${space} anchor=${anchor.toISOString()} ml=${ml} ad=${adMode}`,
   );
 
+  await waitForKibana();
   if (clean) await timed('1. Clean', () => cleanScenario(space));
 
   const packages = await timed('2. Setup', async () => {

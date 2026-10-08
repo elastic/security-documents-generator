@@ -77,7 +77,6 @@ export const HOSTS: ScenarioHost[] = [
   makeHost('jump-box-01', 'windows', 'S1', 'high_impact'),
   makeHost('docker-host-prod-01', 'linux', 'S1', 'extreme_impact'),
   makeHost('LAPTOP-MKT07', 'windows', 'S2', 'low_impact'),
-  // B6: no criticality on build-runner-02 or on the S2 user (see USERS)
   makeHost('build-runner-02', 'linux', 'S3'),
   makeHost('fileserver-03', 'linux', 'S3'),
   ...NOISE_USERS.map(([,], index) => makeHost(noiseLaptopName(index), 'windows', 'noise')),
@@ -99,7 +98,6 @@ export const USERS: ScenarioUser[] = [
     criticality: 'high_impact',
   },
   {
-    // No criticality on purpose (blind spot B6: material-risk entity without criticality).
     key: 'j.chen',
     userName: 'j.chen',
     email: `j.chen@${DOMAIN}`,
@@ -725,6 +723,29 @@ export const S3_ALERTS: ScenarioAlert[] = [
     reason: 'curl uploaded a large archive to an external host from build-runner-02',
   }),
 ];
+
+const variant = (
+  base: ScenarioAlert,
+  key: string,
+  patch: Partial<ScenarioAlert>,
+): ScenarioAlert => ({ ...base, ...patch, key });
+
+// Repeat detections so the real risk engine lifts the S1 and S2 identities to High / Critical
+// (material risk) rather than a single alert each.
+S1_ALERTS.push(
+  variant(S1_ALERTS[1], 's1-ca-2', { hour: 15, minute: 40 }),
+  variant(S1_ALERTS[2], 's1-lm-2', { hour: 23, minute: 5 }),
+  variant(S1_ALERTS[2], 's1-lm-3', { daysAgo: 2, hour: 8, minute: 20 }),
+  variant(S1_ALERTS[4], 's1-pe-2', { daysAgo: 2, hour: 22, minute: 2 }),
+  variant(S1_ALERTS[5], 's1-exec-2', { hour: 11, minute: 30 }),
+  variant(S1_ALERTS[5], 's1-exec-3', { hour: 14, minute: 12 }),
+);
+S2_ALERTS.push(
+  variant(S2_ALERTS[0], 's2-mfa-2', { minute: 18 }),
+  variant(S2_ALERTS[0], 's2-mfa-3', { minute: 29 }),
+  variant(S2_ALERTS[1], 's2-hijack-2', { hour: 13, minute: 5 }),
+  variant(S2_ALERTS[2], 's2-office-2', { hour: 16, minute: 3 }),
+);
 
 const NOISE_ALERT_PLAN: Array<[string, number, string]> = [
   // [noise rule key, days ago, status]

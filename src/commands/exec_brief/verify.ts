@@ -10,6 +10,7 @@ import {
   userByKey,
   USERS,
   S1_ALERTS,
+  S2_ALERTS,
 } from './scenario.ts';
 import { riskIndex } from './risk.ts';
 import { alertUuid } from './alerts.ts';
@@ -263,24 +264,24 @@ export const runVerification = async ({
   );
 
   results.push(
-    await safe('6', 'Risk history with jumps for docker-host-prod-01', async () => {
+    await safe('6', 'Risk history with jumps for a.rodriguez (golden identity)', async () => {
       const res = await client.search({
         index: riskIndex(space),
         size: 30,
         sort: [{ '@timestamp': 'asc' }],
-        query: { term: { 'host.risk.id_value': hostEuid(prod) } },
-        _source: ['@timestamp', 'host.risk.calculated_score_norm', 'host.risk.calculated_level'],
+        query: { term: { 'user.risk.id_value': golden } },
+        _source: ['@timestamp', 'user.risk.calculated_score_norm', 'user.risk.calculated_level'],
       });
       const series = res.hits.hits.map((h) => ({
         t: String(getPath(h._source, '@timestamp')),
-        score: Number(getPath(h._source, 'host.risk.calculated_score_norm')),
+        score: Number(getPath(h._source, 'user.risk.calculated_score_norm')),
       }));
       const nonDecreasing = series.every((p, i) => i === 0 || p.score >= series[i - 1].score);
       const pass =
-        series.length >= 4 && nonDecreasing && series[series.length - 1].score > series[0].score;
+        series.length >= 5 && nonDecreasing && series[series.length - 1].score > series[0].score;
       return check(
         '6',
-        'Risk history with jumps for docker-host-prod-01',
+        'Risk history with jumps for a.rodriguez (golden identity)',
         pass,
         series.map((p) => `${days(p.t)}:${p.score.toFixed(1)}`).join(' '),
       );
@@ -368,7 +369,8 @@ export const runVerification = async ({
         (res.aggregations?.cases as { buckets?: Array<{ key: string; doc_count: number }> })
           ?.buckets ?? []
       ).map((b) => `${b.key}:${b.doc_count}`);
-      const pass = wf.acknowledged === 3 && cases.some((c) => c.startsWith(String(caseId)));
+      const pass =
+        wf.acknowledged === S2_ALERTS.length && cases.some((c) => c.startsWith(String(caseId)));
       return check(
         '10',
         'Case + case_ids on S2 alerts, acknowledged',
@@ -440,17 +442,39 @@ export const runVerification = async ({
       const res = await client.search({
         index: entityIndex,
         size: 20,
-        _source: ['entity.id', 'entity.risk.calculated_level', 'asset.criticality'],
+        _source: [
+          'entity.id',
+          'entity.risk.calculated_level',
+          'entity.relationships.resolution.risk.calculated_level',
+          'asset.criticality',
+        ],
         query: {
           bool: {
-            filter: [{ terms: { 'entity.risk.calculated_level': ['High', 'Critical'] } }],
+            filter: [
+              {
+                bool: {
+                  minimum_should_match: 1,
+                  should: [
+                    { terms: { 'entity.risk.calculated_level': ['High', 'Critical'] } },
+                    {
+                      terms: {
+                        'entity.relationships.resolution.risk.calculated_level': [
+                          'High',
+                          'Critical',
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
             must_not: [{ exists: { field: 'asset.criticality' } }],
           },
         },
       });
       const ids = res.hits.hits.map(
         (h) =>
-          `${getPath(h._source, 'entity.id')}(${getPath(h._source, 'entity.risk.calculated_level')})`,
+          `${getPath(h._source, 'entity.id')}(${getPath(h._source, 'entity.relationships.resolution.risk.calculated_level') ?? getPath(h._source, 'entity.risk.calculated_level')})`,
       );
       return check(
         'B6',

@@ -160,12 +160,8 @@ export const buildGroundTruth = ({
       },
       B5_unresolvedLocalUsers: noiseUsers.filter((u) => !u.resolve).map((u) => u.userName),
       B6_noCriticalityOnMaterialRiskEntity: {
-        candidates: [
-          idpUserEuid(chen),
-          ...aliasHostsFor(chen).map((h) => localUserEuid(chen, h)),
-          hostEuid(hostByKey('build-runner-02')),
-        ],
-        note: 'confirm which of these reaches High/Critical in the verification output',
+        entity: idpUserEuid(rodriguez),
+        note: 'S1 golden identity reaches High via resolution risk and has no asset.criticality (its aliases and hosts do)',
       },
       B12_mlNotRunning: !mlEnabled,
       v18Alias: {

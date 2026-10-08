@@ -1,8 +1,7 @@
 import { getEsClient } from '../utils/indices.ts';
 import { log } from '../../utils/logger.ts';
-import { API_VERSIONS, getEntityStoreIndex } from '../../constants.ts';
+import { getEntityStoreIndex } from '../../constants.ts';
 import { getAlertIndex } from '../../utils/get_alert_index.ts';
-import { kibanaFetch } from '../../utils/kibana_api.ts';
 import {
   HOSTS,
   SERVICES,
@@ -15,7 +14,7 @@ import {
   serviceEuid,
   userByKey,
 } from './scenario.ts';
-import { AD_CONNECTOR_NAME } from './extras.ts';
+import { AD_CONNECTOR_NAME, deleteScenarioCases } from './extras.ts';
 import { SCENARIO_TAG, getStatusCode } from './utils.ts';
 
 type Query = Record<string, unknown>;
@@ -46,27 +45,6 @@ const deleteByQuery = async (index: string, query: Query, label: string): Promis
   } catch (error) {
     if (getStatusCode(error) === 404) return;
     log.warn(`Clean: ${label} (${index}) failed: ${String(error).slice(0, 200)}`);
-  }
-};
-
-const deleteScenarioCases = async (space: string): Promise<void> => {
-  try {
-    const found = await kibanaFetch<{ cases?: Array<{ id: string }> }>(
-      `/api/cases/_find?tags=${SCENARIO_TAG}&owner=securitySolution&perPage=100`,
-      { method: 'GET' },
-      { apiVersion: API_VERSIONS.public.v1, space },
-    );
-    const ids = (found.cases ?? []).map((c) => c.id);
-    if (ids.length === 0) return;
-    const query = ids.map((id) => `ids=${encodeURIComponent(id)}`).join('&');
-    await kibanaFetch(
-      `/api/cases?${query}`,
-      { method: 'DELETE' },
-      { apiVersion: API_VERSIONS.public.v1, space },
-    );
-    log.info(`Clean: deleted ${ids.length} case(s)`);
-  } catch (error) {
-    log.warn(`Clean: cases failed: ${String(error).slice(0, 200)}`);
   }
 };
 
