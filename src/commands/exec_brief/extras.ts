@@ -46,7 +46,9 @@ export const indexVulnerabilities = async (): Promise<number> => {
       },
     };
   });
-  const operations = docs.flatMap((doc) => [{ index: { _index: VULNERABILITY_INDEX } }, doc]);
+  // `create` works whether the target is a plain index (local) or a data stream (cloud, where the
+  // stock logs-*-* template applies and rejects `index` ops).
+  const operations = docs.flatMap((doc) => [{ create: { _index: VULNERABILITY_INDEX } }, doc]);
   return bulkCreate({ operations, label: 'vulnerabilities' });
 };
 
