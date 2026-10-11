@@ -70,6 +70,16 @@ interface GeneratorOptions {
   valueStartIndex: number;
   fieldLength: number;
   idPrefix: string;
+  /**
+   * user-type only: which shape to generate. `asset` (default) is today's
+   * Okta-style `event.kind: asset` log, that is priority-eligible and
+   * resolves to `entity.confidence: high`. `nonAsset` drops the asset gate
+   * and the recognized-IdP module, so it resolves to `entity.namespace:
+   * local` / `entity.confidence: medium` via the non-priority path. `noise`
+   * carries no identity-bearing fields at all, so it should not aggregate
+   * into any entity, exercising scan cost without producing data.
+   */
+  userVariant?: 'asset' | 'nonAsset' | 'noise';
 }
 
 const getLogsPerEntity = (filePath: string) => {
@@ -199,8 +209,26 @@ const changeGenericEntityName = (doc: Record<string, any>, addition: string) => 
   return doc;
 };
 
-const generateUserFields = ({ idPrefix, entityIndex }: GeneratorOptions): UserFields => {
+const generateUserFields = ({
+  idPrefix,
+  entityIndex,
+  userVariant = 'asset',
+}: GeneratorOptions): UserFields => {
   const id = `${idPrefix}-user-${entityIndex}`;
+
+  if (userVariant === 'noise') {
+    // No identity-bearing fields: should not aggregate into any entity.
+    return {
+      event: {
+        kind: 'event',
+        category: 'network',
+        type: 'info',
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any;
+  }
+
+  const isAsset = userVariant === 'asset';
   return {
     user: {
       id: id,
@@ -211,12 +239,18 @@ const generateUserFields = ({ idPrefix, entityIndex }: GeneratorOptions): UserFi
       email: `${id}@example.${idPrefix}.com`,
       entity: { id },
     },
-    event: {
-      kind: 'asset',
-      module: 'entityanalytics_okta',
-      category: 'iam',
-      type: 'user',
-    },
+    event: isAsset
+      ? {
+          kind: 'asset',
+          module: 'entityanalytics_okta',
+          category: 'iam',
+          type: 'user',
+        }
+      : {
+          kind: 'event',
+          category: 'iam',
+          type: 'user',
+        },
   };
 };
 
@@ -882,6 +916,31 @@ const logKibanaStatsEvery = (name: string, interval: number): (() => void) => {
   return stopCallback;
 };
 
+/**
+ * Deterministically buckets a 1-based user entityIndex into asset / nonAsset /
+ * noise by proportional ranges, so the overall split exactly matches the
+ * requested ratios regardless of entity count.
+ */
+const getUserVariant = (
+  entityIndex: number,
+  totalUserCount: number,
+  assetRatio: number,
+  noiseRatio: number,
+): 'asset' | 'nonAsset' | 'noise' => {
+  if (totalUserCount <= 0) {
+    return 'asset';
+  }
+  const assetCount = Math.round(totalUserCount * assetRatio);
+  const noiseCount = Math.round(totalUserCount * noiseRatio);
+  if (entityIndex <= assetCount) {
+    return 'asset';
+  }
+  if (entityIndex <= assetCount + noiseCount) {
+    return 'noise';
+  }
+  return 'nonAsset';
+};
+
 export const createPerfDataFile = async ({
   entityCount,
   logsPerEntity,
@@ -889,6 +948,8 @@ export const createPerfDataFile = async ({
   name,
   distribution = DEFAULT_DISTRIBUTION,
   explicitEntityCounts,
+  userAssetRatio = 1,
+  userNoiseRatio = 0,
 }: {
   name: string;
   entityCount: number;
@@ -896,6 +957,10 @@ export const createPerfDataFile = async ({
   startIndex: number;
   distribution?: DistributionType;
   explicitEntityCounts?: ExplicitEntityCountsInput;
+  /** Fraction (0-1) of user entities generated as `event.kind: asset`. Default 1 preserves prior behavior. */
+  userAssetRatio?: number;
+  /** Fraction (0-1) of user entities generated as identity-less noise logs. Default 0 preserves prior behavior. */
+  userNoiseRatio?: number;
 }): Promise<void> => {
   const filePath = getFilePath(name);
 
@@ -1024,6 +1089,16 @@ export const createPerfDataFile = async ({
               valueStartIndex,
               fieldLength: FIELD_LENGTH,
               idPrefix: name,
+              ...(type === 'user'
+                ? {
+                    userVariant: getUserVariant(
+                      entityIndex,
+                      entityCounts.user,
+                      userAssetRatio,
+                      userNoiseRatio,
+                    ),
+                  }
+                : {}),
             };
 
             // Use map lookup instead of if/else chain
