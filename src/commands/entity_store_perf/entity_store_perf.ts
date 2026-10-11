@@ -229,6 +229,7 @@ const generateUserFields = ({
   }
 
   const isAsset = userVariant === 'asset';
+  const hostId = `${idPrefix}-user-host-${entityIndex}`;
   return {
     user: {
       id: id,
@@ -251,6 +252,10 @@ const generateUserFields = ({
           category: 'iam',
           type: 'user',
         },
+    // Required for non-asset docs to resolve entity.namespace: local (-> medium
+    // confidence) via the postAggFilter's local-namespace gate; harmless no-op
+    // for the asset variant, which already resolves via the IdP gate instead.
+    ...(isAsset ? {} : { host: { id: hostId, name: hostId } }),
   };
 };
 
