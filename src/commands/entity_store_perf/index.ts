@@ -15,6 +15,8 @@ import {
   uploadPerfDataFile,
   uploadPerfDataFileInterval,
   DEFAULT_UPLOAD_BULK_CONCURRENCY,
+  DEFAULT_USER_ASSET_RATIO,
+  DEFAULT_USER_NOISE_RATIO,
   isValidDistributionType,
   isEntitySize,
   type DistributionType,
@@ -54,6 +56,16 @@ export const entityStorePerfCommands: CommandModule = {
         'With --distribution absolute: number of generic entities',
         parseIntBase10,
       )
+      .option(
+        '--user-asset-ratio <n>',
+        'Fraction (0-1) of user entities generated as event.kind:asset (priority-eligible, high confidence) (default: 1)',
+        parseFloat,
+      )
+      .option(
+        '--user-noise-ratio <n>',
+        'Fraction (0-1) of user entities generated as identity-less noise logs that should not aggregate into any entity (default: 0)',
+        parseFloat,
+      )
       .description('Create performance data')
       .action(
         wrapAction(async (name, entityCount, logsPerEntity, startIndex, options) => {
@@ -61,6 +73,27 @@ export const entityStorePerfCommands: CommandModule = {
           if (!isValidDistributionType(distributionType)) {
             log.error(`❌ Invalid distribution type: ${distributionType}`);
             log.error(`   Available types: ${Object.keys(ENTITY_DISTRIBUTIONS).join(', ')}`);
+            process.exit(1);
+          }
+
+          const userAssetRatio = options.userAssetRatio as number | undefined;
+          const userNoiseRatio = options.userNoiseRatio as number | undefined;
+          // Validate using the same effective defaults createPerfDataFile applies,
+          // so a ratio passed alone is checked against what will actually run.
+          const effectiveAssetRatio = userAssetRatio ?? DEFAULT_USER_ASSET_RATIO;
+          const effectiveNoiseRatio = userNoiseRatio ?? DEFAULT_USER_NOISE_RATIO;
+          if (
+            !Number.isFinite(effectiveAssetRatio) ||
+            !Number.isFinite(effectiveNoiseRatio) ||
+            effectiveAssetRatio < 0 ||
+            effectiveAssetRatio > 1 ||
+            effectiveNoiseRatio < 0 ||
+            effectiveNoiseRatio > 1 ||
+            effectiveAssetRatio + effectiveNoiseRatio > 1
+          ) {
+            log.error(
+              '❌ --user-asset-ratio and --user-noise-ratio must each be a number between 0 and 1, and their effective sum (applying defaults when one is omitted) must not exceed 1',
+            );
             process.exit(1);
           }
 
@@ -98,6 +131,8 @@ export const entityStorePerfCommands: CommandModule = {
                 service: serviceCount,
                 generic: genericCount,
               },
+              userAssetRatio,
+              userNoiseRatio,
             });
           } else {
             if (anyCountOptionSet) {
@@ -112,6 +147,8 @@ export const entityStorePerfCommands: CommandModule = {
               logsPerEntity,
               startIndex,
               distribution: distributionType,
+              userAssetRatio,
+              userNoiseRatio,
             });
           }
         }),

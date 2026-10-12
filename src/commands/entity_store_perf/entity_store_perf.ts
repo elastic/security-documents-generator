@@ -34,6 +34,8 @@ import { sleep } from '../../utils/sleep.ts';
 const CHECKPOINT_STABLE_TIME_MS = 10000;
 const UPLOAD_BATCH_SIZE = 5000;
 export const DEFAULT_UPLOAD_BULK_CONCURRENCY = 8;
+export const DEFAULT_USER_ASSET_RATIO = 1;
+export const DEFAULT_USER_NOISE_RATIO = 0;
 // Consider stable after this many consecutive checks with the same checkpoint
 const STABLE_CHECKPOINT_THRESHOLD = 3;
 
@@ -70,6 +72,16 @@ interface GeneratorOptions {
   valueStartIndex: number;
   fieldLength: number;
   idPrefix: string;
+  /**
+   * user-type only: which shape to generate. `asset` (default) is today's
+   * Okta-style `event.kind: asset` log, that is priority-eligible and
+   * resolves to `entity.confidence: high`. `nonAsset` drops the asset gate
+   * and the recognized-IdP module, so it resolves to `entity.namespace:
+   * local` / `entity.confidence: medium` via the non-priority path. `noise`
+   * carries no identity-bearing fields at all, so it should not aggregate
+   * into any entity, exercising scan cost without producing data.
+   */
+  userVariant?: 'asset' | 'nonAsset' | 'noise';
 }
 
 const getLogsPerEntity = (filePath: string) => {
@@ -199,8 +211,27 @@ const changeGenericEntityName = (doc: Record<string, any>, addition: string) => 
   return doc;
 };
 
-const generateUserFields = ({ idPrefix, entityIndex }: GeneratorOptions): UserFields => {
+const generateUserFields = ({
+  idPrefix,
+  entityIndex,
+  userVariant = 'asset',
+}: GeneratorOptions): UserFields => {
   const id = `${idPrefix}-user-${entityIndex}`;
+
+  if (userVariant === 'noise') {
+    // No identity-bearing fields: should not aggregate into any entity.
+    return {
+      event: {
+        kind: 'event',
+        category: 'network',
+        type: 'info',
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any;
+  }
+
+  const isAsset = userVariant === 'asset';
+  const hostId = `${idPrefix}-user-host-${entityIndex}`;
   return {
     user: {
       id: id,
@@ -211,12 +242,22 @@ const generateUserFields = ({ idPrefix, entityIndex }: GeneratorOptions): UserFi
       email: `${id}@example.${idPrefix}.com`,
       entity: { id },
     },
-    event: {
-      kind: 'asset',
-      module: 'entityanalytics_okta',
-      category: 'iam',
-      type: 'user',
-    },
+    event: isAsset
+      ? {
+          kind: 'asset',
+          module: 'entityanalytics_okta',
+          category: 'iam',
+          type: 'user',
+        }
+      : {
+          kind: 'event',
+          category: 'iam',
+          type: 'user',
+        },
+    // Required for non-asset docs to resolve entity.namespace: local (-> medium
+    // confidence) via the postAggFilter's local-namespace gate; harmless no-op
+    // for the asset variant, which already resolves via the IdP gate instead.
+    ...(isAsset ? {} : { host: { id: hostId, name: hostId } }),
   };
 };
 
@@ -413,6 +454,10 @@ export const calculateEntityCounts = (
 const getFilePath = (name: string) => {
   return `${DATA_DIRECTORY}/${name}${name.endsWith('.jsonl') ? '' : '.jsonl'}`;
 };
+
+// Sidecar file recording how many generated entities actually aggregate into
+// an entity (excludes noise, which is intentionally dropped by the store).
+const getMetaFilePath = (filePath: string) => `${filePath}.meta.json`;
 
 export const listPerfDataFiles = () => fs.readdirSync(DATA_DIRECTORY);
 
@@ -882,6 +927,31 @@ const logKibanaStatsEvery = (name: string, interval: number): (() => void) => {
   return stopCallback;
 };
 
+/**
+ * Deterministically buckets a 1-based user entityIndex into asset / nonAsset /
+ * noise by proportional ranges, so the overall split exactly matches the
+ * requested ratios regardless of entity count.
+ */
+const getUserVariant = (
+  entityIndex: number,
+  totalUserCount: number,
+  assetRatio: number,
+  noiseRatio: number,
+): 'asset' | 'nonAsset' | 'noise' => {
+  if (totalUserCount <= 0) {
+    return 'asset';
+  }
+  const assetCount = Math.round(totalUserCount * assetRatio);
+  const noiseCount = Math.round(totalUserCount * noiseRatio);
+  if (entityIndex <= assetCount) {
+    return 'asset';
+  }
+  if (entityIndex <= assetCount + noiseCount) {
+    return 'noise';
+  }
+  return 'nonAsset';
+};
+
 export const createPerfDataFile = async ({
   entityCount,
   logsPerEntity,
@@ -889,6 +959,8 @@ export const createPerfDataFile = async ({
   name,
   distribution = DEFAULT_DISTRIBUTION,
   explicitEntityCounts,
+  userAssetRatio = DEFAULT_USER_ASSET_RATIO,
+  userNoiseRatio = DEFAULT_USER_NOISE_RATIO,
 }: {
   name: string;
   entityCount: number;
@@ -896,6 +968,10 @@ export const createPerfDataFile = async ({
   startIndex: number;
   distribution?: DistributionType;
   explicitEntityCounts?: ExplicitEntityCountsInput;
+  /** Fraction (0-1) of user entities generated as `event.kind: asset`. Default 1 preserves prior behavior. */
+  userAssetRatio?: number;
+  /** Fraction (0-1) of user entities generated as identity-less noise logs. Default 0 preserves prior behavior. */
+  userNoiseRatio?: number;
 }): Promise<void> => {
   const filePath = getFilePath(name);
 
@@ -914,9 +990,17 @@ export const createPerfDataFile = async ({
     entityCounts = calculateEntityCounts(entityCount, dist);
   }
 
+  const noiseUserCount = entityCounts.user > 0 ? Math.round(entityCounts.user * userNoiseRatio) : 0;
+  const aggregatingEntityCount = entityCount - noiseUserCount;
+
   log.info(
     `Creating performance data file ${name} with ${entityCount} entities and ${logsPerEntity} logs per entity. Starting at index ${startIndex}`,
   );
+  if (noiseUserCount > 0) {
+    log.info(
+      `${noiseUserCount} user entities will be noise (no identity fields, do not aggregate into any entity). Aggregating entity count: ${aggregatingEntityCount}`,
+    );
+  }
 
   if (distribution === 'absolute') {
     // if there are no entities, we will show 100% for each type
@@ -1024,6 +1108,16 @@ export const createPerfDataFile = async ({
               valueStartIndex,
               fieldLength: FIELD_LENGTH,
               idPrefix: name,
+              ...(type === 'user'
+                ? {
+                    userVariant: getUserVariant(
+                      entityIndex,
+                      entityCounts.user,
+                      userAssetRatio,
+                      userNoiseRatio,
+                    ),
+                  }
+                : {}),
             };
 
             // Use map lookup instead of if/else chain
@@ -1064,6 +1158,8 @@ export const createPerfDataFile = async ({
 
   // Properly await the operation to ensure stream is closed
   await generateLogs();
+
+  fs.writeFileSync(getMetaFilePath(filePath), JSON.stringify({ aggregatingEntityCount }));
 };
 
 export const uploadFile = async ({
@@ -1182,7 +1278,18 @@ const getFileStats = async (filePath: string) => {
   const logsPerEntity = await getLogsPerEntity(filePath);
   const entityCount = lineCount / logsPerEntity;
 
-  return { lineCount, logsPerEntity, entityCount };
+  // Falls back to entityCount for files with no sidecar (pre-dates noise
+  // support, or generated by another command): no noise means the two match.
+  let aggregatingEntityCount = entityCount;
+  const metaFilePath = getMetaFilePath(filePath);
+  if (fs.existsSync(metaFilePath)) {
+    const meta = JSON.parse(fs.readFileSync(metaFilePath, 'utf8'));
+    if (typeof meta.aggregatingEntityCount === 'number') {
+      aggregatingEntityCount = meta.aggregatingEntityCount;
+    }
+  }
+
+  return { lineCount, logsPerEntity, entityCount, aggregatingEntityCount };
 };
 
 export const uploadPerfDataFile = async (
@@ -1241,7 +1348,8 @@ export const uploadPerfDataFile = async (
     log.info('entity engines initialised');
   }
 
-  const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
+  const { lineCount, logsPerEntity, entityCount, aggregatingEntityCount } =
+    await getFileStats(filePath);
   log.info(
     `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`,
   );
@@ -1273,7 +1381,7 @@ export const uploadPerfDataFile = async (
     const ingestTook = Date.now() - startTime;
     log.info(`Data file ${name} uploaded to index ${index} in ${ingestTook}ms`);
 
-    await countEntitiesUntil(name, entityCount, entityIndex);
+    await countEntitiesUntil(name, aggregatingEntityCount, entityIndex);
 
     if (metricsEnabled && !noTransforms) {
       log.info(
@@ -1487,7 +1595,8 @@ const runUploadPerfDataIntervalV2 = async (
   await installEntityStoreV2('default');
   log.info('Entity Store V2 ready');
 
-  const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
+  const { lineCount, logsPerEntity, entityCount, aggregatingEntityCount } =
+    await getFileStats(filePath);
 
   log.info(
     `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`,
@@ -1517,7 +1626,7 @@ const runUploadPerfDataIntervalV2 = async (
     `Data file ${name} uploaded to index ${index} in ${ingestTook}ms (${uploadsCompleted} upload(s) completed)`,
   );
 
-  await countEntitiesUntil(name, entityCount * uploadsCompleted, ENTITY_INDEX_V2, {
+  await countEntitiesUntil(name, aggregatingEntityCount * uploadsCompleted, ENTITY_INDEX_V2, {
     matchAll: deleteEntities,
     timeoutMs: entityWaitTimeoutMs,
   });
@@ -1608,7 +1717,8 @@ const runUploadPerfDataIntervalV1 = async (
   await initEntityEngineForEntityTypes(['host', 'user', 'service', 'generic']);
   log.info('entity engines initialised');
 
-  const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
+  const { lineCount, logsPerEntity, entityCount, aggregatingEntityCount } =
+    await getFileStats(filePath);
 
   log.info(
     `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`,
@@ -1639,7 +1749,7 @@ const runUploadPerfDataIntervalV1 = async (
     `Data file ${name} uploaded to index ${index} in ${ingestTook}ms (${uploadsCompleted} upload(s) completed)`,
   );
 
-  await countEntitiesUntil(name, entityCount * uploadsCompleted, ENTITY_INDEX_V1, {
+  await countEntitiesUntil(name, aggregatingEntityCount * uploadsCompleted, ENTITY_INDEX_V1, {
     matchAll: deleteEntities,
     timeoutMs: transformTimeoutMs ?? 30 * 60 * 1000,
   });
