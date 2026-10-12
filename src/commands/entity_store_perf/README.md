@@ -65,7 +65,7 @@ By default, every user entity is the `asset` variant: an Okta identity-provider 
 - **non-asset** (remaining fraction, after asset-ratio and noise-ratio): `event.kind: event` (no `module`), plus a synthetic `host.id`/`host.name`. V2 does not create users from IAM lifecycle events without `host.id` — `host.id` is what resolves `entity.namespace: local` and `entity.confidence: medium`, not the absence of `event.kind: asset` by itself.
 - **noise** (`--user-noise-ratio` fraction): no `user` or `host` field at all, so it does not aggregate into any entity. Useful for exercising scan cost under realistic non-matching traffic.
 
-`--user-asset-ratio` and `--user-noise-ratio` must each be between `0` and `1`, and their sum must not exceed `1`; the remainder becomes non-asset. The two ratios are independent of `--distribution`/`--*-count`, which only control the split across entity *types* (user/host/service/generic) — these ratios only apply within the user-type count.
+`--user-asset-ratio` and `--user-noise-ratio` must each be between `0` and `1`, and their sum must not exceed `1`; the remainder becomes non-asset. The two ratios are independent of `--distribution`/`--*-count`, which only control the split across entity _types_ (user/host/service/generic) — these ratios only apply within the user-type count.
 
 ### Examples
 

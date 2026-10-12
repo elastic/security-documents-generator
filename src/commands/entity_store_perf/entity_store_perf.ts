@@ -990,8 +990,7 @@ export const createPerfDataFile = async ({
     entityCounts = calculateEntityCounts(entityCount, dist);
   }
 
-  const noiseUserCount =
-    entityCounts.user > 0 ? Math.round(entityCounts.user * userNoiseRatio) : 0;
+  const noiseUserCount = entityCounts.user > 0 ? Math.round(entityCounts.user * userNoiseRatio) : 0;
   const aggregatingEntityCount = entityCount - noiseUserCount;
 
   log.info(
