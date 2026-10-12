@@ -326,25 +326,49 @@ export const createS2Case = async ({
   const alertsIndex = getAlertIndex(space);
   const attachedAlertIds = S2_ALERTS.map((a) => alertUuid(a.key));
 
-  await kibanaFetch(
-    `/internal/cases/${caseId}/attachments/_bulk_create`,
-    {
-      method: 'POST',
-      body: JSON.stringify(
-        S2_ALERTS.map((spec) => {
-          const rule = rules.get(spec.ruleKey);
-          return {
+  const attachmentsPath = `/internal/cases/${caseId}/attachments/_bulk_create`;
+  const attachmentOpts = { apiVersion: '1', space, headers: INTERNAL_ORIGIN };
+  const ruleOf = (spec: (typeof S2_ALERTS)[number]) => {
+    const rule = rules.get(spec.ruleKey);
+    return { id: rule?.uuid ?? null, name: rule?.name ?? null };
+  };
+  // Newer Kibana (unified attachments API) only accepts `security.alert` with attachmentId/metadata;
+  // older Kibana only accepts the legacy `alert` shape. Try unified first, then fall back.
+  try {
+    await kibanaFetch(
+      attachmentsPath,
+      {
+        method: 'POST',
+        body: JSON.stringify(
+          S2_ALERTS.map((spec) => ({
+            type: 'security.alert',
+            attachmentId: alertUuid(spec.key),
+            owner: 'securitySolution',
+            metadata: { index: alertsIndex, rule: ruleOf(spec) },
+          })),
+        ),
+      },
+      attachmentOpts,
+    );
+  } catch (unifiedError) {
+    log.info(`Unified case attachments rejected, retrying with the legacy shape: ${String(unifiedError).slice(0, 200)}`);
+    await kibanaFetch(
+      attachmentsPath,
+      {
+        method: 'POST',
+        body: JSON.stringify(
+          S2_ALERTS.map((spec) => ({
             type: 'alert',
             alertId: alertUuid(spec.key),
             index: alertsIndex,
-            rule: { id: rule?.uuid ?? null, name: rule?.name ?? null },
+            rule: ruleOf(spec),
             owner: 'securitySolution',
-          };
-        }),
-      ),
-    },
-    { apiVersion: '1', space, headers: INTERNAL_ORIGIN },
-  );
+          })),
+        ),
+      },
+      attachmentOpts,
+    );
+  }
 
   // Backdate the case (dev-only route); the case is optional metadata so failure is non-fatal.
   try {
