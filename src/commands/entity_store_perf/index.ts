@@ -15,6 +15,8 @@ import {
   uploadPerfDataFile,
   uploadPerfDataFileInterval,
   DEFAULT_UPLOAD_BULK_CONCURRENCY,
+  DEFAULT_USER_ASSET_RATIO,
+  DEFAULT_USER_NOISE_RATIO,
   isValidDistributionType,
   isEntitySize,
   type DistributionType,
@@ -76,13 +78,21 @@ export const entityStorePerfCommands: CommandModule = {
 
           const userAssetRatio = options.userAssetRatio as number | undefined;
           const userNoiseRatio = options.userNoiseRatio as number | undefined;
+          // Validate using the same effective defaults createPerfDataFile applies,
+          // so a ratio passed alone is checked against what will actually run.
+          const effectiveAssetRatio = userAssetRatio ?? DEFAULT_USER_ASSET_RATIO;
+          const effectiveNoiseRatio = userNoiseRatio ?? DEFAULT_USER_NOISE_RATIO;
           if (
-            (userAssetRatio !== undefined && (userAssetRatio < 0 || userAssetRatio > 1)) ||
-            (userNoiseRatio !== undefined && (userNoiseRatio < 0 || userNoiseRatio > 1)) ||
-            (userAssetRatio ?? 0) + (userNoiseRatio ?? 0) > 1
+            !Number.isFinite(effectiveAssetRatio) ||
+            !Number.isFinite(effectiveNoiseRatio) ||
+            effectiveAssetRatio < 0 ||
+            effectiveAssetRatio > 1 ||
+            effectiveNoiseRatio < 0 ||
+            effectiveNoiseRatio > 1 ||
+            effectiveAssetRatio + effectiveNoiseRatio > 1
           ) {
             log.error(
-              '❌ --user-asset-ratio and --user-noise-ratio must each be between 0 and 1, and their sum must not exceed 1',
+              '❌ --user-asset-ratio and --user-noise-ratio must each be a number between 0 and 1, and their effective sum (applying defaults when one is omitted) must not exceed 1',
             );
             process.exit(1);
           }

@@ -52,12 +52,20 @@ yarn start create-perf-data <name> <entity-count> <logs-per-entity> [start-index
 - `--host-count <n>`: With `absolute` only — number of host entities.
 - `--service-count <n>`: With `absolute` only — number of service entities.
 - `--generic-count <n>`: With `absolute` only — number of generic entities.
+- `--user-asset-ratio <n>`: Fraction (`0`-`1`) of user entities generated as `asset`-variant logs, see below (default: `1`).
+- `--user-noise-ratio <n>`: Fraction (`0`-`1`) of user entities generated as `noise`-variant logs, see below (default: `0`).
 
 With `equal` or `standard`, do not pass the `--*-count` flags (the command will error). With `absolute`, all four counts are required.
 
 In generated perf data, the top-level `entity` field is emitted only for generic entities.
 
-User logs are Okta identity-provider asset events (`event.kind: asset`, `event.module: entityanalytics_okta`), so Entity Store V2 creates them as `okta` users keyed on `user.email`. V2 does not create users from IAM lifecycle events without `host.id`.
+By default, every user entity is the `asset` variant: an Okta identity-provider asset event (`event.kind: asset`, `event.module: entityanalytics_okta`), which Entity Store V2 creates as an `okta` user keyed on `user.email` (`entity.confidence: high`). `--user-asset-ratio`/`--user-noise-ratio` split user entities into three variants instead, picked deterministically by entity index (so the exact ratio holds regardless of count, and all `logs-per-entity` logs for one entity share the same variant):
+
+- **asset** (`--user-asset-ratio` fraction): unchanged from the default above.
+- **non-asset** (remaining fraction, after asset-ratio and noise-ratio): `event.kind: event` (no `module`), plus a synthetic `host.id`/`host.name`. V2 does not create users from IAM lifecycle events without `host.id` — `host.id` is what resolves `entity.namespace: local` and `entity.confidence: medium`, not the absence of `event.kind: asset` by itself.
+- **noise** (`--user-noise-ratio` fraction): no `user` or `host` field at all, so it does not aggregate into any entity. Useful for exercising scan cost under realistic non-matching traffic.
+
+`--user-asset-ratio` and `--user-noise-ratio` must each be between `0` and `1`, and their sum must not exceed `1`; the remainder becomes non-asset. The two ratios are independent of `--distribution`/`--*-count`, which only control the split across entity *types* (user/host/service/generic) — these ratios only apply within the user-type count.
 
 ### Examples
 
@@ -67,6 +75,12 @@ yarn start create-perf-data large 100000 5 0 --distribution equal
 yarn start create-perf-data custom-mix 82000 5 0 \
   --distribution absolute \
   --user-count 60000 --host-count 2000 --service-count 17000 --generic-count 3000
+# 20% asset, 60% non-asset, 20% noise user logs (to exercise both the priority
+# and non-priority Entity Store extraction paths)
+yarn start create-perf-data mixed 100000 5 0 \
+  --distribution absolute \
+  --user-count 100000 --host-count 0 --service-count 0 --generic-count 0 \
+  --user-asset-ratio 0.2 --user-noise-ratio 0.2
 ```
 
 ## `upload-perf-data`
