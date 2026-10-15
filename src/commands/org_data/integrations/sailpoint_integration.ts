@@ -259,7 +259,7 @@ export class SailPointIntegration extends BaseIntegration {
     const created = new Date(
       new Date(modified).getTime() - faker.number.int({ min: 30, max: 900 }) * 86_400_000,
     ).toISOString();
-    const noName = faker.datatype.boolean(MACHINE_IDENTITY_NO_NAME_RATE);
+    const noName = faker.datatype.boolean({ probability: MACHINE_IDENTITY_NO_NAME_RATE });
     const slug = faker.helpers.slugify(faker.word.noun()).toLowerCase();
     const name = noName ? null : `svc-${slug}-${index}`;
     const sourceName = faker.helpers.arrayElement(SOURCE_NAMES);
