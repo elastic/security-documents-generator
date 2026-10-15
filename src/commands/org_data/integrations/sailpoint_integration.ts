@@ -1,7 +1,22 @@
 /**
  * SailPoint Identity Security Cloud Integration
- * Generates identity governance event documents
+ * Generates identity governance event documents and identity inventory records
  * Based on the Elastic sailpoint_identity_sc integration package
+ *
+ * Every document is stamped with the generation time (`modified` / `created`, which
+ * the pipelines copy to `@timestamp`), so extracted entities get a current
+ * `entity.lifecycle.last_seen` and fall inside the maintainers' freshness gates.
+ *
+ * All data streams are sent as raw `message` JSON so the package's default
+ * pipelines produce the final ECS shape. For `identities` this includes
+ * `user.entity.relationships.supervises.user.{id,name,email}`, which the pipeline
+ * renames from the `_supervises` key the CEL input attaches to each manager.
+ *
+ * `machine_identities` records become `service.*` documents and keep their owners
+ * under `sailpoint_identity_sc.machine_identity.owners.{primary,secondary}`. Owner
+ * `id` / `name` are the owner employee's identity `id` / `name`, so they resolve
+ * to the `identities` documents (`user.id` / `user.name`) and the inverse
+ * user -> owns -> service edge can be derived from them.
  */
 
 import {
@@ -126,6 +141,27 @@ const SOURCE_NAMES = [
   'Salesforce',
 ];
 
+/** The CEL input fetches at most 250 direct reports per manager. */
+const MAX_DIRECT_REPORTS = 250;
+
+/** SailPoint identity ids are 32-char hex; derive one deterministically from the employee uuid. */
+const identityId = (employee: Employee): string => employee.id.replace(/-/g, '');
+
+/** Share of employees used to size the machine identity population (min 1). */
+const MACHINE_IDENTITIES_PER_EMPLOYEE = 0.1;
+
+/** Share of machine identities the API returns with `name: null` (no service entity). */
+const MACHINE_IDENTITY_NO_NAME_RATE = 0.03;
+
+/** Entitlement display names attached to machine identities. */
+const MACHINE_ENTITLEMENTS = [
+  'Reports DB Read Access',
+  'Deploy Pipeline Access',
+  'Storage Bucket Writer',
+  'Queue Consumer',
+  'Audit Log Reader',
+];
+
 /**
  * SailPoint Identity Security Cloud Integration
  * Generates identity governance and administration event documents
@@ -138,6 +174,14 @@ export class SailPointIntegration extends BaseIntegration {
     {
       name: 'events',
       index: 'logs-sailpoint_identity_sc.events-default',
+    },
+    {
+      name: 'identities',
+      index: 'logs-sailpoint_identity_sc.identities-default',
+    },
+    {
+      name: 'machine_identities',
+      index: 'logs-sailpoint_identity_sc.machine_identities-default',
     },
   ];
 
@@ -161,7 +205,227 @@ export class SailPointIntegration extends BaseIntegration {
     }
 
     documentsMap.set(this.dataStreams[0].index, documents);
+    documentsMap.set(this.dataStreams[1].index, this.createIdentityDocuments(org, centralAgent));
+    documentsMap.set(
+      this.dataStreams[2].index,
+      this.createMachineIdentityDocuments(org, centralAgent),
+    );
     return documentsMap;
+  }
+
+  /**
+   * Machine identities (service accounts) owned by employees. The service side of
+   * the edge is `service.name` (the record's `name`); the owner side is the
+   * primary and secondary owner references, which carry the owning employee's
+   * identity `id` and `name` and therefore resolve to `identities` documents.
+   *
+   * A small share has `name: null`, as the API can return: the pipeline then sets
+   * `service.id` but no `service.name`, so no service entity exists for it.
+   */
+  private createMachineIdentityDocuments(
+    org: Organization,
+    centralAgent: AgentData,
+  ): IntegrationDocument[] {
+    const count = Math.max(1, Math.round(org.employees.length * MACHINE_IDENTITIES_PER_EMPLOYEE));
+    const documents: IntegrationDocument[] = [];
+    for (let i = 0; i < count; i++) {
+      const primary = faker.helpers.arrayElement(org.employees);
+      const secondaryCount = faker.helpers.weightedArrayElement([
+        { value: 0, weight: 5 },
+        { value: 1, weight: 4 },
+        { value: 2, weight: 1 },
+      ]);
+      const secondary = faker.helpers
+        .arrayElements(org.employees, secondaryCount + 1)
+        .filter((employee) => employee.id !== primary.id)
+        .slice(0, secondaryCount);
+      documents.push(this.createMachineIdentityDocument(i, primary, secondary, centralAgent));
+    }
+    return documents;
+  }
+
+  /**
+   * Create a SailPoint machine identities document (raw `/machine-identities` record).
+   * `name` is index-suffixed so every service name is unique: service EUIDs are not
+   * namespaced, and a repeated name would merge distinct machine identities.
+   */
+  private createMachineIdentityDocument(
+    index: number,
+    primary: Employee,
+    secondary: Employee[],
+    centralAgent: AgentData,
+  ): IntegrationDocument {
+    const modified = new Date().toISOString();
+    const created = new Date(
+      new Date(modified).getTime() - faker.number.int({ min: 30, max: 900 }) * 86_400_000,
+    ).toISOString();
+    const noName = faker.datatype.boolean(MACHINE_IDENTITY_NO_NAME_RATE);
+    const slug = faker.helpers.slugify(faker.word.noun()).toLowerCase();
+    const name = noName ? null : `svc-${slug}-${index}`;
+    const sourceName = faker.helpers.arrayElement(SOURCE_NAMES);
+    const sourceId = faker.string.uuid();
+    const owner = (employee: Employee) => ({
+      type: 'IDENTITY',
+      id: identityId(employee),
+      name: employee.userName,
+    });
+
+    const rawMachineIdentity = {
+      id: faker.string.uuid(),
+      name,
+      created,
+      modified,
+      nativeIdentity: `svc-${slug}-${index}:prod:${String(index).padStart(5, '0')}`,
+      description: `Service account for ${faker.hacker.noun()} automation.`,
+      attributes: { env: 'production', team: primary.department },
+      subtype: 'Application',
+      owners: {
+        primaryIdentity: owner(primary),
+        secondaryIdentities: secondary.map(owner),
+      },
+      sourceId,
+      uuid: faker.string.uuid(),
+      manuallyEdited: false,
+      manuallyCreated: false,
+      source: { type: 'SOURCE', id: sourceId, name: sourceName },
+      datasetId: faker.string.uuid(),
+      userEntitlements: faker.helpers
+        .arrayElements(MACHINE_ENTITLEMENTS, faker.number.int({ min: 0, max: 2 }))
+        .map((displayName) => {
+          const entitlementSourceId = faker.string.uuid();
+          return {
+            sourceId: entitlementSourceId,
+            entitlementId: faker.string.uuid(),
+            displayName,
+            source: {
+              type: 'SOURCE',
+              id: entitlementSourceId,
+              name: faker.helpers.arrayElement(SOURCE_NAMES),
+            },
+          };
+        }),
+    };
+
+    return {
+      '@timestamp': modified,
+      agent: centralAgent,
+      message: JSON.stringify(rawMachineIdentity),
+      data_stream: {
+        namespace: 'default',
+        type: 'logs',
+        dataset: 'sailpoint_identity_sc.machine_identities',
+      },
+    } as IntegrationDocument;
+  }
+
+  /**
+   * One identity record per employee. Managers carry `_supervises` with their
+   * direct reports, which is what the CEL input attaches when
+   * `enable_supervises_enrichment` is on; the pipeline turns it into
+   * `user.entity.relationships.supervises.user.*`.
+   */
+  private createIdentityDocuments(
+    org: Organization,
+    centralAgent: AgentData,
+  ): IntegrationDocument[] {
+    // Employee.managerId is the manager's oktaUserId (see org_data_generator.ts)
+    const reportsByManagerOktaId = new Map<string, Employee[]>();
+    for (const employee of org.employees) {
+      if (!employee.managerId) continue;
+      const reports = reportsByManagerOktaId.get(employee.managerId);
+      if (reports) reports.push(employee);
+      else reportsByManagerOktaId.set(employee.managerId, [employee]);
+    }
+    const employeeByOktaUserId = new Map<string, Employee>();
+    for (const employee of org.employees) {
+      employeeByOktaUserId.set(employee.oktaUserId, employee);
+    }
+
+    return org.employees.map((employee) => {
+      const manager = employee.managerId ? employeeByOktaUserId.get(employee.managerId) : undefined;
+      const reports = (reportsByManagerOktaId.get(employee.oktaUserId) ?? []).slice(
+        0,
+        MAX_DIRECT_REPORTS,
+      );
+      return this.createIdentityDocument(employee, manager, reports, centralAgent);
+    });
+  }
+
+  /**
+   * Create a SailPoint identities document (raw search API record).
+   * `id` is the 32-char hex identity id and `name` is the account name; the
+   * pipeline maps them to `user.id` / `user.name`, and the same values appear in
+   * the managers' `_supervises` lists so they resolve to these identities.
+   */
+  private createIdentityDocument(
+    employee: Employee,
+    manager: Employee | undefined,
+    reports: Employee[],
+    centralAgent: AgentData,
+  ): IntegrationDocument {
+    const modified = new Date().toISOString();
+    const created = new Date(
+      new Date(modified).getTime() - faker.number.int({ min: 30, max: 1500 }) * 86_400_000,
+    ).toISOString();
+    const fullName = `${employee.firstName} ${employee.lastName}`;
+
+    const rawIdentity = {
+      _type: 'identity',
+      id: identityId(employee),
+      name: employee.userName,
+      displayName: fullName,
+      firstName: employee.firstName,
+      lastName: employee.lastName,
+      email: employee.email,
+      created,
+      modified,
+      synced: modified,
+      status: 'ACTIVE',
+      disabled: false,
+      inactive: false,
+      locked: false,
+      protected: false,
+      isManager: reports.length > 0,
+      type: 'identity',
+      attributes: {
+        department: employee.department,
+        jobTitle: employee.role,
+        country: employee.countryCode,
+        city: employee.city,
+      },
+      ...(manager
+        ? {
+            manager: {
+              type: 'IDENTITY',
+              id: identityId(manager),
+              name: manager.userName,
+              displayName: `${manager.firstName} ${manager.lastName}`,
+            },
+          }
+        : {}),
+      ...(reports.length > 0
+        ? {
+            _supervises: {
+              user: {
+                id: reports.map(identityId),
+                name: reports.map((r) => r.userName),
+                email: reports.map((r) => r.email),
+              },
+            },
+          }
+        : {}),
+    };
+
+    return {
+      '@timestamp': modified,
+      agent: centralAgent,
+      message: JSON.stringify(rawIdentity),
+      data_stream: {
+        namespace: 'default',
+        type: 'logs',
+        dataset: 'sailpoint_identity_sc.identities',
+      },
+    } as IntegrationDocument;
   }
 
   /**
@@ -179,7 +443,7 @@ export class SailPointIntegration extends BaseIntegration {
     const action = faker.helpers.arrayElement(eventType.actions);
     const status = action.includes('FAILED') ? 'FAILED' : 'PASSED';
     const sourceIp = faker.internet.ipv4();
-    const created = this.getRandomTimestamp(72);
+    const created = new Date().toISOString();
     const eventId = faker.string.hexadecimal({ length: 64, prefix: '' }).toLowerCase();
 
     // For AUTH/SSO the actor and target are the same person
@@ -209,9 +473,7 @@ export class SailPointIntegration extends BaseIntegration {
       technical_name: action,
       tracking_number: faker.string.hexadecimal({ length: 32, prefix: '' }).toLowerCase(),
       created: created,
-      synced: new Date(
-        new Date(created).getTime() + faker.number.int({ min: 1000, max: 60000 }),
-      ).toISOString(),
+      synced: created,
       org: orgSlug,
       pod: `se01-useast1`,
       stack: faker.helpers.arrayElement(['pigs', 'oar', 'fedramp']),
