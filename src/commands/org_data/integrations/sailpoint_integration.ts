@@ -235,10 +235,15 @@ export class SailPointIntegration extends BaseIntegration {
         { value: 1, weight: 4 },
         { value: 2, weight: 1 },
       ]);
-      const secondary = faker.helpers
-        .arrayElements(org.employees, secondaryCount + 1)
-        .filter((employee) => employee.id !== primary.id)
-        .slice(0, secondaryCount);
+      const secondary: Employee[] = [];
+      const ownerIds = new Set([primary.id]);
+      const maxSecondary = Math.min(secondaryCount, org.employees.length - 1);
+      while (secondary.length < maxSecondary) {
+        const candidate = faker.helpers.arrayElement(org.employees);
+        if (ownerIds.has(candidate.id)) continue;
+        ownerIds.add(candidate.id);
+        secondary.push(candidate);
+      }
       documents.push(this.createMachineIdentityDocument(i, primary, secondary, centralAgent));
     }
     return documents;
