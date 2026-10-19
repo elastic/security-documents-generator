@@ -61,11 +61,15 @@ export const generateOrgData = (config: OrganizationConfig): Organization => {
   const sizeConfig = SIZE_CONFIGS[config.size];
   const domain = config.domain || `${config.name.toLowerCase().replace(/\s+/g, '')}.com`;
 
-  // Calculate total employees
-  const employeeCount = faker.number.int({
-    min: sizeConfig.employeeRange.min,
-    max: sizeConfig.employeeRange.max,
-  });
+  // Calculate total employees. An explicit employeeCount override (e.g. from the
+  // --doc-count scaling option) takes precedence over the size-based range.
+  const employeeCount =
+    config.employeeCount !== undefined && config.employeeCount > 0
+      ? config.employeeCount
+      : faker.number.int({
+          min: sizeConfig.employeeRange.min,
+          max: sizeConfig.employeeRange.max,
+        });
 
   // Generate departments with Okta groups
   const oktaGroups = generateOktaGroups();
@@ -354,14 +358,21 @@ const generateEmployees = (
 
   // Second pass: assign managers
   for (const employee of employees) {
-    const deptManagers = managersByDept.get(employee.department) || [];
-    // Don't assign manager to themselves, and only non-executives get managers
-    const potentialManagers = deptManagers.filter(
-      (m) => m.id !== employee.id && !employee.role.includes('Chief'),
-    );
+    // Only non-executives get managers
+    if (employee.role.includes('Chief')) continue;
 
-    if (potentialManagers.length > 0 && !employee.role.includes('Chief')) {
-      employee.managerId = faker.helpers.arrayElement(potentialManagers).oktaUserId;
+    // Pick in O(1) rather than filtering the manager list per employee, which is
+    // quadratic and stalls --doc-count runs with hundreds of thousands of employees.
+    // An employee appears in their department's list at most once, so stepping to
+    // the neighbour is enough to avoid self-assignment.
+    const deptManagers = managersByDept.get(employee.department) || [];
+    let managerIndex = faker.number.int({ min: 0, max: Math.max(0, deptManagers.length - 1) });
+    if (deptManagers[managerIndex] === employee) {
+      managerIndex = (managerIndex + 1) % deptManagers.length;
+    }
+    const manager = deptManagers[managerIndex];
+    if (manager && manager !== employee) {
+      employee.managerId = manager.oktaUserId;
     }
   }
 
@@ -479,6 +490,7 @@ const generateDevice = (type: DeviceType, platform: LaptopPlatform | MobilePlatf
     diskEncryptionEnabled: faker.datatype.boolean(0.9), // 90% have encryption
     crowdstrikeAgentId: faker.string.hexadecimal({ length: 32, prefix: '' }).toLowerCase(),
     crowdstrikeDeviceId: faker.string.hexadecimal({ length: 32, prefix: '' }).toLowerCase(),
+    defenderDeviceId: faker.string.hexadecimal({ length: 40, prefix: '' }).toLowerCase(),
     macAddress: faker.internet.mac({ separator: '-' }),
     ipAddress: faker.internet.ipv4(),
     elasticAgentId: faker.string.uuid(),
@@ -717,16 +729,30 @@ const generateCloudIamUsers = (employees: Employee[], accounts: CloudAccount[]):
   // Get employees with AWS access (Product & Engineering)
   const awsEmployees = employees.filter((e) => e.hasAwsAccess);
 
-  // Use the production account for federated users
+  // Use the production account as the default/fallback (e.g. for service accounts)
   const prodAccount = awsAccounts.find((a) => a.environment === 'production') || awsAccounts[0];
 
+  // Distribute federated users across all AWS accounts so CloudTrail activity
+  // (and cloud.account.id) isn't concentrated on a single account. Production
+  // is weighted highest since most employees primarily work against prod.
+  const pickAccountForEmployee = (): CloudAccount => {
+    if (awsAccounts.length === 1) return awsAccounts[0];
+    return faker.helpers.weightedArrayElement(
+      awsAccounts.map((account) => ({
+        value: account,
+        weight: account.environment === 'production' ? 5 : 2,
+      })),
+    );
+  };
+
   for (const employee of awsEmployees) {
+    const account = pickAccountForEmployee();
     iamUsers.push({
       id: faker.string.alphanumeric(21).toUpperCase(),
-      arn: `arn:aws:iam::${prodAccount.id}:user/${employee.userName}`,
+      arn: `arn:aws:iam::${account.id}:user/${employee.userName}`,
       userName: employee.userName,
       provider: 'aws',
-      accountId: prodAccount.id,
+      accountId: account.id,
       isFederated: true,
       oktaUserId: employee.oktaUserId,
       createdAt: faker.date.past({ years: 2 }).toISOString(),

@@ -24,6 +24,15 @@ import { faker } from '@faker-js/faker';
 const IDENTITY_SOURCE = 'okta-saas-organization';
 const ENTITY_DATASET = 'entityanalytics_okta.entity';
 
+/** Maps internal device platforms to Okta's platform enum. */
+const OKTA_PLATFORM_MAPPING: Record<string, string> = {
+  mac: 'MACOS',
+  windows: 'WINDOWS',
+  linux: 'LINUX',
+  android: 'ANDROID',
+  ios: 'IOS',
+};
+
 /**
  * Okta Entity Analytics Integration
  */
@@ -101,10 +110,36 @@ export class OktaIntegration extends BaseIntegration {
     const state = faker.location.state();
     const zipCode = faker.location.zipCode();
 
+    // Direct reports (managerId references the manager's oktaUserId) become the
+    // supervises relationship. The entity pipeline reads the raw top-level `supervises`
+    // array of { user_id, email, username } and builds user.entity.relationships.supervises.
+    const supervises = org.employees
+      .filter((report) => report.managerId === employee.oktaUserId)
+      .map((report) => ({
+        user_id: report.oktaUserId,
+        email: report.email,
+        username: report.email,
+      }));
+
+    // Enrolled devices become the owns relationship (user -> host). The entity pipeline
+    // reads the raw top-level `devices[]` and builds user.entity.relationships.owns.host.{id,name}
+    // from device.id and device.profile.displayName.
+    const devices = employee.devices.map((device) => ({
+      id: device.id,
+      status: 'ACTIVE',
+      created: createdDate,
+      lastUpdated: lastUpdated,
+      profile: {
+        displayName: device.displayName,
+        platform: OKTA_PLATFORM_MAPPING[device.platform] ?? device.platform.toUpperCase(),
+        serialNumber: device.serialNumber,
+      },
+    }));
+
     return {
       '@timestamp': timestamp,
       agent: this.buildCentralAgent(org),
-      event: { action: 'user-discovered' },
+      event: { action: 'user-discovered', id: faker.string.uuid() },
       okta: {
         id: employee.oktaUserId,
         status: 'ACTIVE',
@@ -166,7 +201,38 @@ export class OktaIntegration extends BaseIntegration {
         assignmentType: r.assignment_type,
         lastUpdated: r.last_updated ?? r.created ?? lastUpdated,
       })),
-      user: { id: employee.oktaUserId },
+      user: {
+        id: employee.oktaUserId,
+        // Post-pipeline relationship shapes, written directly so they are present even when
+        // the generated docs are not run through the entity ingest pipeline. owns.host.id uses
+        // the same device ids that createDeviceDocument writes to host.id, so the user owns
+        // relationship resolves to the generated device (host) entities.
+        ...((devices.length > 0 || supervises.length > 0) && {
+          entity: {
+            relationships: {
+              ...(devices.length > 0 && {
+                owns: {
+                  host: {
+                    id: devices.map((d) => d.id),
+                    name: devices.map((d) => d.profile.displayName),
+                  },
+                },
+              }),
+              ...(supervises.length > 0 && {
+                supervises: {
+                  user: {
+                    id: supervises.map((s) => s.user_id),
+                    name: supervises.map((s) => s.username),
+                    email: supervises.map((s) => s.email),
+                  },
+                },
+              }),
+            },
+          },
+        }),
+      },
+      ...(supervises.length > 0 && { supervises }),
+      ...(devices.length > 0 && { devices }),
       labels: { identity_source: IDENTITY_SOURCE },
       data_stream: {
         namespace: 'default',
@@ -192,22 +258,14 @@ export class OktaIntegration extends BaseIntegration {
     const lastUpdated = faker.date.recent({ days: 30 }).toISOString();
     const statusChanged = faker.date.past({ years: 0.5 }).toISOString();
 
-    const platformMapping: Record<string, string> = {
-      mac: 'MACOS',
-      windows: 'WINDOWS',
-      linux: 'LINUX',
-      android: 'ANDROID',
-      ios: 'IOS',
-    };
-
-    const platform = platformMapping[device.platform] || device.platform.toUpperCase();
+    const platform = OKTA_PLATFORM_MAPPING[device.platform] || device.platform.toUpperCase();
     const diskEncryptionType = device.diskEncryptionEnabled ? 'ALL_INTERNAL_VOLUMES' : 'NONE';
     const displayName = device.displayName;
 
     return {
       '@timestamp': timestamp,
       agent: this.buildCentralAgent(org),
-      event: { action: 'device-discovered' },
+      event: { action: 'device-discovered', id: faker.string.uuid() },
       okta: {
         id: device.id,
         status: 'ACTIVE',
@@ -251,6 +309,9 @@ export class OktaIntegration extends BaseIntegration {
         },
       },
       device: { id: device.id },
+      // Mirror the device pipeline, which sets host.id from the Okta device id so the device
+      // entity is keyed as host:<device.id> and the user owns relationship resolves to it.
+      host: { id: device.id },
       labels: { identity_source: IDENTITY_SOURCE },
       data_stream: {
         namespace: 'default',

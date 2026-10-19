@@ -3,6 +3,7 @@ import {
   type BulkOperationContainer,
   type BulkCreateOperation,
   type DeleteByQueryResponse,
+  type Refresh,
 } from '@elastic/elasticsearch/lib/api/types';
 import { chunk } from 'lodash-es';
 import { getEsClient } from '../utils/indices.ts';
@@ -56,10 +57,15 @@ export const logBulkErrors = (result: BulkResponse, context: string): void => {
 export async function bulkUpsert(params: {
   documents: unknown[];
   refresh?: boolean;
+  pipeline?: string;
 }): Promise<BulkResponse> {
-  const { documents, refresh = true } = params;
+  const { documents, refresh = true, pipeline } = params;
   const client = getEsClient();
-  const result = await client.bulk({ body: documents, refresh });
+  const result = await client.bulk({
+    body: documents,
+    refresh,
+    ...(pipeline !== undefined && { pipeline }),
+  });
   logBulkErrors(result, 'Bulk request reported errors. Some documents may have failed.');
   return result;
 }
@@ -71,7 +77,7 @@ export interface BulkIngestParams {
   action?: 'index' | 'create';
   showProgress?: boolean;
   metadata?: boolean;
-  refresh?: boolean;
+  refresh?: Refresh;
   pipeline?: string;
 }
 
@@ -118,11 +124,19 @@ export async function bulkIngest(params: BulkIngestParams): Promise<void> {
   }
 }
 
+/** Matches @elastic/elasticsearch helpers.bulk defaults (5 MB, 30 s). */
+export const DEFAULT_BULK_FLUSH_BYTES = 5 * 1024 * 1024;
+export const DEFAULT_BULK_FLUSH_INTERVAL_MS = 30_000;
+export const DEFAULT_BULK_CONCURRENCY = 8;
+
 export interface StreamingBulkIngestParams {
   index: string;
   datasource: AsyncIterable<object>;
   flushBytes?: number;
   flushInterval?: number;
+  concurrency?: number;
+  /** Passed to the Bulk API (e.g. `_none` to skip ingest pipelines). */
+  pipeline?: string;
   onDrop?: (doc: unknown) => void;
   onDocument?: (doc: object) => BulkOperationTuple;
   onSuccess?: () => void;
@@ -136,8 +150,10 @@ export async function streamingBulkIngest(params: StreamingBulkIngestParams): Pr
   const {
     index,
     datasource,
-    flushBytes = 1024 * 1024,
-    flushInterval = 3000,
+    flushBytes = DEFAULT_BULK_FLUSH_BYTES,
+    flushInterval = DEFAULT_BULK_FLUSH_INTERVAL_MS,
+    concurrency,
+    pipeline,
     onDrop,
     onDocument,
     onSuccess,
@@ -160,6 +176,8 @@ export async function streamingBulkIngest(params: StreamingBulkIngestParams): Pr
     onDocument: (doc: object) => docTransform(doc) as any,
     flushBytes,
     flushInterval,
+    ...(concurrency !== undefined && { concurrency }),
+    ...(pipeline !== undefined && { pipeline }),
     onDrop: onDrop ? (d) => onDrop(d.document) : undefined,
     onSuccess,
   });

@@ -34,11 +34,22 @@ export interface UserFields {
     hash?: string[];
     entity?: { id: string };
   };
-  /** Event metadata for UEBA postAggFilter (e.g. IAM so user entities are kept after LOOKUP) */
+  /**
+   * Event metadata for the user postAggFilter: a doc becomes/updates an entity
+   * only if `event.kind` includes `asset` (-> IdP namespace, high confidence)
+   * or `host.id` is present (-> `entity.namespace: local`, medium confidence).
+   * Neither present means the doc is dropped, same as noise.
+   */
   event?: {
     kind?: string;
+    module?: string;
     category?: string;
     type?: string;
+  };
+  /** Presence of `host.id` (with no IdP `event.kind: asset`) resolves `entity.namespace: local` -> medium confidence. */
+  host?: {
+    id: string;
+    name?: string;
   };
 }
 

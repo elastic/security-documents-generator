@@ -1,8 +1,10 @@
 import { log } from '../../utils/logger.ts';
 import { faker } from '@faker-js/faker';
 import fs from 'fs';
+import { createHash } from 'crypto';
 import { getEsClient, getFileLineCount } from '../utils/indices.ts';
-import { streamingBulkIngest } from '../shared/elasticsearch.ts';
+import { bulkUpsert } from '../shared/elasticsearch.ts';
+import pMap from 'p-map';
 import { createProgressBar } from '../utils/cli_utils.ts';
 import { ensureSecurityDefaultDataView } from '../../utils/security_default_data_view.ts';
 import readline from 'readline';
@@ -25,10 +27,15 @@ import {
   type UserFields,
 } from '../../types/entities.ts';
 import { getEntityStorePerfDataDir } from '../../utils/data_paths.ts';
+import { sleep } from '../../utils/sleep.ts';
 
 // Checkpoint stability configuration for transform completion detection
 // Consider checkpoint stable if it hasn't changed in this duration (10 seconds)
 const CHECKPOINT_STABLE_TIME_MS = 10000;
+const UPLOAD_BATCH_SIZE = 5000;
+export const DEFAULT_UPLOAD_BULK_CONCURRENCY = 8;
+export const DEFAULT_USER_ASSET_RATIO = 1;
+export const DEFAULT_USER_NOISE_RATIO = 0;
 // Consider stable after this many consecutive checks with the same checkpoint
 const STABLE_CHECKPOINT_THRESHOLD = 3;
 
@@ -65,6 +72,16 @@ interface GeneratorOptions {
   valueStartIndex: number;
   fieldLength: number;
   idPrefix: string;
+  /**
+   * user-type only: which shape to generate. `asset` (default) is today's
+   * Okta-style `event.kind: asset` log, that is priority-eligible and
+   * resolves to `entity.confidence: high`. `nonAsset` drops the asset gate
+   * and the recognized-IdP module, so it resolves to `entity.namespace:
+   * local` / `entity.confidence: medium` via the non-priority path. `noise`
+   * carries no identity-bearing fields at all, so it should not aggregate
+   * into any entity, exercising scan cost without producing data.
+   */
+  userVariant?: 'asset' | 'nonAsset' | 'noise';
 }
 
 const getLogsPerEntity = (filePath: string) => {
@@ -194,8 +211,27 @@ const changeGenericEntityName = (doc: Record<string, any>, addition: string) => 
   return doc;
 };
 
-const generateUserFields = ({ idPrefix, entityIndex }: GeneratorOptions): UserFields => {
+const generateUserFields = ({
+  idPrefix,
+  entityIndex,
+  userVariant = 'asset',
+}: GeneratorOptions): UserFields => {
   const id = `${idPrefix}-user-${entityIndex}`;
+
+  if (userVariant === 'noise') {
+    // No identity-bearing fields: should not aggregate into any entity.
+    return {
+      event: {
+        kind: 'event',
+        category: 'network',
+        type: 'info',
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any;
+  }
+
+  const isAsset = userVariant === 'asset';
+  const hostId = `${idPrefix}-user-host-${entityIndex}`;
   return {
     user: {
       id: id,
@@ -206,11 +242,22 @@ const generateUserFields = ({ idPrefix, entityIndex }: GeneratorOptions): UserFi
       email: `${id}@example.${idPrefix}.com`,
       entity: { id },
     },
-    event: {
-      kind: 'event',
-      category: 'iam',
-      type: 'user',
-    },
+    event: isAsset
+      ? {
+          kind: 'asset',
+          module: 'entityanalytics_okta',
+          category: 'iam',
+          type: 'user',
+        }
+      : {
+          kind: 'event',
+          category: 'iam',
+          type: 'user',
+        },
+    // Required for non-asset docs to resolve entity.namespace: local (-> medium
+    // confidence) via the postAggFilter's local-namespace gate; harmless no-op
+    // for the asset variant, which already resolves via the IdP gate instead.
+    ...(isAsset ? {} : { host: { id: hostId, name: hostId } }),
   };
 };
 
@@ -408,6 +455,10 @@ const getFilePath = (name: string) => {
   return `${DATA_DIRECTORY}/${name}${name.endsWith('.jsonl') ? '' : '.jsonl'}`;
 };
 
+// Sidecar file recording how many generated entities actually aggregate into
+// an entity (excludes noise, which is intentionally dropped by the store).
+const getMetaFilePath = (filePath: string) => `${filePath}.meta.json`;
+
 export const listPerfDataFiles = () => fs.readdirSync(DATA_DIRECTORY);
 
 const ENTITY_INDEX_V1 = '.entities.v1.latest*';
@@ -477,29 +528,74 @@ const countEntities = async (baseDomainName: string, entityIndex: string = ENTIT
   return res.count;
 };
 
+const countAllEntities = async (entityIndex: string) => {
+  const esClient = getEsClient();
+  const res = await esClient.count({
+    index: entityIndex,
+    query: { match_all: {} },
+  });
+  return res.count;
+};
+
+interface CountEntitiesUntilOptions {
+  /** When true, count every entity doc in the index (use after --deleteData). */
+  matchAll?: boolean;
+  /** Stop polling after this many ms and continue (default: 30 minutes). */
+  timeoutMs?: number;
+}
+
 const countEntitiesUntil = async (
   name: string,
   count: number,
   entityIndex: string = ENTITY_INDEX_V1,
+  options: CountEntitiesUntilOptions = {},
 ) => {
+  const { matchAll = false, timeoutMs = 30 * 60 * 1000 } = options;
+  const countFn = matchAll
+    ? () => countAllEntities(entityIndex)
+    : () => countEntities(path.parse(name).name, entityIndex);
+
   let total = 0;
-  log.info('Polling for entities...');
+  const pollStart = Date.now();
+  log.info(
+    `Polling for entities (expecting ${count}, timeout ${timeoutMs / 1000 / 60} min${matchAll ? ', match_all' : ''})...`,
+  );
   const progress = createProgressBar('entities', {
     format: 'Progress | {value}/{total} Entities',
   });
   progress.start(count, 0);
 
+  let lastLoggedTotal = -1;
+  let pollIterations = 0;
+  const entityPollLogEvery = 15; // ~30s at 2s poll interval
+
   while (total < count && !stop) {
-    total = await countEntities(path.parse(name).name, entityIndex);
+    if (Date.now() - pollStart >= timeoutMs) {
+      log.warn(
+        `Entity count ${total}/${count} not reached within ${timeoutMs / 1000 / 60} minutes. Entity Store may still be processing — continuing.`,
+      );
+      break;
+    }
+
+    total = await countFn();
     progress.update(total);
 
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    if (total < count) {
+      pollIterations++;
+      if (total !== lastLoggedTotal || pollIterations % entityPollLogEvery === 0) {
+        log.info(`Entity count ${total}/${count}, polling again in 2s...`);
+        lastLoggedTotal = total;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
   }
 
   progress.stop();
 
   if (stop) {
     log.info('Process stopped before reaching the count.');
+  } else if (total >= count) {
+    log.info(`Entity count reached: ${total}/${count}`);
   }
 
   return total;
@@ -831,6 +927,31 @@ const logKibanaStatsEvery = (name: string, interval: number): (() => void) => {
   return stopCallback;
 };
 
+/**
+ * Deterministically buckets a 1-based user entityIndex into asset / nonAsset /
+ * noise by proportional ranges, so the overall split exactly matches the
+ * requested ratios regardless of entity count.
+ */
+const getUserVariant = (
+  entityIndex: number,
+  totalUserCount: number,
+  assetRatio: number,
+  noiseRatio: number,
+): 'asset' | 'nonAsset' | 'noise' => {
+  if (totalUserCount <= 0) {
+    return 'asset';
+  }
+  const assetCount = Math.round(totalUserCount * assetRatio);
+  const noiseCount = Math.round(totalUserCount * noiseRatio);
+  if (entityIndex <= assetCount) {
+    return 'asset';
+  }
+  if (entityIndex <= assetCount + noiseCount) {
+    return 'noise';
+  }
+  return 'nonAsset';
+};
+
 export const createPerfDataFile = async ({
   entityCount,
   logsPerEntity,
@@ -838,6 +959,8 @@ export const createPerfDataFile = async ({
   name,
   distribution = DEFAULT_DISTRIBUTION,
   explicitEntityCounts,
+  userAssetRatio = DEFAULT_USER_ASSET_RATIO,
+  userNoiseRatio = DEFAULT_USER_NOISE_RATIO,
 }: {
   name: string;
   entityCount: number;
@@ -845,6 +968,10 @@ export const createPerfDataFile = async ({
   startIndex: number;
   distribution?: DistributionType;
   explicitEntityCounts?: ExplicitEntityCountsInput;
+  /** Fraction (0-1) of user entities generated as `event.kind: asset`. Default 1 preserves prior behavior. */
+  userAssetRatio?: number;
+  /** Fraction (0-1) of user entities generated as identity-less noise logs. Default 0 preserves prior behavior. */
+  userNoiseRatio?: number;
 }): Promise<void> => {
   const filePath = getFilePath(name);
 
@@ -863,9 +990,17 @@ export const createPerfDataFile = async ({
     entityCounts = calculateEntityCounts(entityCount, dist);
   }
 
+  const noiseUserCount = entityCounts.user > 0 ? Math.round(entityCounts.user * userNoiseRatio) : 0;
+  const aggregatingEntityCount = entityCount - noiseUserCount;
+
   log.info(
     `Creating performance data file ${name} with ${entityCount} entities and ${logsPerEntity} logs per entity. Starting at index ${startIndex}`,
   );
+  if (noiseUserCount > 0) {
+    log.info(
+      `${noiseUserCount} user entities will be noise (no identity fields, do not aggregate into any entity). Aggregating entity count: ${aggregatingEntityCount}`,
+    );
+  }
 
   if (distribution === 'absolute') {
     // if there are no entities, we will show 100% for each type
@@ -973,6 +1108,16 @@ export const createPerfDataFile = async ({
               valueStartIndex,
               fieldLength: FIELD_LENGTH,
               idPrefix: name,
+              ...(type === 'user'
+                ? {
+                    userVariant: getUserVariant(
+                      entityIndex,
+                      entityCounts.user,
+                      userAssetRatio,
+                      userNoiseRatio,
+                    ),
+                  }
+                : {}),
             };
 
             // Use map lookup instead of if/else chain
@@ -1013,6 +1158,8 @@ export const createPerfDataFile = async ({
 
   // Properly await the operation to ensure stream is closed
   await generateLogs();
+
+  fs.writeFileSync(getMetaFilePath(filePath), JSON.stringify({ aggregatingEntityCount }));
 };
 
 export const uploadFile = async ({
@@ -1022,6 +1169,8 @@ export const uploadFile = async ({
   modifyDoc,
   onComplete,
   timestampSpreadMs,
+  ingestRateDocsPerSecond,
+  bulkConcurrency = DEFAULT_UPLOAD_BULK_CONCURRENCY,
 }: {
   filePath: string;
   index: string;
@@ -1029,55 +1178,96 @@ export const uploadFile = async ({
   modifyDoc?: (doc: Record<string, any>) => Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   onComplete?: () => void;
   timestampSpreadMs?: number;
+  ingestRateDocsPerSecond?: number;
+  bulkConcurrency?: number;
 }) => {
-  const stream = fs.createReadStream(filePath);
   const progress = createProgressBar('upload', {
     format: '{bar} | {percentage}% | {value}/{total} Documents Uploaded',
   });
   progress.start(lineCount, 0);
 
   const rl = readline.createInterface({
-    input: stream,
+    input: fs.createReadStream(filePath),
     crlfDelay: Infinity,
   });
-
-  const lineGenerator = async function* () {
-    for await (const line of rl) {
-      yield JSON.parse(line);
-    }
-  };
 
   // End of spread window is fixed at the start of the upload so all timestamps
   // fall in [endTime - spread, endTime] regardless of upload duration.
   const spreadEndTime = Date.now();
+  const uploadStart = Date.now();
+  const batchDelayMs =
+    ingestRateDocsPerSecond !== undefined
+      ? (UPLOAD_BATCH_SIZE / ingestRateDocsPerSecond) * 1000
+      : undefined;
 
-  await streamingBulkIngest({
-    index,
-    datasource: lineGenerator(),
-    flushBytes: 1024 * 1024 * 1,
-    flushInterval: 3000,
-    onDocument: (doc) => {
+  // Parallel fixed-size batches via pMap (not streamingBulkIngest): supports batch-level
+  // ingest-rate throttling and ~13k docs/sec vs ~800 with helpers.bulk on our test clusters.
+  const prepareDoc = (parsed: Record<string, unknown>) => {
+    parsed['@timestamp'] =
+      timestampSpreadMs !== undefined
+        ? new Date(spreadEndTime - Math.floor(Math.random() * timestampSpreadMs)).toISOString()
+        : new Date().toISOString();
+    return modifyDoc
+      ? modifyDoc(parsed as Record<string, any>) // eslint-disable-line @typescript-eslint/no-explicit-any
+      : parsed;
+  };
+
+  const batchGenerator = async function* (): AsyncGenerator<unknown[], void, void> {
+    let batch: unknown[] = [];
+    for await (const line of rl) {
       if (stop) {
         throw new Error('Stopped');
       }
-      const record = doc as Record<string, unknown>;
-      record['@timestamp'] =
-        timestampSpreadMs !== undefined
-          ? new Date(spreadEndTime - Math.floor(Math.random() * timestampSpreadMs)).toISOString()
-          : new Date().toISOString();
-      const payload = modifyDoc ? modifyDoc(doc as Record<string, any>) : doc; // eslint-disable-line @typescript-eslint/no-explicit-any
-      return [{ create: { _index: index } }, { ...payload }];
+      const payload = prepareDoc(JSON.parse(line) as Record<string, unknown>);
+      batch.push({ create: { _index: index } }, payload);
+      if (batch.length / 2 >= UPLOAD_BATCH_SIZE) {
+        yield batch;
+        batch = [];
+        if (batchDelayMs !== undefined && batchDelayMs > 0) {
+          await sleep(batchDelayMs);
+        }
+      }
+    }
+    if (batch.length > 0) {
+      yield batch;
+    }
+  };
+
+  await pMap(
+    batchGenerator(),
+    async (operations) => {
+      const result = await bulkUpsert({
+        documents: operations,
+        refresh: false,
+        pipeline: '_none',
+      });
+      if (result.errors) {
+        log.error('Failed to index batch:', result);
+        process.exit(1);
+      }
+      progress.increment(operations.length / 2);
     },
-    onSuccess: () => {
-      progress.increment();
-    },
-    onDrop: (doc) => {
-      log.error('Failed to index document:', doc);
-      process.exit(1);
-    },
-  });
+    { concurrency: bulkConcurrency },
+  );
 
   progress.stop();
+
+  const uploadMs = Math.max(Date.now() - uploadStart, 1);
+  const achievedDocsPerSecond = Math.round((lineCount / uploadMs) * 1000);
+  log.info(
+    `Upload finished: ${lineCount} docs in ${uploadMs}ms (~${achievedDocsPerSecond} docs/sec achieved)`,
+  );
+  if (ingestRateDocsPerSecond !== undefined) {
+    log.info(
+      `Configured --ingest-rate cap: ${ingestRateDocsPerSecond} docs/sec (maximum, not a target)`,
+    );
+    if (achievedDocsPerSecond < ingestRateDocsPerSecond) {
+      log.info(
+        'Achieved rate is below the cap — throughput is limited by bulk indexing / cluster capacity, not the ingest-rate throttle.',
+      );
+    }
+  }
+
   if (onComplete) {
     onComplete();
   }
@@ -1088,7 +1278,18 @@ const getFileStats = async (filePath: string) => {
   const logsPerEntity = await getLogsPerEntity(filePath);
   const entityCount = lineCount / logsPerEntity;
 
-  return { lineCount, logsPerEntity, entityCount };
+  // Falls back to entityCount for files with no sidecar (pre-dates noise
+  // support, or generated by another command): no noise means the two match.
+  let aggregatingEntityCount = entityCount;
+  const metaFilePath = getMetaFilePath(filePath);
+  if (fs.existsSync(metaFilePath)) {
+    const meta = JSON.parse(fs.readFileSync(metaFilePath, 'utf8'));
+    if (typeof meta.aggregatingEntityCount === 'number') {
+      aggregatingEntityCount = meta.aggregatingEntityCount;
+    }
+  }
+
+  return { lineCount, logsPerEntity, entityCount, aggregatingEntityCount };
 };
 
 export const uploadPerfDataFile = async (
@@ -1102,6 +1303,8 @@ export const uploadPerfDataFile = async (
     transformTimeoutMs: number;
   },
   timestampSpreadMs?: number,
+  bulkConcurrency: number = DEFAULT_UPLOAD_BULK_CONCURRENCY,
+  noSetup?: boolean,
 ) => {
   const index = indexOverride || `logs-perftest.${name}-default`;
   const entityIndex = noTransforms ? ENTITY_INDEX_V2 : ENTITY_INDEX_V1;
@@ -1129,17 +1332,24 @@ export const uploadPerfDataFile = async (
   }
 
   if (noTransforms) {
-    log.info('Enabling Entity Store V2...');
-    await enableEntityStoreV2('default');
-    await installEntityStoreV2('default');
-    log.info('Entity Store V2 ready');
+    if (noSetup) {
+      log.info('Skipping Entity Store V2 enable/install (--no-setup)');
+    } else {
+      log.info('Enabling Entity Store V2...');
+      await enableEntityStoreV2('default');
+      await installEntityStoreV2('default');
+      log.info('Entity Store V2 ready');
+    }
   } else {
+    // V1 engine init is already a no-op when the engines are started, so it
+    // needs no --no-setup escape hatch.
     log.info('initialising entity engines');
     await initEntityEngineForEntityTypes(['host', 'user', 'service', 'generic']);
     log.info('entity engines initialised');
   }
 
-  const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
+  const { lineCount, logsPerEntity, entityCount, aggregatingEntityCount } =
+    await getFileStats(filePath);
   log.info(
     `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`,
   );
@@ -1167,11 +1377,11 @@ export const uploadPerfDataFile = async (
   }
 
   try {
-    await uploadFile({ filePath, index, lineCount, timestampSpreadMs });
+    await uploadFile({ filePath, index, lineCount, timestampSpreadMs, bulkConcurrency });
     const ingestTook = Date.now() - startTime;
     log.info(`Data file ${name} uploaded to index ${index} in ${ingestTook}ms`);
 
-    await countEntitiesUntil(name, entityCount, entityIndex);
+    await countEntitiesUntil(name, aggregatingEntityCount, entityIndex);
 
     if (metricsEnabled && !noTransforms) {
       log.info(
@@ -1202,38 +1412,163 @@ export const uploadPerfDataFile = async (
   }
 };
 
+type IntervalUploadLoopParams = {
+  intervalMs: number;
+  uploadCount?: number;
+  durationMs?: number;
+  ingestRateDocsPerSecond?: number;
+  bulkConcurrency: number;
+  filePath: string;
+  index: string;
+  lineCount: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  addIdPrefix?: (prefix: string) => (doc: Record<string, any>) => Record<string, any>;
+};
+
+const runIntervalUploadLoop = async ({
+  intervalMs,
+  uploadCount,
+  durationMs,
+  ingestRateDocsPerSecond,
+  bulkConcurrency,
+  filePath,
+  index,
+  lineCount,
+  addIdPrefix,
+}: IntervalUploadLoopParams): Promise<number> => {
+  const uploadFileParams = {
+    filePath,
+    index,
+    lineCount,
+    ingestRateDocsPerSecond,
+    bulkConcurrency,
+  };
+
+  if (durationMs !== undefined) {
+    const deadline = Date.now() + durationMs;
+    let uploadIndex = 0;
+
+    while (Date.now() < deadline && !stop) {
+      log.info(
+        `Uploading ${uploadIndex + 1} (duration mode, deadline ${new Date(deadline).toISOString()})...`,
+      );
+      await uploadFile({
+        ...uploadFileParams,
+        modifyDoc: addIdPrefix ? addIdPrefix(uploadIndex.toString()) : undefined,
+      });
+      uploadIndex++;
+
+      if (Date.now() >= deadline) {
+        break;
+      }
+
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        break;
+      }
+
+      const waitMs = Math.min(intervalMs, remaining);
+      log.info(`Waiting ${waitMs / 1000}s until next upload...`);
+      await sleep(waitMs);
+    }
+
+    return uploadIndex;
+  }
+
+  const count = uploadCount ?? 10;
+  let previousUpload = Promise.resolve();
+  let uploadsScheduled = 0;
+
+  for (let i = 0; i < count; i++) {
+    if (stop) {
+      break;
+    }
+    let uploadCompleted = false;
+    const onComplete = () => {
+      uploadCompleted = true;
+    };
+    const intervalS = intervalMs / 1000;
+    log.info(`Uploading ${i + 1} of ${count}, next upload in ${intervalS}s...`);
+    previousUpload = previousUpload.then(() =>
+      uploadFile({
+        ...uploadFileParams,
+        onComplete,
+        modifyDoc: addIdPrefix ? addIdPrefix(i.toString()) : undefined,
+      }),
+    );
+    uploadsScheduled++;
+    let progress: ReturnType<typeof createProgressBar> | null = null;
+    for (let j = 0; j < intervalS; j++) {
+      if (stop) {
+        break;
+      }
+      if (uploadCompleted) {
+        if (!progress) {
+          progress = createProgressBar('interval', {
+            format: '{bar} | {value}s | waiting {total}s until next upload',
+          });
+          progress.start(intervalS, j + 1);
+        } else {
+          progress.update(j + 1);
+        }
+      }
+      await sleep(1000);
+    }
+    progress?.update(intervalS);
+    progress?.stop();
+  }
+
+  await previousUpload;
+  return uploadsScheduled;
+};
+
 /**
  * V2 flow (Entity Store V2 / ESQL): enable + install V2, use .entities.v2.latest*, no transforms.
  */
 const runUploadPerfDataIntervalV2 = async (
   name: string,
   intervalMs: number,
-  uploadCount: number,
+  uploadCount: number | undefined,
   deleteEntities?: boolean,
   _doDeleteEngines?: boolean,
-  _transformTimeoutMs?: number,
+  transformTimeoutMs?: number,
   samplingIntervalMs?: number,
   indexOverride?: string,
+  ingestRateDocsPerSecond?: number,
+  durationMs?: number,
+  bulkConcurrency: number = DEFAULT_UPLOAD_BULK_CONCURRENCY,
+  noIdIncrement?: boolean,
 ) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const addIdPrefix = (prefix: string) => (doc: Record<string, any>) => {
-    if (doc.host) {
-      return changeHostName(doc, prefix);
-    } else if (doc.user) {
-      return changeUserName(doc, prefix);
-    } else if (doc.service) {
-      return changeServiceName(doc, prefix);
-    } else if (doc.entity && doc.cloud) {
-      return changeGenericEntityName(doc, prefix);
-    }
-    return doc;
-  };
+  const addIdPrefix = noIdIncrement
+    ? undefined
+    : (prefix: string) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (doc: Record<string, any>) => {
+          if (doc.host) {
+            return changeHostName(doc, prefix);
+          } else if (doc.user) {
+            return changeUserName(doc, prefix);
+          } else if (doc.service) {
+            return changeServiceName(doc, prefix);
+          } else if (doc.entity && doc.cloud) {
+            return changeGenericEntityName(doc, prefix);
+          }
+          return doc;
+        };
 
+  const entityWaitTimeoutMs = transformTimeoutMs ?? 30 * 60 * 1000;
   const index = indexOverride ?? `logs-perftest.${name}-default`;
   const filePath = getFilePath(name);
 
+  const modeLabel =
+    durationMs !== undefined
+      ? `for up to ${durationMs / 1000}s (deadline ${new Date(Date.now() + durationMs).toISOString()})`
+      : `${uploadCount ?? 10} times`;
+  const ingestRateLabel =
+    ingestRateDocsPerSecond !== undefined ? `${ingestRateDocsPerSecond} docs/sec` : 'unlimited';
+
   log.info(
-    `Uploading performance data file ${name} every ${intervalMs}ms ${uploadCount} times to index ${index} (Entity Store V2)`,
+    `Uploading performance data file ${name} every ${intervalMs / 1000}s ${modeLabel} to index ${index} (Entity Store V2, ingest rate: ${ingestRateLabel}, bulk concurrency: ${bulkConcurrency})`,
   );
 
   if (deleteEntities) {
@@ -1260,62 +1595,41 @@ const runUploadPerfDataIntervalV2 = async (
   await installEntityStoreV2('default');
   log.info('Entity Store V2 ready');
 
-  const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
+  const { lineCount, logsPerEntity, entityCount, aggregatingEntityCount } =
+    await getFileStats(filePath);
 
   log.info(
     `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`,
   );
 
   const startTime = Date.now();
-  let previousUpload = Promise.resolve();
   const samplingInterval = samplingIntervalMs ?? 5000;
 
   const stopHealthLogging = logClusterHealthEvery(name, samplingInterval);
   const stopNodeStatsLogging = logNodeStatsEvery(name, samplingInterval);
   const stopKibanaStatsLogging = logKibanaStatsEvery(name, samplingInterval);
 
-  for (let i = 0; i < uploadCount; i++) {
-    if (stop) break;
-    let uploadCompleted = false;
-    const onComplete = () => {
-      uploadCompleted = true;
-    };
-    const intervalS = intervalMs / 1000;
-    log.info(`Uploading ${i + 1} of ${uploadCount}, next upload in ${intervalS}s...`);
-    previousUpload = previousUpload.then(() =>
-      uploadFile({
-        onComplete,
-        filePath,
-        index,
-        lineCount,
-        modifyDoc: addIdPrefix(i.toString()),
-      }),
-    );
-    let progress: ReturnType<typeof createProgressBar> | null = null;
-    for (let j = 0; j < intervalS; j++) {
-      if (stop) break;
-      if (uploadCompleted) {
-        if (!progress) {
-          progress = createProgressBar('interval', {
-            format: '{bar} | {value}s | waiting {total}s until next upload',
-          });
-          progress.start(intervalS, j + 1);
-        } else {
-          progress.update(j + 1);
-        }
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
-    progress?.update(intervalS);
-    progress?.stop();
-  }
-
-  await previousUpload;
+  const uploadsCompleted = await runIntervalUploadLoop({
+    intervalMs,
+    uploadCount,
+    durationMs,
+    ingestRateDocsPerSecond,
+    bulkConcurrency,
+    filePath,
+    index,
+    lineCount,
+    addIdPrefix,
+  });
 
   const ingestTook = Date.now() - startTime;
-  log.info(`Data file ${name} uploaded to index ${index} in ${ingestTook}ms`);
+  log.info(
+    `Data file ${name} uploaded to index ${index} in ${ingestTook}ms (${uploadsCompleted} upload(s) completed)`,
+  );
 
-  await countEntitiesUntil(name, entityCount * uploadCount, ENTITY_INDEX_V2);
+  await countEntitiesUntil(name, aggregatingEntityCount * uploadsCompleted, ENTITY_INDEX_V2, {
+    matchAll: deleteEntities,
+    timeoutMs: entityWaitTimeoutMs,
+  });
 
   log.info('Skipping transform completion wait (Entity Store V2 / ESQL mode)');
 
@@ -1332,32 +1646,46 @@ const runUploadPerfDataIntervalV2 = async (
 const runUploadPerfDataIntervalV1 = async (
   name: string,
   intervalMs: number,
-  uploadCount: number,
+  uploadCount: number | undefined,
   deleteEntities?: boolean,
   doDeleteEngines?: boolean,
   transformTimeoutMs?: number,
   samplingIntervalMs?: number,
   indexOverride?: string,
+  ingestRateDocsPerSecond?: number,
+  durationMs?: number,
+  bulkConcurrency: number = DEFAULT_UPLOAD_BULK_CONCURRENCY,
+  noIdIncrement?: boolean,
 ) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const addIdPrefix = (prefix: string) => (doc: Record<string, any>) => {
-    if (doc.host) {
-      return changeHostName(doc, prefix);
-    } else if (doc.user) {
-      return changeUserName(doc, prefix);
-    } else if (doc.service) {
-      return changeServiceName(doc, prefix);
-    } else if (doc.entity && doc.cloud) {
-      return changeGenericEntityName(doc, prefix);
-    }
-    return doc;
-  };
+  const addIdPrefix = noIdIncrement
+    ? undefined
+    : (prefix: string) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (doc: Record<string, any>) => {
+          if (doc.host) {
+            return changeHostName(doc, prefix);
+          } else if (doc.user) {
+            return changeUserName(doc, prefix);
+          } else if (doc.service) {
+            return changeServiceName(doc, prefix);
+          } else if (doc.entity && doc.cloud) {
+            return changeGenericEntityName(doc, prefix);
+          }
+          return doc;
+        };
 
   const index = indexOverride ?? `logs-perftest.${name}-default`;
   const filePath = getFilePath(name);
 
+  const modeLabel =
+    durationMs !== undefined
+      ? `for up to ${durationMs / 1000}s (deadline ${new Date(Date.now() + durationMs).toISOString()})`
+      : `${uploadCount ?? 10} times`;
+  const ingestRateLabel =
+    ingestRateDocsPerSecond !== undefined ? `${ingestRateDocsPerSecond} docs/sec` : 'unlimited';
+
   log.info(
-    `Uploading performance data file ${name} every ${intervalMs}ms ${uploadCount} times to index ${index} (Entity Store V1)`,
+    `Uploading performance data file ${name} every ${intervalMs / 1000}s ${modeLabel} to index ${index} (Entity Store V1, ingest rate: ${ingestRateLabel}, bulk concurrency: ${bulkConcurrency})`,
   );
 
   if (doDeleteEngines) {
@@ -1389,14 +1717,14 @@ const runUploadPerfDataIntervalV1 = async (
   await initEntityEngineForEntityTypes(['host', 'user', 'service', 'generic']);
   log.info('entity engines initialised');
 
-  const { lineCount, logsPerEntity, entityCount } = await getFileStats(filePath);
+  const { lineCount, logsPerEntity, entityCount, aggregatingEntityCount } =
+    await getFileStats(filePath);
 
   log.info(
     `Data file ${name} has ${lineCount} lines, ${entityCount} entities and ${logsPerEntity} logs per entity`,
   );
 
   const startTime = Date.now();
-  let previousUpload = Promise.resolve();
   const samplingInterval = samplingIntervalMs ?? 5000;
 
   const stopHealthLogging = logClusterHealthEvery(name, samplingInterval);
@@ -1404,50 +1732,29 @@ const runUploadPerfDataIntervalV1 = async (
   const stopNodeStatsLogging = logNodeStatsEvery(name, samplingInterval);
   const stopKibanaStatsLogging = logKibanaStatsEvery(name, samplingInterval);
 
-  for (let i = 0; i < uploadCount; i++) {
-    if (stop) break;
-    let uploadCompleted = false;
-    const onComplete = () => {
-      uploadCompleted = true;
-    };
-    const intervalS = intervalMs / 1000;
-    log.info(`Uploading ${i + 1} of ${uploadCount}, next upload in ${intervalS}s...`);
-    previousUpload = previousUpload.then(() =>
-      uploadFile({
-        onComplete,
-        filePath,
-        index,
-        lineCount,
-        modifyDoc: addIdPrefix(i.toString()),
-      }),
-    );
-    let progress: ReturnType<typeof createProgressBar> | null = null;
-    for (let j = 0; j < intervalS; j++) {
-      if (stop) break;
-      if (uploadCompleted) {
-        if (!progress) {
-          progress = createProgressBar('interval', {
-            format: '{bar} | {value}s | waiting {total}s until next upload',
-          });
-          progress.start(intervalS, j + 1);
-        } else {
-          progress.update(j + 1);
-        }
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
-    progress?.update(intervalS);
-    progress?.stop();
-  }
-
-  await previousUpload;
+  const uploadsCompleted = await runIntervalUploadLoop({
+    intervalMs,
+    uploadCount,
+    durationMs,
+    ingestRateDocsPerSecond,
+    bulkConcurrency,
+    filePath,
+    index,
+    lineCount,
+    addIdPrefix,
+  });
 
   const ingestTook = Date.now() - startTime;
-  log.info(`Data file ${name} uploaded to index ${index} in ${ingestTook}ms`);
+  log.info(
+    `Data file ${name} uploaded to index ${index} in ${ingestTook}ms (${uploadsCompleted} upload(s) completed)`,
+  );
 
-  await countEntitiesUntil(name, entityCount * uploadCount, ENTITY_INDEX_V1);
+  await countEntitiesUntil(name, aggregatingEntityCount * uploadsCompleted, ENTITY_INDEX_V1, {
+    matchAll: deleteEntities,
+    timeoutMs: transformTimeoutMs ?? 30 * 60 * 1000,
+  });
 
-  const totalDocumentsIngested = lineCount * uploadCount;
+  const totalDocumentsIngested = lineCount * uploadsCompleted;
   const timeout = transformTimeoutMs ?? 1800000;
   log.info(
     `Waiting for generic transform to process ${totalDocumentsIngested} documents (timeout: ${timeout / 1000 / 60} minutes)...`,
@@ -1475,13 +1782,17 @@ const runUploadPerfDataIntervalV1 = async (
 export const uploadPerfDataFileInterval = async (
   name: string,
   intervalMs: number,
-  uploadCount: number,
+  uploadCount: number | undefined,
   deleteEntities?: boolean,
   doDeleteEngines?: boolean,
   transformTimeoutMs?: number,
   samplingIntervalMs?: number,
   noTransforms?: boolean,
   indexOverride?: string,
+  ingestRateDocsPerSecond?: number,
+  durationMs?: number,
+  bulkConcurrency: number = DEFAULT_UPLOAD_BULK_CONCURRENCY,
+  noIdIncrement?: boolean,
 ) => {
   if (noTransforms) {
     return runUploadPerfDataIntervalV2(
@@ -1493,6 +1804,10 @@ export const uploadPerfDataFileInterval = async (
       transformTimeoutMs,
       samplingIntervalMs,
       indexOverride,
+      ingestRateDocsPerSecond,
+      durationMs,
+      bulkConcurrency,
+      noIdIncrement,
     );
   }
   return runUploadPerfDataIntervalV1(
@@ -1504,5 +1819,564 @@ export const uploadPerfDataFileInterval = async (
     transformTimeoutMs,
     samplingIntervalMs,
     indexOverride,
+    ingestRateDocsPerSecond,
+    durationMs,
+    bulkConcurrency,
+    noIdIncrement,
   );
+};
+
+const DEFAULT_SEED_TIMESTAMP = '2020-01-01T00:00:00.000Z';
+
+const hashEntityId = (entityType: 'host', id: string) =>
+  createHash('sha256').update(`${entityType}:${id}`).digest('hex');
+
+/** Repeating OS, cloud, and geo profiles. `--entity-size small` uses these to recreate existing scale seeds. */
+const SEED_HOST_OS_SMALL = [
+  {
+    name: 'Ubuntu',
+    type: 'linux',
+    family: 'debian',
+    platform: 'ubuntu',
+    version: '22.04.5',
+    kernel: '5.15.0-118-generic',
+    full: 'Ubuntu 22.04.5 LTS',
+  },
+  {
+    name: 'Windows Server',
+    type: 'windows',
+    family: 'windows',
+    platform: 'windows',
+    version: '2022',
+    kernel: '10.0.20348.1',
+    full: 'Windows Server 2022 Datacenter',
+  },
+  {
+    name: 'Amazon Linux',
+    type: 'linux',
+    family: 'redhat',
+    platform: 'amzn',
+    version: '2023',
+    kernel: '6.1.115-126.197.amzn2023.x86_64',
+    full: 'Amazon Linux 2023',
+  },
+  {
+    name: 'macOS',
+    type: 'macos',
+    family: 'darwin',
+    platform: 'darwin',
+    version: '14.6.1',
+    kernel: '23.6.0',
+    full: 'macOS 14.6.1',
+  },
+] as const;
+
+const SEED_HOST_CLOUD_SMALL = [
+  { provider: 'gcp', region: 'us-west1', machineType: 'n2-standard-4' },
+  { provider: 'aws', region: 'us-east-1', machineType: 'm6i.xlarge' },
+  { provider: 'azure', region: 'eastus', machineType: 'Standard_D4s_v5' },
+] as const;
+
+const SEED_HOST_GEO_SMALL = [
+  {
+    city_name: 'Portland',
+    continent_code: 'NA',
+    continent_name: 'North America',
+    country_iso_code: 'US',
+    country_name: 'United States',
+    name: 'us-west',
+    postal_code: '97201',
+    region_iso_code: 'US-OR',
+    region_name: 'Oregon',
+    timezone: 'America/Los_Angeles',
+  },
+  {
+    city_name: 'Ashburn',
+    continent_code: 'NA',
+    continent_name: 'North America',
+    country_iso_code: 'US',
+    country_name: 'United States',
+    name: 'us-east',
+    postal_code: '20147',
+    region_iso_code: 'US-VA',
+    region_name: 'Virginia',
+    timezone: 'America/New_York',
+  },
+  {
+    city_name: 'Frankfurt',
+    continent_code: 'EU',
+    continent_name: 'Europe',
+    country_iso_code: 'DE',
+    country_name: 'Germany',
+    name: 'eu-central',
+    postal_code: '60311',
+    region_iso_code: 'DE-HE',
+    region_name: 'Hesse',
+    timezone: 'Europe/Berlin',
+  },
+] as const;
+
+type SeedOsProfile = {
+  readonly name: string;
+  readonly type: string;
+  readonly family: string;
+  readonly platform: string;
+  readonly version: string;
+  readonly kernel: string;
+  readonly full: string;
+};
+
+type SeedCloudProfile = {
+  readonly provider: string;
+  readonly region: string;
+  readonly machineType: string;
+};
+
+type SeedGeoProfile = {
+  readonly city_name: string;
+  readonly continent_code: string;
+  readonly continent_name: string;
+  readonly country_iso_code: string;
+  readonly country_name: string;
+  readonly name: string;
+  readonly postal_code: string;
+  readonly region_iso_code: string;
+  readonly region_name: string;
+  readonly timezone: string;
+};
+
+export const ENTITY_SIZES = ['small', 'medium', 'large'] as const;
+export type EntitySize = (typeof ENTITY_SIZES)[number];
+
+export const isEntitySize = (value: string): value is EntitySize =>
+  (ENTITY_SIZES as readonly string[]).includes(value);
+
+/**
+ * Fixed catalog length. A normal seed indexes into these lists, so os, geo, and cloud rarely repeat.
+ * The varied fields follow production latest-index telemetry: low-churn stores are about 400 bytes
+ * per entity, not a handful of repeated profiles.
+ */
+const MEDIUM_CATALOG_LENGTH = 32768;
+
+const MEDIUM_OS_BASES = [
+  { name: 'Ubuntu', type: 'linux', family: 'debian', platform: 'ubuntu', label: 'Ubuntu' },
+  {
+    name: 'Windows Server',
+    type: 'windows',
+    family: 'windows',
+    platform: 'windows',
+    label: 'Windows Server',
+  },
+  {
+    name: 'Amazon Linux',
+    type: 'linux',
+    family: 'redhat',
+    platform: 'amzn',
+    label: 'Amazon Linux',
+  },
+  { name: 'macOS', type: 'macos', family: 'darwin', platform: 'darwin', label: 'macOS' },
+  {
+    name: 'Red Hat Enterprise Linux',
+    type: 'linux',
+    family: 'redhat',
+    platform: 'rhel',
+    label: 'Red Hat Enterprise Linux',
+  },
+  {
+    name: 'Debian',
+    type: 'linux',
+    family: 'debian',
+    platform: 'debian',
+    label: 'Debian GNU/Linux',
+  },
+  {
+    name: 'Oracle Linux',
+    type: 'linux',
+    family: 'redhat',
+    platform: 'ol',
+    label: 'Oracle Linux Server',
+  },
+  {
+    name: 'SUSE Linux Enterprise',
+    type: 'linux',
+    family: 'suse',
+    platform: 'sles',
+    label: 'SUSE Linux Enterprise Server',
+  },
+] as const;
+
+const mediumOsAt = (slot: number): SeedOsProfile => {
+  const base = MEDIUM_OS_BASES[slot % MEDIUM_OS_BASES.length];
+  const version = `${(slot % 24) + 1}.${Math.floor(slot / 8) % 20}.${slot % 90}`;
+  const kernel = `${base.platform}.${5 + (slot % 4)}.${slot % 30}.${slot}-1`;
+  return {
+    name: base.name,
+    type: base.type,
+    family: base.family,
+    platform: base.platform,
+    version,
+    kernel,
+    full: `${base.label} ${version} (${kernel})`,
+  };
+};
+
+const MEDIUM_CLOUD_BASES = [
+  { provider: 'aws', region: 'us-east-1', family: 'm6i' },
+  { provider: 'aws', region: 'us-west-2', family: 'm7g' },
+  { provider: 'aws', region: 'eu-west-1', family: 'c6i' },
+  { provider: 'aws', region: 'ap-southeast-1', family: 'r6i' },
+  { provider: 'gcp', region: 'us-central1', family: 'n2-standard' },
+  { provider: 'gcp', region: 'europe-west1', family: 'e2-standard' },
+  { provider: 'gcp', region: 'asia-east1', family: 'c2-standard' },
+  { provider: 'azure', region: 'eastus', family: 'Standard_D' },
+  { provider: 'azure', region: 'westeurope', family: 'Standard_E' },
+  { provider: 'azure', region: 'southeastasia', family: 'Standard_F' },
+] as const;
+
+const mediumCloudAt = (slot: number): SeedCloudProfile => {
+  const base = MEDIUM_CLOUD_BASES[slot % MEDIUM_CLOUD_BASES.length];
+  return {
+    provider: base.provider,
+    region: `${base.region}-az${slot % 12}-${Math.floor(slot / MEDIUM_CLOUD_BASES.length)}`,
+    machineType: `${base.family}-${(slot % 96) + 2}v${slot % 17}`,
+  };
+};
+
+const MEDIUM_GEO_BASES = [
+  {
+    city_name: 'Portland',
+    continent_code: 'NA',
+    continent_name: 'North America',
+    country_iso_code: 'US',
+    country_name: 'United States',
+    name: 'us-west',
+    region_iso_code: 'US-OR',
+    region_name: 'Oregon',
+    timezone: 'America/Los_Angeles',
+  },
+  {
+    city_name: 'Ashburn',
+    continent_code: 'NA',
+    continent_name: 'North America',
+    country_iso_code: 'US',
+    country_name: 'United States',
+    name: 'us-east',
+    region_iso_code: 'US-VA',
+    region_name: 'Virginia',
+    timezone: 'America/New_York',
+  },
+  {
+    city_name: 'Frankfurt',
+    continent_code: 'EU',
+    continent_name: 'Europe',
+    country_iso_code: 'DE',
+    country_name: 'Germany',
+    name: 'eu-central',
+    region_iso_code: 'DE-HE',
+    region_name: 'Hesse',
+    timezone: 'Europe/Berlin',
+  },
+  {
+    city_name: 'London',
+    continent_code: 'EU',
+    continent_name: 'Europe',
+    country_iso_code: 'GB',
+    country_name: 'United Kingdom',
+    name: 'eu-west',
+    region_iso_code: 'GB-LND',
+    region_name: 'London',
+    timezone: 'Europe/London',
+  },
+  {
+    city_name: 'Tokyo',
+    continent_code: 'AS',
+    continent_name: 'Asia',
+    country_iso_code: 'JP',
+    country_name: 'Japan',
+    name: 'ap-northeast',
+    region_iso_code: 'JP-13',
+    region_name: 'Tokyo',
+    timezone: 'Asia/Tokyo',
+  },
+  {
+    city_name: 'Sydney',
+    continent_code: 'OC',
+    continent_name: 'Oceania',
+    country_iso_code: 'AU',
+    country_name: 'Australia',
+    name: 'ap-southeast',
+    region_iso_code: 'AU-NSW',
+    region_name: 'New South Wales',
+    timezone: 'Australia/Sydney',
+  },
+  {
+    city_name: 'Sao Paulo',
+    continent_code: 'SA',
+    continent_name: 'South America',
+    country_iso_code: 'BR',
+    country_name: 'Brazil',
+    name: 'sa-east',
+    region_iso_code: 'BR-SP',
+    region_name: 'Sao Paulo',
+    timezone: 'America/Sao_Paulo',
+  },
+  {
+    city_name: 'Mumbai',
+    continent_code: 'AS',
+    continent_name: 'Asia',
+    country_iso_code: 'IN',
+    country_name: 'India',
+    name: 'ap-south',
+    region_iso_code: 'IN-MH',
+    region_name: 'Maharashtra',
+    timezone: 'Asia/Kolkata',
+  },
+  {
+    city_name: 'Singapore',
+    continent_code: 'AS',
+    continent_name: 'Asia',
+    country_iso_code: 'SG',
+    country_name: 'Singapore',
+    name: 'ap-southeast',
+    region_iso_code: 'SG-01',
+    region_name: 'Singapore',
+    timezone: 'Asia/Singapore',
+  },
+  {
+    city_name: 'Toronto',
+    continent_code: 'NA',
+    continent_name: 'North America',
+    country_iso_code: 'CA',
+    country_name: 'Canada',
+    name: 'ca-central',
+    region_iso_code: 'CA-ON',
+    region_name: 'Ontario',
+    timezone: 'America/Toronto',
+  },
+  {
+    city_name: 'Dublin',
+    continent_code: 'EU',
+    continent_name: 'Europe',
+    country_iso_code: 'IE',
+    country_name: 'Ireland',
+    name: 'eu-west',
+    region_iso_code: 'IE-D',
+    region_name: 'Leinster',
+    timezone: 'Europe/Dublin',
+  },
+  {
+    city_name: 'Johannesburg',
+    continent_code: 'AF',
+    continent_name: 'Africa',
+    country_iso_code: 'ZA',
+    country_name: 'South Africa',
+    name: 'af-south',
+    region_iso_code: 'ZA-GP',
+    region_name: 'Gauteng',
+    timezone: 'Africa/Johannesburg',
+  },
+] as const;
+
+const mediumGeoAt = (slot: number): SeedGeoProfile => {
+  const base = MEDIUM_GEO_BASES[slot % MEDIUM_GEO_BASES.length];
+  const locality = Math.floor(slot / MEDIUM_GEO_BASES.length);
+  return {
+    city_name: base.city_name,
+    continent_code: base.continent_code,
+    continent_name: base.continent_name,
+    country_iso_code: base.country_iso_code,
+    country_name: base.country_name,
+    name: `${base.name}-${locality.toString(36)}-${slot.toString(36)}`,
+    postal_code: String(10000 + (slot % 89999)).padStart(5, '0'),
+    region_iso_code: base.region_iso_code,
+    region_name: `${base.region_name} ${locality}`,
+    timezone: base.timezone,
+  };
+};
+
+const buildMediumCatalog = <T>(at: (slot: number) => T): T[] => {
+  const catalog: T[] = [];
+  for (let slot = 0; slot < MEDIUM_CATALOG_LENGTH; slot++) {
+    catalog.push(at(slot));
+  }
+  return catalog;
+};
+
+const MEDIUM_HOST_OS = buildMediumCatalog(mediumOsAt);
+const MEDIUM_HOST_CLOUD = buildMediumCatalog(mediumCloudAt);
+const MEDIUM_HOST_GEO = buildMediumCatalog(mediumGeoAt);
+
+/**
+ * Extra unique characters on large OS profiles. Tuned so a 20k one-shard
+ * best_compression index stores about 1024 bytes per entity.
+ */
+const LARGE_OS_PAD_LENGTH = 268;
+
+const largePad = (index: number, length: number): string => {
+  const alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
+  const chars: string[] = [];
+  let state = index >>> 0;
+  for (let i = 0; i < length; i++) {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    chars.push(alphabet[state % alphabet.length]);
+  }
+  return chars.join('');
+};
+
+const seedProfilesAt = (entitySize: EntitySize, index: number) => {
+  if (entitySize === 'small') {
+    return {
+      os: SEED_HOST_OS_SMALL[index % SEED_HOST_OS_SMALL.length],
+      cloud: SEED_HOST_CLOUD_SMALL[index % SEED_HOST_CLOUD_SMALL.length],
+      geo: SEED_HOST_GEO_SMALL[index % SEED_HOST_GEO_SMALL.length],
+    };
+  }
+  const slot = index % MEDIUM_CATALOG_LENGTH;
+  const os = MEDIUM_HOST_OS[slot];
+  return {
+    os:
+      entitySize === 'large'
+        ? { ...os, full: `${os.full} ${largePad(index, LARGE_OS_PAD_LENGTH)}` }
+        : os,
+    cloud: MEDIUM_HOST_CLOUD[slot],
+    geo: MEDIUM_HOST_GEO[slot],
+  };
+};
+
+const padMacOctet = (value: number): string => value.toString(16).padStart(2, '0');
+
+const buildSeedHostDocument = ({
+  name,
+  index,
+  timestamp,
+  entitySize,
+}: {
+  name: string;
+  index: number;
+  timestamp: string;
+  entitySize: EntitySize;
+}) => {
+  const hostId = `${name}-host-${index}`;
+  const entityId = `host:${hostId}`;
+  const { os, cloud, geo } = seedProfilesAt(entitySize, index);
+  const octetA = (index >> 16) & 255;
+  const octetB = (index >> 8) & 255;
+  const octetC = index & 255;
+
+  return {
+    '@timestamp': timestamp,
+    event: { ingested: timestamp },
+    entity: {
+      EngineMetadata: { Type: 'host' },
+      id: entityId,
+      name: hostId,
+      type: 'Host',
+      source: 'sdg-seed-latest-entities',
+      lifecycle: {
+        first_seen: timestamp,
+        last_seen: timestamp,
+      },
+    },
+    host: {
+      id: hostId,
+      name: hostId,
+      hostname: `${hostId}.example.${name}.com`,
+      domain: `example.${name}.com`,
+      ip: [`10.${octetA}.${octetB}.${octetC}`, `10.${octetA ^ 1}.${octetB}.${(octetC + 17) & 255}`],
+      mac: [
+        `00:11:22:33:${padMacOctet(octetB)}:${padMacOctet(octetC)}`,
+        `00:11:22:44:${padMacOctet(octetB)}:${padMacOctet(octetC)}`,
+      ],
+      type: index % 5 === 0 ? 'desktop' : 'server',
+      architecture: ['x86_64'],
+      os: { ...os },
+      geo: { ...geo },
+      boot: { id: `boot-${padMacOctet(octetA)}${padMacOctet(octetB)}${padMacOctet(octetC)}` },
+    },
+    cloud: {
+      provider: cloud.provider,
+      region: cloud.region,
+      instance: { id: `i-${index.toString(16).padStart(8, '0')}` },
+      machine: { type: cloud.machineType },
+    },
+    agent: { id: `agent-${index.toString(16).padStart(8, '0')}`, type: 'endpoint' },
+    endpoint: { id: `endpoint-${index.toString(16).padStart(8, '0')}` },
+  };
+};
+
+export const seedLatestEntities = async ({
+  name,
+  hosts,
+  space = 'default',
+  seedTimestamp = DEFAULT_SEED_TIMESTAMP,
+  entitySize = 'medium',
+  init = false,
+}: {
+  name: string;
+  hosts: number;
+  space?: string;
+  seedTimestamp?: string;
+  entitySize?: EntitySize;
+  init?: boolean;
+}) => {
+  if (!Number.isInteger(hosts) || hosts <= 0) {
+    throw new Error(`hosts must be a positive integer, got: ${String(hosts)}`);
+  }
+  if (!isEntitySize(entitySize)) {
+    throw new Error(`entitySize must be small, medium, or large, got: ${String(entitySize)}`);
+  }
+  const seedDate = new Date(seedTimestamp);
+  if (Number.isNaN(seedDate.getTime())) {
+    throw new Error(`Invalid seed timestamp: ${seedTimestamp}`);
+  }
+  const normalizedSeedTimestamp = seedDate.toISOString();
+
+  if (init) {
+    log.info(`Initializing Entity Store V2 for space "${space}"...`);
+    await enableEntityStoreV2(space);
+    await installEntityStoreV2(space);
+  }
+
+  const esClient = getEsClient();
+  const aliasName = `entities-latest-${space}`;
+  const progress = createProgressBar('seed', {
+    format: '{bar} | {percentage}% | {value}/{total} Seeded Hosts',
+  });
+  progress.start(hosts, 0);
+
+  const batchSize = 1000;
+  for (let start = 1; start <= hosts; start += batchSize) {
+    const end = Math.min(start + batchSize - 1, hosts);
+    const operations = [];
+    for (let i = start; i <= end; i++) {
+      const hostId = `${name}-host-${i}`;
+      const doc = buildSeedHostDocument({
+        name,
+        index: i,
+        timestamp: normalizedSeedTimestamp,
+        entitySize,
+      });
+      operations.push({ index: { _index: aliasName, _id: hashEntityId('host', hostId) } }, doc);
+    }
+    const result = await bulkUpsert({
+      documents: operations,
+      refresh: false,
+      pipeline: '_none',
+    });
+    if (result.errors) {
+      progress.stop();
+      throw new Error(`Bulk seed for ${aliasName} reported errors.`);
+    }
+    progress.increment(end - start + 1);
+  }
+
+  progress.stop();
+  await esClient.indices.refresh({ index: aliasName });
+
+  const sampleHostId = `${name}-host-1`;
+  const sampleDocId = hashEntityId('host', sampleHostId);
+  log.info(`Seeded ${hosts} host entities into ${aliasName}`);
+  log.info(`Sample host.id: ${sampleHostId}`);
+  log.info(`Sample latest _id (sha256('host:${sampleHostId}')): ${sampleDocId}`);
+  log.info(`Seed timestamp used for lifecycle: ${normalizedSeedTimestamp}`);
 };

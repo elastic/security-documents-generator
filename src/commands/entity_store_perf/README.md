@@ -1,5 +1,37 @@
 # Entity Store Performance Commands
 
+## `seed-latest-entities`
+
+Seed host entities directly into the Entity Store V2 latest index alias (`entities-latest-<space>`).
+
+Each document writes ECS `host` (id, name, hostname, ip, mac, os, geo), `cloud`, `agent`, and `endpoint`, plus `entity.type: Host` and entity lifecycle timestamps. The seed uses `pipeline: '_none'`, so `entity.type` is written on the document instead of being derived by an ingest pipeline. Host ids look like `<name>-host-N`. The document `_id` is `sha256('host:' + host.id)`. Seeding the same `<name>` again starts at `host-1` and overwrites those documents.
+
+`--init` creates the Entity Store. Without `--init`, the `entities-latest-<space>` alias must already exist.
+
+Use the same `<name>` with `create-perf-data` when the next step is an update file.
+
+### Usage
+
+```bash
+yarn start seed-latest-entities <name> [options]
+```
+
+### Options
+
+- `--hosts <n>`: Number of host entities to seed (default: `1000`)
+- `--space <space>`: Kibana space / latest alias suffix (default: `default`)
+- `--seed-timestamp <timestamp>`: Lifecycle seed timestamp (default: `2020-01-01T00:00:00.000Z`)
+- `--entity-size <small|medium|large>`: `medium` (default) picks `host.os`, `host.geo`, and `cloud` from a fixed catalog so those objects rarely repeat. That catalog is based on production latest-index telemetry, where low-churn stores are about 400 bytes per entity because those fields are not a handful of repeated values. `small` repeats a few OS, cloud, and geo profiles, which is how existing scale seeds are recreated. `large` uses the medium catalog and a longer unique `host.os.full`, which stores at about 1024 bytes per entity.
+- `--init`: Enable and install Entity Store V2 before seeding
+
+### Example
+
+```bash
+yarn start seed-latest-entities lab --hosts 1000 --init
+yarn start seed-latest-entities lab --hosts 1000 --init --entity-size small
+yarn start seed-latest-entities lab --hosts 1000 --init --entity-size large
+```
+
 ## `create-perf-data`
 
 Create an Entity Store performance JSONL data file.
@@ -20,10 +52,20 @@ yarn start create-perf-data <name> <entity-count> <logs-per-entity> [start-index
 - `--host-count <n>`: With `absolute` only — number of host entities.
 - `--service-count <n>`: With `absolute` only — number of service entities.
 - `--generic-count <n>`: With `absolute` only — number of generic entities.
+- `--user-asset-ratio <n>`: Fraction (`0`-`1`) of user entities generated as `asset`-variant logs, see below (default: `1`).
+- `--user-noise-ratio <n>`: Fraction (`0`-`1`) of user entities generated as `noise`-variant logs, see below (default: `0`).
 
 With `equal` or `standard`, do not pass the `--*-count` flags (the command will error). With `absolute`, all four counts are required.
 
 In generated perf data, the top-level `entity` field is emitted only for generic entities.
+
+By default, every user entity is the `asset` variant: an Okta identity-provider asset event (`event.kind: asset`, `event.module: entityanalytics_okta`), which Entity Store V2 creates as an `okta` user keyed on `user.email` (`entity.confidence: high`). `--user-asset-ratio`/`--user-noise-ratio` split user entities into three variants instead, picked deterministically by entity index (so the exact ratio holds regardless of count, and all `logs-per-entity` logs for one entity share the same variant):
+
+- **asset** (`--user-asset-ratio` fraction): unchanged from the default above.
+- **non-asset** (remaining fraction, after asset-ratio and noise-ratio): `event.kind: event` (no `module`), plus a synthetic `host.id`/`host.name`. V2 does not create users from IAM lifecycle events without `host.id` — `host.id` is what resolves `entity.namespace: local` and `entity.confidence: medium`, not the absence of `event.kind: asset` by itself.
+- **noise** (`--user-noise-ratio` fraction): no `user` or `host` field at all, so it does not aggregate into any entity. Useful for exercising scan cost under realistic non-matching traffic.
+
+`--user-asset-ratio` and `--user-noise-ratio` must each be between `0` and `1`, and their sum must not exceed `1`; the remainder becomes non-asset. The two ratios are independent of `--distribution`/`--*-count`, which only control the split across entity _types_ (user/host/service/generic) — these ratios only apply within the user-type count.
 
 ### Examples
 
@@ -33,6 +75,12 @@ yarn start create-perf-data large 100000 5 0 --distribution equal
 yarn start create-perf-data custom-mix 82000 5 0 \
   --distribution absolute \
   --user-count 60000 --host-count 2000 --service-count 17000 --generic-count 3000
+# 20% asset, 60% non-asset, 20% noise user logs (to exercise both the priority
+# and non-priority Entity Store extraction paths)
+yarn start create-perf-data mixed 100000 5 0 \
+  --distribution absolute \
+  --user-count 100000 --host-count 0 --service-count 0 --generic-count 0 \
+  --user-asset-ratio 0.2 --user-noise-ratio 0.2
 ```
 
 ## `upload-perf-data`
@@ -53,6 +101,8 @@ yarn start upload-perf-data [file] [--index <index>] [--delete] [options]
 - `--samplingInterval <seconds>`: Metrics sampling interval when `--metrics` is enabled (default: `5`)
 - `--transformTimeout <minutes>`: Generic transform wait timeout in metrics mode for V1 flow (default: `30`)
 - `--noTransforms`: Run Entity Store V2 / ESQL flow (enable V2, install V2, no transforms, v2 indices)
+- `--no-setup`: Skip the Entity Store V2 enable/install step (V2 flow only, i.e. with `--noTransforms`). Use when the target already has Entity Store installed — the install endpoint returns 500 when called against an installed store, which otherwise aborts the upload. The V1 engine init needs no equivalent: it already returns early when the requested engines are started.
+- `--bulk-concurrency <n>`: Parallel `_bulk` requests per upload (default: `8`). Values above ~8 often do not increase throughput once the cluster is saturated.
 
 When `--metrics` is enabled, log files can be used with `create-baseline`/`compare-metrics` by passing the emitted prefix. In V2 mode (`--noTransforms`), transform stats are skipped.
 
@@ -76,8 +126,11 @@ yarn start upload-perf-data-interval [file] [options]
 
 ### Options
 
-- `--interval <seconds>`: Upload interval (default: `30`)
-- `--count <count>`: Number of uploads (default: `10`)
+- `--interval <seconds>`: Pause between completed uploads (default: `30`)
+- `--duration <duration>`: Wall-clock run limit (e.g. `3h`, `30m`, `45s`); keeps uploading until the deadline, pausing `--interval` seconds between uploads when time allows. **Takes precedence over `--count`** when both are set.
+- `--count <count>`: Number of uploads (default: `10`); used only when `--duration` is not set.
+- `--ingest-rate <docsPerSecond>`: **Maximum** documents per second per upload (default: unlimited). Throttle pauses between 5k-doc batches; it does not speed up Elasticsearch. Each upload logs achieved docs/sec when it finishes.
+- `--bulk-concurrency <n>`: Parallel `_bulk` requests per upload (default: `8`). Tune for experiments; ~13k docs/sec was observed at 8 on a typical test cluster.
 - `--deleteData`: Delete entities and data stream/index first
 - `--deleteEngines`: Delete entity engines first
 - `--transformTimeout <minutes>`: Generic transform wait timeout (default: `30`)
@@ -92,7 +145,13 @@ yarn start upload-perf-data-interval large --deleteData
 yarn start upload-perf-data-interval large --deleteData --interval 60 --count 100
 yarn start upload-perf-data-interval large --deleteData --interval 60 --count 100 --samplingInterval 10
 yarn start upload-perf-data-interval large --deleteData --noTransforms
+yarn start upload-perf-data-interval large --deleteData --noTransforms \
+  --interval 60 --duration 3h --ingest-rate 500
 ```
+
+With `--duration`, each cycle uploads the whole file. The command keeps doing that until the deadline, and waits `--interval` between cycles when time remains.
+
+After uploads complete, the command polls the entity index until the expected entity count is reached (or until `--transformTimeout` minutes elapse, default 30). Entity Store V2 can lag behind log ingest; if polling times out, the command continues with a warning instead of hanging indefinitely. With `--deleteData`, entity counting uses `match_all` on the entity index (accurate for multi-upload interval runs).
 
 ### Output logs
 

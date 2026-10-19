@@ -16,11 +16,7 @@ export type DeviceType = 'laptop' | 'mobile';
 
 // Department names as a union type for type safety
 export type DepartmentName =
-  | 'Product & Engineering'
-  | 'Sales & Marketing'
-  | 'Customer Success'
-  | 'Operations'
-  | 'Executive';
+  'Product & Engineering' | 'Sales & Marketing' | 'Customer Success' | 'Operations' | 'Executive';
 
 // Productivity suite type (Microsoft 365 vs Google Workspace)
 export type ProductivitySuite = 'microsoft' | 'google';
@@ -38,6 +34,7 @@ export interface Device {
   diskEncryptionEnabled: boolean;
   crowdstrikeAgentId: string;
   crowdstrikeDeviceId: string;
+  defenderDeviceId: string;
   macAddress: string;
   ipAddress: string;
   elasticAgentId: string;
@@ -229,6 +226,11 @@ export interface OrganizationConfig {
   size: OrganizationSize;
   seed?: number;
   productivitySuite?: ProductivitySuite;
+  /**
+   * Explicit employee count override. When set, this takes precedence over the
+   * size-based employee range (used by the --doc-count scaling option).
+   */
+  employeeCount?: number;
 }
 
 /**
@@ -627,6 +629,12 @@ export interface EntraIdUserDocument {
     mobilePhone?: string;
     businessPhones?: string[];
     accountEnabled: boolean;
+    directReports?: Array<{
+      id: string;
+      displayName: string;
+      userPrincipalName: string;
+      mail: string;
+    }>;
   };
   event: {
     action: string;
@@ -737,6 +745,7 @@ export interface CloudAssetDocument {
   '@timestamp': string;
   event: {
     kind: string; // Always "asset" in cloudbeat
+    module?: string; // e.g. "asset_discovery" for entity-store user extraction
   };
   cloud?: {
     provider: string;
@@ -1062,11 +1071,7 @@ export interface CloudTrailDocument {
  * CloudTrail user identity types
  */
 export type CloudTrailUserIdentityType =
-  | 'IAMUser'
-  | 'AssumedRole'
-  | 'FederatedUser'
-  | 'Root'
-  | 'AWSService';
+  'IAMUser' | 'AssumedRole' | 'FederatedUser' | 'Root' | 'AWSService';
 
 /**
  * Okta system log event types
@@ -1090,6 +1095,11 @@ export interface OrganizationOptions {
   seed?: number;
   integrations: string;
   employeeCount?: number;
+  /**
+   * Target total document count. When set, the employee population is scaled so
+   * the enabled integrations produce approximately this many documents.
+   */
+  docCount?: number;
   productivitySuite?: ProductivitySuite;
   all?: boolean;
   detectionRules?: boolean;
@@ -1102,9 +1112,11 @@ export type IntegrationName =
   | 'okta'
   | 'cloud_asset'
   | 'okta_system'
-  | 'cloudtrail'
+  | 'aws'
   | 'entra_id'
   | 'crowdstrike'
+  | 'microsoft_defender_endpoint'
+  | 'm365_defender'
   | 'o365'
   | 'github'
   | 'cisco_duo'
@@ -1148,7 +1160,8 @@ export type IntegrationName =
   | 'mongodb_atlas'
   | 'teleport'
   | 'thycotic_ss'
-  | 'zoom';
+  | 'zoom'
+  | 'windows';
 
 /**
  * @deprecated Legacy type from entityanalytics_jamf integration.
@@ -1252,6 +1265,7 @@ export interface CorrelationMap {
   duoUserIdToEmployee: Map<string, Employee>;
   onePasswordUuidToEmployee: Map<string, Employee>;
   crowdstrikeAgentIdToDevice: Map<string, { employee: Employee; device: Device }>;
+  defenderDeviceIdToDevice: Map<string, { employee: Employee; device: Device }>;
   jamfUdidToDevice: Map<string, { employee: Employee; device: Device }>;
   adDnToEmployee: Map<string, Employee>;
   windowsSidToEmployee: Map<string, Employee>;

@@ -19,23 +19,17 @@ const EVENT_MODULES = ['okta', 'entra_id', 'microsoft_365', 'active_directory'] 
 
 const getEventModule = (): string => faker.helpers.arrayElement(EVENT_MODULES);
 
-// Only certain jobs have V2 IDs that use the `_ea` suffix. We translate those
-// known job IDs, and leave all others unchanged so they continue to match the
-// actual installed job IDs (for example PAD/LMD/DED jobs that do not yet have
-// V2 variants).
-const JOB_IDS_WITH_EA_V2_SUFFIX = new Set<string>(['security_auth', 'packetbeat']);
-
 export const applyV2Fields = (record: Record<string, unknown>): Record<string, unknown> => {
   const result = { ...record };
   const eventModule = getEventModule();
 
+  // All EA ML jobs use the `_ea` suffix in v2 mode (https://github.com/elastic/integrations/pull/17626).
   const jobId = result['job_id'];
-  if (typeof jobId === 'string' && JOB_IDS_WITH_EA_V2_SUFFIX.has(jobId)) {
+  if (typeof jobId === 'string' && !jobId.endsWith('_ea')) {
     result['job_id'] = `${jobId}_ea`;
   }
 
   const userNames = result['user.name'] as string[] | undefined;
-  const hostNames = result['host.name'] as string[] | undefined;
 
   if (userNames) {
     if (!(result['user.id'] as string[] | undefined)?.length) {
@@ -46,12 +40,9 @@ export const applyV2Fields = (record: Record<string, unknown>): Record<string, u
     }
   }
 
-  const existingHostIds = result['host.id'] as string[] | undefined;
-  if (hostNames) {
-    if (!existingHostIds?.length) {
-      result['host.id'] = hostNames.map((n) => `${n}-id`);
-    }
-  }
+  // Do NOT generate a synthetic host.id. The EUID ranking falls back to
+  // host.name when host.id is absent, which is correct for entity store
+  // entities that were ingested without a host.id field.
 
   const influencers = result.influencers as Influencer[] | undefined;
   if (influencers) {

@@ -1,5 +1,7 @@
 import { faker } from '@faker-js/faker';
 
+export const GENERATOR_RULE_DESCRIPTION = 'Alert created by documents-generator';
+
 function baseCreateAlerts({
   userName = 'user-1',
   hostName = 'host-1',
@@ -7,6 +9,8 @@ function baseCreateAlerts({
   hostId,
   eventModule,
   space = 'default',
+  timestamp = Date.now(),
+  ruleName = 'Alert created by documents-generator',
 }: {
   userName?: string;
   hostName?: string;
@@ -14,17 +18,21 @@ function baseCreateAlerts({
   hostId?: string;
   eventModule?: string;
   space?: string;
+  /** Epoch ms for the alert's `@timestamp`, and for the alert lifecycle fields derived from it. */
+  timestamp?: number;
+  ruleName?: string;
 } = {}) {
   const risk_score = faker.number.int({ min: 0, max: 100 });
   const severity = ['low', 'medium', 'high', 'critical'][faker.number.int({ min: 0, max: 3 })];
+  const detectedAt = new Date(timestamp).toISOString();
   return {
     'host.name': hostName,
     ...(hostId ? { 'host.id': hostId } : {}),
     'user.name': userName,
     ...(userId ? { 'user.id': userId } : {}),
     ...(eventModule ? { 'event.module': eventModule } : {}),
-    'kibana.alert.start': '2023-04-11T20:18:15.816Z',
-    'kibana.alert.last_detected': '2023-04-11T20:18:15.816Z',
+    'kibana.alert.start': detectedAt,
+    'kibana.alert.last_detected': detectedAt,
     'kibana.version': '8.7.0',
     'kibana.alert.rule.parameters': {
       description: '2',
@@ -56,15 +64,15 @@ function baseCreateAlerts({
     'kibana.alert.rule.category': 'Custom Query Rule',
     'kibana.alert.rule.consumer': 'siem',
     'kibana.alert.rule.execution.uuid': faker.string.uuid(),
-    'kibana.alert.rule.name': 'Alert created by documents-generator',
+    'kibana.alert.rule.name': ruleName,
     'kibana.alert.rule.producer': 'siem',
     'kibana.alert.rule.rule_type_id': 'siem.queryRule',
     'kibana.alert.rule.uuid': faker.string.uuid(),
     'kibana.space_ids': [space],
     'kibana.alert.rule.tags': [],
-    '@timestamp': Date.now(),
+    '@timestamp': timestamp,
     'event.kind': 'signal',
-    'kibana.alert.original_time': '2023-04-11T20:17:14.851Z',
+    'kibana.alert.original_time': detectedAt,
     'kibana.alert.ancestors': [
       {
         id: '8TD3cYcB1hicTK_CdP--',
@@ -83,7 +91,8 @@ function baseCreateAlerts({
     'kibana.alert.rule.author': [],
     'kibana.alert.rule.created_at': '2023-04-11T20:15:52.473Z',
     'kibana.alert.rule.created_by': 'elastic',
-    'kibana.alert.rule.description': '2',
+    // Rule names vary, so this stays constant as the marker for generator-created alerts.
+    'kibana.alert.rule.description': GENERATOR_RULE_DESCRIPTION,
     'kibana.alert.rule.enabled': true,
     'kibana.alert.rule.exceptions_list': [],
     'kibana.alert.rule.false_positives': [],
@@ -122,6 +131,8 @@ export default function createAlerts<O extends object>(
     hostId,
     eventModule,
     space,
+    timestamp,
+    ruleName,
   }: {
     userName?: string;
     hostName?: string;
@@ -129,10 +140,21 @@ export default function createAlerts<O extends object>(
     hostId?: string;
     eventModule?: string;
     space?: string;
+    timestamp?: number;
+    ruleName?: string;
   } = {},
 ): O & BaseCreateAlertsReturnType {
   return {
-    ...baseCreateAlerts({ userName, hostName, userId, hostId, eventModule, space }),
+    ...baseCreateAlerts({
+      userName,
+      hostName,
+      userId,
+      hostId,
+      eventModule,
+      space,
+      timestamp,
+      ruleName,
+    }),
     ...override,
   };
 }

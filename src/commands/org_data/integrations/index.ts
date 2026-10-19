@@ -17,6 +17,8 @@ import { OktaSystemIntegration } from './okta_system_integration.ts';
 import { CloudTrailIntegration } from './cloudtrail_integration.ts';
 import { EntraIdIntegration } from './entra_id_integration.ts';
 import { CrowdStrikeIntegration } from './crowdstrike_integration.ts';
+import { MicrosoftDefenderEndpointIntegration } from './microsoft_defender_endpoint_integration.ts';
+import { M365DefenderIntegration } from './m365_defender_integration.ts';
 import { O365Integration } from './o365_integration.ts';
 import { GitHubIntegration } from './github_integration.ts';
 import { CiscoDuoIntegration } from './cisco_duo_integration.ts';
@@ -61,7 +63,9 @@ import { MongoDbAtlasIntegration } from './mongodb_atlas_integration.ts';
 import { TeleportIntegration } from './teleport_integration.ts';
 import { ThycoticSsIntegration } from './thycotic_ss_integration.ts';
 import { ZoomIntegration } from './zoom_integration.ts';
+import { WindowsIntegration } from './windows_integration.ts';
 import { type IntegrationName } from '../types.ts';
+import { log } from '../../../utils/logger.ts';
 
 // Re-export types and classes from base_integration
 export type { IntegrationRegistry, IntegrationResult, IntegrationDocument, DataStreamConfig };
@@ -72,6 +76,8 @@ export { OktaSystemIntegration } from './okta_system_integration.ts';
 export { CloudTrailIntegration } from './cloudtrail_integration.ts';
 export { EntraIdIntegration } from './entra_id_integration.ts';
 export { CrowdStrikeIntegration } from './crowdstrike_integration.ts';
+export { MicrosoftDefenderEndpointIntegration } from './microsoft_defender_endpoint_integration.ts';
+export { M365DefenderIntegration } from './m365_defender_integration.ts';
 export { O365Integration } from './o365_integration.ts';
 export { GitHubIntegration } from './github_integration.ts';
 export { CiscoDuoIntegration } from './cisco_duo_integration.ts';
@@ -116,6 +122,7 @@ export { MongoDbAtlasIntegration } from './mongodb_atlas_integration.ts';
 export { TeleportIntegration } from './teleport_integration.ts';
 export { ThycoticSsIntegration } from './thycotic_ss_integration.ts';
 export { ZoomIntegration } from './zoom_integration.ts';
+export { WindowsIntegration } from './windows_integration.ts';
 
 /**
  * Create integration registry with all available integrations
@@ -130,10 +137,12 @@ export const createIntegrationRegistry = (): IntegrationRegistry => {
 
   // Register log integrations
   registry.set('okta_system', new OktaSystemIntegration());
-  registry.set('cloudtrail', new CloudTrailIntegration());
+  registry.set('aws', new CloudTrailIntegration());
 
   // Register new integrations
   registry.set('crowdstrike', new CrowdStrikeIntegration());
+  registry.set('microsoft_defender_endpoint', new MicrosoftDefenderEndpointIntegration());
+  registry.set('m365_defender', new M365DefenderIntegration());
   registry.set('o365', new O365Integration());
   registry.set('github', new GitHubIntegration());
   registry.set('cisco_duo', new CiscoDuoIntegration());
@@ -201,6 +210,9 @@ export const createIntegrationRegistry = (): IntegrationRegistry => {
   registry.set('thycotic_ss', new ThycoticSsIntegration());
   registry.set('zoom', new ZoomIntegration());
 
+  // Register Windows Event Forwarding (WEF) integration
+  registry.set('windows', new WindowsIntegration());
+
   return registry;
 };
 
@@ -222,9 +234,11 @@ export const getAvailableIntegrations = (): IntegrationName[] => {
     'okta',
     'cloud_asset',
     'okta_system',
-    'cloudtrail',
+    'aws',
     'entra_id',
     'crowdstrike',
+    'microsoft_defender_endpoint',
+    'm365_defender',
     'o365',
     'github',
     'cisco_duo',
@@ -269,7 +283,16 @@ export const getAvailableIntegrations = (): IntegrationName[] => {
     'teleport',
     'thycotic_ss',
     'zoom',
+    'windows',
   ];
+};
+
+/**
+ * Deprecated CLI integration names that still resolve, mapped to their current
+ * IntegrationName. Keeps existing scripts/docs working after a rename.
+ */
+const DEPRECATED_INTEGRATION_ALIASES: Record<string, IntegrationName> = {
+  cloudtrail: 'aws',
 };
 
 /**
@@ -277,6 +300,16 @@ export const getAvailableIntegrations = (): IntegrationName[] => {
  */
 export const parseIntegrationList = (list: string): IntegrationName[] => {
   const available = getAvailableIntegrations();
-  const requested = list.split(',').map((s) => s.trim() as IntegrationName);
-  return requested.filter((name) => available.includes(name));
+  const requested = list.split(',').map((s) => {
+    const trimmed = s.trim();
+    const alias = DEPRECATED_INTEGRATION_ALIASES[trimmed];
+    if (alias) {
+      log.warn(`Integration name "${trimmed}" is deprecated, use "${alias}" instead.`);
+      return alias;
+    }
+    return trimmed as IntegrationName;
+  });
+  // Dedupe so specifying both the alias and the canonical name doesn't run it twice
+  const deduped = Array.from(new Set(requested));
+  return deduped.filter((name) => available.includes(name));
 };

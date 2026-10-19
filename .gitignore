@@ -53,4 +53,6 @@ Thumbs.db
 !.cursor/rules/
 .cursorworkspace
 .claude/
+!.claude/commands/
+!.claude/commands/**
 .claude.json

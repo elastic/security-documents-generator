@@ -3,6 +3,7 @@ import { type CommandModule } from '../types.ts';
 import { log } from '../../utils/logger.ts';
 import {
   parseDuration,
+  assertPositiveInt,
   parseIntBase10,
   promptForFileSelection,
   wrapAction,
@@ -10,9 +11,14 @@ import {
 import {
   createPerfDataFile,
   listPerfDataFiles,
+  seedLatestEntities,
   uploadPerfDataFile,
   uploadPerfDataFileInterval,
+  DEFAULT_UPLOAD_BULK_CONCURRENCY,
+  DEFAULT_USER_ASSET_RATIO,
+  DEFAULT_USER_NOISE_RATIO,
   isValidDistributionType,
+  isEntitySize,
   type DistributionType,
   ENTITY_DISTRIBUTIONS,
 } from './entity_store_perf.ts';
@@ -50,6 +56,16 @@ export const entityStorePerfCommands: CommandModule = {
         'With --distribution absolute: number of generic entities',
         parseIntBase10,
       )
+      .option(
+        '--user-asset-ratio <n>',
+        'Fraction (0-1) of user entities generated as event.kind:asset (priority-eligible, high confidence) (default: 1)',
+        parseFloat,
+      )
+      .option(
+        '--user-noise-ratio <n>',
+        'Fraction (0-1) of user entities generated as identity-less noise logs that should not aggregate into any entity (default: 0)',
+        parseFloat,
+      )
       .description('Create performance data')
       .action(
         wrapAction(async (name, entityCount, logsPerEntity, startIndex, options) => {
@@ -57,6 +73,27 @@ export const entityStorePerfCommands: CommandModule = {
           if (!isValidDistributionType(distributionType)) {
             log.error(`❌ Invalid distribution type: ${distributionType}`);
             log.error(`   Available types: ${Object.keys(ENTITY_DISTRIBUTIONS).join(', ')}`);
+            process.exit(1);
+          }
+
+          const userAssetRatio = options.userAssetRatio as number | undefined;
+          const userNoiseRatio = options.userNoiseRatio as number | undefined;
+          // Validate using the same effective defaults createPerfDataFile applies,
+          // so a ratio passed alone is checked against what will actually run.
+          const effectiveAssetRatio = userAssetRatio ?? DEFAULT_USER_ASSET_RATIO;
+          const effectiveNoiseRatio = userNoiseRatio ?? DEFAULT_USER_NOISE_RATIO;
+          if (
+            !Number.isFinite(effectiveAssetRatio) ||
+            !Number.isFinite(effectiveNoiseRatio) ||
+            effectiveAssetRatio < 0 ||
+            effectiveAssetRatio > 1 ||
+            effectiveNoiseRatio < 0 ||
+            effectiveNoiseRatio > 1 ||
+            effectiveAssetRatio + effectiveNoiseRatio > 1
+          ) {
+            log.error(
+              '❌ --user-asset-ratio and --user-noise-ratio must each be a number between 0 and 1, and their effective sum (applying defaults when one is omitted) must not exceed 1',
+            );
             process.exit(1);
           }
 
@@ -94,6 +131,8 @@ export const entityStorePerfCommands: CommandModule = {
                 service: serviceCount,
                 generic: genericCount,
               },
+              userAssetRatio,
+              userNoiseRatio,
             });
           } else {
             if (anyCountOptionSet) {
@@ -108,8 +147,46 @@ export const entityStorePerfCommands: CommandModule = {
               logsPerEntity,
               startIndex,
               distribution: distributionType,
+              userAssetRatio,
+              userNoiseRatio,
             });
           }
+        }),
+      );
+
+    program
+      .command('seed-latest-entities')
+      .argument('<name>', 'base name/prefix for seeded host IDs')
+      .option('--hosts <n>', 'number of host entities to seed', parseIntBase10, 1000)
+      .option('--space <space>', 'Kibana space', 'default')
+      .option(
+        '--seed-timestamp <timestamp>',
+        'Seed timestamp for entity.lifecycle.first_seen/last_seen (default: 2020-01-01T00:00:00.000Z)',
+        '2020-01-01T00:00:00.000Z',
+      )
+      .option(
+        '--entity-size <size>',
+        'small, medium (default), or large. small repeats a few OS, cloud, and geo profiles so existing scale seeds can be recreated. medium picks host.os, host.geo, and cloud from a larger fixed catalog based on production telemetry. large uses that catalog and a longer unique host.os.full so stored entities are about 1024 bytes',
+        'medium',
+      )
+      .option('--init', 'Enable/install Entity Store V2 before seeding')
+      .description('Seed Entity Store V2 latest index with host entities (direct bulk, not JSONL)')
+      .action(
+        wrapAction(async (name, options) => {
+          const entitySize = options.entitySize as string;
+          if (!isEntitySize(entitySize)) {
+            log.error(`❌ Invalid entity size: ${entitySize}`);
+            log.error('   Available sizes: small, medium, large');
+            process.exit(1);
+          }
+          await seedLatestEntities({
+            name,
+            hosts: options.hosts,
+            space: options.space,
+            seedTimestamp: options.seedTimestamp,
+            entitySize,
+            init: options.init,
+          });
         }),
       );
 
@@ -133,12 +210,23 @@ export const entityStorePerfCommands: CommandModule = {
       )
       .option('--noTransforms', 'Use Entity Store V2 / ESQL flow (no transforms)')
       .option(
+        '--no-setup',
+        'Skip the Entity Store V2 enable/install step (V2 flow only; use when the target already has Entity Store installed)',
+      )
+      .option(
         '--timestamp-spread <duration>',
         'Spread document @timestamp values randomly over the given duration ending at now (e.g., 2h, 30m, 1d, 500ms)',
+      )
+      .option(
+        '--bulk-concurrency <n>',
+        'Parallel _bulk requests per upload (default: 8)',
+        parseIntBase10,
+        DEFAULT_UPLOAD_BULK_CONCURRENCY,
       )
       .description('Upload performance data file')
       .action(
         wrapAction(async (file, options) => {
+          assertPositiveInt(options.bulkConcurrency, '--bulk-concurrency');
           const timestampSpreadMs =
             options.timestampSpread !== undefined
               ? parseDuration(options.timestampSpread as string)
@@ -154,6 +242,8 @@ export const entityStorePerfCommands: CommandModule = {
               transformTimeoutMs: options.transformTimeout * 60 * 1000,
             },
             timestampSpreadMs,
+            options.bulkConcurrency,
+            options.setup === false,
           );
         }),
       );
@@ -162,9 +252,28 @@ export const entityStorePerfCommands: CommandModule = {
       .command('upload-perf-data-interval')
       .argument('[file]', 'File to upload')
       .option('--interval <interval>', 'interval in s', parseIntBase10, 30)
-      .option('--count <count>', 'number of times to upload', parseIntBase10, 10)
+      .option(
+        '--count <count>',
+        'number of times to upload (default: 10; ignored when --duration is set)',
+        parseIntBase10,
+      )
+      .option(
+        '--duration <duration>',
+        'wall-clock run limit (e.g. 3h, 30m, 45s); takes precedence over --count',
+      )
+      .option(
+        '--ingest-rate <docsPerSecond>',
+        'max documents per second per upload (default: unlimited)',
+        parseIntBase10,
+      )
+      .option(
+        '--bulk-concurrency <n>',
+        'Parallel _bulk requests per upload (default: 8)',
+        parseIntBase10,
+        DEFAULT_UPLOAD_BULK_CONCURRENCY,
+      )
       .option('--deleteData', 'Delete all entities before uploading')
-      .option('--deleteEngines', 'Delete all entities before uploading')
+      .option('--deleteEngines', 'Delete entity engines first (V1 transform flow only)')
       .option(
         '--transformTimeout <timeout>',
         'Timeout in minutes for waiting for generic transform to complete (default: 30)',
@@ -182,19 +291,57 @@ export const entityStorePerfCommands: CommandModule = {
         'Run Entity Store V2 / ESQL flow (enable V2, install V2, no transforms, v2 indices)',
       )
       .option('--index <index>', 'Destination index')
-      .description('Upload performance data file')
+      .option(
+        '--no-id-increment',
+        'Do not append a per-upload suffix to entity IDs — every upload reuses the same entity IDs, keeping the entity count constant (useful for sustained load tests)',
+      )
+      .description('Upload performance data file repeatedly at intervals')
       .action(
         wrapAction(async (file, options) => {
+          if (options.ingestRate !== undefined) {
+            assertPositiveInt(options.ingestRate, '--ingest-rate');
+          }
+
+          assertPositiveInt(options.bulkConcurrency, '--bulk-concurrency');
+
+          const durationMs =
+            options.duration !== undefined ? parseDuration(options.duration as string) : undefined;
+
+          if (durationMs !== undefined && options.count !== undefined) {
+            log.warn('--count is ignored when --duration is set');
+          }
+
+          let uploadCount: number | undefined;
+          if (durationMs === undefined) {
+            const count = options.count ?? 10;
+            assertPositiveInt(count, '--count');
+            uploadCount = count;
+          }
+
+          if (durationMs !== undefined) {
+            log.info(
+              `Interval upload mode: duration (${options.duration}), interval ${options.interval}s, ingest rate ${options.ingestRate ?? 'unlimited'}, bulk concurrency ${options.bulkConcurrency}`,
+            );
+          } else {
+            log.info(
+              `Interval upload mode: count ${uploadCount}, interval ${options.interval}s, ingest rate ${options.ingestRate ?? 'unlimited'}, bulk concurrency ${options.bulkConcurrency}`,
+            );
+          }
+
           await uploadPerfDataFileInterval(
             file ?? (await promptForFileSelection(listPerfDataFiles())),
             options.interval * 1000,
-            options.count,
+            uploadCount,
             options.deleteData,
             options.deleteEngines,
             options.transformTimeout * 60 * 1000,
             options.samplingInterval * 1000,
             options.noTransforms,
             options.index,
+            options.ingestRate,
+            durationMs,
+            options.bulkConcurrency,
+            options.idIncrement === false,
           );
         }),
       );

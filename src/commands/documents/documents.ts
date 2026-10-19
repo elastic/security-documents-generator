@@ -71,11 +71,25 @@ const createDocuments = (
     }, []);
 };
 
+/**
+ * Alerts cycle through these so aggregations on `kibana.alert.rule.name` return more than one
+ * bucket. Generator-created alerts stay identifiable by `kibana.alert.rule.description`.
+ */
+const RULE_NAMES = [
+  'Suspicious logon from unusual source',
+  'Potential credential dumping',
+  'Unusual process spawned by service account',
+  'Outbound connection to rare destination',
+  'Privilege escalation attempt',
+  'Suspicious PowerShell activity',
+];
+
 export const generateAlerts = async (
   alertCount: number,
   hostCount: number,
   userCount: number,
   space: string,
+  timeSpreadMs?: number,
 ) => {
   if (userCount > alertCount) {
     log.info('User count should be less than alert count');
@@ -90,13 +104,26 @@ export const generateAlerts = async (
   log.info(
     `Generating ${alertCount} alerts containing ${hostCount} hosts and ${userCount} users in space ${space}`,
   );
+  if (timeSpreadMs !== undefined) {
+    log.info(`Spreading alert @timestamp values randomly over the last ${timeSpreadMs}ms`);
+  }
   const concurrency = 10; // how many batches to send in parallel
   const batchSize = 2500; // number of alerts in a batch
   const no_overrides = {};
 
-  const batchOpForIndex = ({ userName, hostName }: { userName: string; hostName: string }) =>
+  const batchOpForIndex = ({
+    userName,
+    hostName,
+    timestamp,
+    ruleName,
+  }: {
+    userName: string;
+    hostName: string;
+    timestamp: number;
+    ruleName: string;
+  }) =>
     alertToBatchOps(
-      createAlerts(no_overrides, { userName, hostName, space }),
+      createAlerts(no_overrides, { userName, hostName, space, timestamp, ruleName }),
       getAlertIndex(space),
     );
 
@@ -105,13 +132,19 @@ export const generateAlerts = async (
   const hostNames = Array.from({ length: hostCount }, () => faker.internet.domainName());
 
   log.info('Assigning entity names...');
-  const alertEntityNames = Array.from({ length: alertCount }, (_, i) => ({
+  const generatedAt = Date.now();
+  const alertDescriptors = Array.from({ length: alertCount }, (_, i) => ({
     userName: userNames[i % userCount],
     hostName: hostNames[i % hostCount],
+    ruleName: RULE_NAMES[i % RULE_NAMES.length],
+    timestamp:
+      timeSpreadMs === undefined
+        ? generatedAt
+        : generatedAt - Math.floor(Math.random() * timeSpreadMs),
   }));
 
   log.info('Entity names assigned. Batching...');
-  const operationBatches = chunk(alertEntityNames, batchSize).map((batch) =>
+  const operationBatches = chunk(alertDescriptors, batchSize).map((batch) =>
     batch.flatMap(batchOpForIndex),
   );
 

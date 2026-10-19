@@ -8,7 +8,13 @@ import {
   type IntegrationDocument,
   type DataStreamConfig,
 } from './base_integration.ts';
-import { type Organization, type CorrelationMap, type Employee, type Device } from '../types.ts';
+import {
+  type Organization,
+  type CorrelationMap,
+  type Employee,
+  type Device,
+  type DevicePlatform,
+} from '../types.ts';
 import { faker } from '@faker-js/faker';
 import { MALWARE_HASHES } from '../data/threat_intel_data.ts';
 
@@ -113,6 +119,20 @@ const CMDLINES = [
 const CS_AGENT_VERSION = '7.10.18305.0';
 const CS_CID = 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6';
 
+/**
+ * FDR logon types. 2/10/11/12 are interactive shell sessions; the rest are
+ * machine-to-machine or scheduled and must be excluded by the maintainer
+ * filter. Mirrors the reference table in the fdr ingest pipeline
+ * (default.yml, script_process_interactive_logon_type_9b3d6c7a).
+ */
+const FDR_INTERACTIVE_LOGON_TYPES = ['2', '10', '11', '12'];
+const FDR_NONINTERACTIVE_LOGON_TYPES = ['3', '4', '5', '8'];
+
+/** Accounts the maintainer's EXCLUDED_USERNAMES guard must reject. */
+const FDR_SERVICE_ACCOUNTS = ['SYSTEM', 'LOCAL SERVICE', 'NETWORK SERVICE', 'ANONYMOUS LOGON'];
+
+type FdrLogonEventType = 'UserLogon' | 'UserLogonFailed' | 'UserLogonFailed2';
+
 type FalconEventType =
   | 'DetectionSummaryEvent'
   | 'RemoteResponseSessionStartEvent'
@@ -174,6 +194,7 @@ export class CrowdStrikeIntegration extends BaseIntegration {
     { name: 'host', index: 'logs-crowdstrike.host-default' },
     { name: 'alert', index: 'logs-crowdstrike.alert-default' },
     { name: 'falcon', index: 'logs-crowdstrike.falcon-default' },
+    { name: 'fdr', index: 'logs-crowdstrike.fdr-default' },
   ];
 
   generateDocuments(
@@ -207,10 +228,12 @@ export class CrowdStrikeIntegration extends BaseIntegration {
     }
 
     const falconDocs = this.generateFalconDocuments(org, correlationMap);
+    const fdrDocs = this.generateFdrDocuments(correlationMap);
 
     documentsMap.set('logs-crowdstrike.host-default', hostDocs);
     documentsMap.set('logs-crowdstrike.alert-default', alertDocs);
     documentsMap.set('logs-crowdstrike.falcon-default', falconDocs);
+    documentsMap.set('logs-crowdstrike.fdr-default', fdrDocs);
     return documentsMap;
   }
 
@@ -429,6 +452,202 @@ export class CrowdStrikeIntegration extends BaseIntegration {
     }
 
     return falconDocs;
+  }
+
+  /**
+   * FDR (Falcon Data Replicator) logon telemetry.
+   *
+   * Unlike the falcon stream (Streaming API detections), FDR carries raw sensor
+   * telemetry including UserLogon events — the only CrowdStrike source with real
+   * user→host authentication signal. The fdr pipeline maps event_simpleName to
+   * event.action and aid to host.id, so host:<aid> resolves as a host EUID.
+   *
+   * Emits both signal (interactive logons by real employees) and noise (service
+   * accounts, machine accounts, non-interactive logon types, failures) so the
+   * maintainer's exclusion guards can be verified, not just its match clause.
+   */
+  private generateFdrDocuments(correlationMap: CorrelationMap): IntegrationDocument[] {
+    const fdrDocs: IntegrationDocument[] = [];
+
+    for (const [, { employee, device }] of correlationMap.crowdstrikeAgentIdToDevice) {
+      if (device.type !== 'laptop') continue;
+
+      // Signal: interactive logons by this employee onto their own device.
+      const logonCount = faker.number.int({ min: 4, max: 12 });
+      for (let i = 0; i < logonCount; i++) {
+        fdrDocs.push(
+          this.generateFdrLogonEvent({
+            employee,
+            device,
+            eventType: 'UserLogon',
+            logonType: faker.helpers.arrayElement(FDR_INTERACTIVE_LOGON_TYPES),
+            userName: employee.userName,
+            userSid: employee.windowsSid,
+            success: true,
+          }),
+        );
+      }
+
+      // Noise: everything the maintainer filter must reject.
+      const noiseCount = faker.number.int({ min: 2, max: 5 });
+      for (let i = 0; i < noiseCount; i++) {
+        const noiseKind = faker.helpers.arrayElement([
+          'service-account',
+          'machine-account',
+          'non-interactive',
+          'failed-logon',
+        ] as const);
+
+        switch (noiseKind) {
+          case 'service-account':
+            // UserName is filled from the logon session, so SYSTEM et al. flow
+            // through on real deployments — EXCLUDED_USERNAMES must catch these.
+            fdrDocs.push(
+              this.generateFdrLogonEvent({
+                employee,
+                device,
+                eventType: 'UserLogon',
+                logonType: faker.helpers.arrayElement(FDR_INTERACTIVE_LOGON_TYPES),
+                userName: faker.helpers.arrayElement(FDR_SERVICE_ACCOUNTS),
+                userSid: 'S-1-5-18',
+                success: true,
+              }),
+            );
+            break;
+          case 'machine-account':
+            fdrDocs.push(
+              this.generateFdrLogonEvent({
+                employee,
+                device,
+                eventType: 'UserLogon',
+                logonType: faker.helpers.arrayElement(FDR_INTERACTIVE_LOGON_TYPES),
+                userName: `${device.displayName.replace(/\s+/g, '').toUpperCase().slice(0, 12)}$`,
+                userSid: 'S-1-5-20',
+                success: true,
+              }),
+            );
+            break;
+          case 'non-interactive':
+            fdrDocs.push(
+              this.generateFdrLogonEvent({
+                employee,
+                device,
+                eventType: 'UserLogon',
+                logonType: faker.helpers.arrayElement(FDR_NONINTERACTIVE_LOGON_TYPES),
+                userName: employee.userName,
+                userSid: employee.windowsSid,
+                success: true,
+              }),
+            );
+            break;
+          case 'failed-logon':
+            fdrDocs.push(
+              this.generateFdrLogonEvent({
+                employee,
+                device,
+                eventType: faker.helpers.arrayElement<FdrLogonEventType>([
+                  'UserLogonFailed',
+                  'UserLogonFailed2',
+                ]),
+                logonType: faker.helpers.arrayElement(FDR_INTERACTIVE_LOGON_TYPES),
+                userName: employee.userName,
+                userSid: employee.windowsSid,
+                success: false,
+              }),
+            );
+            break;
+        }
+      }
+    }
+
+    return fdrDocs;
+  }
+
+  /**
+   * Build a raw pre-pipeline FDR document.
+   *
+   * FDR ingests raw NDJSON directly in `message` (no envelope wrapper — that is
+   * the falcon stream's shape). The pipeline renames message to event.original,
+   * JSON-parses it into `crowdstrike`, then maps aid → host.id and
+   * event_simpleName → event.action.
+   */
+  private generateFdrLogonEvent(params: {
+    employee: Employee;
+    device: Device;
+    eventType: FdrLogonEventType;
+    logonType: string;
+    userName: string;
+    userSid: string;
+    success: boolean;
+  }): IntegrationDocument {
+    const { employee, device, eventType, logonType, userName, userSid, success } = params;
+    const timestamp = this.getTimestamp();
+    const epochMs = new Date(timestamp).getTime();
+    const logonTimeSec = (epochMs / 1000).toFixed(3);
+    const domain = employee.email.split('@')[1] ?? 'corp.local';
+
+    const eventNameMap: Record<FdrLogonEventType, string> = {
+      UserLogon: 'UserLogonV8',
+      UserLogonFailed: 'UserLogonFailedV1',
+      UserLogonFailed2: 'UserLogonFailed2V2',
+    };
+
+    const rawEvent: Record<string, unknown> = {
+      event_simpleName: eventType,
+      name: eventNameMap[eventType],
+      aid: device.crowdstrikeAgentId,
+      cid: CS_CID,
+      id: faker.string.uuid(),
+      timestamp: String(epochMs),
+      event_platform: this.mapFdrPlatform(device.platform),
+      ContextTimeStamp: logonTimeSec,
+      LogonTime: logonTimeSec,
+      LogonType: logonType,
+      UserName: userName,
+      UserSid: userSid,
+      UserPrincipal: `${userName}@${domain}`,
+      LogonDomain: domain.split('.')[0].toUpperCase(),
+      LogonServer: `DC-${faker.string.alpha({ length: 4, casing: 'upper' })}`,
+      AuthenticationPackage: faker.helpers.arrayElement(['Negotiate', 'Kerberos', 'NTLM']),
+      AuthenticationId: faker.string.numeric(10),
+      aip: device.ipAddress,
+      ClientComputerName: device.displayName,
+      RemoteAccount: ['3', '10'].includes(logonType) ? '1' : '0',
+      UserIsAdmin: employee.role.toLowerCase().includes('admin') ? '1' : '0',
+      UserFlags: '0',
+      UserLogonFlags: '0',
+      ConfigBuild: '1007.3.0011603.1',
+      ConfigStateHash: faker.string.numeric(10),
+      EffectiveTransmissionClass: '2',
+      Entitlements: '15',
+      ContextProcessId: faker.string.numeric(12),
+      ContextThreadId: faker.string.numeric(14),
+    };
+
+    if (!success) {
+      // NTSTATUS codes as unsigned decimal strings — pipeline does Long.parseLong().
+      // 0xC000006D = STATUS_LOGON_FAILURE, 0xC000006A = STATUS_WRONG_PASSWORD
+      rawEvent.Status = '3221225581'; // 0xC000006D
+      rawEvent.SubStatus = '3221225578'; // 0xC000006A
+    }
+
+    return {
+      '@timestamp': timestamp,
+      message: JSON.stringify(rawEvent),
+      data_stream: { dataset: 'crowdstrike.fdr', namespace: 'default', type: 'logs' },
+    } as IntegrationDocument;
+  }
+
+  /** FDR event_platform codes: Win, Mac, Lin. */
+  private mapFdrPlatform(platform: DevicePlatform): string {
+    switch (platform) {
+      case 'windows':
+        return 'Win';
+      case 'mac':
+        return 'Mac';
+      default:
+        return 'Lin';
+    }
   }
 
   private generateFalconEvent(
