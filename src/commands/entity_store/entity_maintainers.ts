@@ -156,50 +156,79 @@ const generateAnomalyBehaviorsFields = () => {
   };
 };
 
+// Entity Store v2 maps `entity.relationships.<type>` as an object
+// ({ ids, raw_identifiers }), so bare string arrays are rejected with a
+// document_parsing_exception on both the latest and history indices.
+type RelationshipIdentifierKind = 'user' | 'host' | 'service';
+type RelationshipRawIdentifiers = Partial<Record<RelationshipIdentifierKind, { name: string[] }>>;
+
+// Nested (not dotted) so it deep-merges cleanly with the entity `_source`,
+// which Elasticsearch returns as nested objects.
+const toRelationship = (
+  names: string[],
+  defaultKind: RelationshipIdentifierKind = 'user',
+): { raw_identifiers: RelationshipRawIdentifiers } => {
+  const rawIdentifiers: RelationshipRawIdentifiers = {};
+  for (const name of names) {
+    const kind: RelationshipIdentifierKind = SYNTHETIC_HOSTS.includes(name)
+      ? 'host'
+      : SYNTHETIC_SERVICES.includes(name)
+        ? 'service'
+        : defaultKind;
+    (rawIdentifiers[kind] ??= { name: [] }).name.push(name);
+  }
+  return { raw_identifiers: rawIdentifiers };
+};
+
 const generateRelationshipsFields = (allEntityNames: string[], currentEntityName?: string) => {
   const otherNames = allEntityNames.filter((n) => n !== currentEntityName);
 
   const candidateFrequent = [...otherNames, ...SYNTHETIC_HOSTS];
   const candidateInfrequent = [...SYNTHETIC_HOSTS, ...SYNTHETIC_SERVICES];
 
-  const relationships: Record<string, string[]> = {};
+  const relationships: Record<string, ReturnType<typeof toRelationship>> = {};
 
   if (faker.datatype.boolean({ probability: 0.7 })) {
-    relationships.accesses_frequently = faker.helpers.arrayElements(
-      candidateFrequent,
-      faker.number.int({ min: 1, max: 4 }),
+    relationships.accesses_frequently = toRelationship(
+      faker.helpers.arrayElements(candidateFrequent, faker.number.int({ min: 1, max: 4 })),
     );
   }
 
   if (faker.datatype.boolean({ probability: 0.5 })) {
-    relationships.accesses_infrequently = faker.helpers.arrayElements(
-      candidateInfrequent,
-      faker.number.int({ min: 1, max: 3 }),
+    relationships.accesses_infrequently = toRelationship(
+      faker.helpers.arrayElements(candidateInfrequent, faker.number.int({ min: 1, max: 3 })),
     );
   }
 
   if (faker.datatype.boolean({ probability: 0.4 })) {
-    relationships.communicates_with = faker.helpers.arrayElements(
-      [...SYNTHETIC_HOSTS, ...SYNTHETIC_SERVICES],
-      faker.number.int({ min: 1, max: 3 }),
+    relationships.communicates_with = toRelationship(
+      faker.helpers.arrayElements(
+        [...SYNTHETIC_HOSTS, ...SYNTHETIC_SERVICES],
+        faker.number.int({ min: 1, max: 3 }),
+      ),
     );
   }
 
   if (faker.datatype.boolean({ probability: 0.3 })) {
-    relationships.owns = faker.helpers.arrayElements(
-      [
-        `laptop-${faker.string.alphanumeric(4)}`,
-        `desktop-${faker.string.alphanumeric(4)}`,
-        `mobile-${faker.string.alphanumeric(4)}`,
-      ],
-      faker.number.int({ min: 1, max: 2 }),
+    relationships.owns = toRelationship(
+      faker.helpers.arrayElements(
+        [
+          `laptop-${faker.string.alphanumeric(4)}`,
+          `desktop-${faker.string.alphanumeric(4)}`,
+          `mobile-${faker.string.alphanumeric(4)}`,
+        ],
+        faker.number.int({ min: 1, max: 2 }),
+      ),
+      'host',
     );
   }
 
   if (faker.datatype.boolean({ probability: 0.2 })) {
-    relationships.supervises = faker.helpers.arrayElements(
-      otherNames.length > 0 ? otherNames : ['junior-analyst', 'intern-01'],
-      faker.number.int({ min: 1, max: 2 }),
+    relationships.supervises = toRelationship(
+      faker.helpers.arrayElements(
+        otherNames.length > 0 ? otherNames : ['junior-analyst', 'intern-01'],
+        faker.number.int({ min: 1, max: 2 }),
+      ),
     );
   }
 
