@@ -1266,6 +1266,32 @@ export const getMlJobsSummary = async (jobIds: string[], space?: string) => {
   );
 };
 
+/**
+ * Creates a minimal anomaly detection job in the `security` group, with no datafeed. The Anomalous
+ * tile only counts records of installed security jobs, so seeded records need one.
+ */
+export const createPlaceholderSecurityMlJob = async (jobId: string, space?: string) => {
+  return kibanaFetch<{ job_id: string }>(
+    `/internal/ml/anomaly_detectors/${jobId}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({
+        description:
+          'Placeholder job created by seed-nat-tiles so seeded anomaly records belong to an installed security job (no datafeed)',
+        groups: [ML_GROUP_ID],
+        analysis_config: {
+          bucket_span: '15m',
+          detectors: [{ function: 'count' }],
+          influencers: [],
+        },
+        data_description: { time_field: '@timestamp' },
+        analysis_limits: { model_memory_limit: '10mb' },
+      }),
+    },
+    { apiVersion: API_VERSIONS.internal.v1, space },
+  );
+};
+
 export const setupMlModule = async (
   moduleId: string,
   indexPatternName: string,
