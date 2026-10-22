@@ -351,7 +351,9 @@ export const createS2Case = async ({
       attachmentOpts,
     );
   } catch (unifiedError) {
-    log.info(`Unified case attachments rejected, retrying with the legacy shape: ${String(unifiedError).slice(0, 200)}`);
+    log.info(
+      `Unified case attachments rejected, retrying with the legacy shape: ${String(unifiedError).slice(0, 200)}`,
+    );
     await kibanaFetch(
       attachmentsPath,
       {

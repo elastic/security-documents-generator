@@ -114,18 +114,16 @@ export const USERS: ScenarioUser[] = [
     storyline: 'S3',
     resolve: true,
   },
-  ...NOISE_USERS.map(
-    ([userName, department], index): ScenarioUser => ({
-      key: userName,
-      userName,
-      email: `${userName}@${DOMAIN}`,
-      department,
-      laptop: noiseLaptopName(index),
-      storyline: 'noise',
-      // Only the first four noise users are resolved: the rest stay unresolved local users (B5).
-      resolve: index < 4,
-    }),
-  ),
+  ...NOISE_USERS.map(([userName, department], index): ScenarioUser => ({
+    key: userName,
+    userName,
+    email: `${userName}@${DOMAIN}`,
+    department,
+    laptop: noiseLaptopName(index),
+    storyline: 'noise',
+    // Only the first four noise users are resolved: the rest stay unresolved local users (B5).
+    resolve: index < 4,
+  })),
 ];
 
 export const SERVICES: ScenarioService[] = [{ name: 'svc-backup' }, { name: 'svc-monitoring' }];
