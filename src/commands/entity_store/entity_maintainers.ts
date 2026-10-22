@@ -348,7 +348,7 @@ const getSnapshotIndex = (space: string, date: Date): string => {
   const yyyy = date.getUTCFullYear();
   const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
   const dd = String(date.getUTCDate()).padStart(2, '0');
-  return `.entities.v2.history.security_${space}.${yyyy}-${mm}-${dd}-00`;
+  return `.entities.v2.history.${space}.${yyyy}-${mm}-${dd}-00`;
 };
 
 const scoreNormToLevel = (norm: number): string => {
