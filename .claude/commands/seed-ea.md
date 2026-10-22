@@ -29,6 +29,7 @@ Use this to recommend the right command(s):
 | Page / Feature | Command(s) |
 |---|---|
 | Home page — entities table, risk KPI/history, watchlists | `risk-score-v2` |
+| Home page — Needs attention tiles with exact, known numbers, deltas and sparklines (all six non-zero) | `seed-nat-tiles` (24 entities with 65 days of history; `--entities 48` for more; `--clean` to remove) |
 | Entity store management page | `risk-score-v2` (sets up entity store) |
 | Asset criticality | `risk-score-v2` (includes criticality) or `generate-asset-criticality` separately |
 | Privileged user monitoring | `privmon-quick` or `privileged-user-monitoring` (interactive) |
