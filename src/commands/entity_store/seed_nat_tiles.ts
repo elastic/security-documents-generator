@@ -51,6 +51,10 @@ interface EntitySpec {
   anomalyAges?: number[];
   /** Risk history: `hi` for the last `hours` hours, `lo` before that. */
   rise?: { hours: number; lo: number; hi: number };
+  /** Makes this entity an alias of the main entity with this slug, so the two are one resolved group. */
+  aliasOf?: string;
+  /** `rise` is the group's (resolution) score of this main entity; `score` stays its own. */
+  groupRisk?: boolean;
 }
 
 // One set of entities. Ages are chosen so that every tile has something to count on 24h, 7d and
@@ -151,7 +155,54 @@ const ENTITY_SET: readonly EntitySpec[] = [
     score: 95,
     rise: { hours: 500, lo: 85, hi: 95 },
   },
+  // Resolved groups: a main entity and its alias. The tiles judge the group, as the page does.
+  // An alias's alerts and anomalies count for the group, once, and the group is on the watchlist
+  // when any member is.
+  { slug: 'group-alerts-main', kind: 'host', firstSeenHours: 2400, watchlisted: true },
+  {
+    slug: 'group-alerts-alias',
+    kind: 'host',
+    firstSeenHours: 2400,
+    aliasOf: 'group-alerts-main',
+    alerts: { severity: 'critical', ages: [1, 21, 144, 590] },
+  },
+  { slug: 'group-anomaly-main', kind: 'host', firstSeenHours: 2400 },
+  {
+    slug: 'group-anomaly-alias',
+    kind: 'host',
+    firstSeenHours: 2400,
+    aliasOf: 'group-anomaly-main',
+    anomalyAges: [30, 200, 800],
+  },
+  // The group's score (from resolution score documents) wins over the main entity's own score,
+  // which stays flat and low: the group is a mover and newly high-risk, the entity alone is not.
+  {
+    slug: 'group-risk-main',
+    kind: 'user',
+    firstSeenHours: 2400,
+    score: 20,
+    groupRisk: true,
+    rise: { hours: 300, lo: 30, hi: 75 },
+  },
+  { slug: 'group-risk-alias', kind: 'user', firstSeenHours: 2400, aliasOf: 'group-risk-main' },
+  // A group is new by its earliest member: this main entity is new, but its alias is old, so the
+  // group is not.
+  { slug: 'group-old-alias-main', kind: 'host', firstSeenHours: 9, score: 5 },
+  {
+    slug: 'group-old-alias-alias',
+    kind: 'host',
+    firstSeenHours: 2400,
+    aliasOf: 'group-old-alias-main',
+  },
+  // This group counts once, from its earliest member (30 hours), not from its newer alias.
+  { slug: 'group-new-main', kind: 'host', firstSeenHours: 30, score: 5 },
+  { slug: 'group-new-alias', kind: 'host', firstSeenHours: 12, aliasOf: 'group-new-main' },
 ];
+
+/** The resolved groups: each main entity first, then its aliases. */
+const GROUPS: ReadonlyArray<readonly EntitySpec[]> = ENTITY_SET.filter(
+  (spec) => spec.aliasOf === undefined,
+).map((main) => [main, ...ENTITY_SET.filter((spec) => spec.aliasOf === main.slug)]);
 
 /** How many entities one set holds; `--entities` is rounded down to whole sets. */
 export const NAT_TILES_SET_SIZE = ENTITY_SET.length;
@@ -170,23 +221,30 @@ const scoreToLevel = (score: number): string => LEVEL_NAMES[levelRank(score)];
 const hasAgeIn = (ages: number[] | undefined, from: number, to: number): boolean =>
   (ages ?? []).some((age) => age >= from && age < to);
 
-// What each tile counts in a window of ages [from, to) hours before now. `rise` entities are
-// movers when their score went up inside the window: high at its end, low at its start.
+// What each tile counts in a window of ages [from, to) hours before now, one resolved group at a
+// time (the first member is the main entity). `rise` groups are movers when their score went up
+// inside the window: high at its end, low at its start.
 const TILES: ReadonlyArray<{
   name: string;
-  counts: (spec: EntitySpec, from: number, to: number) => boolean;
+  counts: (group: readonly EntitySpec[], from: number, to: number) => boolean;
 }> = [
   {
     name: 'Severely alerting',
-    counts: ({ alerts }, from, to) =>
-      alerts !== undefined &&
-      (alerts.severity === 'high' || alerts.severity === 'critical') &&
-      hasAgeIn(alerts.ages, from, to),
+    counts: (group, from, to) =>
+      group.some(
+        ({ alerts }) =>
+          alerts !== undefined &&
+          (alerts.severity === 'high' || alerts.severity === 'critical') &&
+          hasAgeIn(alerts.ages, from, to),
+      ),
   },
-  { name: 'Anomalous', counts: ({ anomalyAges }, from, to) => hasAgeIn(anomalyAges, from, to) },
+  {
+    name: 'Anomalous',
+    counts: (group, from, to) => group.some(({ anomalyAges }) => hasAgeIn(anomalyAges, from, to)),
+  },
   {
     name: 'Risk movers',
-    counts: ({ rise }, from, to) =>
+    counts: ([{ rise }], from, to) =>
       rise !== undefined &&
       rise.hi - rise.lo >= MOVER_POINTS &&
       from < rise.hours &&
@@ -194,7 +252,7 @@ const TILES: ReadonlyArray<{
   },
   {
     name: 'Newly high-risk',
-    counts: ({ rise }, from, to) =>
+    counts: ([{ rise }], from, to) =>
       rise !== undefined &&
       levelRank(rise.hi) >= 3 &&
       levelRank(rise.hi) > levelRank(rise.lo) &&
@@ -203,13 +261,18 @@ const TILES: ReadonlyArray<{
   },
   {
     name: 'Watchlisted & alerting',
-    counts: ({ watchlisted, alerts }, from, to) =>
-      watchlisted === true && alerts !== undefined && hasAgeIn(alerts.ages, from, to),
+    counts: (group, from, to) =>
+      group.some(({ watchlisted }) => watchlisted === true) &&
+      group.some(({ alerts }) => alerts !== undefined && hasAgeIn(alerts.ages, from, to)),
   },
   {
     name: 'New & alerting',
-    counts: ({ score, firstSeenHours }, from, to) =>
-      (score ?? 0) > 0 && firstSeenHours >= from && firstSeenHours < to,
+    counts: ([main, ...aliases], from, to) => {
+      const score = main.groupRisk && main.rise ? main.rise.hi : (main.score ?? 0);
+      // The group is as old as its oldest member.
+      const firstSeenHours = Math.max(main.firstSeenHours, ...aliases.map((a) => a.firstSeenHours));
+      return score > 0 && firstSeenHours >= from && firstSeenHours < to;
+    },
   },
 ];
 
@@ -228,7 +291,7 @@ export const expectedTiles = (copies: number): Array<{ range: string; tiles: Exp
     range: label,
     tiles: TILES.map(({ name, counts }) => {
       const countIn = (from: number, to: number): number =>
-        ENTITY_SET.filter((spec) => counts(spec, from, to)).length * copies;
+        GROUPS.filter((group) => counts(group, from, to)).length * copies;
       const count = countIn(0, hours);
       const dots = Array.from({ length: DOTS }, (_, k) =>
         countIn(k * stepHours, k * stepHours + hours),
@@ -296,6 +359,12 @@ const buildEntityDoc = (
   const attributes =
     spec.watchlisted && watchlistId ? { attributes: { watchlists: [watchlistId] } } : {};
   const risk = spec.score === undefined ? {} : { risk: riskFields(spec.score) };
+  const main = ENTITY_SET.find((other) => other.slug === spec.aliasOf);
+  const relationships = main
+    ? { relationships: { resolution: { resolved_to: entityIdOf(main, copy) } } }
+    : spec.groupRisk && spec.rise
+      ? { relationships: { resolution: { risk: riskFields(spec.rise.hi) } } }
+      : {};
 
   if (spec.kind === 'host') {
     return {
@@ -312,6 +381,7 @@ const buildEntityDoc = (
         id: entityIdOf(spec, copy),
         type: 'Host',
         ...attributes,
+        ...relationships,
       },
     };
   }
@@ -333,6 +403,7 @@ const buildEntityDoc = (
       id: entityIdOf(spec, copy),
       type: 'Identity',
       ...attributes,
+      ...relationships,
     },
   };
 };
@@ -342,6 +413,8 @@ const buildRiskDoc = (
   copy: number,
   timestamp: number,
   score: number,
+  /** Set for a group's (resolution) score: the aliases it covers. */
+  aliasIds?: string[],
 ): Doc['doc'] => ({
   '@timestamp': new Date(timestamp).toISOString(),
   [spec.kind]: {
@@ -350,7 +423,13 @@ const buildRiskDoc = (
       ...riskFields(score),
       id_field: 'entity.id',
       id_value: entityIdOf(spec, copy),
-      score_type: 'base',
+      score_type: aliasIds ? 'resolution' : 'base',
+      ...(aliasIds && {
+        related_entities: aliasIds.map((entityId) => ({
+          entity_id: entityId,
+          relationship_type: 'entity.relationships.resolution.resolved_to',
+        })),
+      }),
     },
   },
 });
@@ -453,17 +532,32 @@ const buildDataset = ({
 
       const { rise, alerts, anomalyAges } = spec;
       if (rise) {
+        const aliasIds = ENTITY_SET.filter((other) => other.aliasOf === spec.slug).map((other) =>
+          entityIdOf(other, copy),
+        );
         for (const age of RISK_AGES) {
-          dataset.risk.push({
-            index: riskIndex,
-            id: `seed-nat-tiles-${space}-${entityId}-${age}h`,
-            doc: buildRiskDoc(
-              spec,
-              copy,
-              now - (age + BOUNDARY_OFFSET_HOURS) * HOUR_MS,
-              age < rise.hours ? rise.hi : rise.lo,
-            ),
-          });
+          const timestamp = now - (age + BOUNDARY_OFFSET_HOURS) * HOUR_MS;
+          const id = `seed-nat-tiles-${space}-${entityId}-${age}h`;
+          const groupScore = age < rise.hours ? rise.hi : rise.lo;
+          if (spec.groupRisk) {
+            // The entity's own history stays flat; the group's rises, and the tiles use the group's.
+            dataset.risk.push({
+              index: riskIndex,
+              id,
+              doc: buildRiskDoc(spec, copy, timestamp, spec.score ?? 0),
+            });
+            dataset.risk.push({
+              index: riskIndex,
+              id: `${id}-group`,
+              doc: buildRiskDoc(spec, copy, timestamp, groupScore, aliasIds),
+            });
+          } else {
+            dataset.risk.push({
+              index: riskIndex,
+              id,
+              doc: buildRiskDoc(spec, copy, timestamp, groupScore),
+            });
+          }
         }
       }
 
