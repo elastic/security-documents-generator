@@ -17,7 +17,9 @@ import {
   type CloudProvider,
   type Employee,
   type Host,
+  type AccessEdge,
 } from '../types.ts';
+import { buildAccessEdges, relationshipsForSource } from '../access_graph_generator.ts';
 import { faker } from '@faker-js/faker';
 
 /**
@@ -35,6 +37,12 @@ export class CloudAssetIntegration extends BaseIntegration {
   ];
 
   /**
+   * Configuration edges of the access graph, computed once per run. Each asset document
+   * carries the edges it is the source of as entity.relationships.*.
+   */
+  private accessEdges: AccessEdge[] = [];
+
+  /**
    * Generate all cloud asset documents
    */
   generateDocuments(
@@ -43,10 +51,13 @@ export class CloudAssetIntegration extends BaseIntegration {
   ): Map<string, IntegrationDocument[]> {
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
+    this.accessEdges = buildAccessEdges(org);
 
-    // Generate documents for cloud resources
+    // Generate documents for cloud resources. AWS EC2 instances are emitted from the
+    // host list below (same instance id), so skip their resource entries here.
     for (const resource of org.cloudResources) {
-      documents.push(this.createCloudResourceDocument(resource, org));
+      if (resource.subType === 'AWS EC2 Instance') continue;
+      documents.push(this.createCloudResourceDocument(resource, org, correlationMap));
     }
 
     // Generate documents for IAM users (correlated with Okta)
@@ -91,6 +102,7 @@ export class CloudAssetIntegration extends BaseIntegration {
   private createCloudResourceDocument(
     resource: CloudResource,
     org: Organization,
+    correlationMap: CorrelationMap,
   ): CloudAssetDocument {
     const timestamp = this.getRandomTimestamp(48);
 
@@ -128,7 +140,188 @@ export class CloudAssetIntegration extends BaseIntegration {
       },
     };
 
-    return baseDoc;
+    switch (resource.subType) {
+      case 'AWS IAM Role':
+        return this.enrichIamRoleDocument(baseDoc, resource, correlationMap);
+      case 'AWS IAM Policy':
+        return this.enrichIamPolicyDocument(baseDoc, resource, correlationMap);
+      case 'AWS S3 Bucket':
+        return this.enrichS3BucketDocument(baseDoc, resource, org);
+      default:
+        return baseDoc;
+    }
+  }
+
+  /**
+   * Attach the access-graph edges this asset is the source of, in entity store shape,
+   * and add their targets to related.entity.
+   */
+  private withRelationships(doc: CloudAssetDocument, sourceId: string): CloudAssetDocument {
+    const relationships = relationshipsForSource(this.accessEdges, sourceId);
+    if (!relationships) return doc;
+    const targetIds = Object.values(relationships).flatMap((r) => r.entity.id);
+    return {
+      ...doc,
+      entity: { ...doc.entity, relationships },
+      related: { entity: Array.from(new Set([...(doc.related?.entity ?? []), ...targetIds])) },
+    };
+  }
+
+  /**
+   * IAM Role: entity.raw mirrors the AWS SDK Role object cloudbeat stores with
+   * WithRawAsset (AssumeRolePolicyDocument is URL-encoded, as the IAM API returns it).
+   * entity.Details carries the decomposed trust and permission data a traversal needs.
+   */
+  private enrichIamRoleDocument(
+    doc: CloudAssetDocument,
+    resource: CloudResource,
+    correlationMap: CorrelationMap,
+  ): CloudAssetDocument {
+    const role = correlationMap.roleArnToRole.get(resource.id);
+    if (!role) return doc;
+
+    const enriched: CloudAssetDocument = {
+      ...doc,
+      entity: {
+        ...doc.entity,
+        raw: {
+          Path: role.path,
+          RoleName: role.name,
+          RoleId: role.roleId,
+          Arn: role.arn,
+          CreateDate: role.createdAt,
+          AssumeRolePolicyDocument: encodeURIComponent(JSON.stringify(role.trustPolicy)),
+          Description: role.description,
+          MaxSessionDuration: role.maxSessionDuration,
+          RoleLastUsed: {
+            LastUsedDate: this.getRandomTimestamp(72),
+            Region: 'us-east-1',
+          },
+          Tags: Object.entries(resource.tags ?? {}).map(([Key, Value]) => ({ Key, Value })),
+        },
+        Details: {
+          Purpose: role.purpose,
+          TrustedPrincipalArns: role.trustedPrincipalArns,
+          TrustedServices: role.trustedServices,
+          TrustedFederatedArns: role.trustedFederatedArns,
+          AttachedPolicyArns: role.attachedPolicyArns,
+          InlinePolicyNames: role.inlinePolicies.map((p) => p.name),
+          InlinePolicies: role.inlinePolicies.map((p) => ({
+            PolicyName: p.name,
+            PolicyDocument: p.document,
+          })),
+          CreatedAt: role.createdAt,
+        },
+      },
+      related: {
+        entity: [
+          resource.id,
+          ...role.trustedPrincipalArns,
+          ...role.trustedFederatedArns,
+          ...role.attachedPolicyArns,
+        ],
+      },
+    };
+    return this.withRelationships(enriched, resource.id);
+  }
+
+  /**
+   * IAM Policy: entity.raw mirrors cloudbeat's iam.Policy (SDK Policy fields plus the parsed
+   * default-version `document` and the `roles` it is attached to).
+   */
+  private enrichIamPolicyDocument(
+    doc: CloudAssetDocument,
+    resource: CloudResource,
+    correlationMap: CorrelationMap,
+  ): CloudAssetDocument {
+    const policy = correlationMap.policyArnToPolicy.get(resource.id);
+    if (!policy) return doc;
+
+    const attachedRoles = Array.from(correlationMap.roleArnToRole.values()).filter((role) =>
+      role.attachedPolicyArns.includes(policy.arn),
+    );
+
+    const enriched: CloudAssetDocument = {
+      ...doc,
+      entity: {
+        ...doc.entity,
+        raw: {
+          PolicyName: policy.name,
+          PolicyId: policy.policyId,
+          Arn: policy.arn,
+          Path: policy.path,
+          DefaultVersionId: 'v1',
+          AttachmentCount: attachedRoles.length,
+          PermissionsBoundaryUsageCount: 0,
+          IsAttachable: true,
+          Description: policy.description,
+          CreateDate: policy.createdAt,
+          UpdateDate: policy.createdAt,
+          document: policy.document,
+          roles: attachedRoles.map((role) => ({ RoleName: role.name, RoleId: role.roleId })),
+        },
+        Details: {
+          IsAwsManaged: policy.isAwsManaged,
+          AttachedRoleArns: attachedRoles.map((role) => role.arn),
+          ResourceArns: policy.resourceIds,
+          CreatedAt: policy.createdAt,
+        },
+      },
+      related: {
+        entity: [resource.id, ...attachedRoles.map((r) => r.arn), ...policy.resourceIds],
+      },
+    };
+    return this.withRelationships(enriched, resource.id);
+  }
+
+  /**
+   * S3 bucket: entity.raw mirrors cloudbeat's s3.BucketDescription, including the parsed
+   * bucket policy when the bucket has one.
+   */
+  private enrichS3BucketDocument(
+    doc: CloudAssetDocument,
+    resource: CloudResource,
+    org: Organization,
+  ): CloudAssetDocument {
+    const bucketPolicy = org.s3BucketPolicies[resource.id];
+    const isRestricted = resource.tags?.DataClassification === 'restricted';
+    const principals = bucketPolicy
+      ? bucketPolicy.Statement.filter((s) => s.Effect === 'Allow').flatMap((s) => {
+          const aws = s.Principal?.AWS;
+          return aws === undefined ? [] : Array.isArray(aws) ? aws : [aws];
+        })
+      : [];
+
+    return {
+      ...doc,
+      entity: {
+        ...doc.entity,
+        raw: {
+          name: resource.name,
+          sse_algorithm: isRestricted ? 'aws:kms' : 'AES256',
+          ...(bucketPolicy && { bucket_policy: bucketPolicy }),
+          bucket_versioning: { Enabled: isRestricted, MfaDelete: false },
+          public_access_block_configuration: {
+            BlockPublicAcls: true,
+            BlockPublicPolicy: true,
+            IgnorePublicAcls: true,
+            RestrictPublicBuckets: true,
+          },
+          account_public_access_block_configuration: {
+            BlockPublicAcls: true,
+            BlockPublicPolicy: true,
+            IgnorePublicAcls: true,
+            RestrictPublicBuckets: true,
+          },
+          creation_date: faker.date.past({ years: 3 }).toISOString(),
+          Region: resource.region,
+        },
+        ...(principals.length > 0 && {
+          Details: { BucketPolicyPrincipals: principals, CreatedAt: this.getRandomTimestamp(72) },
+        }),
+      },
+      related: { entity: [resource.id, ...principals] },
+    };
   }
 
   /**
@@ -303,7 +496,14 @@ export class CloudAssetIntegration extends BaseIntegration {
    */
   private createHostAsCloudInstance(host: Host, org: Organization): CloudAssetDocument {
     const timestamp = this.getRandomTimestamp(24);
-    const account = org.cloudAccounts.find((a) => a.provider === host.cloudProvider);
+    const account =
+      org.cloudAccounts.find((a) => a.id === host.cloudAccountId) ??
+      org.cloudAccounts.find((a) => a.provider === host.cloudProvider);
+    const instanceProfile = host.instanceProfileArn
+      ? org.cloudInstanceProfiles.find((p) => p.arn === host.instanceProfileArn)
+      : undefined;
+    const vpcId = `vpc-${faker.string.hexadecimal({ length: 17, prefix: '', casing: 'lower' })}`;
+    const subnetId = `subnet-${faker.string.hexadecimal({ length: 17, prefix: '', casing: 'lower' })}`;
 
     const instanceTypeByProvider: Record<string, string[]> = {
       aws: ['t3.micro', 't3.small', 't3.medium', 'm5.large', 'm5.xlarge', 'c5.large', 'r5.large'],
@@ -321,7 +521,7 @@ export class CloudAssetIntegration extends BaseIntegration {
       instanceTypeByProvider[host.cloudProvider] || ['unknown'],
     );
 
-    return {
+    const doc: CloudAssetDocument = {
       '@timestamp': timestamp,
       agent: this.buildCentralAgent(org),
       event: {
@@ -358,13 +558,48 @@ export class CloudAssetIntegration extends BaseIntegration {
         type: 'Host',
         sub_type: subTypeByProvider[host.cloudProvider],
         source: host.cloudProvider,
+        // AWS EC2: the fields cloudbeat >= 1.7.0 writes, including the instance profile and
+        // the role it resolves to (entity.Details.InstanceProfileArn / RoleArn).
+        ...(host.cloudProvider === 'aws' && {
+          raw: {
+            InstanceId: host.id,
+            InstanceType: machineType,
+            ImageId: `ami-${faker.string.hexadecimal({ length: 17, prefix: '', casing: 'lower' })}`,
+            State: { Code: 16, Name: 'running' },
+            PrivateIpAddress: host.ipAddress,
+            VpcId: vpcId,
+            SubnetId: subnetId,
+            Platform: host.os.family === 'linux' ? undefined : host.os.family,
+            PlatformDetails: 'Linux/UNIX',
+            ...(instanceProfile && {
+              IamInstanceProfile: { Arn: instanceProfile.arn, Id: instanceProfile.id },
+            }),
+            Tags: [
+              { Key: 'Name', Value: host.name },
+              { Key: 'Purpose', Value: host.purpose },
+            ],
+          },
+          Details: {
+            ImageId: `ami-${faker.string.hexadecimal({ length: 17, prefix: '', casing: 'lower' })}`,
+            Platform: 'Linux/UNIX',
+            VpcId: vpcId,
+            SubnetId: subnetId,
+            State: 'running',
+            PrivateIpAddress: host.ipAddress,
+            ...(instanceProfile && {
+              InstanceProfileArn: instanceProfile.arn,
+              RoleArn: instanceProfile.roleArn,
+            }),
+            CreatedAt: faker.date.past({ years: 1 }).toISOString(),
+          },
+        }),
       },
       host: {
         id: host.id,
         name: host.name,
         architecture: 'x86_64',
         type: machineType,
-        ip: faker.internet.ipv4(),
+        ip: host.ipAddress,
       },
       data_stream: {
         dataset: 'cloud_asset_inventory.asset_inventory',
@@ -373,9 +608,13 @@ export class CloudAssetIntegration extends BaseIntegration {
       },
       tags: [`purpose:${host.purpose}`, `os:${host.os.name}`, `type:${host.type}`],
       related: {
-        entity: [host.id],
+        entity: [
+          host.id,
+          ...(instanceProfile ? [instanceProfile.arn, instanceProfile.roleArn] : []),
+        ],
       },
     };
+    return this.withRelationships(doc, host.id);
   }
 
   /**

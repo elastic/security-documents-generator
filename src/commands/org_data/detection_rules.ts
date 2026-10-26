@@ -33,6 +33,7 @@ const EXCLUDED_INTEGRATIONS: IntegrationName[] = [
   'cloud_asset',
   'workday',
   'ping_directory',
+  'access_graph',
 ];
 
 function recentTimestamp(maxDaysAgo: number = 13): string {
