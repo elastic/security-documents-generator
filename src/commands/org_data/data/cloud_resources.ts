@@ -164,7 +164,16 @@ export const AWS_RESOURCES: CloudResourceType[] = [
     provider: 'aws',
     namePrefix: '',
     description: 'IAM Role',
-    baseCount: 15,
+    baseCount: 0, // Generated from the IAM model (access_graph_generator.ts)
+    regions: ['us-east-1'], // IAM is global
+  },
+  {
+    type: 'Access Management',
+    subType: 'AWS IAM Policy',
+    provider: 'aws',
+    namePrefix: '',
+    description: 'IAM Policy',
+    baseCount: 0, // Generated from the IAM model (access_graph_generator.ts)
     regions: ['us-east-1'], // IAM is global
   },
   {
@@ -505,24 +514,145 @@ export const S3_BUCKET_PURPOSES = [
 ];
 
 /**
- * Common IAM role names for SaaS organizations
+ * Service roles found in most AWS accounts, with the service principal that may assume
+ * them and the AWS-managed policies they carry. Service-linked roles live under
+ * /aws-service-role/.
  */
-export const IAM_ROLE_NAMES = [
-  'EKSClusterRole',
-  'EKSNodeGroupRole',
-  'LambdaExecutionRole',
-  'ECSTaskExecutionRole',
-  'ECSTaskRole',
-  'RDSMonitoringRole',
-  'CloudWatchEventsRole',
-  'CodeBuildServiceRole',
-  'CodePipelineServiceRole',
-  'EC2InstanceRole',
-  'S3ReplicationRole',
-  'CrossAccountAccessRole',
-  'AWSServiceRoleForAutoScaling',
-  'AWSServiceRoleForECS',
-  'AWSServiceRoleForRDS',
+export const IAM_SERVICE_ROLES: Array<{
+  name: string;
+  servicePrincipal: string;
+  managedPolicyArns: string[];
+  serviceLinked?: boolean;
+}> = [
+  {
+    name: 'EKSClusterRole',
+    servicePrincipal: 'eks.amazonaws.com',
+    managedPolicyArns: ['arn:aws:iam::aws:policy/AmazonEKSClusterPolicy'],
+  },
+  {
+    name: 'EKSNodeGroupRole',
+    servicePrincipal: 'ec2.amazonaws.com',
+    managedPolicyArns: [
+      'arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy',
+      'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly',
+    ],
+  },
+  {
+    name: 'LambdaExecutionRole',
+    servicePrincipal: 'lambda.amazonaws.com',
+    managedPolicyArns: ['arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'],
+  },
+  {
+    name: 'ECSTaskExecutionRole',
+    servicePrincipal: 'ecs-tasks.amazonaws.com',
+    managedPolicyArns: ['arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'],
+  },
+  {
+    name: 'RDSMonitoringRole',
+    servicePrincipal: 'monitoring.rds.amazonaws.com',
+    managedPolicyArns: ['arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole'],
+  },
+  {
+    name: 'CloudWatchEventsRole',
+    servicePrincipal: 'events.amazonaws.com',
+    managedPolicyArns: [
+      'arn:aws:iam::aws:policy/service-role/CloudWatchEventsBuiltInTargetExecutionAccess',
+    ],
+  },
+  {
+    name: 'CodeBuildServiceRole',
+    servicePrincipal: 'codebuild.amazonaws.com',
+    managedPolicyArns: ['arn:aws:iam::aws:policy/AWSCodeBuildDeveloperAccess'],
+  },
+  {
+    name: 'CodePipelineServiceRole',
+    servicePrincipal: 'codepipeline.amazonaws.com',
+    managedPolicyArns: ['arn:aws:iam::aws:policy/AWSCodePipeline_FullAccess'],
+  },
+  {
+    name: 'S3ReplicationRole',
+    servicePrincipal: 's3.amazonaws.com',
+    managedPolicyArns: ['arn:aws:iam::aws:policy/AmazonS3FullAccess'],
+  },
+  {
+    name: 'AWSServiceRoleForAutoScaling',
+    servicePrincipal: 'autoscaling.amazonaws.com',
+    managedPolicyArns: ['arn:aws:iam::aws:policy/aws-service-role/AutoScalingServiceRolePolicy'],
+    serviceLinked: true,
+  },
+  {
+    name: 'AWSServiceRoleForECS',
+    servicePrincipal: 'ecs.amazonaws.com',
+    managedPolicyArns: ['arn:aws:iam::aws:policy/aws-service-role/AmazonECSServiceRolePolicy'],
+    serviceLinked: true,
+  },
+  {
+    name: 'AWSServiceRoleForRDS',
+    servicePrincipal: 'rds.amazonaws.com',
+    managedPolicyArns: ['arn:aws:iam::aws:policy/aws-service-role/AmazonRDSServiceRolePolicy'],
+    serviceLinked: true,
+  },
+];
+
+/**
+ * EC2 instance roles, assigned to hosts by purpose through an instance profile of the
+ * same name. `app-server` is the role the planted access path ends on.
+ */
+export const IAM_INSTANCE_ROLES: Array<{ name: string; purposes: string[]; description: string }> =
+  [
+    {
+      name: 'ec2-app-server',
+      purposes: ['api-server', 'web-server'],
+      description: 'Instance role for application servers',
+    },
+    {
+      name: 'ec2-worker',
+      purposes: [
+        'worker',
+        'scheduler',
+        'message-queue',
+        'database',
+        'cache',
+        'logging',
+        'monitoring',
+      ],
+      description: 'Instance role for background workers and data services',
+    },
+    {
+      name: 'ec2-ci-runner',
+      purposes: ['ci-runner'],
+      description: 'Instance role for CI runners',
+    },
+  ];
+
+/**
+ * Okta groups that federate into AWS and the role each one maps to on the AWS federation
+ * app. `allAccounts` roles exist in every AWS account; the others only in production.
+ */
+export const IDP_FEDERATION_GROUPS: Array<{
+  groupName: string;
+  description: string;
+  roleName: string;
+  allAccounts: boolean;
+}> = [
+  {
+    groupName: 'AWS-Access',
+    description: 'Users with AWS console access via SSO',
+    roleName: 'okta-developer',
+    allAccounts: true,
+  },
+  {
+    groupName: 'AWS-Prod-Admins',
+    description: 'Production AWS administrators (SSO)',
+    roleName: 'okta-prod-admin',
+    allAccounts: false,
+  },
+  {
+    groupName: 'AWS-Data-Engineers',
+    description: 'Data platform engineers with S3 data lake access (SSO)',
+    roleName: 'okta-data-engineer',
+    allAccounts: false,
+  },
 ];
 
 /**

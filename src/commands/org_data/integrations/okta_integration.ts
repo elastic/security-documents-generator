@@ -47,6 +47,9 @@ export class OktaIntegration extends BaseIntegration {
     },
   ];
 
+  /** Okta group id -> AWS role ARNs, from the AWS federation app mapping. */
+  private oktaGroupIdToRoleArns?: Map<string, string[]>;
+
   /**
    * Generate all Okta documents.
    * All docs go to entity index; pipeline routes user/device to their indices.
@@ -55,6 +58,7 @@ export class OktaIntegration extends BaseIntegration {
     org: Organization,
     correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
+    this.oktaGroupIdToRoleArns = correlationMap.oktaGroupIdToRoleArns;
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
     const entityIndex = this.dataStreams[0].index;
@@ -101,6 +105,9 @@ export class OktaIntegration extends BaseIntegration {
     const passwordChanged = faker.date.recent({ days: 90 }).toISOString();
     const displayName = `${employee.firstName} ${employee.lastName}`;
     const employeeGroups = this.getEmployeeGroups(employee, org.oktaGroups);
+    const federationRoleArns = Array.from(
+      new Set(employeeGroups.flatMap((g) => this.oktaGroupIdToRoleArns?.get(g.id) ?? [])),
+    );
     const userRoles = this.getUserRoles(employee);
     const userType = employee.role.includes('Contractor') ? 'Contractor' : 'Employee';
     const mobilePhone = faker.phone.number({ style: 'international' });
@@ -206,8 +213,13 @@ export class OktaIntegration extends BaseIntegration {
         // Post-pipeline relationship shapes, written directly so they are present even when
         // the generated docs are not run through the entity ingest pipeline. owns.host.id uses
         // the same device ids that createDeviceDocument writes to host.id, so the user owns
-        // relationship resolves to the generated device (host) entities.
-        ...((devices.length > 0 || supervises.length > 0) && {
+        // relationship resolves to the generated device (host) entities. member_of and
+        // can_assume carry the access graph: Okta group ids and the AWS role ARNs those
+        // groups federate into.
+        ...((devices.length > 0 ||
+          supervises.length > 0 ||
+          employeeGroups.length > 0 ||
+          federationRoleArns.length > 0) && {
           entity: {
             relationships: {
               ...(devices.length > 0 && {
@@ -226,6 +238,12 @@ export class OktaIntegration extends BaseIntegration {
                     email: supervises.map((s) => s.email),
                   },
                 },
+              }),
+              ...(employeeGroups.length > 0 && {
+                member_of: { entity: { id: employeeGroups.map((g) => g.id) } },
+              }),
+              ...(federationRoleArns.length > 0 && {
+                can_assume: { entity: { id: federationRoleArns } },
               }),
             },
           },
@@ -380,6 +398,13 @@ export class OktaIntegration extends BaseIntegration {
    * Get groups for an employee based on department and access
    */
   private getEmployeeGroups(employee: Employee, oktaGroups: OktaGroup[]): OktaGroup[] {
+    // Membership stored on the employee is the source of truth (it includes the AWS
+    // federation groups the IAM model assigns). Fall back to deriving it for employees
+    // created without it.
+    if (employee.oktaGroupIds.length > 0) {
+      return oktaGroups.filter((g) => employee.oktaGroupIds.includes(g.id));
+    }
+
     const groups: OktaGroup[] = [];
 
     // Everyone group
