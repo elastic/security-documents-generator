@@ -12,6 +12,13 @@
  *
  * Field shapes are derived from the pipeline YAMLs and the sample_event.json
  * in packages/workday/data_stream/{user,activity,sign_on}/.
+ *
+ * The package pipelines never set `event.module`, so these documents don't
+ * either. Entity Store then derives `entity.source` from `event.dataset`
+ * (`workday.user`, ...) and `entity.namespace` from the first chunk of
+ * `data_stream.dataset` (`workday`), exactly as for real Workday data. Don't add
+ * `event.module` here: it would make `entity.source` read `workday` and hide
+ * any maintainer logic that matches on the real dataset-form value.
  */
 
 import {
@@ -216,7 +223,6 @@ export class WorkdayIntegration extends BaseIntegration {
         category: ['iam'],
         type: ['user'],
         dataset: 'workday.user',
-        module: 'workday',
       },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'workday.user' },
       user: {
@@ -266,7 +272,6 @@ export class WorkdayIntegration extends BaseIntegration {
         type: ['info'],
         action: eventAction,
         dataset: 'workday.activity',
-        module: 'workday',
       },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'workday.activity' },
       user: { name: employee.userName },
@@ -356,7 +361,6 @@ export class WorkdayIntegration extends BaseIntegration {
         outcome: isFailed ? 'failure' : 'success',
         created: signOnTime,
         dataset: 'workday.sign_on',
-        module: 'workday',
         ...(failureMessage && { reason: failureMessage }),
       },
       data_stream: { namespace: 'default', type: 'logs', dataset: 'workday.sign_on' },
