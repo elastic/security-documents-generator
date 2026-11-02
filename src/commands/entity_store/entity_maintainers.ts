@@ -388,6 +388,8 @@ const interpolateRiskNorm = (
 };
 
 const SNAPSHOT_DAYS = 30;
+// Flush buffered snapshot ops once they reach this many bulk entries (2 per document).
+const SNAPSHOT_FLUSH_OPS = 100_000;
 
 const generateSnapshotBulkOps = (
   entity: EntityHit,
@@ -552,6 +554,7 @@ export const generateEntityMaintainersData = async (opts: {
   const bulkOps: unknown[] = [];
   const riskScoreBulkOps: object[] = [];
   const alertBulkOps: unknown[] = [];
+  const snapshotBulkOps: unknown[] = [];
 
   for (const entity of entities) {
     let updateDoc: Record<string, unknown> = {};
@@ -600,14 +603,20 @@ export const generateEntityMaintainersData = async (opts: {
 
     if (maintainers.includes(ENTITY_MAINTAINERS_OPTIONS.snapshot as EntityMaintainerOption)) {
       log.info(`  Snapshot          -> ${entityName}`);
-      const entitySnapshotOps = generateSnapshotBulkOps(entity.entity, updateDoc, space);
-      await bulkUpsert({ documents: entitySnapshotOps, refresh: false });
+      snapshotBulkOps.push(...generateSnapshotBulkOps(entity.entity, updateDoc, space));
+      if (snapshotBulkOps.length >= SNAPSHOT_FLUSH_OPS) {
+        await chunkedBulkUpsert(snapshotBulkOps.splice(0), false);
+      }
     }
 
     if (Object.keys(updateDoc).length > 0) {
       bulkOps.push({ update: { _index: entity.entity._index, _id: entity.entity._id } });
       bulkOps.push({ doc: updateDoc });
     }
+  }
+
+  if (snapshotBulkOps.length > 0) {
+    await chunkedBulkUpsert(snapshotBulkOps, false);
   }
 
   if (bulkOps.length === 0) {
