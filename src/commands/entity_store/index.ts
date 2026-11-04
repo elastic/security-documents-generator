@@ -20,6 +20,7 @@ import { ensureSpace } from '../../utils/index.ts';
 import { riskScoreV2Command } from './risk_score_v2.ts';
 import { seedRiskScoreHistory } from './seed_risk_score_history.ts';
 import { natPerfCommand } from './nat_perf.ts';
+import { seedAlertDeltasCommand } from './seed_alert_deltas_command.ts';
 import { parseOptionInt } from '../utils/cli_utils.ts';
 
 export const entityStoreCommands: CommandModule = {
@@ -354,6 +355,11 @@ export const entityStoreCommands: CommandModule = {
         'delete previously-seeded risk score history docs before each batch write — suppresses 409 conflicts on repeat runs',
         false,
       )
+      .option(
+        '--with-deltas',
+        'also seed backdated alerts + anomalies in the previous period of each tile range (24h/7d/30d) so the alerts, watchlisted and anomalies tiles show non-zero deltas',
+        false,
+      )
       .action(
         wrapAction(async (options) => {
           const kinds = (options.entityKinds ?? 'host,idp_user')
@@ -370,6 +376,36 @@ export const entityStoreCommands: CommandModule = {
             space: options.space ?? 'default',
             delaySeconds: parseOptionInt(options.delaySeconds, 0),
             cleanHistory: Boolean(options.cleanHistory),
+            withDeltas: Boolean(options.withDeltas),
+          });
+        }),
+      );
+
+    program
+      .command('seed-alert-deltas')
+      .description(
+        'Seed backdated alerts + ML anomaly records into the previous period of each NAT tile range (24h→48h, 7d→14d, 30d→60d) for existing entity store entities, so tile deltas are non-zero. Use on already-seeded clusters instead of re-running nat-perf.',
+      )
+      .option('--space <space>', 'Kibana space ID', 'default')
+      .option('--count <n>', 'number of entities to seed alerts for (default 100)')
+      .option(
+        '--anomaly-count <n>',
+        'number of entities to seed anomalies for (default: count / 2)',
+      )
+      .action(
+        wrapAction(async (options) => {
+          const count = parseOptionInt(options.count, 100);
+          if (count <= 0) {
+            log.error('--count must be a positive integer');
+            process.exit(1);
+          }
+          await seedAlertDeltasCommand({
+            space: options.space ?? 'default',
+            count,
+            anomalyCount:
+              options.anomalyCount !== undefined
+                ? parseOptionInt(options.anomalyCount, Math.floor(count * 0.5))
+                : undefined,
           });
         }),
       );
