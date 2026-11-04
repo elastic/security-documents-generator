@@ -64,6 +64,7 @@ import { TeleportIntegration } from './teleport_integration.ts';
 import { ThycoticSsIntegration } from './thycotic_ss_integration.ts';
 import { ZoomIntegration } from './zoom_integration.ts';
 import { WindowsIntegration } from './windows_integration.ts';
+import { AccessGraphIntegration } from './access_graph_integration.ts';
 import { type IntegrationName } from '../types.ts';
 import { log } from '../../../utils/logger.ts';
 
@@ -123,6 +124,7 @@ export { TeleportIntegration } from './teleport_integration.ts';
 export { ThycoticSsIntegration } from './thycotic_ss_integration.ts';
 export { ZoomIntegration } from './zoom_integration.ts';
 export { WindowsIntegration } from './windows_integration.ts';
+export { AccessGraphIntegration } from './access_graph_integration.ts';
 
 /**
  * Create integration registry with all available integrations
@@ -213,6 +215,9 @@ export const createIntegrationRegistry = (): IntegrationRegistry => {
   // Register Windows Event Forwarding (WEF) integration
   registry.set('windows', new WindowsIntegration());
 
+  // Register the access graph edge index (no Fleet package)
+  registry.set('access_graph', new AccessGraphIntegration());
+
   return registry;
 };
 
@@ -284,6 +289,7 @@ export const getAvailableIntegrations = (): IntegrationName[] => {
     'thycotic_ss',
     'zoom',
     'windows',
+    'access_graph',
   ];
 };
 
