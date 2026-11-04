@@ -128,6 +128,37 @@ yarn start test-risk-score
 yarn start entity-store
 ```
 
+### Needs attention tiles (Entity Analytics home page)
+
+Seeds 34 entities with 65 days of history, including resolved groups (a main entity with an alias), so every tile on the new Entity Analytics page shows a number, a change against the previous period and a sparkline, with exact values you can check:
+
+```bash
+yarn start seed-nat-tiles
+```
+
+Before you run it: the Entity Store is installed in the space (Security > Entity analytics), and `kibana.yml` has `feature_flags.overrides: { securitySolution.useNewEntityAnalyticsPage: true }`. The command also installs the security ML placeholder jobs and creates a watchlist.
+
+What each tile shows, as `number (change vs previous period)`. The numbers differ by range because the history is spread over time, and every tile has a sparkline:
+
+| Tile                   | Last 24h | Last 7d | Last 30d |
+| ---------------------- | -------- | ------- | -------- |
+| Severely alerting      | 3 (+2)   | 4 (+3)  | 4 (+4)   |
+| Anomalous              | 2 (-2)   | 6 (+2)  | 6 (+2)   |
+| Risk movers            | 1 (+1)   | 3 (+2)  | 6 (+6)   |
+| Newly high-risk        | 1 (+1)   | 2 (+1)  | 4 (+4)   |
+| Watchlisted & alerting | 3 (+2)   | 4 (+3)  | 4 (+3)   |
+| New & alerting         | 4 (+2)   | 7 (+6)  | 8 (+7)   |
+
+Five of the 34 entities are aliases of a main entity, so the page shows 29 resolved entities from the seed, not 34. The tiles judge the group, as the page does: an alert or anomaly on an alias counts for its group once, a group is on the watchlist when any member is, a group is new by its earliest member, and a group's risk score wins over the main entity's own.
+
+When it finishes the command prints these numbers, the sparkline of every tile (oldest dot first, ending on the number) and the page URL. Reload the page after seeding.
+
+- `--entities 68` seeds two sets of 34, so every number doubles.
+- `--space <id>` seeds a space other than `default`.
+- The numbers hold for about an hour after a run. Run it again any time to refresh: the same entities are overwritten and nothing is duplicated.
+- `yarn start seed-nat-tiles --clean` removes what it seeded (pass the same `--entities` you used).
+- A running risk engine can overwrite the seeded risk scores on its hourly run.
+
 ### Privileged User Monitoring (quick)
 
 ```bash
@@ -238,7 +269,7 @@ Detailed command documentation is colocated with command code under `src/command
 - **Documents**
   - `generate-alerts`, `generate-events`, `generate-graph`, `delete-alerts`, `delete-events`
 - **Entity Store**
-  - `entity-resolution-demo`, `entity-store`, `quick-entity-store`, `clean-entity-store`, `risk-score-v2`, `generate-entity-maintainers-data`
+  - `entity-resolution-demo`, `entity-store`, `quick-entity-store`, `clean-entity-store`, `risk-score-v2`, `seed-nat-tiles`, `generate-entity-maintainers-data`
 - **Risk and Security utilities**
   - `test-risk-score`, `generate-entity-ai-insights`, `generate-asset-criticality`, `generate-legacy-risk-score`, `single-entity`
 - **Privileged User Monitoring**
