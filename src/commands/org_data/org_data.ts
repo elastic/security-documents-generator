@@ -98,6 +98,7 @@ const promptForProductivitySuite = async (): Promise<ProductivitySuite> => {
  *  - entra_id (entityanalytics_entra_id): 1 user doc + ~2 device docs ≈ 3
  *  - active_directory: 1 user doc + ~0.35 windows computer doc ≈ 1.35
  *  - workday: 1 user doc + 1–5 activity docs + 1–3 sign_on docs ≈ 6
+ *  - sailpoint: 1 identity doc + 2–3 event docs + ~0.1 machine identity docs ≈ 3.6
  *
  * Anything not listed here is a log-style integration whose volume varies; we use
  * a conservative default so the estimate doesn't wildly under-count.
@@ -107,6 +108,7 @@ const DOCS_PER_EMPLOYEE_ESTIMATE: Partial<Record<IntegrationName, number>> = {
   entra_id: 3,
   active_directory: 1.35,
   workday: 6,
+  sailpoint: 3.6,
 };
 
 const DEFAULT_DOCS_PER_EMPLOYEE = 3;
@@ -538,7 +540,13 @@ const displaySummary = (
     const sailpointResult = results.find((r) => r.integrationName === 'sailpoint_identity_sc');
     if (sailpointResult?.success) {
       log.info(
-        `  SailPoint: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-sailpoint_identity_sc.events-*')", space })}`,
+        `  SailPoint Events: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-sailpoint_identity_sc.events-*')", space })}`,
+      );
+      log.info(
+        `  SailPoint Identities: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-sailpoint_identity_sc.identities-*')", space })}`,
+      );
+      log.info(
+        `  SailPoint Machine Identities: ${buildKibanaUrl({ path: "/app/discover#/?_a=(index:'logs-sailpoint_identity_sc.machine_identities-*')", space })}`,
       );
     }
 
@@ -736,7 +744,7 @@ Available Integrations:
   Identity & Access:
     cisco_duo          - Cisco Duo (MFA authentication logs)
     1password          - 1Password (sign-in attempts, credential access)
-    sailpoint          - SailPoint Identity Security Cloud (identity governance events)
+    sailpoint          - SailPoint Identity Security Cloud (identity governance events, identities with supervises, owned machine identities)
     ping_one           - PingOne (IAM audit events, authentication, MFA)
 
   ITSM & Collaboration:
