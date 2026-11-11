@@ -35,9 +35,10 @@ import { getRandomCountry, getRandomCity } from './data/countries.ts';
 import {
   getResourcesForProvider,
   S3_BUCKET_PURPOSES,
-  IAM_ROLE_NAMES,
   SERVICE_NAMES,
+  IDP_FEDERATION_GROUPS,
 } from './data/cloud_resources.ts';
+import { generateIamModel } from './access_graph_generator.ts';
 import {
   CLOUD_PLATFORM_SERVICES,
   SAAS_APP_CATALOG,
@@ -80,29 +81,47 @@ export const generateOrgData = (config: OrganizationConfig): Organization => {
   // Generate employees
   const employees = generateEmployees(employeeCount, domain, oktaGroups);
 
-  // Generate hosts
-  const hostCount = faker.number.int({
-    min: sizeConfig.hostRange.min,
-    max: sizeConfig.hostRange.max,
-  });
-  const hosts = generateHosts(hostCount, sizeConfig.cloudProviders);
+  // Default Okta group membership (department and company-wide groups). The IAM model
+  // below adds the AWS federation groups.
+  assignDefaultOktaGroups(employees, oktaGroups);
 
-  // Generate cloud accounts
+  // Generate cloud accounts (hosts need them: AWS hosts are EC2 instances in an account)
   const cloudAccounts = generateCloudAccounts(
     sizeConfig.cloudAccounts,
     sizeConfig.cloudProviders,
     config.name,
   );
 
-  // Generate cloud resources
-  const cloudResources = generateCloudResources(
-    cloudAccounts,
-    sizeConfig.resourceMultiplier,
-    config.name,
-  );
+  // Generate hosts
+  const hostCount = faker.number.int({
+    min: sizeConfig.hostRange.min,
+    max: sizeConfig.hostRange.max,
+  });
+  const hosts = generateHosts(hostCount, sizeConfig.cloudProviders, cloudAccounts);
+
+  // Generate cloud resources. AWS EC2 instances are derived from the AWS hosts so the
+  // inventory, CloudTrail targets and host-based integrations all share one instance id.
+  const cloudResources = [
+    ...generateCloudResources(cloudAccounts, sizeConfig.resourceMultiplier, config.name),
+    ...generateEc2ResourcesFromHosts(hosts, cloudAccounts),
+  ];
 
   // Generate cloud IAM users (linked to employees with AWS access)
   const cloudIamUsers = generateCloudIamUsers(employees, cloudAccounts);
+
+  // Generate the IAM access model: roles, policies, instance profiles, Okta group -> role
+  // mappings, bucket policies and the planted access path. Mutates hosts (instance
+  // profiles) and employees (federation group membership).
+  const iamModel = generateIamModel({
+    accounts: cloudAccounts,
+    hosts,
+    cloudResources,
+    oktaGroups,
+    employees,
+    cloudIamUsers,
+    orgPrefix: config.name.toLowerCase().replace(/\s+/g, '-'),
+  });
+  cloudResources.push(...iamModel.cloudResources);
 
   // Generate GitHub organization and repos
   const orgPrefix = config.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
@@ -144,6 +163,12 @@ export const generateOrgData = (config: OrganizationConfig): Organization => {
     cloudAccounts,
     cloudResources,
     cloudIamUsers,
+    cloudIamRoles: iamModel.roles,
+    cloudIamPolicies: iamModel.policies,
+    cloudInstanceProfiles: iamModel.instanceProfiles,
+    idpGroupRoleMappings: iamModel.groupRoleMappings,
+    s3BucketPolicies: iamModel.s3BucketPolicies,
+    accessPaths: iamModel.accessPaths,
     oktaGroups,
     entraIdGroups,
     githubOrg,
@@ -153,6 +178,22 @@ export const generateOrgData = (config: OrganizationConfig): Organization => {
     productivitySuite,
     centralAgent,
   };
+};
+
+/**
+ * Assign the company-wide and department Okta groups to every employee. Mirrors what the
+ * Okta integration used to derive at emit time, so membership is stored once and shared.
+ */
+const assignDefaultOktaGroups = (employees: Employee[], oktaGroups: OktaGroup[]): void => {
+  const byName = new Map(oktaGroups.map((g) => [g.name, g]));
+  for (const employee of employees) {
+    const names = ['Everyone', employee.department, 'VPN-Users'];
+    if (employee.department === 'Product & Engineering') names.push('GitHub-Access');
+    for (const name of names) {
+      const group = byName.get(name);
+      if (group && !employee.oktaGroupIds.includes(group.id)) employee.oktaGroupIds.push(group.id);
+    }
+  }
 };
 
 /**
@@ -179,12 +220,15 @@ const generateOktaGroups = (): OktaGroup[] => {
     type: 'access',
   });
 
-  groups.push({
-    id: faker.string.uuid(),
-    name: 'AWS-Access',
-    description: 'Users with AWS console access via SSO',
-    type: 'access',
-  });
+  // AWS federation groups: each maps to an IAM role on the AWS federation app
+  for (const federation of IDP_FEDERATION_GROUPS) {
+    groups.push({
+      id: faker.string.uuid(),
+      name: federation.groupName,
+      description: federation.description,
+      type: 'access',
+    });
+  }
 
   groups.push({
     id: faker.string.uuid(),
@@ -430,6 +474,7 @@ const generateEmployee = (
     onePasswordUuid: faker.string.uuid(),
     windowsSid: `${domainSidPrefix}-${rid}`,
     unixUid: uid,
+    oktaGroupIds: [],
   };
 };
 
@@ -500,12 +545,29 @@ const generateDevice = (type: DeviceType, platform: LaptopPlatform | MobilePlatf
 /**
  * Generate hosts/servers for the organization
  */
-const generateHosts = (count: number, cloudProviders: CloudProvider[]): Host[] => {
+const generateHosts = (
+  count: number,
+  cloudProviders: CloudProvider[],
+  cloudAccounts: CloudAccount[],
+): Host[] => {
   const hosts: Host[] = [];
   const regions: Record<CloudProvider, string[]> = {
     aws: ['us-east-1', 'us-west-2', 'eu-west-1', 'eu-central-1'],
     gcp: ['us-central1', 'us-east1', 'europe-west1'],
     azure: ['eastus', 'westus2', 'westeurope'],
+  };
+
+  // Production accounts host most servers
+  const pickAccount = (provider: CloudProvider): CloudAccount | undefined => {
+    const candidates = cloudAccounts.filter((a) => a.provider === provider);
+    if (candidates.length === 0) return undefined;
+    if (candidates.length === 1) return candidates[0];
+    return faker.helpers.weightedArrayElement(
+      candidates.map((account) => ({
+        value: account,
+        weight: account.environment === 'production' ? 5 : 2,
+      })),
+    );
   };
 
   const purposes = [
@@ -525,11 +587,23 @@ const generateHosts = (count: number, cloudProviders: CloudProvider[]): Host[] =
     const provider = faker.helpers.arrayElement(cloudProviders);
     const region = faker.helpers.arrayElement(regions[provider]);
     const purpose = faker.helpers.arrayElement(purposes);
-    const env = faker.helpers.arrayElement(['prod', 'staging', 'dev']);
+    const account = pickAccount(provider);
+    const env = account
+      ? account.environment === 'production'
+        ? 'prod'
+        : account.environment === 'staging'
+          ? 'staging'
+          : 'dev'
+      : faker.helpers.arrayElement(['prod', 'staging', 'dev']);
     const os = generateHostOS();
 
     hosts.push({
-      id: faker.string.uuid(),
+      // AWS hosts are EC2 instances: the instance id is what Cloud Asset Discovery uses as
+      // entity.id and what CloudTrail carries in host.target.id, so use it as host.id.
+      id:
+        provider === 'aws'
+          ? `i-${faker.string.hexadecimal({ length: 17, prefix: '', casing: 'lower' })}`
+          : faker.string.uuid(),
       name: `${purpose}-${env}-${faker.string.alphanumeric(6).toLowerCase()}`,
       type: faker.helpers.arrayElement(['server', 'container', 'virtual_machine']),
       cloudProvider: provider,
@@ -537,11 +611,38 @@ const generateHosts = (count: number, cloudProviders: CloudProvider[]): Host[] =
       purpose,
       os,
       elasticAgentId: faker.string.uuid(),
+      ipAddress: `10.${faker.number.int({ min: 0, max: 255 })}.${faker.number.int({ min: 0, max: 255 })}.${faker.number.int({ min: 4, max: 254 })}`,
+      cloudAccountId: account?.id,
     });
   }
 
   return hosts;
 };
+
+/**
+ * One Cloud Asset Discovery EC2 resource per AWS host, sharing the host's instance id.
+ */
+const generateEc2ResourcesFromHosts = (hosts: Host[], accounts: CloudAccount[]): CloudResource[] =>
+  hosts
+    .filter((h) => h.cloudProvider === 'aws' && h.cloudAccountId)
+    .map((host) => {
+      const account = accounts.find((a) => a.id === host.cloudAccountId);
+      return {
+        id: host.id,
+        name: host.name,
+        type: 'Host',
+        subType: 'AWS EC2 Instance',
+        provider: 'aws' as const,
+        region: host.region,
+        accountId: host.cloudAccountId as string,
+        accountName: account?.name ?? 'unknown',
+        tags: {
+          Environment: account?.environment ?? 'production',
+          Purpose: host.purpose,
+          Name: host.name,
+        },
+      };
+    });
 
 /**
  * Generate OS information for a host
@@ -624,8 +725,15 @@ const generateCloudResources = (
     const resourceTypes = getResourcesForProvider(account.provider);
 
     for (const resourceType of resourceTypes) {
-      // Skip IAM users as they're generated separately
-      if (resourceType.subType.includes('IAM User')) continue;
+      // IAM users, roles and policies come from the IAM model; AWS EC2 instances from hosts
+      if (
+        resourceType.subType.includes('IAM User') ||
+        resourceType.subType.includes('IAM Role') ||
+        resourceType.subType.includes('IAM Policy') ||
+        resourceType.subType === 'AWS EC2 Instance'
+      ) {
+        continue;
+      }
 
       const count = Math.max(1, Math.round(resourceType.baseCount * multiplier));
 
@@ -634,7 +742,7 @@ const generateCloudResources = (
         const resourceName = generateResourceName(resourceType, orgPrefix, account.environment);
 
         resources.push({
-          id: generateResourceId(account.provider, resourceType.subType),
+          id: generateResourceId(account, resourceType.subType, region, resourceName),
           name: resourceName,
           type: resourceType.type,
           subType: resourceType.subType,
@@ -672,39 +780,51 @@ const generateResourceName = (
     return `${orgPrefix}-${environment}-${purpose}-${suffix}`;
   }
 
-  // Special naming for IAM roles
-  if (resourceType.subType.includes('IAM Role')) {
-    return faker.helpers.arrayElement(IAM_ROLE_NAMES);
-  }
-
   // Default naming pattern
   return `${resourceType.namePrefix}${serviceName}-${environment}-${suffix}`;
 };
 
 /**
- * Generate resource ID based on provider format
+ * Generate a resource ID in the provider's native format. AWS ids embed the owning
+ * account, the region and the resource name so they agree with the resource document
+ * (S3 ARN = bucket name, Lambda ARN = function name, ...).
  */
-const generateResourceId = (provider: CloudProvider, subType: string): string => {
-  switch (provider) {
+const generateResourceId = (
+  account: CloudAccount,
+  subType: string,
+  region: string,
+  name: string,
+): string => {
+  const hex17 = (): string => faker.string.hexadecimal({ length: 17, prefix: '', casing: 'lower' });
+  switch (account.provider) {
     case 'aws':
-      if (subType.includes('EC2 Instance')) return `i-${faker.string.alphanumeric(17)}`;
-      if (subType.includes('S3 Bucket'))
-        return `arn:aws:s3:::${faker.word.noun()}-${faker.string.alphanumeric(8)}`;
-      if (subType.includes('RDS')) return `db-${faker.string.alphanumeric(26).toUpperCase()}`;
+      if (subType.includes('EC2 Instance')) return `i-${hex17()}`;
+      if (subType.includes('S3 Bucket')) return `arn:aws:s3:::${name}`;
+      if (subType.includes('RDS')) return `arn:aws:rds:${region}:${account.id}:db:${name}`;
       if (subType.includes('Lambda'))
-        return `arn:aws:lambda:us-east-1:${faker.string.numeric(12)}:function:${faker.word.noun()}`;
-      if (subType.includes('EKS')) return faker.string.uuid();
-      if (subType.includes('VPC')) return `vpc-${faker.string.alphanumeric(17)}`;
-      if (subType.includes('EBS')) return `vol-${faker.string.alphanumeric(17)}`;
-      if (subType.includes('SNS'))
-        return `arn:aws:sns:us-east-1:${faker.string.numeric(12)}:${faker.word.noun()}`;
+        return `arn:aws:lambda:${region}:${account.id}:function:${name}`;
+      if (subType.includes('EKS Cluster'))
+        return `arn:aws:eks:${region}:${account.id}:cluster/${name}`;
+      if (subType.includes('EKS Node Group'))
+        return `arn:aws:eks:${region}:${account.id}:nodegroup/${name}/${faker.string.uuid()}`;
+      if (subType.includes('ECS')) return `arn:aws:ecs:${region}:${account.id}:service/${name}`;
+      if (subType.includes('VPC')) return `vpc-${hex17()}`;
+      if (subType.includes('EBS')) return `vol-${hex17()}`;
+      if (subType.includes('SNS')) return `arn:aws:sns:${region}:${account.id}:${name}`;
+      if (subType.includes('SQS')) return `arn:aws:sqs:${region}:${account.id}:${name}`;
+      if (subType.includes('DynamoDB'))
+        return `arn:aws:dynamodb:${region}:${account.id}:table/${name}`;
+      if (subType.includes('ElastiCache'))
+        return `arn:aws:elasticache:${region}:${account.id}:cluster:${name}`;
+      if (subType.includes('KMS'))
+        return `arn:aws:kms:${region}:${account.id}:key/${faker.string.uuid()}`;
+      if (subType.includes('CloudFront'))
+        return `arn:aws:cloudfront::${account.id}:distribution/E${faker.string.alphanumeric(13).toUpperCase()}`;
       if (subType.includes('Load Balancer'))
-        return `arn:aws:elasticloadbalancing:us-east-1:${faker.string.numeric(12)}:loadbalancer/${faker.string.alphanumeric(12)}`;
-      if (subType.includes('IAM Role'))
-        return `arn:aws:iam::${faker.string.numeric(12)}:role/${faker.word.noun()}`;
-      if (subType.includes('IAM Policy'))
-        return `arn:aws:iam::${faker.string.numeric(12)}:policy/${faker.word.noun()}`;
-      return `arn:aws:${faker.word.noun()}:us-east-1:${faker.string.numeric(12)}:${faker.string.alphanumeric(12)}`;
+        return `arn:aws:elasticloadbalancing:${region}:${account.id}:loadbalancer/app/${name}/${faker.string.hexadecimal({ length: 16, prefix: '', casing: 'lower' })}`;
+      if (subType.includes('IAM Role')) return `arn:aws:iam::${account.id}:role/${name}`;
+      if (subType.includes('IAM Policy')) return `arn:aws:iam::${account.id}:policy/${name}`;
+      return `arn:aws:${subType.split(' ')[1]?.toLowerCase() ?? 'resource'}:${region}:${account.id}:${name}`;
 
     case 'gcp':
       return `projects/${faker.word.noun()}/locations/${faker.helpers.arrayElement(['us-central1', 'us-east1', 'europe-west1'])}/${faker.string.alphanumeric(12)}`;
@@ -746,7 +866,8 @@ const generateCloudIamUsers = (employees: Employee[], accounts: CloudAccount[]):
   };
 
   for (const employee of awsEmployees) {
-    const account = pickAccountForEmployee();
+    // John Doe anchors the planted access path, which lives in the production account
+    const account = employee.userName === 'john.doe' ? prodAccount : pickAccountForEmployee();
     iamUsers.push({
       id: faker.string.alphanumeric(21).toUpperCase(),
       arn: `arn:aws:iam::${account.id}:user/${employee.userName}`,
@@ -1024,6 +1145,16 @@ ${Object.entries(resourcesByProvider)
 IAM Users: ${org.cloudIamUsers.length}
   - Federated: ${org.cloudIamUsers.filter((u) => u.isFederated).length}
   - Service Accounts: ${org.cloudIamUsers.filter((u) => !u.isFederated).length}
+
+IAM Roles: ${org.cloudIamRoles.length}
+  - Federation (Okta group -> role): ${org.cloudIamRoles.filter((r) => r.purpose === 'federation').length}
+  - Role chaining / cross-account: ${org.cloudIamRoles.filter((r) => r.purpose === 'pipeline' || r.purpose === 'cross_account').length}
+  - EC2 instance roles: ${org.cloudIamRoles.filter((r) => r.purpose === 'instance').length}
+  - Service roles: ${org.cloudIamRoles.filter((r) => r.purpose === 'service').length}
+IAM Policies: ${org.cloudIamPolicies.length} (${org.cloudIamPolicies.filter((p) => !p.isAwsManaged).length} customer managed)
+Instance Profiles: ${org.cloudInstanceProfiles.length}
+Okta group -> AWS role mappings: ${org.idpGroupRoleMappings.length}
+Access paths: ${org.accessPaths.length}
 
 Okta Groups: ${org.oktaGroups.length}
 

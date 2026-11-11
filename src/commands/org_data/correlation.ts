@@ -35,7 +35,35 @@ export const buildCorrelationMap = (org: Organization): CorrelationMap => {
     serviceIdToService: new Map(),
     serviceEntityIdToService: new Map(),
     hostIdToServices: new Map(),
+    roleArnToRole: new Map(),
+    policyArnToPolicy: new Map(),
+    instanceProfileArnToProfile: new Map(),
+    hostIdToHost: new Map(),
+    oktaGroupIdToGroup: new Map(),
+    oktaGroupIdToRoleArns: new Map(),
   };
+
+  // Build IAM access-model correlations
+  for (const role of org.cloudIamRoles) {
+    correlationMap.roleArnToRole.set(role.arn, role);
+  }
+  for (const policy of org.cloudIamPolicies) {
+    correlationMap.policyArnToPolicy.set(policy.arn, policy);
+  }
+  for (const profile of org.cloudInstanceProfiles) {
+    correlationMap.instanceProfileArnToProfile.set(profile.arn, profile);
+  }
+  for (const host of org.hosts) {
+    correlationMap.hostIdToHost.set(host.id, host);
+  }
+  for (const group of org.oktaGroups) {
+    correlationMap.oktaGroupIdToGroup.set(group.id, group);
+  }
+  for (const mapping of org.idpGroupRoleMappings) {
+    const list = correlationMap.oktaGroupIdToRoleArns.get(mapping.oktaGroupId) ?? [];
+    list.push(mapping.roleArn);
+    correlationMap.oktaGroupIdToRoleArns.set(mapping.oktaGroupId, list);
+  }
 
   // Build employee to Okta user correlations
   for (const employee of org.employees) {
