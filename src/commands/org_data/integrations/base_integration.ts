@@ -291,4 +291,10 @@ export const createEmptyCorrelationMap = (): CorrelationMap => ({
   serviceIdToService: new Map(),
   serviceEntityIdToService: new Map(),
   hostIdToServices: new Map(),
+  roleArnToRole: new Map(),
+  policyArnToPolicy: new Map(),
+  instanceProfileArnToProfile: new Map(),
+  hostIdToHost: new Map(),
+  oktaGroupIdToGroup: new Map(),
+  oktaGroupIdToRoleArns: new Map(),
 });

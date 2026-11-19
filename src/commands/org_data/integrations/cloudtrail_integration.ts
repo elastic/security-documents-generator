@@ -11,9 +11,11 @@ import {
 import {
   type Organization,
   type CloudIamUser,
+  type CloudIamRole,
   type CloudResource,
   type CorrelationMap,
   type CloudAccount,
+  type AccessPathScenario,
   type Employee,
   type Host,
   type Service,
@@ -104,6 +106,25 @@ const AWS_USER_AGENTS = [
  * etc. is skipped entirely.
  */
 const CLOUDTRAIL_TAGS = ['actor_target_mapping', 'forwarded'];
+
+/**
+ * One set of temporary credentials for an assumed role. Every event in the session
+ * carries the same session ARN, principal id and access key, and names the role it was
+ * issued by in sessionContext.sessionIssuer, which is what the ingest pipeline reads
+ * to attribute the event to the role entity.
+ */
+interface FederatedSession {
+  roleArn: string;
+  roleName: string;
+  roleId: string;
+  sessionName: string;
+  assumedRoleArn: string;
+  principalId: string;
+  accessKeyId: string;
+  accountId: string;
+  /** Set for EC2 instance-profile sessions (session name = instance id). */
+  ec2RoleDelivery?: string;
+}
 
 /**
  * Events the ingest pipeline's enrichment functions map to enrichCtx.target
@@ -203,6 +224,110 @@ export class CloudTrailIntegration extends BaseIntegration {
     return { provider: 'aws', account: { id: accountId }, region };
   }
 
+  private correlationMap?: CorrelationMap;
+
+  /**
+   * Federation roles an employee can assume in an account: the roles the AWS federation
+   * app maps their Okta groups to. Falls back to the account's okta-developer role, and
+   * to a synthesized legacy `okta` role when the org has no IAM model.
+   */
+  private federationRolesFor(employee: Employee, accountId: string): CloudIamRole[] {
+    const map = this.correlationMap;
+    const roles: CloudIamRole[] = [];
+    if (map) {
+      for (const groupId of employee.oktaGroupIds) {
+        for (const roleArn of map.oktaGroupIdToRoleArns.get(groupId) ?? []) {
+          const role = map.roleArnToRole.get(roleArn);
+          if (role && role.accountId === accountId && !roles.includes(role)) roles.push(role);
+        }
+      }
+      if (roles.length === 0) {
+        const developer = Array.from(map.roleArnToRole.values()).find(
+          (r) => r.accountId === accountId && r.name === 'okta-developer',
+        );
+        if (developer) roles.push(developer);
+      }
+    }
+    if (roles.length === 0) {
+      roles.push({
+        arn: `arn:aws:iam::${accountId}:role/okta`,
+        name: 'okta',
+        roleId: this.generateRoleId(),
+        path: '/',
+        accountId,
+        accountName: '',
+        description: 'Legacy SSO role',
+        purpose: 'federation',
+        trustPolicy: { Version: '2012-10-17', Statement: [] },
+        trustedPrincipalArns: [],
+        trustedServices: [],
+        trustedFederatedArns: [],
+        attachedPolicyArns: [],
+        inlinePolicies: [],
+        maxSessionDuration: 3600,
+        createdAt: new Date(0).toISOString(),
+      });
+    }
+    return roles;
+  }
+
+  /**
+   * Start a new temporary-credential session for a role.
+   */
+  private newSession(
+    role: CloudIamRole,
+    sessionName: string,
+    options: { ec2RoleDelivery?: string } = {},
+  ): FederatedSession {
+    return {
+      roleArn: role.arn,
+      roleName: role.name,
+      roleId: role.roleId,
+      sessionName,
+      assumedRoleArn: `arn:aws:sts::${role.accountId}:assumed-role/${role.name}/${sessionName}`,
+      principalId: `${role.roleId}:${sessionName}`,
+      accessKeyId: this.generateTemporaryAccessKeyId(),
+      accountId: role.accountId,
+      ...(options.ec2RoleDelivery && { ec2RoleDelivery: options.ec2RoleDelivery }),
+    };
+  }
+
+  /**
+   * CloudTrail userIdentity block for an assumed-role session. The pipeline sets
+   * user.entity.id from sessionContext.sessionIssuer.arn (the role, not the session).
+   */
+  private assumedRoleIdentity(
+    session: FederatedSession,
+    creationDate: string,
+    mfaAuthenticated: boolean = true,
+  ): Record<string, unknown> {
+    return {
+      type: 'AssumedRole',
+      principalId: session.principalId,
+      arn: session.assumedRoleArn,
+      accountId: session.accountId,
+      accessKeyId: session.accessKeyId,
+      sessionContext: {
+        attributes: {
+          mfaAuthenticated: mfaAuthenticated ? 'true' : 'false',
+          creationDate,
+        },
+        sessionIssuer: {
+          type: 'Role',
+          principalId: session.roleId,
+          arn: session.roleArn,
+          accountId: session.accountId,
+          userName: session.roleName,
+        },
+        ...(session.ec2RoleDelivery && { ec2RoleDelivery: session.ec2RoleDelivery }),
+      },
+    };
+  }
+
+  private offset(base: string, seconds: number): string {
+    return new Date(new Date(base).getTime() + seconds * 1000).toISOString();
+  }
+
   /**
    * Generate all CloudTrail documents
    */
@@ -211,8 +336,18 @@ export class CloudTrailIntegration extends BaseIntegration {
     correlationMap: CorrelationMap,
   ): Map<string, IntegrationDocument[]> {
     this.serviceIdToService = correlationMap.serviceIdToService;
+    this.correlationMap = correlationMap;
     const documentsMap = new Map<string, IntegrationDocument[]>();
     const documents: IntegrationDocument[] = [];
+
+    // Planted access paths: the exact chain, observed end to end
+    for (const path of org.accessPaths) {
+      documents.push(...this.generateAccessPathEvents(path, org, correlationMap));
+    }
+
+    // Background activity from EC2 instance roles, so instance -> role edges are observed
+    // outside the planted path too
+    documents.push(...this.generateInstanceRoleEvents(org, correlationMap));
 
     // Get AWS accounts only
     const awsResources = org.cloudResources.filter((r) => r.provider === 'aws');
@@ -289,41 +424,23 @@ export class CloudTrailIntegration extends BaseIntegration {
     const accountResources = resources.filter((r) => r.accountId === iamUser.accountId);
     const sessionCount = faker.number.int({ min: 2, max: 5 });
 
+    const federationRoles = this.federationRolesFor(employee, iamUser.accountId);
+
     for (let s = 0; s < sessionCount; s++) {
       const sessionStart = this.getRandomTimestamp(48);
-      const sessionId = this.generateSessionId();
-      const accessKeyId = this.generateTemporaryAccessKeyId();
-      const roleArn = `arn:aws:iam::${iamUser.accountId}:role/okta`;
-      const assumedRoleArn = `arn:aws:sts::${iamUser.accountId}:assumed-role/okta/${employee.email}`;
+      const role = faker.helpers.arrayElement(federationRoles);
+      const session = this.newSession(role, employee.email);
 
-      // AssumeRole event (SAML federation)
-      events.push(
-        this.createAssumeRoleEvent(
-          iamUser,
-          employee,
-          account!,
-          org,
-          roleArn,
-          assumedRoleArn,
-          sessionStart,
-          accessKeyId,
-        ),
-      );
+      // AssumeRoleWithSAML event (Okta federation into the mapped role)
+      events.push(this.createAssumeRoleEvent(employee, account!, org, session, sessionStart));
 
       // GetCallerIdentity after assume role
-      const callerIdentityTime = new Date(
-        new Date(sessionStart).getTime() + faker.number.int({ min: 1, max: 5 }) * 1000,
-      ).toISOString();
       events.push(
         this.createGetCallerIdentityEvent(
-          iamUser,
-          employee,
           account!,
           org,
-          assumedRoleArn,
-          callerIdentityTime,
-          accessKeyId,
-          sessionId,
+          session,
+          this.offset(sessionStart, faker.number.int({ min: 1, max: 5 })),
         ),
       );
 
@@ -333,22 +450,16 @@ export class CloudTrailIntegration extends BaseIntegration {
 
       for (let i = 0; i < apiCallCount; i++) {
         const service = faker.helpers.arrayElement(availableServices);
-        const apiTime = new Date(
-          new Date(sessionStart).getTime() + faker.number.int({ min: 10, max: 300 }) * 1000,
-        ).toISOString();
+        const apiTime = this.offset(sessionStart, faker.number.int({ min: 10, max: 300 }));
         const region = faker.helpers.arrayElement(AWS_REGIONS);
 
         events.push(
           this.createApiCallEvent(
-            iamUser,
-            employee,
             account!,
             org,
             service,
-            assumedRoleArn,
+            session,
             apiTime,
-            accessKeyId,
-            sessionId,
             region,
             accountResources,
           ),
@@ -360,33 +471,12 @@ export class CloudTrailIntegration extends BaseIntegration {
       if (ec2Instances.length > 0) {
         const instanceEventCount = faker.number.int({ min: 2, max: 4 });
         for (let i = 0; i < instanceEventCount; i++) {
-          const apiTime = new Date(
-            new Date(sessionStart).getTime() + faker.number.int({ min: 30, max: 600 }) * 1000,
-          ).toISOString();
+          const apiTime = this.offset(sessionStart, faker.number.int({ min: 30, max: 600 }));
           const targetInstance = faker.helpers.arrayElement(ec2Instances);
 
           events.push(
             this.createHostTargetEvent(
-              {
-                type: 'AssumedRole',
-                principalId: `${this.generateRoleId()}:${employee.email}`,
-                arn: assumedRoleArn,
-                accountId: account!.id,
-                accessKeyId,
-                sessionContext: {
-                  attributes: {
-                    mfaAuthenticated: 'true',
-                    creationDate: apiTime,
-                  },
-                  sessionIssuer: {
-                    type: 'Role',
-                    principalId: this.generateRoleId(),
-                    arn: `arn:aws:iam::${account!.id}:role/okta`,
-                    accountId: account!.id,
-                    userName: 'okta',
-                  },
-                },
-              },
+              this.assumedRoleIdentity(session, sessionStart),
               account!,
               apiTime,
               targetInstance,
@@ -398,6 +488,321 @@ export class CloudTrailIntegration extends BaseIntegration {
     }
 
     return events;
+  }
+
+  /**
+   * Observe the planted access path end to end, twice over the last 48 hours:
+   *
+   *   AssumeRoleWithSAML (user -> federation role)
+   *   -> AssumeRole (federation role -> chained role)
+   *   -> StartSession (chained role -> EC2 instance)
+   *   -> GetObject (instance role -> crown-jewel bucket)
+   *
+   * plus the chained role reading its own permitted data-lake bucket.
+   */
+  private generateAccessPathEvents(
+    path: AccessPathScenario,
+    org: Organization,
+    correlationMap: CorrelationMap,
+  ): IntegrationDocument[] {
+    const events: IntegrationDocument[] = [];
+    const account = org.cloudAccounts.find((a) => a.id === path.accountId);
+    const employee = org.employees.find((e) => e.id === path.seedEmployeeId);
+    const federationRole = correlationMap.roleArnToRole.get(path.federationRoleArn);
+    const chainedRole = correlationMap.roleArnToRole.get(path.chainedRoleArn);
+    const instanceRole = correlationMap.roleArnToRole.get(path.instanceRoleArn);
+    const host = correlationMap.hostIdToHost.get(path.instanceId);
+    if (!account || !employee || !federationRole || !chainedRole || !instanceRole || !host) {
+      return events;
+    }
+
+    // The data-lake bucket the chained role is allowed to read, from its attached policies
+    const chainedRoleBucketArns = chainedRole.attachedPolicyArns
+      .flatMap((arn) => correlationMap.policyArnToPolicy.get(arn)?.resourceIds ?? [])
+      .filter((id) => id.startsWith('arn:aws:s3:::'));
+
+    for (let s = 0; s < 2; s++) {
+      const start = this.getRandomTimestamp(s === 0 ? 6 : 48);
+      const federationSession = this.newSession(federationRole, employee.email);
+      events.push(this.createAssumeRoleEvent(employee, account, org, federationSession, start));
+      events.push(
+        this.createGetCallerIdentityEvent(account, org, federationSession, this.offset(start, 3)),
+      );
+
+      // Hop: federation role -> chained role
+      const chainedSession = this.newSession(chainedRole, `${employee.userName}-maintenance`);
+      events.push(
+        this.createRoleChainEvent(
+          federationSession,
+          chainedSession,
+          account,
+          org,
+          this.offset(start, 20),
+        ),
+      );
+      events.push(
+        this.createGetCallerIdentityEvent(account, org, chainedSession, this.offset(start, 24)),
+      );
+      events.push(
+        this.createApiCallEvent(
+          account,
+          org,
+          'EC2',
+          chainedSession,
+          this.offset(start, 31),
+          host.region,
+          [],
+          'DescribeInstances',
+        ),
+      );
+      for (const bucketArn of chainedRoleBucketArns.slice(0, 1)) {
+        events.push(
+          this.createS3DataEvent(
+            chainedSession,
+            account,
+            org,
+            bucketArn,
+            `exports/daily/${start.substring(0, 10)}/orders.parquet`,
+            'GetObject',
+            this.offset(start, 38),
+            host.region,
+            faker.internet.ipv4(),
+          ),
+        );
+      }
+
+      // Hop: chained role -> EC2 instance over Session Manager
+      events.push(
+        this.createStartSessionEvent(
+          account,
+          host,
+          chainedSession,
+          this.offset(start, 45),
+          org,
+          `${employee.userName}-${faker.string.alphanumeric(8).toLowerCase()}`,
+        ),
+      );
+
+      // Hop: the instance role reads the crown-jewel bucket. The session name is the
+      // instance id and ec2RoleDelivery is set, which is how instance-profile credentials
+      // appear in CloudTrail.
+      const instanceSession = this.newSession(instanceRole, host.id, { ec2RoleDelivery: '2.0' });
+      const objectKey = `customers/export-${start.substring(0, 10)}.csv`;
+      events.push(
+        this.createS3DataEvent(
+          instanceSession,
+          account,
+          org,
+          path.crownJewelBucketArn,
+          objectKey,
+          'ListObjects',
+          this.offset(start, 70),
+          host.region,
+          host.ipAddress,
+        ),
+      );
+      events.push(
+        this.createS3DataEvent(
+          instanceSession,
+          account,
+          org,
+          path.crownJewelBucketArn,
+          objectKey,
+          'GetObject',
+          this.offset(start, 74),
+          host.region,
+          host.ipAddress,
+        ),
+      );
+    }
+
+    return events;
+  }
+
+  /**
+   * Routine activity from EC2 instance roles (SSM agent heartbeat and reads of the buckets
+   * the role's policies allow), for up to ten AWS hosts with an instance profile.
+   */
+  private generateInstanceRoleEvents(
+    org: Organization,
+    correlationMap: CorrelationMap,
+  ): IntegrationDocument[] {
+    const events: IntegrationDocument[] = [];
+    const hosts = org.hosts
+      .filter((h) => h.cloudProvider === 'aws' && h.instanceProfileArn && h.cloudAccountId)
+      .slice(0, 10);
+
+    for (const host of hosts) {
+      const profile = correlationMap.instanceProfileArnToProfile.get(host.instanceProfileArn!);
+      const role = profile ? correlationMap.roleArnToRole.get(profile.roleArn) : undefined;
+      const account = org.cloudAccounts.find((a) => a.id === host.cloudAccountId);
+      if (!role || !account) continue;
+
+      const session = this.newSession(role, host.id, { ec2RoleDelivery: '2.0' });
+      const bucketArns = role.attachedPolicyArns
+        .flatMap((arn) => correlationMap.policyArnToPolicy.get(arn)?.resourceIds ?? [])
+        .filter((id) => id.startsWith('arn:aws:s3:::'));
+
+      const eventCount = faker.number.int({ min: 1, max: 3 });
+      for (let i = 0; i < eventCount; i++) {
+        const timestamp = this.getRandomTimestamp(48);
+        if (bucketArns.length > 0 && faker.datatype.boolean(0.7)) {
+          events.push(
+            this.createS3DataEvent(
+              session,
+              account,
+              org,
+              faker.helpers.arrayElement(bucketArns),
+              `app/config/${host.purpose}.json`,
+              'GetObject',
+              timestamp,
+              host.region,
+              host.ipAddress,
+            ),
+          );
+        } else {
+          events.push(this.createGetCallerIdentityEvent(account, org, session, timestamp));
+        }
+      }
+    }
+
+    return events;
+  }
+
+  /**
+   * sts:AssumeRole from one role session into another role (role chaining). The pipeline
+   * attributes the actor to the issuing role ARN and the target to requestParameters.roleArn.
+   */
+  private createRoleChainEvent(
+    from: FederatedSession,
+    to: FederatedSession,
+    account: CloudAccount,
+    org: Organization,
+    timestamp: string,
+  ): IntegrationDocument {
+    const rawEvent = {
+      eventVersion: '1.09',
+      userIdentity: this.assumedRoleIdentity(from, timestamp),
+      eventTime: timestamp,
+      eventSource: 'sts.amazonaws.com',
+      eventName: 'AssumeRole',
+      awsRegion: 'us-east-1',
+      sourceIPAddress: faker.internet.ipv4(),
+      userAgent: faker.helpers.arrayElement(AWS_USER_AGENTS),
+      requestParameters: {
+        roleArn: to.roleArn,
+        roleSessionName: to.sessionName,
+        durationSeconds: 3600,
+      },
+      responseElements: {
+        credentials: {
+          accessKeyId: to.accessKeyId,
+          sessionToken: 'REDACTED',
+          expiration: new Date(new Date(timestamp).getTime() + 3600000).toISOString(),
+        },
+        assumedRoleUser: {
+          assumedRoleId: to.principalId,
+          arn: to.assumedRoleArn,
+        },
+      },
+      requestID: faker.string.uuid(),
+      eventID: faker.string.uuid(),
+      readOnly: true,
+      resources: [{ accountId: account.id, type: 'AWS::IAM::Role', ARN: to.roleArn }],
+      eventType: 'AwsApiCall',
+      managementEvent: true,
+      recipientAccountId: account.id,
+      eventCategory: 'Management',
+    };
+
+    const service = this.serviceAttachmentFor('sts.amazonaws.com');
+    return {
+      '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
+      message: JSON.stringify(rawEvent),
+      tags: CLOUDTRAIL_TAGS,
+      data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
+      cloud: this.buildCloud(account.id, 'us-east-1'),
+      ...(service && { service }),
+    } as IntegrationDocument;
+  }
+
+  /**
+   * S3 data event (GetObject / ListObjects / PutObject). The pipeline puts the object and
+   * bucket ARNs from `resources` on the target side and the bucket name in related.entity.
+   */
+  private createS3DataEvent(
+    session: FederatedSession,
+    account: CloudAccount,
+    org: Organization,
+    bucketArn: string,
+    objectKey: string,
+    eventName: 'GetObject' | 'ListObjects' | 'PutObject',
+    timestamp: string,
+    region: string,
+    sourceIp: string,
+  ): IntegrationDocument {
+    const bucketName = bucketArn.replace('arn:aws:s3:::', '');
+    const isList = eventName === 'ListObjects';
+    const bytesOut = isList
+      ? faker.number.int({ min: 512, max: 4096 })
+      : faker.number.int({ min: 20_000, max: 50_000_000 });
+
+    const rawEvent = {
+      eventVersion: '1.09',
+      userIdentity: this.assumedRoleIdentity(session, timestamp, !session.ec2RoleDelivery),
+      eventTime: timestamp,
+      eventSource: 's3.amazonaws.com',
+      eventName,
+      awsRegion: region,
+      sourceIPAddress: sourceIp,
+      userAgent: session.ec2RoleDelivery
+        ? '[aws-sdk-go-v2/1.24.0 os/linux lang/go#1.21.5 md/GOOS#linux md/GOARCH#amd64 api/s3#1.47.5]'
+        : faker.helpers.arrayElement(AWS_USER_AGENTS),
+      requestParameters: {
+        bucketName,
+        Host: `${bucketName}.s3.${region}.amazonaws.com`,
+        ...(isList
+          ? { prefix: objectKey.substring(0, objectKey.lastIndexOf('/') + 1) }
+          : { key: objectKey }),
+      },
+      responseElements: null,
+      additionalEventData: {
+        SignatureVersion: 'SigV4',
+        CipherSuite: 'TLS_AES_128_GCM_SHA256',
+        bytesTransferredIn: 0,
+        AuthenticationMethod: 'AuthHeader',
+        'x-amz-id-2': faker.string.alphanumeric(76),
+        bytesTransferredOut: bytesOut,
+      },
+      requestID: faker.string.alphanumeric(16).toUpperCase(),
+      eventID: faker.string.uuid(),
+      readOnly: eventName !== 'PutObject',
+      resources: [
+        ...(isList ? [] : [{ type: 'AWS::S3::Object', ARN: `${bucketArn}/${objectKey}` }]),
+        { accountId: account.id, type: 'AWS::S3::Bucket', ARN: bucketArn },
+      ],
+      eventType: 'AwsApiCall',
+      managementEvent: false,
+      recipientAccountId: account.id,
+      eventCategory: 'Data',
+      tlsDetails: {
+        tlsVersion: 'TLSv1.3',
+        cipherSuite: 'TLS_AES_128_GCM_SHA256',
+        clientProvidedHostHeader: `${bucketName}.s3.${region}.amazonaws.com`,
+      },
+    };
+
+    const service = this.serviceAttachmentFor('s3.amazonaws.com');
+    return {
+      '@timestamp': timestamp,
+      agent: this.buildCentralAgent(org),
+      message: JSON.stringify(rawEvent),
+      tags: CLOUDTRAIL_TAGS,
+      data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
+      cloud: this.buildCloud(account.id, region),
+      ...(service && { service }),
+    } as IntegrationDocument;
   }
 
   /**
@@ -500,21 +905,21 @@ export class CloudTrailIntegration extends BaseIntegration {
     const account = org.cloudAccounts.find((a) => a.id === iamUser.accountId);
     const sessionCount = faker.number.int({ min: 2, max: 4 });
 
+    const federationRoles = this.federationRolesFor(employee, iamUser.accountId);
+
     for (let i = 0; i < sessionCount; i++) {
       const host = faker.helpers.arrayElement(awsHosts);
       const timestamp = this.getRandomTimestamp(48);
-      const accessKeyId = this.generateTemporaryAccessKeyId();
-      const assumedRoleArn = `arn:aws:sts::${iamUser.accountId}:assumed-role/okta/${employee.email}`;
+      const session = this.newSession(faker.helpers.arrayElement(federationRoles), employee.email);
 
       events.push(
         this.createStartSessionEvent(
-          employee,
           account!,
           host,
-          assumedRoleArn,
+          session,
           timestamp,
-          accessKeyId,
           org,
+          `${employee.email}-${faker.string.alphanumeric(8).toLowerCase()}`,
         ),
       );
     }
@@ -523,44 +928,23 @@ export class CloudTrailIntegration extends BaseIntegration {
   }
 
   /**
-   * Create SSM StartSession event (user accesses host)
+   * Create SSM StartSession event (a role session opens a Session Manager session on a host)
    */
   private createStartSessionEvent(
-    employee: Employee,
     account: CloudAccount,
     host: Host,
-    assumedRoleArn: string,
+    session: FederatedSession,
     timestamp: string,
-    accessKeyId: string,
     org: Organization,
+    sessionId: string,
   ): IntegrationDocument {
     const eventId = faker.string.uuid();
     const sourceIp = faker.internet.ipv4();
-    const sessionId = `${employee.email}-${faker.string.alphanumeric(8).toLowerCase()}`;
     const region = host.region || faker.helpers.arrayElement(AWS_REGIONS);
 
     const rawEvent = {
       eventVersion: '1.08',
-      userIdentity: {
-        type: 'AssumedRole',
-        principalId: `${this.generateRoleId()}:${employee.email}`,
-        arn: assumedRoleArn,
-        accountId: account.id,
-        accessKeyId,
-        sessionContext: {
-          attributes: {
-            mfaAuthenticated: 'true',
-            creationDate: timestamp,
-          },
-          sessionIssuer: {
-            type: 'Role',
-            principalId: this.generateRoleId(),
-            arn: `arn:aws:iam::${account.id}:role/okta`,
-            accountId: account.id,
-            userName: 'okta',
-          },
-        },
-      },
+      userIdentity: this.assumedRoleIdentity(session, timestamp),
       eventTime: timestamp,
       eventSource: 'ssm.amazonaws.com',
       eventName: 'StartSession',
@@ -587,37 +971,29 @@ export class CloudTrailIntegration extends BaseIntegration {
       '@timestamp': timestamp,
       agent: this.buildCentralAgent(org),
       message: JSON.stringify(rawEvent),
-      event: {
-        dataset: 'aws.cloudtrail',
-        action: 'StartSession',
-        category: ['session'],
-        type: ['start'],
-        outcome: 'success',
-        kind: 'event',
-      },
+      // actor_target_mapping lets the pipeline derive user.entity.id (the issuing role) and
+      // host.target.entity.id / host.target.id (the instance) from the raw event.
+      tags: CLOUDTRAIL_TAGS,
       data_stream: { namespace: 'default', type: 'logs', dataset: 'aws.cloudtrail' },
       cloud: this.buildCloud(account.id, region),
-      user: { entity: { id: assumedRoleArn } },
       host: { id: host.id, name: host.name },
       ...(service && { service }),
     } as IntegrationDocument;
   }
 
   /**
-   * Create AssumeRole event for federated user
+   * Create AssumeRoleWithSAML event: the Okta user federates into the session's role
    */
   private createAssumeRoleEvent(
-    iamUser: CloudIamUser,
     employee: Employee,
     account: CloudAccount,
     org: Organization,
-    roleArn: string,
-    assumedRoleArn: string,
+    session: FederatedSession,
     timestamp: string,
-    accessKeyId: string,
   ): IntegrationDocument {
     const eventId = faker.string.uuid();
     const sourceIp = faker.internet.ipv4();
+    const { roleArn, assumedRoleArn, accessKeyId } = session;
 
     const rawEvent: Record<string, unknown> = {
       eventVersion: '1.08',
@@ -645,11 +1021,12 @@ export class CloudTrailIntegration extends BaseIntegration {
           expiration: new Date(new Date(timestamp).getTime() + 3600000).toISOString(),
         },
         assumedRoleUser: {
-          assumedRoleId: `${this.generateRoleId()}:${employee.email}`,
+          assumedRoleId: session.principalId,
           arn: assumedRoleArn,
         },
         issuer: `https://${org.name.toLowerCase().replace(/\s+/g, '')}.okta.com`,
       },
+      resources: [{ accountId: account.id, type: 'AWS::IAM::Role', ARN: roleArn }],
       eventID: eventId,
       readOnly: false,
       eventType: 'AwsApiCall',
@@ -673,14 +1050,10 @@ export class CloudTrailIntegration extends BaseIntegration {
    * Create GetCallerIdentity event
    */
   private createGetCallerIdentityEvent(
-    iamUser: CloudIamUser,
-    employee: Employee,
     account: CloudAccount,
     org: Organization,
-    assumedRoleArn: string,
+    session: FederatedSession,
     timestamp: string,
-    accessKeyId: string,
-    _sessionId: string,
   ): IntegrationDocument {
     const eventId = faker.string.uuid();
     const sourceIp = faker.internet.ipv4();
@@ -688,26 +1061,7 @@ export class CloudTrailIntegration extends BaseIntegration {
 
     const rawEvent = {
       eventVersion: '1.08',
-      userIdentity: {
-        type: 'AssumedRole',
-        principalId: `${this.generateRoleId()}:${employee.email}`,
-        arn: assumedRoleArn,
-        accountId: account.id,
-        accessKeyId,
-        sessionContext: {
-          attributes: {
-            mfaAuthenticated: 'true',
-            creationDate: timestamp,
-          },
-          sessionIssuer: {
-            type: 'Role',
-            principalId: this.generateRoleId(),
-            arn: `arn:aws:iam::${account.id}:role/okta`,
-            accountId: account.id,
-            userName: 'okta',
-          },
-        },
-      },
+      userIdentity: this.assumedRoleIdentity(session, timestamp, !session.ec2RoleDelivery),
       eventTime: timestamp,
       eventSource: 'sts.amazonaws.com',
       eventName: 'GetCallerIdentity',
@@ -738,23 +1092,20 @@ export class CloudTrailIntegration extends BaseIntegration {
    * Create generic API call event for federated user
    */
   private createApiCallEvent(
-    iamUser: CloudIamUser,
-    employee: Employee,
     account: CloudAccount,
     org: Organization,
     service: string,
-    assumedRoleArn: string,
+    session: FederatedSession,
     timestamp: string,
-    accessKeyId: string,
-    sessionId: string,
     region: string,
     resources: CloudResource[],
+    fixedEventName?: string,
   ): IntegrationDocument {
     const eventId = faker.string.uuid();
     const sourceIp = faker.internet.ipv4();
     const userAgent = faker.helpers.arrayElement(AWS_USER_AGENTS);
     const serviceConfig = AWS_API_EVENTS[service];
-    const eventName = faker.helpers.arrayElement(serviceConfig.events);
+    const eventName = fixedEventName ?? faker.helpers.arrayElement(serviceConfig.events);
 
     // Find related resources if any
     const relatedResources = resources.filter((r) => {
@@ -773,26 +1124,7 @@ export class CloudTrailIntegration extends BaseIntegration {
 
     const rawEvent = {
       eventVersion: '1.08',
-      userIdentity: {
-        type: 'AssumedRole',
-        principalId: `${this.generateRoleId()}:${employee.email}`,
-        arn: assumedRoleArn,
-        accountId: account.id,
-        accessKeyId,
-        sessionContext: {
-          attributes: {
-            mfaAuthenticated: 'true',
-            creationDate: timestamp,
-          },
-          sessionIssuer: {
-            type: 'Role',
-            principalId: this.generateRoleId(),
-            arn: `arn:aws:iam::${account.id}:role/okta`,
-            accountId: account.id,
-            userName: 'okta',
-          },
-        },
-      },
+      userIdentity: this.assumedRoleIdentity(session, timestamp),
       eventTime: timestamp,
       eventSource: serviceConfig.eventSource,
       eventName,
@@ -892,29 +1224,14 @@ export class CloudTrailIntegration extends BaseIntegration {
   ): IntegrationDocument {
     const eventId = faker.string.uuid();
     const sourceIp = faker.internet.ipv4();
-    const assumedRoleArn = `arn:aws:sts::${account.id}:assumed-role/okta/${employee.email}`;
+    const session = this.newSession(
+      faker.helpers.arrayElement(this.federationRolesFor(employee, iamUser.accountId)),
+      employee.email,
+    );
 
     const rawEvent: Record<string, unknown> = {
       eventVersion: '1.08',
-      userIdentity: {
-        type: 'AssumedRole',
-        principalId: `${this.generateRoleId()}:${employee.email}`,
-        arn: assumedRoleArn,
-        accountId: account.id,
-        sessionContext: {
-          attributes: {
-            mfaAuthenticated: 'true',
-            creationDate: timestamp,
-          },
-          sessionIssuer: {
-            type: 'Role',
-            principalId: this.generateRoleId(),
-            arn: `arn:aws:iam::${account.id}:role/okta`,
-            accountId: account.id,
-            userName: 'okta',
-          },
-        },
-      },
+      userIdentity: this.assumedRoleIdentity(session, timestamp),
       eventTime: timestamp,
       eventSource: 'signin.amazonaws.com',
       eventName: 'ConsoleLogin',

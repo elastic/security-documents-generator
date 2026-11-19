@@ -67,6 +67,12 @@ export interface Employee {
   onePasswordUuid: string;
   windowsSid: string;
   unixUid: number;
+  /**
+   * Okta group ids the employee belongs to beyond the department/default groups the
+   * Okta integration derives at emit time (e.g. the AWS federation access groups).
+   * Stored on the employee so every emitter agrees on membership.
+   */
+  oktaGroupIds: string[];
 }
 
 /**
@@ -95,6 +101,12 @@ export interface Host {
     family: string;
   };
   elasticAgentId: string;
+  /** Stable private IP, used as host.ip wherever the host appears. */
+  ipAddress: string;
+  /** Cloud account the host runs in (AWS hosts are EC2 instances in this account). */
+  cloudAccountId?: string;
+  /** IAM instance profile attached to the instance (AWS hosts only). */
+  instanceProfileArn?: string;
 }
 
 /**
@@ -177,6 +189,165 @@ export interface CloudIamUser {
 }
 
 /**
+ * One statement of an IAM identity, trust, or bucket policy document.
+ */
+export interface IamPolicyStatement {
+  Sid?: string;
+  Effect: 'Allow' | 'Deny';
+  Principal?: { AWS?: string | string[]; Service?: string | string[]; Federated?: string };
+  Action: string | string[];
+  Resource?: string | string[];
+  Condition?: Record<string, Record<string, string | string[]>>;
+}
+
+/**
+ * IAM policy document (identity policy, role trust policy, or S3 bucket policy).
+ */
+export interface IamPolicyDocument {
+  Version: '2012-10-17';
+  Statement: IamPolicyStatement[];
+}
+
+/**
+ * Customer-managed or AWS-managed IAM policy. `resourceIds` lists the asset entity ids
+ * (bucket ARNs, EC2 instance ids, role ARNs) the Allow statements name, so emitters can
+ * draw policy -> resource edges without parsing the document again.
+ */
+export interface CloudIamPolicy {
+  arn: string;
+  name: string;
+  policyId: string;
+  path: string;
+  accountId: string;
+  accountName: string;
+  description: string;
+  isAwsManaged: boolean;
+  document: IamPolicyDocument;
+  resourceIds: string[];
+  createdAt: string;
+}
+
+/**
+ * What a role exists for. Drives the trust policy shape and which emitters use it.
+ */
+export type CloudIamRolePurpose =
+  | 'federation' // Assumed via SAML from the IdP (Okta group -> role)
+  | 'service' // Assumed by an AWS service principal
+  | 'instance' // EC2 instance role, reached through an instance profile
+  | 'pipeline' // Assumed by another role (role chaining)
+  | 'cross_account'; // Assumed by a role in another account
+
+/**
+ * IAM role with its trust policy decomposed into the principals that may assume it.
+ */
+export interface CloudIamRole {
+  arn: string;
+  name: string;
+  roleId: string;
+  path: string;
+  accountId: string;
+  accountName: string;
+  description: string;
+  purpose: CloudIamRolePurpose;
+  trustPolicy: IamPolicyDocument;
+  /** IAM user or role ARNs named as AWS principals in the trust policy. */
+  trustedPrincipalArns: string[];
+  /** Service principals (ec2.amazonaws.com, lambda.amazonaws.com, ...) in the trust policy. */
+  trustedServices: string[];
+  /** SAML provider ARNs in the trust policy. */
+  trustedFederatedArns: string[];
+  attachedPolicyArns: string[];
+  inlinePolicies: Array<{ name: string; document: IamPolicyDocument; resourceIds: string[] }>;
+  maxSessionDuration: number;
+  createdAt: string;
+}
+
+/**
+ * IAM instance profile: the link between an EC2 instance and its role.
+ */
+export interface CloudInstanceProfile {
+  arn: string;
+  name: string;
+  id: string;
+  accountId: string;
+  roleArn: string;
+  createdAt: string;
+}
+
+/**
+ * Okta group -> AWS role mapping as configured on the AWS federation app.
+ */
+export interface IdpGroupRoleMapping {
+  oktaGroupId: string;
+  oktaGroupName: string;
+  roleArn: string;
+  accountId: string;
+}
+
+/**
+ * Edge kinds in the access graph. Direction is always source -> target.
+ */
+export type AccessRelation =
+  | 'member_of' // user -> group
+  | 'can_assume' // user | group | role -> role
+  | 'has_policy' // role -> policy
+  | 'grants_access_to' // policy | role -> bucket (via identity or bucket policy)
+  | 'can_connect' // policy | role -> EC2 instance (ssm:StartSession, ec2-instance-connect)
+  | 'runs_as'; // EC2 instance -> role (instance profile)
+
+/**
+ * Node kinds in the access graph.
+ */
+export type AccessNodeType = 'user' | 'group' | 'role' | 'policy' | 'host' | 'bucket';
+
+export interface AccessNode {
+  id: string;
+  type: AccessNodeType;
+  subType: string;
+  name: string;
+  /** Other identifiers the same node carries in other data streams (IAM user ARN, Okta id). */
+  altIds?: string[];
+}
+
+export interface AccessEdge {
+  relation: AccessRelation;
+  source: AccessNode;
+  target: AccessNode;
+  /** Where a real deployment would observe this edge. */
+  evidence: {
+    kind: 'configuration' | 'observed';
+    source: 'entityanalytics_okta' | 'okta_federation_app' | 'cloud_asset_inventory';
+    description: string;
+  };
+  accountId?: string;
+}
+
+/**
+ * A planted multi-hop access path from a compromised identity to a crown-jewel resource.
+ * All ids are the same values the asset, Okta and CloudTrail emitters write, so the chain is
+ * consistent across indices.
+ */
+export interface AccessPathScenario {
+  id: string;
+  name: string;
+  description: string;
+  accountId: string;
+  seedEmployeeId: string;
+  seedUserEmail: string;
+  seedOktaUserId: string;
+  seedIamUserArn: string;
+  groupId: string;
+  groupName: string;
+  federationRoleArn: string;
+  chainedRoleArn: string;
+  instanceId: string;
+  instanceRoleArn: string;
+  crownJewelBucketArn: string;
+  crownJewelBucketName: string;
+  hops: AccessEdge[];
+}
+
+/**
  * GitHub repository in the organization
  */
 export interface GitHubRepo {
@@ -246,6 +417,13 @@ export interface Organization {
   cloudAccounts: CloudAccount[];
   cloudResources: CloudResource[];
   cloudIamUsers: CloudIamUser[];
+  cloudIamRoles: CloudIamRole[];
+  cloudIamPolicies: CloudIamPolicy[];
+  cloudInstanceProfiles: CloudInstanceProfile[];
+  idpGroupRoleMappings: IdpGroupRoleMapping[];
+  /** S3 bucket policies keyed by bucket ARN (only buckets that have one). */
+  s3BucketPolicies: Record<string, IamPolicyDocument>;
+  accessPaths: AccessPathScenario[];
   oktaGroups: OktaGroup[];
   entraIdGroups: EntraIdGroup[];
   githubOrg: GitHubOrg;
@@ -776,6 +954,12 @@ export interface CloudAssetDocument {
     type: string; // AssetType category (e.g., "Host", "Storage Bucket", "Database")
     sub_type: string; // AssetSubType (e.g., "AWS EC2 Instance", "GCP Bucket")
     source?: string; // Cloud provider ("aws", "gcp", "azure")
+    /** Full cloud API object, as cloudbeat's WithRawAsset writes it (mapped flattened). */
+    raw?: Record<string, unknown>;
+    /** Non-ECS resource attributes (cloudbeat entity.Details, formerly entity.attributes). */
+    Details?: Record<string, unknown>;
+    /** Access-graph edges from this asset, in entity store relationship shape. */
+    relationships?: Partial<Record<AccessRelation, { entity: { id: string[] } }>>;
   };
   host?: {
     id?: string;
@@ -1161,7 +1345,8 @@ export type IntegrationName =
   | 'teleport'
   | 'thycotic_ss'
   | 'zoom'
-  | 'windows';
+  | 'windows'
+  | 'access_graph';
 
 /**
  * @deprecated Legacy type from entityanalytics_jamf integration.
@@ -1272,4 +1457,11 @@ export interface CorrelationMap {
   serviceIdToService: Map<string, Service>;
   serviceEntityIdToService: Map<string, Service>;
   hostIdToServices: Map<string, Service[]>;
+  roleArnToRole: Map<string, CloudIamRole>;
+  policyArnToPolicy: Map<string, CloudIamPolicy>;
+  instanceProfileArnToProfile: Map<string, CloudInstanceProfile>;
+  hostIdToHost: Map<string, Host>;
+  oktaGroupIdToGroup: Map<string, OktaGroup>;
+  /** Okta group id -> AWS role ARNs it maps to (across accounts). */
+  oktaGroupIdToRoleArns: Map<string, string[]>;
 }

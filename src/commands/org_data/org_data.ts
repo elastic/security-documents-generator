@@ -14,6 +14,7 @@ import {
   type IntegrationName,
 } from './types.ts';
 import { generateOrgData, getOrgDataSummary } from './org_data_generator.ts';
+import { getAccessPathSummary } from './access_graph_generator.ts';
 import { buildCorrelationMap, verifyCorrelationIntegrity } from './correlation.ts';
 import {
   createIntegrationRegistry,
@@ -185,6 +186,7 @@ const runOrgDataHelper = async (
 
   // Display organization summary
   log.info('\n' + getOrgDataSummary(organization) + '\n');
+  log.info(getAccessPathSummary(organization) + '\n');
 
   // Build correlation map
   log.info('Building correlation map...');
@@ -589,6 +591,10 @@ const displaySummary = (
     {
       integrations: ['aws'],
       note: 'CloudTrail logs correlate with cloud assets via account ID and ARN',
+    },
+    {
+      integrations: ['access_graph'],
+      note: 'security-entity-edges holds one document per access-graph edge (source.id -> target.id, relation); edges on the planted path carry scenario.id and scenario.hop',
     },
     {
       integrations: ['entityanalytics_entra_id'],
