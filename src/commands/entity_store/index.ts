@@ -20,6 +20,7 @@ import { ensureSpace } from '../../utils/index.ts';
 import { riskScoreV2Command } from './risk_score_v2.ts';
 import { seedRiskScoreHistory } from './seed_risk_score_history.ts';
 import { natPerfCommand } from './nat_perf.ts';
+import { NAT_TILES_SET_SIZE, seedNatTiles } from './seed_nat_tiles.ts';
 import { parseOptionInt } from '../utils/cli_utils.ts';
 
 export const entityStoreCommands: CommandModule = {
@@ -207,6 +208,27 @@ export const entityStoreCommands: CommandModule = {
             count: counts.entityCount,
             maintainers: selectedMaintainers,
             space,
+          });
+        }),
+      );
+
+    program
+      .command('seed-nat-tiles')
+      .description(
+        'Seed a small, exact set of entities with 65 days of history, so every Needs attention tile on the Entity Analytics page shows a number, a change against the previous period and a sparkline',
+      )
+      .option('--space <space>', 'Kibana space ID', 'default')
+      .option(
+        '--entities <n>',
+        `entities to create, in whole sets of ${NAT_TILES_SET_SIZE} (default ${NAT_TILES_SET_SIZE}); the expected numbers scale with it`,
+      )
+      .option('--clean', 'remove what this command seeded (use the same --entities)', false)
+      .action(
+        wrapAction(async (options) => {
+          await seedNatTiles({
+            space: options.space ?? 'default',
+            entities: parseOptionInt(options.entities, NAT_TILES_SET_SIZE),
+            clean: Boolean(options.clean),
           });
         }),
       );
