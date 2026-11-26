@@ -4,7 +4,7 @@
 
 Writes Elastic Defend, osquery and (optionally) Claude Code OTel documents for Claude Code and Cursor CLI, as a fixed set of named scenarios. The shapes, field population and process trees are copied from one lab run, so the data behaves like real agents do, for Entity Store, detection rule and AI agent feature work.
 
-The lab was a single Amazon Linux 2023 host with Elastic Defend 9.6.0 (eBPF, Endpoint package 9.6.1, Linux session data on), Claude Code 2.1.332 and `cursor-agent` 2026.11.22. All generated data is Linux and Amazon Linux shaped. macOS, Windows, Codex and Cursor desktop aren't generated, because there's no observed data for them.
+The lab was a single Amazon Linux 2023 host with Elastic Defend 9.6.0 (eBPF, Endpoint package 9.6.1, Linux session data on), Claude Code 2.1.332 and `cursor-agent` 2026.11.22. The lab scenarios (`all`) are Linux and Amazon Linux shaped. The demo scenarios add macOS and Windows hosts, install methods the lab didn't use, Defend alerts, Cursor audit, Okta, Entra ID and HR documents. Those shapes are inferred, so their documents carry `tags: ["poc-mock"]` (see "Demo scenarios").
 
 ### Usage
 
@@ -15,17 +15,19 @@ yarn start generate-ai-agent-data [options]
 
 | Flag                       | Default       | Meaning                                                                                                                                                                          |
 | -------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--scenarios <list>`       | `all`         | Comma-separated scenario names                                                                                                                                                   |
+| `--scenarios <list>`       | `all`         | Comma-separated scenario or group names. Groups: `all` and `lab` (the lab scenarios), `rule_trips`, `defend_alerts`, `install_variants`, `demo`                                  |
 | `--repeat <n>`             | `1`           | Copies of each scenario, each with its own synthetic users and hosts                                                                                                             |
 | `--time-window <duration>` | `2h`          | Scenarios run back to back from this long before now. The command fails rather than write future timestamps                                                                      |
 | `--claude-otel`            | off           | Also write Claude Code OTel events for every Claude session. Extrapolated                                                                                                        |
+| `--cursor-audit`           | off           | Also write Cursor audit log events for each scenario's Cursor users and for the storyline, in `logs-cursor.audit-*`. `poc-mock`                                                  |
 | `--map-session-id`         | off           | Map `process.ai_agent.session_id` as `keyword` through `endpoint@custom` before writing                                                                                          |
 | `--no-session-data`        | on            | Leave out `entry_leader`, `session_leader`, `group_leader`, `interactive`, `tty` and `process.previous`, as Defend's default policy does                                         |
 | `--no-install-packages`    | install       | Skip installing Endpoint, Osquery Manager and (with `--claude-otel`) Claude Code                                                                                                 |
 | `--endpoint-version <v>`   | `9.6.1`       | Endpoint package version to install, or `latest`. 9.6.1 leaves `session_id` unmapped, as in the lab                                                                              |
 | `--output-file <path>`     | none          | Write NDJSON, one `{"_index", "_source"}` per line, and don't contact any cluster                                                                                                |
 | `--domain <domain>`        | `example.com` | Email domain for synthetic people                                                                                                                                                |
-| `--space <space>`          | `default`     | Kibana space for package installs                                                                                                                                                |
+| `--space <space>`          | `default`     | Kibana space for package installs, created if it doesn't exist                                                                                                                   |
+| `--namespace <ns>`         | the space     | Data stream namespace for every generated index, so the space's entity maintainers read it (`logs-endpoint.events.*-<space>`)                                                    |
 | `--seed <n>`               | random        | For offline repeatability. Fixes IDs and names, not timestamps, so rerunning a seed into one cluster duplicates IDs. `--claude-otel` doesn't change the Endpoint data for a seed |
 
 Install the packages (the default) on a fresh deployment. Without the Endpoint package's templates, `logs-endpoint.events.*` gets dynamic mappings and `session_id` would become searchable, which a real 9.6.1 cluster doesn't do.
@@ -54,13 +56,123 @@ Every scenario has its own hosts and OS users. OS user names never equal the ema
 
 Lab runs: 0 interactive sign-in and session, 1 print session with an MCP server, 2 `curl` and `~/.ssh/config`, 3 `cursor-agent` read-only, 4 interactive session under a second OS user, 5 the same prompt over SSH and from cron, 6 dummy API key, 7 Claude edits and commits, 8 `cursor-agent` runs a command.
 
+### Demo scenarios
+
+Demo scenarios exist for the connected AI agent demo (`research/agent-experience-poc/demo-plan.md`). Every document of every scenario gets `labels.poc_scenario`, and Endpoint documents of a scenario with one install shape also get `labels.poc_install_shape` (`<install method> (<os>)`), because detection rules read every `logs-endpoint.*` namespace whatever the Kibana space. Endpoint templates are `dynamic: false`, so a cluster write first maps `labels.poc_scenario`, `labels.poc_install_shape` and `tags` as keywords through `endpoint@custom`, merged into any existing template and the current backing indices. The security alerts index doesn't map them, so alerts carry them in `_source` only.
+
+```bash
+# Rule trips, install variants and the storyline, with Cursor audit, into space and namespace gen-demo
+yarn start ai-agents --scenarios demo --cursor-audit --space gen-demo --map-session-id --seed 11
+
+# Only the storyline, or only the rule trips
+yarn start ai-agents --scenarios storyline --cursor-audit --space gen-demo --map-session-id
+yarn start ai-agents --scenarios rule_trips --space gen-demo --map-session-id
+```
+
+#### Install methods
+
+`src/generators/ai_agents/mock_installs.ts` holds the agent image for each install method and `MockAgentRun`, a compact run that writes the agent's launch and only the behaviour under test, without the lab's git probes and login-shell trees. Only the first two rows were observed.
+
+| Install method    | OS               | `process.name`           | `process.executable`                                                                        | Tool shell                                                             |
+| ----------------- | ---------------- | ------------------------ | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `claude_native`   | Linux (observed) | `2.1.332`                | `~/.local/share/claude/versions/2.1.332`                                                    | `/bin/bash -c source ~/.claude/shell-snapshots/... && eval ...`        |
+| `cursor_cli`      | Linux (observed) | `node`                   | `~/.local/share/cursor-agent/versions/<v>/node`                                             | `bash -O extglob -c` reading the command from fd 5                     |
+| `claude_native`   | macOS            | `2.1.332`                | `/Users/<u>/.local/share/claude/versions/2.1.332`                                           | `/bin/zsh -c source ~/.claude/shell-snapshots/...`                     |
+| `claude_homebrew` | macOS            | `claude`                 | `/opt/homebrew/Caskroom/claude-code/2.1.332/claude`                                         | zsh, as above                                                          |
+| `claude_npm`      | Linux, macOS     | `node`                   | `<node prefix>/bin/node`, args `<prefix>/lib/node_modules/@anthropic-ai/claude-code/cli.js` | bash or zsh, as above                                                  |
+| `claude_windows`  | Windows          | `claude.exe`             | `C:\Users\<u>\.local\bin\claude.exe`                                                        | Git Bash `bash.exe -c source /c/Users/<u>/.claude/shell-snapshots/...` |
+| `cursor_cli`      | macOS            | `node`                   | as on Linux                                                                                 | zsh reading from fd 5                                                  |
+| `cursor_ide`      | macOS            | `Cursor Helper (Plugin)` | `/Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Plugin).app/...`               | `/bin/zsh -c <command>`, under the untagged `Cursor` app               |
+
+macOS and Windows hosts have no Defend session data. Their file events have `event.outcome: success`, macOS network events have `destination.domain`, and Windows network activity is DNS lookups. Linux file events keep the lab's `event.outcome: unknown`.
+
+#### Rule trips
+
+`src/commands/ai_agents/rule_trip_scenarios.ts` has one scenario per behaviour and install shape, for the 18 Defend GenAI rules in `elastic/detection-rules` main at `29aaacb49`. `RULE_TRIP_EXPECTATIONS` records, for each scenario, which rule it should trip in its original form and in a copy keyed on `process.ai_agent.*`, and why. Linux scenarios on `claude_native` and `cursor_cli` use the lab-shaped session builders. The others, and four Linux ones that need an event or flag the lab never showed, are `poc-mock`.
+
+| Scenario                                          | Rule                                                                              | Original | Agent fields |
+| ------------------------------------------------- | --------------------------------------------------------------------------------- | -------- | ------------ |
+| `rule_permission_bypass_native`                   | GenAI CLI Started with Unsafe Permission Bypass                                   | yes      | yes          |
+| `rule_permission_bypass_npm`                      | GenAI CLI Started with Unsafe Permission Bypass                                   | yes      | yes          |
+| `rule_permission_bypass_cursor_cli`               | GenAI CLI Started with Unsafe Permission Bypass (`--force`)                       | no       | no           |
+| `rule_destructive_aws_native`                     | Potential Destructive AWS CLI Command Executed by GenAI Agent                     | yes      | yes          |
+| `rule_destructive_aws_cursor_cli`                 | Potential Destructive AWS CLI Command Executed by GenAI Agent                     | no       | yes          |
+| `rule_prompt_injection_native`                    | Potential Prompt Injection Coercing Shell Execution                               | yes      | yes          |
+| `rule_prompt_injection_cursor_cli`                | Potential Prompt Injection Coercing Shell Execution                               | yes      | yes          |
+| `rule_mcp_server_child_native`                    | GenAI or MCP Server Child Process Execution, Compiling, Encoding Prior to Network | yes      | yes          |
+| `rule_mcp_server_child_cursor_ide`                | GenAI or MCP Server Child Process Execution                                       | yes      | yes          |
+| `rule_compile_native`                             | GenAI Process Compiling or Generating Executables                                 | no       | yes          |
+| `rule_compile_brew`                               | GenAI Process Compiling or Generating Executables                                 | no       | yes          |
+| `rule_encoding_network_native`                    | GenAI Process Performing Encoding/Chunking Prior to Network Activity              | no       | yes          |
+| `rule_config_modification_native`                 | Unusual Process Modifying GenAI Configuration File                                | yes      | yes          |
+| `rule_config_modification_cursor_cli`             | Unusual Process Modifying GenAI Configuration File                                | yes      | yes          |
+| `rule_instruction_file_native`                    | GenAI Agent Instruction File Written to Downloads                                 | yes      | yes          |
+| `rule_sensitive_files_native`                     | GenAI Process Accessing Sensitive Files                                           | no       | no           |
+| `rule_sensitive_files_native_macos`               | GenAI Process Accessing Sensitive Files                                           | no       | yes          |
+| `rule_sensitive_files_brew`, `_windows`           | GenAI Process Accessing Sensitive Files                                           | yes      | yes          |
+| `rule_secret_imds_native_macos`                   | Package Runtime Secret File Access Followed by IMDS Request                       | no       | yes          |
+| `rule_secret_imds_npm_macos`, `_cursor_cli_macos` | Package Runtime Secret File Access Followed by IMDS Request                       | yes      | yes          |
+| `rule_suspicious_domain_native_macos`             | Suspicious Top Level Domain, Unusual Domain                                       | no, no   | yes, yes     |
+| `rule_suspicious_domain_brew`                     | Suspicious Top Level Domain, Unusual Domain                                       | yes, yes | yes, yes     |
+| `rule_suspicious_domain_cursor_ide`               | Suspicious Top Level Domain, Unusual Domain                                       | no, yes  | yes, yes     |
+| `rule_suspicious_domain_windows`                  | Suspicious Top Level Domain (Unusual Domain is macOS only)                        | yes      | yes          |
+| `rule_llm_endpoint_native`                        | Connection to Common Large Language Model Endpoints (macOS and Windows only)      | no       | no           |
+| `rule_llm_endpoint_native_macos`                  | Connection to Common Large Language Model Endpoints                               | yes      | yes          |
+| `rule_cowork_vm_tamper_native_macos`              | Claude Cowork VM Boot Image Tamper                                                | yes      | yes          |
+| `defend_alerts_native`                            | Elastic Defend Alerts from GenAI Utility or Descendant                            | no       | yes          |
+| `defend_alerts_brew`                              | Elastic Defend Alerts from GenAI Utility or Descendant                            | yes      | yes          |
+
+The two Ollama rules and Execution via OpenClaw Agent have no scenario (`SKIPPED_GENAI_RULES`): they key on the Ollama server or on OpenClaw's command line, which no Claude Code or Cursor install has. The GenAI or MCP Server Child Process Execution building block also fires on any direct child of a listed client, so every tool shell of Homebrew `claude` or `Cursor Helper (Plugin)` trips it.
+
+`defend_alerts_*` write a malware, a memory threat and a malicious behaviour alert to `logs-endpoint.alerts-<namespace>` on a miner the agent downloads and runs (`src/generators/ai_agents/defend_alerts.ts`). Each alert copies the process event's `process`, including `process.ai_agent` with `is_descendant: true`, as endpoint-package documents for malware and memory threat alerts. The malicious behaviour alert docs don't list `process.ai_agent`, but its `process` is the primary event's, so it's kept.
+
+#### Install variants
+
+`install_claude_brew`, `install_claude_npm` (Linux), `install_claude_windows` and `install_cursor_ide` each write one ordinary session (vendor API connection, a read, `git status`, an edit, `python3 main.py`) for the inventory. All `poc-mock`.
+
+#### Storyline
+
+`storyline` (`src/commands/ai_agents/storyline.ts`) is the demo's story, with synthetic people from `STORYLINE_PEOPLE`:
+
+- `ci-build-01`: Claude Code from cron as `ec2-user`, signed in as `avery.quinn@<domain>`, run as `claude -p "<issue text with 'Ignore previous instructions'>" --dangerously-skip-permissions`. Its tool shells download and unpack an agent kit into `~/Downloads` (a `CLAUDE.md`), run its `build-helper` (one Defend malware alert) and run `aws s3 rm s3://<org>-release-artifacts --recursive`. A second, ordinary interactive install as `jblake`, signed in as `jordan.blake@<domain>`.
+- `dev-aquinn-01` (interactive, as `aquinn`) and `jump-01` (print mode, as `ec2-user`): the same email on two other Claude Code installs.
+- Okta: `avery.quinn` `DEPROVISIONED` (`user.account.status.deprovisioned: true`), `jordan.blake` active. Entra ID: `avery.quinn` enabled with `user.entity.attributes.mfa_enabled: false`. Both in the packages' stored shape, written with the `_none` pipeline, so Entity Store mints `user:<email>@okta` and `user:<email>@entra_id`.
+- `hr-workday-demo`: one record per person keyed by `user.email`, with `employment.status: Terminated` for `avery.quinn` only.
+- With `--cursor-audit`: Cursor web login and a user API key for `avery.quinn` three days ago, then a SCIM `remove_user` for them a day ago.
+
+Host IDs change with the seed. Look hosts up by name.
+
+### `ai-agents-context`
+
+Applies the storyline's Kibana-side context, which only Kibana APIs can set. The entity rows have to exist, so it can install the store and force extraction first.
+
+```bash
+yarn start ai-agents-context --space gen-demo --install-store --extract 4
+```
+
+| Step                                  | API                                                                                                                                                                     |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Install the store (`--install-store`) | `POST /s/<space>/api/security/entity_store/install` with all five entity types                                                                                          |
+| Extract (`--extract <hours>`)         | `POST /s/<space>/internal/security/entity_store/{host,user,ai_agent}/force_log_extraction` (API version 2)                                                              |
+| `high_impact` on `ci-build-01`        | `PUT /s/<space>/api/security/entity_store/entities/bulk?force=true` with `asset.criticality` on `host:<host.id>`                                                        |
+| `jordan.blake` on Privileged Users    | `POST /s/<space>/api/entity_analytics/watchlists/install`, then `.../watchlists/<id>/entities/assign` with `user:<email>@okta`                                          |
+| Departing Employees from the HR index | `POST .../watchlists` (risk modifier 1.5), `.../<id>/entity_source` (type `index`, `hr-workday-demo`, `user.email`, `employment.status: "Terminated"`), `.../<id>/sync` |
+
+The legacy `POST /api/asset_criticality` route writes the V1 criticality index, which Entity Store V2 doesn't read, so the command uses the entity bulk update the V2 flyout uses.
+
 ### Indices
 
-| Index                                                                       | Pipeline                                                     |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `logs-endpoint.events.process-default`, `.file-default`, `.network-default` | Package default                                              |
-| `logs-osquery_manager.result-default`                                       | Package default                                              |
-| `logs-claude_code.events.otel-default` (with `--claude-otel`)               | `_none`, because documents are in the package's stored shape |
+| Index                                                                                              | Pipeline                                                     |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `logs-endpoint.events.process-default`, `.file-default`, `.network-default`                        | Package default                                              |
+| `logs-osquery_manager.result-default`                                                              | Package default                                              |
+| `logs-claude_code.events.otel-default` (with `--claude-otel`)                                      | `_none`, because documents are in the package's stored shape |
+| `logs-endpoint.alerts-default` (demo scenarios)                                                    | Package default                                              |
+| `logs-cursor.audit-default` (with `--cursor-audit`)                                                | `_none`, stored shape                                        |
+| `logs-entityanalytics_okta.user-default`, `logs-entityanalytics_entra_id.user-default` (storyline) | `_none`, stored shape                                        |
+| `hr-workday-demo` (storyline), created with keyword mappings                                       | None                                                         |
+
+`-default` becomes `-<namespace>` with `--namespace` or a non-default `--space`.
 
 Documents also get the repo's `_metadata` field, as `org-data` does. Endpoint mappings are `dynamic: false`, so it stays in `_source`.
 

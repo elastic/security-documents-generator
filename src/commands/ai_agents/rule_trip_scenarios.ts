@@ -197,8 +197,8 @@ export const RULE_TRIP_EXPECTATIONS: Record<RuleTripScenario, RuleTripExpectatio
       {
         rule: 'permission_bypass',
         original: false,
-        agentFields: true,
-        why: "The rule has no Cursor branch, so cursor-agent's --force isn't covered. The copy needs Cursor's flags added",
+        agentFields: false,
+        why: "The rule has no Cursor branch, so cursor-agent's --force isn't covered. A copy keyed on agent fields still needs Cursor's flags added",
       },
     ],
   },
