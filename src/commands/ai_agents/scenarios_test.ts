@@ -338,8 +338,8 @@ describe('generated AI agent scenarios', () => {
   it('numbers event.sequence per host in send order', () => {
     const byHost = new Map<string, Array<{ created: string; sequence: number }>>();
     for (const source of sourcesFor(all)) {
-      const event = source.event as { dataset: string; created: string; sequence: number };
-      if (!event.dataset.startsWith('endpoint.events.')) {
+      const event = source.event as { dataset?: string; created: string; sequence: number };
+      if (!event.dataset?.startsWith('endpoint.events.')) {
         continue;
       }
       const hostId = (source.host as { id: string }).id;
@@ -482,12 +482,16 @@ describe('generated AI agent scenarios', () => {
       assert.ok(defendSessions.has(sessionId));
       const host = source.host as {
         arch: string;
-        os: { platform: string };
+        architecture?: string;
+        os?: unknown;
         name?: string;
         id?: string;
       };
       assert.equal(host.arch, 'amd64');
-      assert.equal(host.os.platform, 'linux');
+      assert.equal(host.architecture, undefined);
+      assert.equal(host.os, undefined);
+      assert.equal((source.event as { dataset?: string }).dataset, undefined);
+      assert.deepEqual(source.tags, ['poc-mock']);
       assert.equal(host.name, undefined);
       assert.equal(host.id, undefined);
       assert.deepEqual((source.resource as { attributes: { host: unknown } }).attributes.host, {

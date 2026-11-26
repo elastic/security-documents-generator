@@ -1,6 +1,11 @@
 import { en, faker, Faker } from '@faker-js/faker';
 import { type ClaudeCodeSessionResult } from './claude_code.ts';
-import { CLAUDE_CODE_OTEL_INDEX, CLAUDE_CODE_VERSION, type GeneratedDocument } from './types.ts';
+import {
+  CLAUDE_CODE_OTEL_INDEX,
+  CLAUDE_CODE_VERSION,
+  POC_MOCK_TAG,
+  type GeneratedDocument,
+} from './types.ts';
 
 const KERNEL = '6.1.190-237.442.amzn2023.x86_64';
 
@@ -82,14 +87,15 @@ export const buildClaudeCodeOtelEvents = ({
         },
         data_stream: { dataset: 'claude_code.events.otel', namespace: 'default', type: 'logs' },
         ecs: { version: '9.3.0' },
+        // event.dataset, host.architecture and host.os.* are aliases in the integration's OTel
+        // template, and writing an alias rejects the document into the failure store.
         event: {
           action: name,
-          dataset: 'claude_code.events.otel',
           kind: 'event',
           provider: 'claude-code',
           ...ecsEvent,
         },
-        host: { arch: 'amd64', architecture: 'amd64', os: { platform: 'linux', version: KERNEL } },
+        host: { arch: 'amd64' },
         os: { type: 'linux', version: KERNEL },
         service: { name: 'claude-code', version: CLAUDE_CODE_VERSION },
         organization: { id: account.organizationId },
@@ -102,6 +108,7 @@ export const buildClaudeCodeOtelEvents = ({
           },
         },
         scope: { name: 'com.anthropic.claude_code.events', version: CLAUDE_CODE_VERSION },
+        tags: [POC_MOCK_TAG],
         user: { email: account.email, id: account.userId },
         ...extra,
         gen_ai: {
