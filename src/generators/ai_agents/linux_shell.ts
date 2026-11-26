@@ -2,9 +2,11 @@ import { faker } from '@faker-js/faker';
 import {
   createProcessNode,
   type EndpointWriter,
+  type FileWrite,
   type ProcessImage,
   type ProcessNode,
 } from './endpoint_events.ts';
+import { type Destination } from './network_destinations.ts';
 import {
   CLAUDE_PREAMBLE_NVM,
   CLAUDE_PREAMBLE_PLAIN,
@@ -16,6 +18,10 @@ import { CURSOR_AGENT_VERSION, type OsUser } from './types.ts';
 export interface CommandSpec {
   readonly image: ProcessImage;
   readonly exitCode?: number;
+  /** File events the command itself performs, from 1 ms after it starts. */
+  readonly files?: readonly FileWrite[];
+  /** Outbound connections the command makes, each after a DNS lookup when it has a domain. */
+  readonly connections?: readonly Destination[];
 }
 
 export const bin = (name: string, args: readonly string[], dir = '/usr/bin'): ProcessImage => ({
@@ -37,7 +43,7 @@ const shortDuration = (): number =>
 export const runShortLived = (
   writer: EndpointWriter,
   parent: ProcessNode,
-  { image, exitCode = 0 }: CommandSpec,
+  { image, exitCode = 0, files = [], connections = [] }: CommandSpec,
   at: number,
   endAt: number = at + shortDuration(),
 ): ProcessNode => {
@@ -48,7 +54,23 @@ export const runShortLived = (
     start: at,
     role: parent.role === undefined ? undefined : 'descendant',
   });
-  writer.processEvent(node, ['fork', 'exec', 'end'], at, { exitCode, endAt });
+  files.forEach((file, index) => writer.fileEvent(node, at + 1 + index, file));
+  connections.forEach((destination, index) => {
+    const time = at + 2 + index * 4;
+    if (destination.domain) {
+      writer.dnsLookup(node, time, { name: destination.domain, resolvedIps: [destination.ip] });
+    }
+    writer.connection(node, time + 2, {
+      ip: destination.ip,
+      port: destination.port,
+      bytes: { sent: 2_400, received: 380 },
+    });
+  });
+  const activity = Math.max(files.length, connections.length * 4);
+  writer.processEvent(node, ['fork', 'exec', 'end'], at, {
+    exitCode,
+    endAt: activity > 0 ? Math.max(endAt, at + 3 + activity) : endAt,
+  });
   return node;
 };
 

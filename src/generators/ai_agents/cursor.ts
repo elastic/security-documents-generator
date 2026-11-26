@@ -55,6 +55,8 @@ export interface CursorSessionOptions {
   readonly languageServerCompileCacheFiles?: number;
   readonly clientIp: string;
   readonly sessionCommand?: string;
+  /** Extra CLI flags before the prompt, such as `--force`. Not seen in the lab. */
+  readonly agentFlags?: readonly string[];
 }
 
 export interface CursorSessionResult {
@@ -113,7 +115,7 @@ const pluginGit = (subcommand: readonly string[]): ProcessImage =>
     ...subcommand,
   ]);
 
-const FD5_SHELL_SCRIPT =
+export const FD5_SHELL_SCRIPT =
   'IFS= builtin read -r -d \'\' __cursor_command <&5 2>/dev/null || { builtin printf \'%s\\n\' \'The command did not run: a shell startup file ($BASH_ENV or .zshenv) closed or replaced file descriptor 5, which carries the command. Run it again; this shell now passes commands as arguments.\' >&2; builtin exit 126; }; exec 5<&-; builtin set -- "$__cursor_command"; builtin unset __cursor_command; snap=$(command cat <&3) && builtin shopt -s extglob && builtin eval -- "$snap"; { builtin set +u 2>/dev/null || true; builtin eval "${__CURSOR_SANDBOX_ENV_RESTORE:-}" 2>/dev/null; builtin eval "${__CURSOR_SANDBOX_TEMP_RESTORE:-}" 2>/dev/null; builtin export NODE_DISABLE_COMPILE_CACHE=1; builtin unset NODE_COMPILE_CACHE; builtin export PWD="$(builtin pwd)"; builtin shopt -s expand_aliases 2>/dev/null; builtin eval "$1" 3<&- 4>&-; }; COMMAND_EXIT_CODE=$?; dump_bash_state >&4; builtin exit $COMMAND_EXIT_CODE';
 
 /** The verbatim start of the state-dump script Cursor runs in an interactive login shell. */
@@ -143,13 +145,18 @@ const hex = (length: number): string =>
 export const cursorVersionDir = (user: OsUser): string =>
   `${user.home}/.local/share/cursor-agent/versions/${CURSOR_AGENT_VERSION}`;
 
-export const cursorAgentArgs = (user: OsUser, prompt: string): string[] => [
+export const cursorAgentArgs = (
+  user: OsUser,
+  prompt: string,
+  flags: readonly string[] = [],
+): string[] => [
   `${user.home}/.local/bin/cursor-agent`,
   '--disable-sigusr1',
   '--use-system-ca',
   `${cursorVersionDir(user)}/index.js`,
   '-p',
   '--trust',
+  ...flags,
   prompt,
   '--output-format',
   'json',
@@ -176,7 +183,7 @@ class CursorSessionBuilder {
     this.nodeImage = {
       name: 'node',
       executable: `${this.versionDir}/node`,
-      args: cursorAgentArgs(user, prompt),
+      args: cursorAgentArgs(user, prompt, options.agentFlags),
     };
     this.agent = createProcessNode({
       runtime,
@@ -684,11 +691,12 @@ class CursorSessionBuilder {
 
   /** `~/.local/bin/cursor-agent` is a bash launcher, so the agent's pid runs `env bash` and `bash` (untagged) before `node`. */
   private launch(start: number): void {
-    const { user, prompt } = this.options;
+    const { user, prompt, agentFlags = [] } = this.options;
     const launcherArgs = [
       `${user.home}/.local/bin/cursor-agent`,
       '-p',
       '--trust',
+      ...agentFlags,
       prompt,
       '--output-format',
       'json',
@@ -778,7 +786,15 @@ class CursorSessionBuilder {
 /** Builds every Defend event for one `cursor-agent -p --trust` task run through `timeout`, as in runs 3 and 8. */
 export const buildCursorSession = (options: CursorSessionOptions): CursorSessionResult => {
   const { runtime, user, kind, start, prompt, workingDirectory } = options;
-  const agentArgs = ['cursor-agent', '-p', '--trust', prompt, '--output-format', 'json'];
+  const agentArgs = [
+    'cursor-agent',
+    '-p',
+    '--trust',
+    ...(options.agentFlags ?? []),
+    prompt,
+    '--output-format',
+    'json',
+  ];
   const session = startAgentSession({
     runtime,
     user,

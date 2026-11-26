@@ -7,6 +7,7 @@ import {
   ENDPOINT_PROCESS_INDEX,
   type AgentHost,
   type GeneratedDocument,
+  type HostOs,
   type PosixGroup,
 } from './types.ts';
 
@@ -74,6 +75,28 @@ export interface HostRuntime {
   readonly crond: ProcessNode;
 }
 
+/** `open`, `modification` and `overwrite` only appear on macOS and Windows hosts. Linux Defend sent none in the lab. */
+export type FileAction = 'creation' | 'rename' | 'deletion' | 'open' | 'modification' | 'overwrite';
+
+export interface FileWrite {
+  readonly action: FileAction;
+  readonly path: string;
+  readonly size?: number;
+  readonly originalPath?: string;
+  readonly entropy?: number;
+}
+
+const FILE_EVENT_TYPE: Record<FileAction, string> = {
+  creation: 'creation',
+  rename: 'change',
+  deletion: 'deletion',
+  open: 'access',
+  modification: 'change',
+  overwrite: 'change',
+};
+
+export const hostOs = (host: AgentHost): HostOs => host.os ?? 'linux';
+
 const ROOT: PosixIdentity = { name: 'root', id: 0 };
 const ROOT_GROUP: PosixGroup = { name: 'root', id: 0 };
 
@@ -103,6 +126,20 @@ const rootNode = (
   ancestry: parent ? [parent.entityId, ...parent.ancestry].slice(0, ANCESTRY_DEPTH) : [],
   session: undefined,
   previous: undefined,
+});
+
+/** A system process with no parent in the data, such as macOS `launchd` or Windows `explorer.exe`, running as `user`. */
+export const createRootProcess = (
+  pid: number,
+  image: ProcessImage,
+  start: number,
+  user: PosixIdentity = ROOT,
+): ProcessNode => ({
+  ...rootNode(pid, image, start, undefined),
+  user,
+  realUser: user,
+  group: { name: user.name, id: user.id },
+  realGroup: { name: user.name, id: user.id },
 });
 
 /** Creates the per-host state shared by every session on that host: pids, sequence numbers and system processes. */
@@ -337,6 +374,7 @@ export class EndpointWriter {
     actions: string[],
     types: string[],
     emittedAt: number = at,
+    outcome = 'unknown',
   ) {
     const { host, sequence } = this.runtime;
     this.runtime.sequence = sequence + 1;
@@ -346,7 +384,7 @@ export class EndpointWriter {
       ecs: { version: ECS_VERSION },
       data_stream: { namespace: 'default', type: 'logs', dataset },
       elastic: { agent: { id: host.elasticAgentId } },
-      host: { id: host.id, name: host.name, os: { type: 'linux' } },
+      host: { id: host.id, name: host.name, os: { type: hostOs(host) } },
       event: {
         agent_id_status: 'verified',
         sequence,
@@ -359,9 +397,45 @@ export class EndpointWriter {
         category: [category],
         type: types,
         dataset,
-        outcome: 'unknown',
+        outcome,
       },
     };
+  }
+
+  /** The `process` object of an exec event for `node`, as alerts copy it from the process they're attributed to. */
+  processSnapshot(node: ProcessNode, at: number): Record<string, unknown> {
+    const withSession = this.runtime.sessionData && node.session !== undefined;
+    const { parent } = node;
+    return {
+      Ext: { ancestry: [...node.ancestry] },
+      args: [...node.image.args],
+      args_count: node.image.args.length,
+      command_line: node.image.args.join(' '),
+      entity_id: node.entityId,
+      executable: node.image.executable,
+      name: node.image.name,
+      pid: node.pid,
+      working_directory: node.workingDirectory,
+      hash: { sha256: this.hashFor(node.image.executable) },
+      ...this.aiAgent(node, at),
+      ...(parent && {
+        parent: {
+          args: [...parent.image.args],
+          args_count: parent.image.args.length,
+          command_line: parent.image.args.join(' '),
+          entity_id: parent.entityId,
+          executable: parent.image.executable,
+          name: parent.image.name,
+          pid: parent.pid,
+        },
+      }),
+      ...(withSession && sessionDataFields(node)),
+    };
+  }
+
+  /** `user` and `group` as every Endpoint document carries them for the acting process. */
+  identityFields(node: ProcessNode) {
+    return this.userFields(node);
   }
 
   private userFields(node: ProcessNode) {
@@ -446,25 +520,18 @@ export class EndpointWriter {
     });
   }
 
+  /**
+   * Linux file events carry `event.outcome: unknown`, as every lab event did. macOS and Windows
+   * events get `success`, which is what the GenAI rules expect (inferred, not observed).
+   */
   fileEvent(
     node: ProcessNode,
     at: number,
-    {
-      action,
-      path,
-      size = 0,
-      originalPath,
-      entropy,
-    }: {
-      action: 'creation' | 'rename' | 'deletion';
-      path: string;
-      size?: number;
-      originalPath?: string;
-      entropy?: number;
-    },
+    { action, path, size = 0, originalPath, entropy }: FileWrite,
   ): void {
-    const type = action === 'rename' ? 'change' : action;
-    const base = this.base(at, 'endpoint.events.file', 'file', [action], [type]);
+    const type = FILE_EVENT_TYPE[action];
+    const outcome = hostOs(this.runtime.host) === 'linux' ? 'unknown' : 'success';
+    const base = this.base(at, 'endpoint.events.file', 'file', [action], [type], at, outcome);
     const ext: Record<string, unknown> = {};
     if (originalPath) {
       ext.original = fileNameFields(originalPath);
@@ -553,6 +620,7 @@ export class EndpointWriter {
       phase = 'attempted_and_closed',
       bytes,
       openedAt,
+      domain,
     }: {
       ip: string;
       port: number;
@@ -560,6 +628,8 @@ export class EndpointWriter {
       bytes?: { sent: number; received: number };
       /** A close event carries the agent state from when its flow opened. */
       openedAt?: number;
+      /** `destination.domain`, which the macOS GenAI rules read. Linux Defend doesn't set it. */
+      domain?: string;
     },
   ): void {
     const { host } = this.runtime;
@@ -578,7 +648,11 @@ export class EndpointWriter {
       source: {
         ...base,
         message: 'Endpoint network event',
-        network: { transport: 'tcp', type: 'ipv4', direction: 'egress' },
+        network: {
+          transport: 'tcp',
+          type: ip.includes(':') ? 'ipv6' : 'ipv4',
+          direction: 'egress',
+        },
         source: {
           address: host.ip,
           ip: host.ip,
@@ -589,6 +663,7 @@ export class EndpointWriter {
           address: ip,
           ip,
           port,
+          ...(domain && { domain }),
           ...(closes && bytes && { bytes: bytes.received }),
         },
         process: this.actingProcess(node, openedAt ?? at, false),
@@ -662,7 +737,7 @@ export const resequenceEndpointEvents = (documents: readonly GeneratedDocument[]
 };
 
 const fileNameFields = (path: string) => {
-  const name = path.split('/').pop() ?? path;
+  const name = path.split(/[/\\]/).pop() ?? path;
   const dot = name.lastIndexOf('.');
   return {
     path,

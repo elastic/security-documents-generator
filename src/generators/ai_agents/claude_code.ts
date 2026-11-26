@@ -3,12 +3,19 @@ import {
   createProcessNode,
   EndpointWriter,
   execImage,
+  type FileWrite,
   type HostRuntime,
   type PosixIdentity,
   type ProcessImage,
   type ProcessNode,
 } from './endpoint_events.ts';
-import { bin, claudePreambleTree, emitShellTree, runShortLived } from './linux_shell.ts';
+import {
+  bin,
+  claudePreambleTree,
+  emitShellTree,
+  runShortLived,
+  type CommandSpec,
+} from './linux_shell.ts';
 import { DESTINATIONS, type Destination } from './network_destinations.ts';
 import { startAgentSession } from './session_context.ts';
 import { type ClaudeStampState, type ProcessRole } from './stamping.ts';
@@ -21,13 +28,7 @@ import {
   type SessionKind,
 } from './types.ts';
 
-export interface FileWrite {
-  readonly action: 'creation' | 'rename' | 'deletion';
-  readonly path: string;
-  readonly size?: number;
-  readonly originalPath?: string;
-  readonly entropy?: number;
-}
+export type { FileWrite };
 
 export interface ClaudeToolCommand {
   readonly image: ProcessImage;
@@ -61,6 +62,8 @@ export interface McpServerSpec {
   readonly binName: string;
   /** The first `npx -y` run downloads the package, which Defend sees as file creations under `~/.npm/_npx`. */
   readonly firstInstall: boolean;
+  /** Processes the server's `node` starts directly when its tool is called. Not seen in the lab. */
+  readonly spawns?: readonly CommandSpec[];
 }
 
 export interface ClaudeCodeSessionOptions {
@@ -242,7 +245,7 @@ const snapshotScript = (snapshotPath: string, home: string): string =>
 `;
 
 /** The lab's one multi-line command (a commit message) had no `< /dev/null`, and every single-line one did. */
-const toolShellCommand = (snapshotPath: string, command: string, cwdFile: string): string =>
+export const toolShellCommand = (snapshotPath: string, command: string, cwdFile: string): string =>
   `source ${snapshotPath} 2>/dev/null || true && \\builtin shopt -u extglob 2>/dev/null || true && { \\builtin unalias -- 'which'; \\builtin unset -f -- 'which'; } >/dev/null 2>&1 || true && { \\builtin unalias -- 'unsetenv'; \\builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval '${command.replace(/'/g, `'"'"'`)}'${command.includes('\n') ? '' : ' < /dev/null'} && pwd -P >| ${cwdFile}`;
 
 const hex = (length: number): string =>
@@ -764,6 +767,13 @@ class ClaudeSessionBuilder {
         time = this.bashStep(step, time);
       } else if (step.type === 'edit') {
         time = this.editStep(step, time);
+      } else if (step.type === 'mcp_tool') {
+        const index = mcpServers.findIndex((server) => server.name === step.server);
+        for (const command of mcpServers[index]?.spawns ?? []) {
+          runShortLived(this.writer, servers[index].server, command, time + 50, time + 90);
+          time += 60;
+        }
+        time += 400;
       } else {
         time += 400;
       }
