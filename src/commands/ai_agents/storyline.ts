@@ -181,6 +181,13 @@ export const STORYLINE_BUILDS: Record<StorylineScenario, ScenarioBuild> = {
       signatureName: 'Linux.Trojan.Generic',
       filePath: helper,
     });
+    builder.alertOn(({ name }) => name === 'build-helper', {
+      kind: 'malicious_behavior',
+      ruleName: 'Execution of a Downloaded Binary from the Downloads Directory',
+      signatureName: 'Execution of a Downloaded Binary from the Downloads Directory',
+      tactic: { id: 'TA0002', name: 'Execution' },
+      technique: { id: 'T1204', name: 'User Execution' },
+    });
 
     builder.cursorAuditEvents([
       { action: 'login', at: start - 3 * DAY_MS, email: departing.email },

@@ -370,7 +370,12 @@ describe('demo scenarios', () => {
       terminated.map((source) => (source.user as { email: string }).email),
       [email],
     );
-    assert.equal(sources('storyline', ENDPOINT_ALERTS_INDEX).length, 1);
+    assert.deepEqual(
+      sources('storyline', ENDPOINT_ALERTS_INDEX)
+        .map((source) => (source.event as { code: string }).code)
+        .sort(),
+      ['behavior', 'malicious_file'],
+    );
   });
 
   it('writes Cursor audit events only with the flag, without changing anything else for a seed', () => {
