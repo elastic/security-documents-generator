@@ -12,6 +12,7 @@ export {
 export {
   buildClaudeCodeOtelEvents,
   createClaudeAccount,
+  seedClaudeCodeOtel,
   type ClaudeAccount,
   type ClaudeCodeOtelOptions,
 } from './claude_code_otel.ts';
@@ -22,7 +23,11 @@ export {
   type CursorSessionResult,
   type CursorStep,
 } from './cursor.ts';
-export { createHostRuntime, type HostRuntime } from './endpoint_events.ts';
+export {
+  createHostRuntime,
+  resequenceEndpointEvents,
+  type HostRuntime,
+} from './endpoint_events.ts';
 export { bin, type CommandSpec } from './linux_shell.ts';
 export { DESTINATIONS, orgTelemetryCollector, type Destination } from './network_destinations.ts';
 export {

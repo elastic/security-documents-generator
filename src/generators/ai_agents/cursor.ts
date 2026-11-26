@@ -3,14 +3,16 @@ import { type AgentProcessSummary } from './claude_code.ts';
 import {
   createProcessNode,
   EndpointWriter,
+  execImage,
   type HostRuntime,
   type ProcessImage,
   type ProcessNode,
 } from './endpoint_events.ts';
 import {
   bin,
-  emitLoginShellChildren,
-  forkSubshell,
+  cursorCommandShellTree,
+  cursorStateDumpTree,
+  emitShellTree,
   runShortLived,
   type CommandSpec,
 } from './linux_shell.ts';
@@ -130,26 +132,10 @@ dump_bash_state() {
 const PLUGIN_GIT_INTERNAL_FILES = 110;
 const PLUGIN_CHECKOUT_FILES = 60;
 const PLUGIN_TREE_DIRS = ['.github/workflows', 'tests', 'skills', 'commands', 'third_party'];
-const FD5_SHELL_SUBSHELLS = 8;
-const FD5_SHELLS_PER_TASK = 6;
-const STATE_DUMP_SUBSHELLS: Record<OsUser['shellProfile'], number> = { nvm: 396, plain: 8 };
-
-/** The filters `dump_bash_state` pipes the shell state through, each in its own subshell. */
-const DUMP_STATE_FILTERS: readonly ProcessImage[] = [
-  bin('grep', ['grep', '-vE', '^(declare|export)( -[a-zA-Z]+)* POSIXLY_CORRECT(=|$)']),
-  bin('grep', ['grep', '-vE', '^set [-+]o (errexit|monitor|nounset|pipefail|posix)$']),
-  bin('grep', [
-    'grep',
-    '-viE',
-    '_proxy=|CURSOR_SANDBOX|SUDO_ASKPASS|CURSOR_ASKPASS|CURSOR_CONVERSATION_ID|CURSOR_REQUEST_ID|CURSOR_AGENT_STORE',
-  ]),
-  bin('gawk', [
-    'awk',
-    '-v',
-    "sq='",
-    '\n      !q && /^alias / { $0 = "builtin " $0 }\n      {\n        print\n        for (i = 1; i <= length($0); i++) {\n          c = substr($0, i, 1)\n          if (q == 1) { if (c == sq) q = 0 }\n          else if (q == 2) { if (c == "\\\\") i++; else if (c == sq) q = 0 }\n          else if (c == "\\\\") i++\n          else if (c == "$" && substr($0, i + 1, 1) == sq) { q = 2; i++ }\n          else if (c == sq) q = 1\n        }\n      }',
-  ]),
-];
+/** How long before `node` the launcher's pid is forked by `timeout` and runs `env bash` and `bash`. */
+const LAUNCHER_FORK_LEAD_MS = 13;
+/** Per clone, the agent deleted between 65 and 128 files of the temporary checkout when it finished. */
+const PLUGIN_CLONE_DELETIONS = 96;
 
 const hex = (length: number): string =>
   faker.string.hexadecimal({ length, casing: 'lower', prefix: '' });
@@ -175,6 +161,7 @@ class CursorSessionBuilder {
   readonly agent: ProcessNode;
   readonly stamp: CursorStampState;
   private readonly versionDir: string;
+  private readonly nodeImage: ProcessImage;
 
   constructor(options: CursorSessionOptions, agentParent: ProcessNode) {
     this.options = options;
@@ -182,15 +169,16 @@ class CursorSessionBuilder {
     this.stamp = { agent: 'cursor', email: identity.email, signedInAt: start - 86_400_000 };
     this.writer = new EndpointWriter(runtime, this.stamp);
     this.versionDir = cursorVersionDir(user);
+    this.nodeImage = {
+      name: 'node',
+      executable: `${this.versionDir}/node`,
+      args: cursorAgentArgs(user, prompt),
+    };
     this.agent = createProcessNode({
       runtime,
       parent: agentParent,
-      image: {
-        name: 'node',
-        executable: `${this.versionDir}/node`,
-        args: cursorAgentArgs(user, prompt),
-      },
-      start,
+      image: agentParent.image,
+      start: start - LAUNCHER_FORK_LEAD_MS,
       role: 'agent',
       workingDirectory: options.workingDirectory,
     });
@@ -389,31 +377,17 @@ class CursorSessionBuilder {
       at,
       'agent',
     );
-    worker.previous = [this.agent.image];
     this.writer.processEvent(worker, ['fork', 'exec'], at);
     return worker;
   }
 
-  private shellStateDump(at: number): number {
-    const { user } = this.options;
-    const dump = this.child(
-      this.agent,
-      bin('bash', ['/bin/bash', '-O', 'extglob', '-ilc', DUMP_BASH_STATE_SCRIPT]),
-      at,
-    );
-    const end = emitLoginShellChildren(
-      this.writer,
-      dump,
-      user,
-      at + 5,
-      STATE_DUMP_SUBSHELLS[user.shellProfile],
-    );
-    this.writer.processEvent(dump, ['fork', 'exec', 'end'], at, { endAt: end + 5 });
-    return end + 10;
-  }
-
-  /** One fd-5 shell. Cursor starts several per task, and only the one carrying a command has a child outside its subshells. */
-  private fd5Shell(children: readonly CommandSpec[], at: number): number {
+  /** A shell Cursor forks from `node` in a new session, then execs into `image` and runs `template` under it. */
+  private forkedShell(
+    image: ProcessImage,
+    template: string,
+    at: number,
+    commands: readonly CommandSpec[] = [],
+  ) {
     const shell = createProcessNode({
       runtime: this.writer.runtime,
       parent: this.agent,
@@ -424,24 +398,29 @@ class CursorSessionBuilder {
     });
     this.writer.processEvent(shell, ['fork'], at);
     this.writer.processEvent(shell, ['session_id_change'], at + 5);
-    shell.image = bin('bash', ['/bin/bash', '-O', 'extglob', '-c', FD5_SHELL_SCRIPT, '--']);
-    const snapshotReader = forkSubshell(this.writer, shell, at + 8);
-    runShortLived(this.writer, snapshotReader, { image: bin('cat', ['cat']) }, at + 9);
-    let time = at + 60;
-    for (const command of children) {
-      runShortLived(this.writer, shell, command, time);
-      time += 40;
-    }
-    const subshellsLeft = FD5_SHELL_SUBSHELLS - 1 - children.length;
-    for (const filter of DUMP_STATE_FILTERS) {
-      runShortLived(this.writer, shell, { image: filter, inSubshell: true }, time + 1);
-      time += 4;
-    }
-    for (let subshell = 0; subshell < subshellsLeft; subshell++) {
-      forkSubshell(this.writer, shell, time + subshell * 15);
-    }
-    this.writer.processEvent(shell, ['exec', 'end'], at + 7, { endAt: time + 100 });
-    return time + 120;
+    execImage(shell, image);
+    const end = emitShellTree(this.writer, shell, this.options.user, template, at + 8, commands);
+    this.writer.processEvent(shell, ['exec', 'end'], at + 7, { endAt: end + 5 });
+    return end + 10;
+  }
+
+  /** Run 3 (no command) has one state dump and run 8 (one command) two, the second just before the command. */
+  private shellStateDump(at: number): number {
+    return this.forkedShell(
+      bin('bash', ['/bin/bash', '-O', 'extglob', '-ilc', DUMP_BASH_STATE_SCRIPT]),
+      cursorStateDumpTree(this.options.user),
+      at,
+    );
+  }
+
+  /** The fd-5 shell for one shell tool call. Without team-managed hooks, Cursor starts no others. */
+  private fd5Shell(commands: readonly CommandSpec[], at: number): number {
+    return this.forkedShell(
+      bin('bash', ['/bin/bash', '-O', 'extglob', '-c', FD5_SHELL_SCRIPT, '--']),
+      cursorCommandShellTree(),
+      at,
+      commands,
+    );
   }
 
   private pluginSync(step: Extract<CursorStep, { type: 'plugin_sync' }>, at: number): number {
@@ -454,8 +433,9 @@ class CursorSessionBuilder {
     );
     runShortLived(this.writer, this.agent, { image: pluginGit(['--version']) }, time);
     for (const plugin of step.plugins) {
+      const dir = `/tmp/backend-plugin-${faker.string.alphanumeric(6)}`;
+      const clonedFiles: string[] = [];
       for (const transport of ['ssh', 'https'] as const) {
-        const dir = `/tmp/backend-plugin-${faker.string.alphanumeric(6)}`;
         const remote =
           transport === 'ssh'
             ? `git@github.com:${plugin.repo}.git`
@@ -519,14 +499,17 @@ class CursorSessionBuilder {
             time + 40,
           );
           this.writer.processEvent(sshShell, ['fork', 'exec'], time + 40);
-          sshShell.image = bin('ssh', [
-            'ssh',
-            '-oBatchMode=yes',
-            '-o',
-            'SendEnv=GIT_PROTOCOL',
-            'git@github.com',
-            `git-upload-pack '${plugin.repo}.git'`,
-          ]);
+          execImage(
+            sshShell,
+            bin('ssh', [
+              'ssh',
+              '-oBatchMode=yes',
+              '-o',
+              'SendEnv=GIT_PROTOCOL',
+              'git@github.com',
+              `git-upload-pack '${plugin.repo}.git'`,
+            ]),
+          );
           this.lookup(sshShell, time + 50, DESTINATIONS.githubSsh);
           this.writer.connection(sshShell, time + 60, {
             ip: DESTINATIONS.githubSsh.ip,
@@ -569,9 +552,11 @@ class CursorSessionBuilder {
             endAt: time + 290,
           });
           for (let file = 0; file < PLUGIN_GIT_INTERNAL_FILES; file++) {
+            const path = `${dir}/.git/objects/${hex(2)}/tmp_obj_${faker.string.alphanumeric(6)}`;
+            clonedFiles.push(path);
             this.writer.fileEvent(fetch, time + 300 + Math.floor(file / 4), {
               action: 'creation',
-              path: `${dir}/.git/objects/${hex(2)}/tmp_obj_${faker.string.alphanumeric(6)}`,
+              path,
             });
           }
           this.writer.processEvent(fetch, ['fork', 'exec', 'end'], time + 40, {
@@ -592,6 +577,7 @@ class CursorSessionBuilder {
             ),
           ];
           checkoutPaths.forEach((path, index) => {
+            clonedFiles.push(`${dir}/${path}`);
             this.writer.fileEvent(checkout, time + 345 + Math.floor(index / 8), {
               action: 'creation',
               path: `${dir}/${path}`,
@@ -607,6 +593,13 @@ class CursorSessionBuilder {
         }
         time += transport === 'ssh' ? 340 : 420;
       }
+      clonedFiles.slice(-PLUGIN_CLONE_DELETIONS).forEach((path, index) => {
+        this.writer.fileEvent(this.agent, time + Math.floor(index / 8), {
+          action: 'deletion',
+          path,
+        });
+      });
+      time += 20;
     }
     return time;
   }
@@ -630,11 +623,11 @@ class CursorSessionBuilder {
       at,
     );
     this.writer.processEvent(npx, ['fork', 'exec'], at);
-    npx.image = {
+    execImage(npx, {
       name: 'node',
       executable: `${nodeDir}/node`,
       args: ['node', `${nodeDir}/npx`, '-y', 'typescript-language-server', '--stdio'],
-    };
+    });
     this.writer.processEvent(npx, ['exec'], at + 20);
     this.lookup(npx, at + 100, DESTINATIONS.npmRegistry);
     this.writer.connection(npx, at + 120, {
@@ -649,26 +642,36 @@ class CursorSessionBuilder {
       at + 1_010,
     );
     this.writer.processEvent(server, ['fork', 'exec'], at + 1_010);
-    server.image = bin('env', [
-      '/usr/bin/env',
-      'node',
-      `${cacheDir}/node_modules/.bin/typescript-language-server`,
-      '--stdio',
-    ]);
+    execImage(
+      server,
+      bin('env', [
+        '/usr/bin/env',
+        'node',
+        `${cacheDir}/node_modules/.bin/typescript-language-server`,
+        '--stdio',
+      ]),
+    );
     this.writer.processEvent(server, ['exec'], at + 1_017);
-    server.image = {
+    execImage(server, {
       name: 'node',
       executable: `${nodeDir}/node`,
       args: ['node', `${cacheDir}/node_modules/.bin/typescript-language-server`, '--stdio'],
-    };
+    });
     this.writer.processEvent(server, ['exec'], at + 1_018);
     if (languageServerCompileCacheFiles) {
       const later = at + 305_000;
       const compileCache = `${user.home}/.cache/cursor-compile-cache/v${user.nodeVersion}-x64-${hex(8)}-${user.id}`;
-      for (let file = 0; file < languageServerCompileCacheFiles; file++) {
-        this.writer.fileEvent(server, later + Math.floor(file / 4), {
-          action: 'creation',
-          path: `${compileCache}/${hex(8)}`,
+      for (let file = 0; file + 1 < languageServerCompileCacheFiles; file += 2) {
+        const path = `${compileCache}/${hex(8)}`;
+        const tmp = `${path}.${faker.string.alphanumeric(6)}`;
+        const at = later + Math.floor(file / 4);
+        this.writer.fileEvent(server, at, { action: 'creation', path: tmp });
+        this.writer.fileEvent(server, at, {
+          action: 'rename',
+          path,
+          originalPath: tmp,
+          size: 4_096,
+          entropy: 5.1,
         });
       }
     }
@@ -678,7 +681,6 @@ class CursorSessionBuilder {
   /** `~/.local/bin/cursor-agent` is a bash launcher, so the agent's pid runs `env bash` and `bash` (untagged) before `node`. */
   private launch(start: number): void {
     const { user, prompt } = this.options;
-    const nodeImage = this.agent.image;
     const launcherArgs = [
       `${user.home}/.local/bin/cursor-agent`,
       '-p',
@@ -690,17 +692,12 @@ class CursorSessionBuilder {
     const envImage = bin('env', ['/usr/bin/env', 'bash', ...launcherArgs]);
     const bashImage = bin('bash', ['bash', ...launcherArgs]);
     const untagged = new EndpointWriter(this.writer.runtime, undefined);
-    this.agent.image = envImage;
-    untagged.processEvent(this.agent, ['fork', 'exec'], start - 13);
-    this.agent.image = bashImage;
-    untagged.processEvent(this.agent, ['exec'], start - 12);
+    execImage(this.agent, envImage);
+    untagged.processEvent(this.agent, ['fork', 'exec'], start - LAUNCHER_FORK_LEAD_MS);
+    execImage(this.agent, bashImage);
+    untagged.processEvent(this.agent, ['exec'], start - LAUNCHER_FORK_LEAD_MS + 1);
     this.writer.documents.push(...untagged.documents);
-    this.agent.image = nodeImage;
-    this.agent.previous = [
-      ...(this.agent.parent ? [this.agent.parent.image] : []),
-      envImage,
-      bashImage,
-    ];
+    execImage(this.agent, this.nodeImage);
     this.writer.processEvent(this.agent, ['exec'], start);
   }
 
@@ -740,14 +737,10 @@ class CursorSessionBuilder {
     if (languageServer) {
       this.startLanguageServer(worker, start + 4_947);
     }
-    const commandShells = steps.filter((step) => step.type === 'shell').length;
-    for (let shell = commandShells; shell < FD5_SHELLS_PER_TASK; shell++) {
-      time = this.fd5Shell([], time + 300);
-    }
     for (const step of steps) {
       time += 300;
       if (step.type === 'shell') {
-        time = this.fd5Shell(step.children, time);
+        time = this.fd5Shell(step.children, this.shellStateDump(time));
       } else if (step.type === 'plugin_sync') {
         time = this.pluginSync(step, time);
       } else {

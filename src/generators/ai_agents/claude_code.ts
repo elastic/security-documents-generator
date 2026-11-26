@@ -2,11 +2,12 @@ import { faker } from '@faker-js/faker';
 import {
   createProcessNode,
   EndpointWriter,
+  execImage,
   type HostRuntime,
   type ProcessImage,
   type ProcessNode,
 } from './endpoint_events.ts';
-import { bin, emitLoginShellChildren, runShortLived } from './linux_shell.ts';
+import { bin, claudePreambleTree, emitShellTree, runShortLived } from './linux_shell.ts';
 import { DESTINATIONS, type Destination } from './network_destinations.ts';
 import { startAgentSession } from './session_context.ts';
 import { type ClaudeStampState, type ProcessRole } from './stamping.ts';
@@ -101,6 +102,8 @@ export interface ClaudeCodeSessionResult {
   readonly signedInAt: number | undefined;
   readonly sessionStartedAt: number;
   readonly firstPromptAt: number;
+  /** Started without `-p`, so the session has a terminal. */
+  readonly interactive: boolean;
   readonly steps: readonly ClaudeStep[];
   readonly mcpServers: readonly McpServerSpec[];
 }
@@ -112,8 +115,6 @@ const INTERACTIVE_PROMPT_AFTER_SESSION_MS = 25_000;
 const PRINT_SESSION_START_MS = 450;
 const PLUGIN_MARKETPLACE_FILES = 925;
 const NPX_INSTALL_FILES = 1_600;
-const PREAMBLE_SUBSHELLS: Record<OsUser['shellProfile'], number> = { nvm: 240, plain: 8 };
-
 const IDE_SCAN =
   'ps aux | grep -E "code|cursor|windsurf|devin-desktop|idea|pycharm|webstorm|phpstorm|rubymine|clion|goland|rider|datagrip|dataspell|aqua|gateway|fleet|android-studio" | grep -v grep';
 
@@ -236,8 +237,9 @@ const snapshotScript = (snapshotPath: string, home: string): string =>
       declare -f > /dev/null 2>&1
 `;
 
+/** The lab's one multi-line command (a commit message) had no `< /dev/null`, and every single-line one did. */
 const toolShellCommand = (snapshotPath: string, command: string, cwdFile: string): string =>
-  `source ${snapshotPath} 2>/dev/null || true && \\builtin shopt -u extglob 2>/dev/null || true && { \\builtin unalias -- 'which'; \\builtin unset -f -- 'which'; } >/dev/null 2>&1 || true && { \\builtin unalias -- 'unsetenv'; \\builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval '${command.replace(/'/g, `'"'"'`)}' < /dev/null && pwd -P >| ${cwdFile}`;
+  `source ${snapshotPath} 2>/dev/null || true && \\builtin shopt -u extglob 2>/dev/null || true && { \\builtin unalias -- 'which'; \\builtin unset -f -- 'which'; } >/dev/null 2>&1 || true && { \\builtin unalias -- 'unsetenv'; \\builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval '${command.replace(/'/g, `'"'"'`)}'${command.includes('\n') ? '' : ' < /dev/null'} && pwd -P >| ${cwdFile}`;
 
 const hex = (length: number): string =>
   faker.string.hexadecimal({ length, casing: 'lower', prefix: '' });
@@ -526,11 +528,11 @@ class ClaudeSessionBuilder {
       at,
     );
     this.writer.processEvent(npx, ['fork', 'exec'], at);
-    npx.image = {
+    execImage(npx, {
       name: 'node',
       executable: `${nodeDir}/node`,
       args: ['node', npxPath, '-y', server.packageName],
-    };
+    });
     this.writer.processEvent(npx, ['exec'], at + 11);
     const cacheDir = `${user.home}/.npm/_npx/${hex(16)}`;
     if (server.firstInstall) {
@@ -563,9 +565,9 @@ class ClaudeSessionBuilder {
       at + 2_880,
     );
     this.writer.processEvent(serverNode, ['fork', 'exec'], at + 2_880);
-    serverNode.image = bin('env', ['/usr/bin/env', 'node', binPath]);
+    execImage(serverNode, bin('env', ['/usr/bin/env', 'node', binPath]));
     this.writer.processEvent(serverNode, ['exec'], at + 2_896);
-    serverNode.image = { name: 'node', executable: `${nodeDir}/node`, args: ['node', binPath] };
+    execImage(serverNode, { name: 'node', executable: `${nodeDir}/node`, args: ['node', binPath] });
     this.writer.processEvent(serverNode, ['exec'], at + 2_897);
     return { npx, server: serverNode };
   }
@@ -574,7 +576,7 @@ class ClaudeSessionBuilder {
     const { user } = this.options;
     const envShell = this.child(this.agent, bin('bash', ['/bin/bash', '-c', 'env']), at);
     this.writer.processEvent(envShell, ['fork', 'exec'], at);
-    envShell.image = bin('env', ['env']);
+    execImage(envShell, bin('env', ['env']));
     this.writer.processEvent(envShell, ['exec', 'end'], at + 8);
 
     const snapshotPath = `${user.home}/.claude/shell-snapshots/snapshot-bash-${at}-${faker.string.alphanumeric({ length: 6, casing: 'lower' })}.sh`;
@@ -584,29 +586,7 @@ class ClaudeSessionBuilder {
       at + 10,
     );
     this.writer.fileEvent(preamble, at + 12, { action: 'creation', path: snapshotPath });
-    let time = emitLoginShellChildren(
-      this.writer,
-      preamble,
-      user,
-      at + 12,
-      PREAMBLE_SUBSHELLS[user.shellProfile],
-    );
-    for (const image of [
-      bin('gawk', ['awk', '$2 == "on" || $1 == "monitor" {print "set -o " $1}']),
-      bin('sed', [
-        'sed',
-        '-e',
-        '1001,$d',
-        '-e',
-        's/^alias -- /alias /',
-        '-e',
-        's/^alias /alias -- /',
-      ]),
-      bin('cat', ['cat']),
-    ]) {
-      time += 5;
-      runShortLived(this.writer, preamble, { image }, time);
-    }
+    const time = emitShellTree(this.writer, preamble, user, claudePreambleTree(user), at + 12);
     this.writer.processEvent(preamble, ['fork', 'exec', 'end'], at + 10, { endAt: time + 5 });
     this.snapshotPath = snapshotPath;
     return time + 10;
@@ -631,12 +611,10 @@ class ClaudeSessionBuilder {
     });
     this.writer.processEvent(shell, ['fork'], time);
     this.writer.processEvent(shell, ['session_id_change'], time + 3);
-    const shellImage = bin('bash', [
-      '/bin/bash',
-      '-c',
-      toolShellCommand(snapshotPath, step.command, cwdFile),
-    ]);
-    shell.image = shellImage;
+    execImage(
+      shell,
+      bin('bash', ['/bin/bash', '-c', toolShellCommand(snapshotPath, step.command, cwdFile)]),
+    );
     let childTime = time + 50;
     for (const command of step.children) {
       childTime = this.toolCommand(shell, command, childTime, true);
@@ -669,9 +647,6 @@ class ClaudeSessionBuilder {
       role: command.selfReexec ? 'agent' : 'descendant',
       newGroup: direct,
     });
-    if (direct) {
-      node.previous = [parent.image];
-    }
     let time = at + 2;
     for (const destination of command.connections ?? []) {
       this.lookup(node, time, destination);
@@ -757,11 +732,13 @@ class ClaudeSessionBuilder {
     this.lookup(this.agent, time + 1_350, DESTINATIONS.anthropicMcpProxy);
 
     const servers = mcpServers.map((server) => this.startMcpServer(server, time + 380));
-    this.selfReexec(
-      this.agent,
-      ['rg', '--no-config', '--files', '--hidden', this.options.workingDirectory],
-      time + 1_990,
-    );
+    if (!interactive) {
+      this.selfReexec(
+        this.agent,
+        ['rg', '--no-config', '--files', '--hidden', this.options.workingDirectory],
+        time + 1_990,
+      );
+    }
 
     time += 4_000;
     if (telemetryCollector) {
@@ -837,8 +814,8 @@ class ClaudeSessionBuilder {
   private buildFailedApiKeyRun(): ClaudeCodeSessionResult {
     const { start, user } = this.options;
     const end = start + 1_933;
-    this.lookup(this.agent, start + 300, DESTINATIONS.anthropicApi);
-    this.writer.connection(this.agent, start + 320, {
+    this.lookup(this.agent, start + PRINT_SESSION_START_MS + 50, DESTINATIONS.anthropicApi);
+    this.writer.connection(this.agent, start + PRINT_SESSION_START_MS + 70, {
       ip: DESTINATIONS.anthropicApi.ip,
       port: 443,
       bytes: { sent: 2_100, received: 5_400 },
@@ -883,6 +860,7 @@ class ClaudeSessionBuilder {
       signedInAt: this.stamp.signedInAt,
       sessionStartedAt: this.stamp.sessionStartedAt,
       firstPromptAt: this.firstPromptAt,
+      interactive: this.options.prompt === undefined,
       steps,
       mcpServers,
     };

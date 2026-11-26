@@ -6,7 +6,7 @@ import {
   parseIntBase10,
   wrapAction,
 } from '../utils/cli_utils.ts';
-import { generateAiAgentData, parseScenarios } from './ai_agents.ts';
+import { DEFAULT_ENDPOINT_VERSION, generateAiAgentData, parseScenarios } from './ai_agents.ts';
 import { AI_AGENT_SCENARIOS } from './scenarios.ts';
 
 export const aiAgentsCommands: CommandModule = {
@@ -52,12 +52,21 @@ export const aiAgentsCommands: CommandModule = {
         'Skip installing the Endpoint, Osquery Manager and Claude Code packages',
       )
       .option(
+        '--endpoint-version <version>',
+        'Endpoint package version to install, or latest. 9.6.1 leaves process.ai_agent.session_id unmapped, as in the lab',
+        DEFAULT_ENDPOINT_VERSION,
+      )
+      .option(
         '--output-file <path>',
         'Write NDJSON ({_index, _source} per line) and do not contact any cluster',
       )
       .option('--domain <domain>', 'Email domain for the synthetic people', 'example.com')
       .option('--space <space>', 'Kibana space for package installs', 'default')
-      .option('--seed <seed>', 'Random seed for reproducibility', parseIntBase10)
+      .option(
+        '--seed <seed>',
+        'Random seed for offline repeatability. Fixes IDs and names, not timestamps',
+        parseIntBase10,
+      )
       .action(
         wrapAction(
           async (options: {
@@ -68,6 +77,7 @@ export const aiAgentsCommands: CommandModule = {
             mapSessionId: boolean;
             sessionData: boolean;
             installPackages: boolean;
+            endpointVersion: string;
             outputFile?: string;
             domain: string;
             space: string;
@@ -82,6 +92,7 @@ export const aiAgentsCommands: CommandModule = {
               mapSessionId: options.mapSessionId,
               sessionData: options.sessionData,
               installPackages: options.installPackages,
+              endpointVersion: options.endpointVersion,
               outputFile: options.outputFile,
               domain: options.domain,
               space: options.space,

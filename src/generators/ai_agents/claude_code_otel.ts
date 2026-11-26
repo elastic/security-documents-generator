@@ -1,6 +1,15 @@
-import { faker } from '@faker-js/faker';
+import { en, faker, Faker } from '@faker-js/faker';
 import { type ClaudeCodeSessionResult } from './claude_code.ts';
 import { CLAUDE_CODE_OTEL_INDEX, CLAUDE_CODE_VERSION, type GeneratedDocument } from './types.ts';
+
+const KERNEL = '6.1.190-237.442.amzn2023.x86_64';
+
+/** OTel draws from its own source, so turning it on doesn't change the Endpoint data for a seed. */
+const otelFaker = new Faker({ locale: [en] });
+
+export const seedClaudeCodeOtel = (seed: number): void => {
+  otelFaker.seed(seed);
+};
 
 /** The Claude account behind a signed-in email. Claude Code OTel reports these, Defend only the email. */
 export interface ClaudeAccount {
@@ -30,9 +39,11 @@ export const createClaudeAccount = (email: string, organizationId: string): Clau
 const iso = (ms: number): string => new Date(ms).toISOString();
 
 /**
- * Builds Claude Code OTel events for a Defend session, in the package 0.3.0 pipeline output shape
- * from its test fixtures: same session ID, `user.email` from the account and no host fields.
- * Extrapolated: the lab produced no real Claude Code OTel.
+ * Builds Claude Code OTel events for a Defend session, shaped like the Claude Code 0.3.0 package's
+ * stored documents (its system-test sample and pipeline-test outputs): same session ID, `user.email`
+ * from the account, `host.arch` and `host.os` but no `host.name` or `host.id`. Fields only the Fleet
+ * final pipeline or `preserve_original_event` add are left out. Extrapolated: the lab produced no
+ * real Claude Code OTel.
  */
 export const buildClaudeCodeOtelEvents = ({
   session,
@@ -40,8 +51,9 @@ export const buildClaudeCodeOtelEvents = ({
   prompt,
   model,
 }: ClaudeCodeOtelOptions): GeneratedDocument[] => {
+  const faker = otelFaker;
   const documents: GeneratedDocument[] = [];
-  let sequence = 1;
+  let sequence = 0;
   const promptId = faker.string.uuid();
 
   const event = (
@@ -63,22 +75,30 @@ export const buildClaudeCodeOtelEvents = ({
             event: { name, sequence: sequence++, timestamp },
             session: { id: session.sessionId },
             ...(withPrompt && { prompt: { id: promptId } }),
+            ...(session.interactive && { terminal: { type: 'xterm-256color' } }),
             user: { account_id: account.accountId, account_uuid: account.accountUuid },
             ...claudeFields,
           },
         },
         data_stream: { dataset: 'claude_code.events.otel', namespace: 'default', type: 'logs' },
         ecs: { version: '9.3.0' },
-        event: { action: name, kind: 'event', provider: 'claude-code', ...ecsEvent },
+        event: {
+          action: name,
+          dataset: 'claude_code.events.otel',
+          kind: 'event',
+          provider: 'claude-code',
+          ...ecsEvent,
+        },
+        host: { arch: 'amd64', architecture: 'amd64', os: { platform: 'linux', version: KERNEL } },
+        os: { type: 'linux', version: KERNEL },
+        service: { name: 'claude-code', version: CLAUDE_CODE_VERSION },
         organization: { id: account.organizationId },
         related: { user: [account.email, account.userId] },
         resource: {
           attributes: {
-            'host.arch': 'amd64',
-            'os.type': 'linux',
-            'os.version': '6.1.190-237.442.amzn2023.x86_64',
-            'service.name': 'claude-code',
-            'service.version': CLAUDE_CODE_VERSION,
+            host: { arch: 'amd64' },
+            os: { type: 'linux', version: KERNEL },
+            service: { name: 'claude-code', version: CLAUDE_CODE_VERSION },
           },
         },
         scope: { name: 'com.anthropic.claude_code.events', version: CLAUDE_CODE_VERSION },
@@ -113,7 +133,12 @@ export const buildClaudeCodeOtelEvents = ({
     promptAt,
     'user_prompt',
     { outcome: 'unknown' },
-    { prompt_length: prompt.length, prompt_text: prompt },
+    {
+      has_hooks: false,
+      has_mcp: session.mcpServers.length > 0,
+      prompt_length: prompt.length,
+      prompt_text: prompt,
+    },
   );
 
   let time = promptAt + 2_200;

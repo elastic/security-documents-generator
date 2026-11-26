@@ -6,8 +6,10 @@ import { AI_AGENT_SCENARIOS, type AiAgentScenario } from './scenarios.ts';
 import {
   CLAUDE_CODE_OTEL_INDEX,
   ENDPOINT_FILE_INDEX,
+  ENDPOINT_NETWORK_INDEX,
   ENDPOINT_PROCESS_INDEX,
   OSQUERY_RESULT_INDEX,
+  seedClaudeCodeOtel,
 } from '../../generators/ai_agents/index.ts';
 
 type Source = Record<string, unknown>;
@@ -21,15 +23,18 @@ interface AiAgent {
 
 interface ProcessFields {
   pid: number;
+  entity_id: string;
   name: string;
   args: string[];
   executable: string;
+  start?: string;
+  Ext: { ancestry: string[] };
   ai_agent?: AiAgent;
-  parent?: { pid: number; name: string; args: string[] };
+  parent?: { pid: number; name: string; args: string[]; executable: string; entity_id: string };
   entry_leader?: { name: string; entry_meta: { type: string } };
   interactive?: boolean;
   tty?: unknown;
-  previous?: unknown[];
+  previous?: Array<{ executable: string; args: string[] }>;
 }
 
 const NOW = Date.parse('2026-11-26T12:00:00.000Z');
@@ -41,13 +46,14 @@ const timestampOf = (source: Source): number => Date.parse(String(source['@times
 
 const generate = (
   scenarios: readonly AiAgentScenario[],
-  options: { claudeOtel?: boolean; sessionData?: boolean } = {},
+  options: { claudeOtel?: boolean; sessionData?: boolean; repeat?: number } = {},
 ) => {
   faker.seed(1234);
+  seedClaudeCodeOtel(1234);
   return buildAiAgentDocuments(
     {
       scenarios,
-      repeat: 1,
+      repeat: options.repeat ?? 1,
       timeWindowMs: 3 * 60 * 60 * 1000,
       claudeOtel: options.claudeOtel ?? false,
       sessionData: options.sessionData ?? true,
@@ -233,7 +239,7 @@ describe('generated AI agent scenarios', () => {
       (source) =>
         argsOf(source).includes('__cursor_command <&5') && actionsOf(source).includes('exec'),
     );
-    assert.equal(fd5Shells.length, 6);
+    assert.equal(fd5Shells.length, 1);
     for (const shell of fd5Shells) {
       assert.equal(processOf(shell).parent?.pid, processOf(agentExec).pid);
       assert.equal(argsOf(shell).includes('unittest'), false);
@@ -241,6 +247,154 @@ describe('generated AI agent scenarios', () => {
     const command = processes.find((source) => argsOf(source).startsWith('python3 -m unittest'));
     assert.ok(command);
     assert.ok(fd5Shells.some((shell) => processOf(shell).pid === processOf(command).parent?.pid));
+  });
+
+  it('starts no fd-5 shell for a read-only Cursor task, because only team hooks need one', () => {
+    const fd5Shells = tagged(sourcesFor(all, 'cursor_plugin_sync', ENDPOINT_PROCESS_INDEX)).filter(
+      (source) =>
+        argsOf(source).includes('__cursor_command <&5') && actionsOf(source).includes('exec'),
+    );
+    assert.equal(fd5Shells.length, 0);
+  });
+
+  it('nests login-shell work so the agent drops out of ancestry for about a third of descendants', () => {
+    const processes = tagged(sourcesFor(all, undefined, ENDPOINT_PROCESS_INDEX));
+    const agents = new Set(
+      processes
+        .filter((source) => !processOf(source).ai_agent?.is_descendant)
+        .map((source) => processOf(source).entity_id),
+    );
+    for (const agent of ['claude_code', 'cursor']) {
+      const descendants = processes.filter(
+        (source) =>
+          processOf(source).ai_agent?.name === agent && processOf(source).ai_agent?.is_descendant,
+      );
+      const outside = descendants.filter(
+        (source) => !processOf(source).Ext.ancestry.some((id) => agents.has(id)),
+      );
+      const share = outside.length / descendants.length;
+      assert.ok(share > 0.3 && share < 0.45, `${agent} share ${share.toFixed(2)}`);
+    }
+  });
+
+  it('copies the lab preamble trees: 364 processes up to 10 levels with nvm, 24 over 2 without', () => {
+    const sources = sourcesFor(all, 'shared_email_two_users', ENDPOINT_PROCESS_INDEX);
+    const children = new Map<string, Set<string>>();
+    for (const source of sources) {
+      const { entity_id: entityId, parent } = processOf(source);
+      if (parent) {
+        const siblings = children.get(parent.entity_id) ?? new Set<string>();
+        siblings.add(entityId);
+        children.set(parent.entity_id, siblings);
+      }
+    }
+    const shape = (root: string) => {
+      let count = 0;
+      let depth = 0;
+      const walk = (entityId: string, level: number) => {
+        for (const child of children.get(entityId) ?? []) {
+          count += 1;
+          depth = Math.max(depth, level);
+          walk(child, level + 1);
+        }
+      };
+      walk(root, 1);
+      return `${count}/${depth}`;
+    };
+    const preambles = sources.filter(
+      (source) =>
+        argsOf(source).startsWith('/bin/bash -c -l SNAPSHOT_FILE=') &&
+        actionsOf(source).includes('exec'),
+    );
+    assert.deepEqual(preambles.map((source) => shape(processOf(source).entity_id)).sort(), [
+      '24/2',
+      '364/10',
+    ]);
+  });
+
+  it('writes process.previous on every exec event, starting with the parent image, only with session data', () => {
+    const execs = tagged(sourcesFor(all, undefined, ENDPOINT_PROCESS_INDEX)).filter((source) =>
+      actionsOf(source).includes('exec'),
+    );
+    for (const source of execs) {
+      const { previous, parent } = processOf(source);
+      assert.ok(previous && previous.length > 0, argsOf(source));
+      assert.equal(previous[0].executable, parent?.executable);
+    }
+    for (const source of tagged(sourcesFor(all, undefined, ENDPOINT_PROCESS_INDEX))) {
+      if (actionsOf(source).join(',') === 'fork,end') {
+        assert.equal(processOf(source).previous, undefined);
+      }
+    }
+  });
+
+  it('starts the Cursor agent entity at the launcher fork', () => {
+    for (const source of tagged(sourcesFor(all, 'developer_cursor', ENDPOINT_PROCESS_INDEX))) {
+      const { start } = processOf(source);
+      assert.ok(start === undefined || Date.parse(start) <= timestampOf(source));
+    }
+  });
+
+  it('numbers event.sequence per host in send order', () => {
+    const byHost = new Map<string, Array<{ created: string; sequence: number }>>();
+    for (const source of sourcesFor(all)) {
+      const event = source.event as { dataset: string; created: string; sequence: number };
+      if (!event.dataset.startsWith('endpoint.events.')) {
+        continue;
+      }
+      const hostId = (source.host as { id: string }).id;
+      byHost.set(hostId, [...(byHost.get(hostId) ?? []), event]);
+    }
+    for (const events of byHost.values()) {
+      const sorted = [...events].sort((a, b) => a.sequence - b.sequence);
+      for (let index = 1; index < sorted.length; index++) {
+        assert.ok(sorted[index - 1].created <= sorted[index].created);
+      }
+    }
+  });
+
+  it('gives the API key run session IDs on its network events', () => {
+    const network = tagged(sourcesFor(all, 'api_key_session', ENDPOINT_NETWORK_INDEX));
+    assert.ok(network.length > 0);
+    for (const source of network) {
+      assert.ok(processOf(source).ai_agent?.session_id);
+    }
+  });
+
+  it('keeps Endpoint data the same for a seed whether or not OTel is on', () => {
+    const endpoint = (built: ReturnType<typeof generate>) =>
+      built
+        .flatMap((entry) => entry.documents)
+        .filter((doc) => doc.index.startsWith('logs-endpoint.'))
+        .map((doc) => JSON.stringify(doc.source));
+    assert.deepEqual(
+      endpoint(generate(['mcp_server', 'agent_commit'], { claudeOtel: true })),
+      endpoint(generate(['mcp_server', 'agent_commit'], { claudeOtel: false })),
+    );
+  });
+
+  it('keeps emails and host addresses unique across repeats', () => {
+    const repeated = generate(['developer_claude', 'agent_commit'], { repeat: 20 });
+    const agentEvents = tagged(sourcesFor(repeated)).filter(
+      (source) => !processOf(source).ai_agent?.is_descendant,
+    );
+    const emailHosts = new Map<string, Set<string>>();
+    for (const source of agentEvents) {
+      const email = processOf(source).ai_agent?.email;
+      if (email) {
+        const hosts = emailHosts.get(email) ?? new Set<string>();
+        hosts.add((source.host as { id: string }).id);
+        emailHosts.set(email, hosts);
+      }
+    }
+    assert.equal(emailHosts.size, 40);
+    const hostNames = new Set(
+      sourcesFor(repeated).map((source) => (source.host as { name?: string })?.name),
+    );
+    const hostIds = new Set(
+      sourcesFor(repeated).map((source) => (source.host as { id?: string })?.id),
+    );
+    assert.equal(hostNames.size, hostIds.size);
   });
 
   it('reports cron, scripted SSH and interactive sessions with the observed context', () => {
@@ -271,6 +425,7 @@ describe('generated AI agent scenarios', () => {
     for (const source of sourcesFor(withoutSessionData, undefined, ENDPOINT_PROCESS_INDEX)) {
       assert.equal(processOf(source).entry_leader, undefined);
       assert.equal(processOf(source).interactive, undefined);
+      assert.equal(processOf(source).previous, undefined);
     }
   });
 
@@ -313,7 +468,7 @@ describe('generated AI agent scenarios', () => {
     );
   });
 
-  it('joins Claude Code OTel to Defend by session ID, with no host fields', () => {
+  it('joins Claude Code OTel to Defend by session ID, with host architecture but no host identity', () => {
     const otel = sourcesFor(all, 'mcp_server', CLAUDE_CODE_OTEL_INDEX);
     const defendSessions = new Set(
       tagged(sourcesFor(all, 'mcp_server'))
@@ -325,7 +480,20 @@ describe('generated AI agent scenarios', () => {
       const sessionId = (source.claude_code as { events: { session: { id: string } } }).events
         .session.id;
       assert.ok(defendSessions.has(sessionId));
-      assert.equal(source.host, undefined);
+      const host = source.host as {
+        arch: string;
+        os: { platform: string };
+        name?: string;
+        id?: string;
+      };
+      assert.equal(host.arch, 'amd64');
+      assert.equal(host.os.platform, 'linux');
+      assert.equal(host.name, undefined);
+      assert.equal(host.id, undefined);
+      assert.deepEqual((source.resource as { attributes: { host: unknown } }).attributes.host, {
+        arch: 'amd64',
+      });
+      assert.equal((source.service as { name: string }).name, 'claude-code');
     }
   });
 });

@@ -26,6 +26,15 @@ export interface Person {
   readonly account: ClaudeAccount;
 }
 
+const usedEmails = new Set<string>();
+const usedHostIps = new Set<string>();
+
+/** Starts a new run, so names and hosts are unique within one run but a seed still repeats them. */
+export const resetSyntheticIdentities = (): void => {
+  usedEmails.clear();
+  usedHostIps.clear();
+};
+
 export const createPerson = (domain: string, organizationId: string): Person => {
   const first = faker.person
     .firstName()
@@ -35,10 +44,15 @@ export const createPerson = (domain: string, organizationId: string): Person => 
     .lastName()
     .toLowerCase()
     .replace(/[^a-z]/g, '');
-  const email = `${first}.${last}@${domain}`;
+  let suffix = '';
+  for (let attempt = 2; usedEmails.has(`${first}.${last}${suffix}@${domain}`); attempt++) {
+    suffix = String(attempt);
+  }
+  const email = `${first}.${last}${suffix}@${domain}`;
+  usedEmails.add(email);
   return {
     email,
-    login: `${first[0]}${last}`.slice(0, 12),
+    login: `${first[0]}${last}`.slice(0, 10) + suffix,
     account: createClaudeAccount(email, organizationId),
   };
 };
@@ -62,12 +76,16 @@ export const personalUser = (login: string, id: number, profile: ShellProfile): 
 });
 
 export const createHost = (): AgentHost => {
-  const octets = [faker.number.int({ min: 1, max: 254 }), faker.number.int({ min: 1, max: 254 })];
+  let octets: number[];
+  do {
+    octets = [1, 2, 3].map(() => faker.number.int({ min: 1, max: 254 }));
+  } while (usedHostIps.has(octets.join('.')));
+  usedHostIps.add(octets.join('.'));
   return {
     id: faker.string.hexadecimal({ length: 32, casing: 'lower', prefix: '' }),
-    name: `ip-10-20-${octets[0]}-${octets[1]}.ec2.internal`,
-    ip: `10.20.${octets[0]}.${octets[1]}`,
-    resolverIp: '10.20.0.2',
+    name: `ip-10-${octets.join('-')}.ec2.internal`,
+    ip: `10.${octets.join('.')}`,
+    resolverIp: `10.${octets[0]}.0.2`,
     elasticAgentId: faker.string.uuid(),
   };
 };

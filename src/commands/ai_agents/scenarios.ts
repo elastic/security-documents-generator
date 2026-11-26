@@ -192,6 +192,11 @@ const scenarioBuilds: Record<AiAgentScenario, ScenarioBuild> = {
           { type: 'read', path: `${repo}/main.py` },
           {
             type: 'bash',
+            command: 'grep -n "def main" main.py',
+            children: [claudeCommands.grep('def main', 'main.py')],
+          },
+          {
+            type: 'bash',
             command: 'python3 main.py --help',
             children: [claudeCommands.python('main.py')],
           },

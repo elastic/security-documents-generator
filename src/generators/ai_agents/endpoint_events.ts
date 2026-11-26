@@ -151,7 +151,10 @@ export const allocatePid = (runtime: HostRuntime, gap = 1): number => {
   return runtime.nextPid;
 };
 
-/** Creates a process node without emitting anything. Session links are inherited unless overridden. */
+/**
+ * Creates a process node without emitting anything. Session links are inherited unless overridden.
+ * Pass the parent's own `image` object for a fork that hasn't exec'd yet.
+ */
 export const createProcessNode = ({
   runtime,
   parent,
@@ -203,7 +206,7 @@ export const createProcessNode = ({
     parent,
     ancestry: [parent.entityId, ...parent.ancestry].slice(0, ANCESTRY_DEPTH),
     session: undefined,
-    previous: undefined,
+    previous: image === parent.image ? undefined : [parent.image],
   };
   const inherited = parent.session;
   if (inherited) {
@@ -214,6 +217,12 @@ export const createProcessNode = ({
     };
   }
   return node;
+};
+
+/** Replaces a process's image, as an exec does. Defend lists the earlier images in `process.previous`. */
+export const execImage = (node: ProcessNode, image: ProcessImage): void => {
+  node.previous = [...(node.previous ?? []), node.image];
+  node.image = image;
 };
 
 export type ProcessAction = 'fork' | 'exec' | 'end' | 'session_id_change';
@@ -410,13 +419,14 @@ export class EndpointWriter {
           ...this.aiAgent(node, stampAt),
           ...(ends && { exit_code: exitCode }),
           ...(ends && withSession && { end: iso(stampAt) }),
-          ...(node.previous && {
-            previous: node.previous.map((image) => ({
-              args: [...image.args],
-              args_count: image.args.length,
-              executable: image.executable,
-            })),
-          }),
+          ...(node.previous &&
+            withSession && {
+              previous: node.previous.map((image) => ({
+                args: [...image.args],
+                args_count: image.args.length,
+                executable: image.executable,
+              })),
+            }),
           ...(parent && {
             parent: {
               args: [...parent.image.args],
@@ -615,6 +625,40 @@ const sessionParentFields = (parent: ProcessNode) => {
     ...(session && { interactive: session.interactive }),
     ...(session?.tty && { tty: { char_device: session.tty } }),
   };
+};
+
+interface EndpointEventFields {
+  sequence: number;
+  id: string;
+  created: string;
+  dataset: string;
+}
+
+/**
+ * Renumbers `event.sequence` (and the `event.id` built from it) per host in the order Defend
+ * would send the events, by `event.created`. Builders emit in call order, which isn't send order.
+ */
+export const resequenceEndpointEvents = (documents: readonly GeneratedDocument[]): void => {
+  const byHost = new Map<string, EndpointEventFields[]>();
+  for (const { source } of documents) {
+    const event = source.event as EndpointEventFields | undefined;
+    const hostId = (source.host as { id?: string } | undefined)?.id;
+    if (!event || !hostId || !event.dataset?.startsWith('endpoint.events.')) {
+      continue;
+    }
+    const events = byHost.get(hostId) ?? [];
+    events.push(event);
+    byHost.set(hostId, events);
+  }
+  for (const events of byHost.values()) {
+    const first = events.reduce((min, event) => Math.min(min, event.sequence), Infinity);
+    events.sort((a, b) => a.created.localeCompare(b.created) || a.sequence - b.sequence);
+    events.forEach((event, index) => {
+      const sequence = first + index;
+      event.sequence = sequence;
+      event.id = `${event.id.split('+++++')[0]}+++++${sequence.toString(36)}`;
+    });
+  }
 };
 
 const fileNameFields = (path: string) => {

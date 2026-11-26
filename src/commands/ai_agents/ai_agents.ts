@@ -4,8 +4,11 @@ import fs from 'fs/promises';
 import {
   CLAUDE_CODE_OTEL_INDEX,
   ENDPOINT_PROCESS_INDEX,
+  resequenceEndpointEvents,
+  seedClaudeCodeOtel,
   type GeneratedDocument,
 } from '../../generators/ai_agents/index.ts';
+import { resetSyntheticIdentities } from './synthetic_identities.ts';
 import { installPackage } from '../../utils/kibana_api.ts';
 import { log } from '../../utils/logger.ts';
 import { bulkIngest } from '../shared/elasticsearch.ts';
@@ -29,9 +32,13 @@ export interface AiAgentDataOptions {
   readonly space: string;
   readonly seed?: number;
   readonly domain: string;
+  /** `latest` follows the registry. The default matches the lab, where `session_id` is unmapped. */
+  readonly endpointVersion: string;
 }
 
 const SCENARIO_GAP_MS = 60_000;
+
+export const DEFAULT_ENDPOINT_VERSION = '9.6.1';
 
 export const parseScenarios = (input: string): AiAgentScenario[] => {
   const names = input
@@ -63,6 +70,7 @@ export const buildAiAgentDocuments = (
   >,
   now: number = Date.now(),
 ): BuiltScenario[] => {
+  resetSyntheticIdentities();
   const organizationId = faker.string.uuid();
   const built: BuiltScenario[] = [];
   let cursor = now - options.timeWindowMs;
@@ -92,6 +100,7 @@ export const buildAiAgentDocuments = (
       `The selected scenarios need about ${Math.ceil((latest - now + options.timeWindowMs) / 60_000)} minutes. Increase --time-window.`,
     );
   }
+  resequenceEndpointEvents(built.flatMap(({ documents }) => documents));
   return built;
 };
 
@@ -105,16 +114,20 @@ const writeOutputFile = async (path: string, documents: GeneratedDocument[]): Pr
   await fs.writeFile(path, lines.join('\n') + '\n', 'utf8');
 };
 
-const installAgentPackages = async (space: string, claudeOtel: boolean): Promise<void> => {
+const installAgentPackages = async (
+  space: string,
+  claudeOtel: boolean,
+  endpointVersion: string,
+): Promise<void> => {
   const packages = [
-    { packageName: 'endpoint', prerelease: true },
-    { packageName: 'osquery_manager', prerelease: false },
-    ...(claudeOtel ? [{ packageName: 'claude_code', prerelease: true }] : []),
+    { packageName: 'endpoint', version: endpointVersion, prerelease: endpointVersion === 'latest' },
+    { packageName: 'osquery_manager', version: 'latest', prerelease: false },
+    ...(claudeOtel ? [{ packageName: 'claude_code', version: 'latest', prerelease: true }] : []),
   ];
-  for (const { packageName, prerelease } of packages) {
-    log.info(`Installing ${packageName} package...`);
+  for (const { packageName, version, prerelease } of packages) {
+    log.info(`Installing ${packageName} package (${version})...`);
     try {
-      await installPackage({ packageName, space, prerelease });
+      await installPackage({ packageName, version, space, prerelease });
     } catch (error) {
       if (!(error instanceof Error && error.message.includes('409'))) {
         throw error;
@@ -145,9 +158,20 @@ const mapSessionIdField = async (): Promise<void> => {
       throw error;
     });
   const template = existing?.template ?? {};
+  const currentType = (
+    template.mappings?.properties?.process as
+      | { properties?: { ai_agent?: { properties?: { session_id?: { type?: string } } } } }
+      | undefined
+  )?.properties?.ai_agent?.properties?.session_id?.type;
+  if (currentType && currentType !== 'keyword') {
+    log.warn(
+      `endpoint@custom maps process.ai_agent.session_id as ${currentType}. Replacing it with keyword.`,
+    );
+  }
   await client.cluster.putComponentTemplate({
     name,
     ...(existing?._meta && { _meta: existing._meta }),
+    ...(existing?.version !== undefined && { version: existing.version }),
     template: {
       ...template,
       mappings: merge({}, template.mappings ?? {}, { properties: SESSION_ID_PROPERTY }),
@@ -173,6 +197,7 @@ const countByIndex = (documents: readonly GeneratedDocument[]): Map<string, numb
 export const generateAiAgentData = async (options: AiAgentDataOptions): Promise<void> => {
   if (options.seed !== undefined) {
     faker.seed(options.seed);
+    seedClaudeCodeOtel(options.seed);
   }
   const extrapolated = options.scenarios.filter((scenario) => EXTRAPOLATED_SCENARIOS.has(scenario));
   if (extrapolated.length > 0) {
@@ -193,13 +218,16 @@ export const generateAiAgentData = async (options: AiAgentDataOptions): Promise<
   }
 
   if (options.outputFile) {
+    if (options.mapSessionId) {
+      log.warn('--map-session-id changes cluster mappings, so it does nothing with --output-file');
+    }
     await writeOutputFile(options.outputFile, documents);
     log.info(`Wrote ${documents.length} documents to ${options.outputFile}`);
     return;
   }
 
   if (options.installPackages) {
-    await installAgentPackages(options.space, options.claudeOtel);
+    await installAgentPackages(options.space, options.claudeOtel, options.endpointVersion);
   }
   if (options.mapSessionId) {
     await mapSessionIdField();
