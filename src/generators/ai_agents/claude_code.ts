@@ -4,6 +4,7 @@ import {
   EndpointWriter,
   execImage,
   type HostRuntime,
+  type PosixIdentity,
   type ProcessImage,
   type ProcessNode,
 } from './endpoint_events.ts';
@@ -16,6 +17,7 @@ import {
   type AgentIdentity,
   type GeneratedDocument,
   type OsUser,
+  type PosixGroup,
   type SessionKind,
 } from './types.ts';
 
@@ -38,6 +40,8 @@ export interface ClaudeToolCommand {
   readonly children?: readonly ClaudeToolCommand[];
   /** Forks a detached copy of itself, as `git maintenance run --detach` does. */
   readonly detaches?: boolean;
+  /** The user a setuid command such as `sudo` switches to. Its children inherit it (extrapolated). */
+  readonly runAs?: { readonly user: PosixIdentity; readonly group: PosixGroup };
 }
 
 export type ClaudeStep =
@@ -296,9 +300,11 @@ class ClaudeSessionBuilder {
     const { runtime, user, identity, start, sessionId, prompt, printArgs = [] } = options;
     const interactive = prompt === undefined;
     const signsInDuring = identity.signIn === 'during' && interactive;
-    const signedInAt = signsInDuring ? start + INTERACTIVE_SIGN_IN_DELAY_MS : start - 86_400_000;
+    const signInDuringAt = start + INTERACTIVE_SIGN_IN_DELAY_MS;
+    const signedInAt =
+      identity.signIn === 'never' ? undefined : signsInDuring ? signInDuringAt : start - 86_400_000;
     this.startupAt = interactive
-      ? (signsInDuring ? signedInAt : start) + INTERACTIVE_STARTUP_AFTER_SIGN_IN_MS
+      ? (signsInDuring ? signInDuringAt : start) + INTERACTIVE_STARTUP_AFTER_SIGN_IN_MS
       : start;
     const sessionStartedAt = interactive
       ? this.startupAt + INTERACTIVE_SESSION_AFTER_STARTUP_MS
@@ -646,6 +652,8 @@ class ClaudeSessionBuilder {
       start: at,
       role: command.selfReexec ? 'agent' : 'descendant',
       newGroup: direct,
+      user: command.runAs?.user,
+      group: command.runAs?.group,
     });
     let time = at + 2;
     for (const destination of command.connections ?? []) {
@@ -899,6 +907,17 @@ export const claudeCommands = {
     durationMs: 50,
   }),
   ls: (): ClaudeToolCommand => ({ image: bin('ls', ['ls']), durationMs: 5 }),
+  /** `sudo <command>`: sudo and the command run as root. Not seen in the lab, so extrapolated. */
+  sudo: (command: ClaudeToolCommand): ClaudeToolCommand => ({
+    image: bin('sudo', ['sudo', ...command.image.args]),
+    durationMs: (command.durationMs ?? 30) + 20,
+    runAs: { user: { name: 'root', id: 0 }, group: { name: 'root', id: 0 } },
+    children: [command],
+  }),
+  systemctlRestart: (unit: string): ClaudeToolCommand => ({
+    image: bin('systemctl', ['systemctl', 'restart', unit]),
+    durationMs: 120,
+  }),
   curlHead: (destination: Destination): ClaudeToolCommand => ({
     image: bin('curl', ['curl', '-sI', `https://${destination.domain}`]),
     durationMs: 400,

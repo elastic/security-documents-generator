@@ -166,7 +166,11 @@ class CursorSessionBuilder {
   constructor(options: CursorSessionOptions, agentParent: ProcessNode) {
     this.options = options;
     const { runtime, user, identity, start, prompt } = options;
-    this.stamp = { agent: 'cursor', email: identity.email, signedInAt: start - 86_400_000 };
+    this.stamp = {
+      agent: 'cursor',
+      email: identity.email,
+      signedInAt: identity.signIn === 'never' ? undefined : start - 86_400_000,
+    };
     this.writer = new EndpointWriter(runtime, this.stamp);
     this.versionDir = cursorVersionDir(user);
     this.nodeImage = {

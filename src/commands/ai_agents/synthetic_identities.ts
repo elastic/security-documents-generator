@@ -75,6 +75,25 @@ export const personalUser = (login: string, id: number, profile: ShellProfile): 
   nodeVersion: NODE_VERSION,
 });
 
+export const rootUser = (): OsUser => ({
+  name: 'root',
+  id: 0,
+  home: '/root',
+  supplementalGroups: [],
+  shellProfile: 'plain',
+  nodeVersion: NODE_VERSION,
+});
+
+/** A system or container account such as `jenkins` or `node`, with no supplemental groups. */
+export const serviceUser = (name: string, id: number, home: string): OsUser => ({
+  name,
+  id,
+  home,
+  supplementalGroups: [],
+  shellProfile: 'plain',
+  nodeVersion: NODE_VERSION,
+});
+
 export const createHost = (): AgentHost => {
   let octets: number[];
   do {

@@ -20,6 +20,8 @@ import {
   createPerson,
   createRuntime,
   personalUser,
+  rootUser,
+  serviceUser,
   sshClientIp,
   type Person,
 } from './synthetic_identities.ts';
@@ -35,12 +37,18 @@ export const AI_AGENT_SCENARIOS = [
   'api_key_session',
   'shared_email_two_users',
   'shared_email_two_hosts',
+  'shared_os_user_two_emails',
+  'sudo_to_root',
+  'service_accounts',
 ] as const;
 
 export type AiAgentScenario = (typeof AI_AGENT_SCENARIOS)[number];
 
 export const EXTRAPOLATED_SCENARIOS: ReadonlySet<AiAgentScenario> = new Set([
   'shared_email_two_hosts',
+  'shared_os_user_two_emails',
+  'sudo_to_root',
+  'service_accounts',
 ]);
 
 export interface ScenarioContext {
@@ -488,6 +496,109 @@ const scenarioBuilds: Record<AiAgentScenario, ScenarioBuild> = {
       });
       builder.osquery(runtime);
     }
+  },
+
+  // A jump box: two people sign in to Claude Code, one after the other, under the shared OS user.
+  shared_os_user_two_emails: (builder) => {
+    const runtime = builder.runtime();
+    const user = cloudDefaultUser();
+    const repo = repoPath(user);
+    for (const [index, person] of [builder.person(), builder.person()].entries()) {
+      builder.claude(runtime, {
+        person,
+        typedPrompt: 'what does main.py do?',
+        options: {
+          user,
+          identity: { email: person.email, signIn: 'during' },
+          kind: 'interactive',
+          start: builder.context.start + 60_000 + index * 600_000,
+          workingDirectory: repo,
+          firstRun: index === 0,
+          steps: [{ type: 'read', path: `${repo}/main.py` }],
+        },
+      });
+    }
+    builder.osquery(runtime);
+  },
+
+  // Claude runs `sudo` as a descendant, then an admin starts Claude itself as root.
+  sudo_to_root: (builder) => {
+    const runtime = builder.runtime();
+    const person = builder.person();
+    const user = cloudDefaultUser();
+    builder.claude(runtime, {
+      person,
+      options: {
+        user,
+        identity: { email: person.email, signIn: 'before' },
+        kind: 'ssh_scripted',
+        start: builder.context.start + 60_000,
+        workingDirectory: repoPath(user),
+        prompt: 'Restart nginx and check it came back.',
+        printArgs: printArgs(['Bash(sudo systemctl restart nginx)']),
+        steps: [
+          {
+            type: 'bash',
+            command: 'sudo systemctl restart nginx',
+            children: [claudeCommands.sudo(claudeCommands.systemctlRestart('nginx'))],
+          },
+        ],
+      },
+    });
+    const root = rootUser();
+    builder.claude(runtime, {
+      person,
+      typedPrompt: 'why is the disk full?',
+      options: {
+        user: root,
+        identity: { email: person.email, signIn: 'during' },
+        kind: 'interactive',
+        start: builder.context.start + 600_000,
+        workingDirectory: root.home,
+        firstRun: true,
+        sudoFrom: user,
+        steps: [{ type: 'bash', command: 'ls', children: [claudeCommands.ls()] }],
+      },
+    });
+    builder.osquery(runtime);
+  },
+
+  // A Jenkins job that runs Claude with an API key, and a dev container whose user is `node`.
+  service_accounts: (builder) => {
+    const ciRuntime = builder.runtime();
+    const ciUser = serviceUser('jenkins', 995, '/var/lib/jenkins');
+    builder.claude(ciRuntime, {
+      person: builder.person(),
+      options: {
+        user: ciUser,
+        identity: { email: '', signIn: 'never' },
+        kind: 'ssh_scripted',
+        start: builder.context.start + 60_000,
+        workingDirectory: `${ciUser.home}/workspace/${DEMO_REPO}`,
+        prompt: 'Review the diff in this workspace and list risky changes.',
+        printArgs: printArgs(['Read', 'Bash(git diff:*)']),
+        steps: [{ type: 'read', path: `${ciUser.home}/workspace/${DEMO_REPO}/main.py` }],
+      },
+    });
+    builder.osquery(ciRuntime);
+
+    const containerRuntime = builder.runtime();
+    const person = builder.person();
+    const containerUser = serviceUser('node', 1000, '/home/node');
+    builder.claude(containerRuntime, {
+      person,
+      typedPrompt: 'add a test for main.py',
+      options: {
+        user: containerUser,
+        identity: { email: person.email, signIn: 'during' },
+        kind: 'interactive',
+        start: builder.context.start + 300_000,
+        workingDirectory: `/workspace/${DEMO_REPO}`,
+        firstRun: true,
+        steps: [{ type: 'read', path: `/workspace/${DEMO_REPO}/main.py` }],
+      },
+    });
+    builder.osquery(containerRuntime);
   },
 };
 

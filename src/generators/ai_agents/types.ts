@@ -31,8 +31,11 @@ export interface OsUser {
 
 export interface AgentIdentity {
   readonly email: string;
-  /** `during` signs in partway through an interactive session, so earlier events carry no email. */
-  readonly signIn: 'before' | 'during';
+  /**
+   * `during` signs in partway through an interactive session, so earlier events carry no email.
+   * `never` is an install that only uses an API key, so no event carries an email (extrapolated).
+   */
+  readonly signIn: 'before' | 'during' | 'never';
 }
 
 export interface GeneratedDocument {
