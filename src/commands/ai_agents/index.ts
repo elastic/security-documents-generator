@@ -7,7 +7,8 @@ import {
   wrapAction,
 } from '../utils/cli_utils.ts';
 import { DEFAULT_ENDPOINT_VERSION, generateAiAgentData, parseScenarios } from './ai_agents.ts';
-import { AI_AGENT_SCENARIOS } from './scenarios.ts';
+import { applyStorylineContext } from './context.ts';
+import { ALL_SCENARIOS, SCENARIO_GROUPS } from './scenarios.ts';
 
 export const aiAgentsCommands: CommandModule = {
   register(program: Command) {
@@ -19,7 +20,7 @@ export const aiAgentsCommands: CommandModule = {
       )
       .option(
         '--scenarios <list>',
-        `Comma-separated scenarios, or all (${AI_AGENT_SCENARIOS.join(', ')})`,
+        `Comma-separated scenarios or groups. Groups: ${Object.keys(SCENARIO_GROUPS).join(', ')} (all means the lab scenarios). Scenarios: ${ALL_SCENARIOS.join(', ')}`,
         'all',
       )
       .option(
@@ -36,6 +37,11 @@ export const aiAgentsCommands: CommandModule = {
       .option(
         '--claude-otel',
         'Also write Claude Code OTel events for each Claude session (extrapolated from fixtures)',
+        false,
+      )
+      .option(
+        '--cursor-audit',
+        'Also write Cursor audit log events (logs-cursor.audit-*) for the Cursor users and the storyline. Tagged poc-mock',
         false,
       )
       .option(
@@ -61,7 +67,11 @@ export const aiAgentsCommands: CommandModule = {
         'Write NDJSON ({_index, _source} per line) and do not contact any cluster',
       )
       .option('--domain <domain>', 'Email domain for the synthetic people', 'example.com')
-      .option('--space <space>', 'Kibana space for package installs', 'default')
+      .option('--space <space>', 'Kibana space for package installs, created if missing', 'default')
+      .option(
+        '--namespace <namespace>',
+        'Data stream namespace for the generated indices. Defaults to the space, so its entity maintainers read the data',
+      )
       .option(
         '--seed <seed>',
         'Random seed for offline repeatability. Fixes IDs and names, not timestamps',
@@ -74,6 +84,8 @@ export const aiAgentsCommands: CommandModule = {
             repeat: number;
             timeWindow: string;
             claudeOtel: boolean;
+            cursorAudit: boolean;
+            namespace?: string;
             mapSessionId: boolean;
             sessionData: boolean;
             installPackages: boolean;
@@ -89,6 +101,8 @@ export const aiAgentsCommands: CommandModule = {
               repeat: options.repeat,
               timeWindowMs: parseDuration(options.timeWindow),
               claudeOtel: options.claudeOtel,
+              cursorAudit: options.cursorAudit,
+              namespace: options.namespace ?? options.space,
               mapSessionId: options.mapSessionId,
               sessionData: options.sessionData,
               installPackages: options.installPackages,
@@ -97,6 +111,50 @@ export const aiAgentsCommands: CommandModule = {
               domain: options.domain,
               space: options.space,
               seed: options.seed,
+            });
+          },
+        ),
+      );
+
+    program
+      .command('ai-agents-context')
+      .description(
+        'Apply the ai-agents storyline context through Kibana APIs: high_impact criticality on the build server, the privileged person on Privileged Users, and a Departing Employees watchlist fed from the HR index',
+      )
+      .option('--space <space>', 'Kibana space with the Entity Store', 'default')
+      .option(
+        '--namespace <namespace>',
+        'Namespace the storyline was written to. Defaults to the space',
+      )
+      .option('--domain <domain>', 'Email domain the storyline used', 'example.com')
+      .option('--criticality <level>', 'Asset criticality for the build server', 'high_impact')
+      .option(
+        '--install-store',
+        'Install the Entity Store with all five types in the space first',
+        false,
+      )
+      .option(
+        '--extract <hours>',
+        'Force host, user and ai_agent extraction over the last <hours> first',
+        parseIntBase10,
+      )
+      .action(
+        wrapAction(
+          async (options: {
+            space: string;
+            namespace?: string;
+            domain: string;
+            criticality: string;
+            installStore: boolean;
+            extract?: number;
+          }) => {
+            await applyStorylineContext({
+              space: options.space,
+              namespace: options.namespace ?? options.space,
+              domain: options.domain,
+              criticality: options.criticality,
+              installStore: options.installStore,
+              extractHours: options.extract,
             });
           },
         ),

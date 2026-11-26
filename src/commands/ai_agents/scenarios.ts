@@ -2,19 +2,39 @@ import { faker } from '@faker-js/faker';
 import {
   buildClaudeCodeOtelEvents,
   buildClaudeCodeSession,
+  buildCursorAuditEvents,
   buildCursorSession,
+  buildDefendAlert,
   buildOsqueryLiveQuery,
   bin,
   claudeCommands,
   DESTINATIONS,
+  MockAgentRun,
   orgTelemetryCollector,
+  POC_MOCK_TAG,
   type ClaudeCodeSessionOptions,
   type ClaudeCodeSessionResult,
+  type CursorAuditEvent,
+  type DefendAlertDetails,
   type GeneratedDocument,
   type HostRuntime,
+  type MockAgentRunOptions,
   type OsqueryUserInventory,
   type OsUser,
 } from '../../generators/ai_agents/index.ts';
+import {
+  INSTALL_VARIANT_BUILDS,
+  INSTALL_VARIANT_SCENARIOS,
+  INSTALL_VARIANT_SHAPES,
+} from './install_variant_scenarios.ts';
+import {
+  RULE_TRIP_BUILDS,
+  RULE_TRIP_EXPECTATIONS,
+  RULE_TRIP_MOCK_SCENARIOS,
+  RULE_TRIP_SCENARIOS,
+} from './rule_trip_scenarios.ts';
+import { CLAUDE_MODEL_NAME, DEMO_REPO, printArgs, repoPath } from './scenario_helpers.ts';
+import { STORYLINE_BUILDS, STORYLINE_SCENARIOS } from './storyline.ts';
 import {
   cloudDefaultUser,
   createPerson,
@@ -23,9 +43,11 @@ import {
   rootUser,
   serviceUser,
   sshClientIp,
+  type HostOptions,
   type Person,
 } from './synthetic_identities.ts';
 
+/** The lab-grounded scenarios. `--scenarios all` still means these, so seeded reloads don't change. */
 export const AI_AGENT_SCENARIOS = [
   'developer_claude',
   'developer_cursor',
@@ -42,14 +64,50 @@ export const AI_AGENT_SCENARIOS = [
   'service_accounts',
 ] as const;
 
-export type AiAgentScenario = (typeof AI_AGENT_SCENARIOS)[number];
+export type LabScenario = (typeof AI_AGENT_SCENARIOS)[number];
 
-export const EXTRAPOLATED_SCENARIOS: ReadonlySet<AiAgentScenario> = new Set([
+export const ALL_SCENARIOS = [
+  ...AI_AGENT_SCENARIOS,
+  ...RULE_TRIP_SCENARIOS,
+  ...INSTALL_VARIANT_SCENARIOS,
+  ...STORYLINE_SCENARIOS,
+] as const;
+
+export type AiAgentScenario = (typeof ALL_SCENARIOS)[number];
+
+/** Names that expand to several scenarios in `--scenarios`. */
+export const SCENARIO_GROUPS: Readonly<Record<string, readonly AiAgentScenario[]>> = {
+  all: AI_AGENT_SCENARIOS,
+  lab: AI_AGENT_SCENARIOS,
+  rule_trips: RULE_TRIP_SCENARIOS,
+  defend_alerts: RULE_TRIP_SCENARIOS.filter((name) => name.startsWith('defend_alerts_')),
+  install_variants: INSTALL_VARIANT_SCENARIOS,
+  demo: [...RULE_TRIP_SCENARIOS, ...INSTALL_VARIANT_SCENARIOS, ...STORYLINE_SCENARIOS],
+};
+
+export const EXTRAPOLATED_SCENARIOS: ReadonlySet<AiAgentScenario> = new Set<AiAgentScenario>([
   'shared_email_two_hosts',
   'shared_os_user_two_emails',
   'sudo_to_root',
   'service_accounts',
+  ...RULE_TRIP_SCENARIOS,
+  ...INSTALL_VARIANT_SCENARIOS,
+  ...STORYLINE_SCENARIOS,
 ]);
+
+/** Scenarios whose every document is `poc-mock`. Others mark only their inferred documents. */
+export const POC_MOCK_SCENARIOS: ReadonlySet<AiAgentScenario> = new Set<AiAgentScenario>([
+  ...RULE_TRIP_MOCK_SCENARIOS,
+  ...INSTALL_VARIANT_SCENARIOS,
+]);
+
+/** `labels.poc_install_shape` for scenarios with one install shape, as `<install method> (<os>)`. */
+export const SCENARIO_INSTALL_SHAPES: Readonly<Partial<Record<AiAgentScenario, string>>> =
+  Object.fromEntries(
+    Object.entries({ ...RULE_TRIP_EXPECTATIONS, ...INSTALL_VARIANT_SHAPES }).map(
+      ([name, { install, os }]) => [name, `${install} (${os})`],
+    ),
+  );
 
 export interface ScenarioContext {
   readonly start: number;
@@ -57,6 +115,8 @@ export interface ScenarioContext {
   readonly organizationId: string;
   readonly claudeOtel: boolean;
   readonly sessionData: boolean;
+  /** Also write Cursor audit events for the scenario's Cursor users. */
+  readonly cursorAudit: boolean;
 }
 
 export interface ScenarioOutput {
@@ -65,10 +125,6 @@ export interface ScenarioOutput {
 }
 
 const CLAUDE_MODEL_ID = 'claude-sonnet-5-5';
-const CLAUDE_MODEL_NAME = 'Sonnet 5.5';
-const DEMO_REPO = 'demo-app';
-
-const repoPath = (user: OsUser): string => `${user.home}/src/${DEMO_REPO}`;
 
 interface ClaudeRun {
   readonly options: Omit<
@@ -80,10 +136,12 @@ interface ClaudeRun {
   readonly typedPrompt?: string;
 }
 
-class ScenarioBuilder {
+export class ScenarioBuilder {
   readonly documents: GeneratedDocument[] = [];
   readonly context: ScenarioContext;
   private readonly inventories = new Map<HostRuntime, Map<string, OsqueryUserInventory>>();
+  private readonly mockDocuments = new Set<GeneratedDocument>();
+  private readonly cursorUsers: Array<{ email: string; at: number }> = [];
   end: number;
 
   constructor(context: ScenarioContext) {
@@ -91,8 +149,52 @@ class ScenarioBuilder {
     this.end = context.start;
   }
 
-  runtime(): HostRuntime {
-    return createRuntime(this.context.start, this.context.sessionData);
+  runtime(options: HostOptions = {}): HostRuntime {
+    return createRuntime(this.context.start, this.context.sessionData, options);
+  }
+
+  /** Adds documents, marking them `poc-mock` when `mock` is set. */
+  push(documents: readonly GeneratedDocument[], { mock = false }: { mock?: boolean } = {}): void {
+    this.documents.push(...documents);
+    if (mock) {
+      documents.forEach((doc) => this.mockDocuments.add(doc));
+    }
+    for (const doc of documents) {
+      this.end = Math.max(this.end, Date.parse(String(doc.source['@timestamp'])));
+    }
+  }
+
+  /** A compact agent run on `runtime`. Call `finish` when its behaviour is written. */
+  mockRun(options: Omit<MockAgentRunOptions, 'clientIp'>): MockAgentRun {
+    return new MockAgentRun({ ...options, clientIp: sshClientIp() });
+  }
+
+  finish(run: MockAgentRun, end: number, { mock = true }: { mock?: boolean } = {}): void {
+    run.end(end);
+    this.push(run.documents, { mock });
+  }
+
+  /** A Defend alert on the process of the first matching process event so far. Always `poc-mock`. */
+  alertOn(
+    match: (process: { name?: string; executable?: string; args?: string[] }) => boolean,
+    details: DefendAlertDetails,
+  ): void {
+    const processEvent = this.documents.find(
+      (doc) =>
+        doc.index.startsWith('logs-endpoint.events.process') &&
+        (doc.source.event as { action: string[] }).action.includes('exec') &&
+        match(doc.source.process as { name?: string; executable?: string; args?: string[] }),
+    );
+    if (!processEvent) {
+      throw new Error(`No process event matches the alert for ${details.signatureName}`);
+    }
+    this.push([buildDefendAlert(processEvent, details)], { mock: true });
+  }
+
+  cursorAuditEvents(events: readonly CursorAuditEvent[]): void {
+    if (this.context.cursorAudit) {
+      this.push(buildCursorAuditEvents(events), { mock: true });
+    }
   }
 
   private remember(runtime: HostRuntime, user: OsUser, agent: 'claudeCode' | 'cursor'): void {
@@ -136,6 +238,9 @@ class ScenarioBuilder {
     const session = buildCursorSession({ ...options, runtime, clientIp: sshClientIp() });
     this.documents.push(...session.documents);
     this.remember(runtime, options.user, 'cursor');
+    if (options.identity.email) {
+      this.cursorUsers.push({ email: options.identity.email, at: options.start });
+    }
     this.end = Math.max(this.end, session.process.end);
     return session;
   }
@@ -157,7 +262,35 @@ class ScenarioBuilder {
     );
   }
 
-  output(): ScenarioOutput {
+  /** Cursor audit for every Cursor user in the scenario: a web login before the run and an MCP server config. */
+  private cursorUserAudit(): void {
+    if (!this.context.cursorAudit) {
+      return;
+    }
+    this.cursorAuditEvents(
+      this.cursorUsers.flatMap(({ email, at }) => [
+        { action: 'login' as const, at: at - 3_600_000, email },
+        { action: 'mcp_server_config' as const, at: at - 3_000_000, email },
+      ]),
+    );
+  }
+
+  output(scenario: AiAgentScenario): ScenarioOutput {
+    this.cursorUserAudit();
+    const allMock = POC_MOCK_SCENARIOS.has(scenario);
+    const installShape = SCENARIO_INSTALL_SHAPES[scenario];
+    for (const doc of this.documents) {
+      const source = doc.source as { labels?: Record<string, unknown>; tags?: string[] };
+      source.labels = {
+        ...source.labels,
+        poc_scenario: scenario,
+        ...(installShape &&
+          doc.index.startsWith('logs-endpoint.') && { poc_install_shape: installShape }),
+      };
+      if ((allMock || this.mockDocuments.has(doc)) && !source.tags?.includes(POC_MOCK_TAG)) {
+        source.tags = [...(source.tags ?? []), POC_MOCK_TAG];
+      }
+    }
     return { documents: this.documents, end: this.end };
   }
 
@@ -166,16 +299,9 @@ class ScenarioBuilder {
   }
 }
 
-type ScenarioBuild = (builder: ScenarioBuilder) => void;
+export type ScenarioBuild = (builder: ScenarioBuilder) => void;
 
-const printArgs = (allowedTools: readonly string[]): string[] => [
-  '--allowedTools',
-  ...allowedTools,
-  '--output-format',
-  'json',
-];
-
-const scenarioBuilds: Record<AiAgentScenario, ScenarioBuild> = {
+const labScenarioBuilds: Record<LabScenario, ScenarioBuild> = {
   developer_claude: (builder) => {
     const runtime = builder.runtime();
     const person = builder.person();
@@ -602,12 +728,22 @@ const scenarioBuilds: Record<AiAgentScenario, ScenarioBuild> = {
   },
 };
 
-/** Builds one scenario starting at `context.start`. Every scenario gets its own hosts and users. */
+const scenarioBuilds: Record<AiAgentScenario, ScenarioBuild> = {
+  ...labScenarioBuilds,
+  ...RULE_TRIP_BUILDS,
+  ...INSTALL_VARIANT_BUILDS,
+  ...STORYLINE_BUILDS,
+};
+
+/**
+ * Builds one scenario starting at `context.start`. Every scenario gets its own hosts and users.
+ * Every document gets `labels.poc_scenario`, because rules read all Endpoint namespaces.
+ */
 export const buildScenario = (
   scenario: AiAgentScenario,
   context: ScenarioContext,
 ): ScenarioOutput => {
   const builder = new ScenarioBuilder(context);
   scenarioBuilds[scenario](builder);
-  return builder.output();
+  return builder.output(scenario);
 };

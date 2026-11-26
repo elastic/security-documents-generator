@@ -4,6 +4,7 @@ import {
   createHostRuntime,
   type AgentHost,
   type ClaudeAccount,
+  type HostOs,
   type HostRuntime,
   type OsUser,
   type ShellProfile,
@@ -94,22 +95,96 @@ export const serviceUser = (name: string, id: number, home: string): OsUser => (
   nodeVersion: NODE_VERSION,
 });
 
-export const createHost = (): AgentHost => {
+export interface HostOptions {
+  readonly os?: HostOs;
+  /** A fixed host name, for hosts other lanes look up by name. */
+  readonly name?: string;
+}
+
+/** macOS and Windows host names and IDs are inferred, since only Linux was observed. */
+export const createHost = ({ os = 'linux', name }: HostOptions = {}): AgentHost => {
   let octets: number[];
   do {
     octets = [1, 2, 3].map(() => faker.number.int({ min: 1, max: 254 }));
   } while (usedHostIps.has(octets.join('.')));
   usedHostIps.add(octets.join('.'));
+  const id =
+    os === 'linux'
+      ? faker.string.hexadecimal({ length: 32, casing: 'lower', prefix: '' })
+      : faker.string.uuid();
+  const defaultName =
+    os === 'linux'
+      ? `ip-10-${octets.join('-')}.ec2.internal`
+      : os === 'macos'
+        ? `mac-${faker.string.alphanumeric({ length: 8, casing: 'lower' })}`
+        : `DESKTOP-${faker.string.alphanumeric({ length: 7, casing: 'upper' })}`;
   return {
-    id: faker.string.hexadecimal({ length: 32, casing: 'lower', prefix: '' }),
-    name: `ip-10-${octets.join('-')}.ec2.internal`,
+    id,
+    name: name ?? defaultName,
     ip: `10.${octets.join('.')}`,
     resolverIp: `10.${octets[0]}.0.2`,
     elasticAgentId: faker.string.uuid(),
+    os,
   };
 };
 
-export const createRuntime = (start: number, sessionData: boolean): HostRuntime =>
-  createHostRuntime({ host: createHost(), bootTime: start - 3_600_000, sessionData });
+/** Linux hosts get Defend's session data when it's on. macOS and Windows Defend have none. */
+export const createRuntime = (
+  start: number,
+  sessionData: boolean,
+  options: HostOptions = {},
+): HostRuntime =>
+  createHostRuntime({
+    host: createHost(options),
+    bootTime: start - 3_600_000,
+    sessionData: sessionData && (options.os ?? 'linux') === 'linux',
+  });
+
+export const macUser = (login: string): OsUser => ({
+  name: login,
+  id: 501,
+  home: `/Users/${login}`,
+  supplementalGroups: [],
+  shellProfile: 'plain',
+  nodeVersion: NODE_VERSION,
+});
+
+export const windowsUser = (login: string): OsUser => ({
+  name: login,
+  id: 1001,
+  home: `C:\\Users\\${login}`,
+  supplementalGroups: [],
+  shellProfile: 'plain',
+  nodeVersion: NODE_VERSION,
+});
+
+/** The storyline's two people, fixed so other lanes can find them. Names are made up. */
+export const STORYLINE_PEOPLE = {
+  departing: {
+    firstName: 'Avery',
+    lastName: 'Quinn',
+    login: 'aquinn',
+    department: 'Platform Engineering',
+    title: 'Release Engineer',
+  },
+  privileged: {
+    firstName: 'Jordan',
+    lastName: 'Blake',
+    login: 'jblake',
+    department: 'Platform Engineering',
+    title: 'Platform Administrator',
+  },
+} as const;
+
+/** A person with a fixed name, for the storyline. */
+export const createNamedPerson = (
+  { firstName, lastName, login }: { firstName: string; lastName: string; login: string },
+  domain: string,
+  organizationId: string,
+): Person => {
+  const email = `${firstName}.${lastName}@${domain}`.toLowerCase();
+  usedEmails.add(email);
+  return { email, login, account: createClaudeAccount(email, organizationId) };
+};
 
 export const sshClientIp = (): string => `203.0.113.${faker.number.int({ min: 2, max: 250 })}`;

@@ -1,22 +1,30 @@
 import { faker } from '@faker-js/faker';
 import { merge } from 'lodash-es';
+import { type MappingProperty } from '@elastic/elasticsearch/lib/api/types';
 import fs from 'fs/promises';
 import {
   CLAUDE_CODE_OTEL_INDEX,
+  CURSOR_AUDIT_INDEX,
   ENDPOINT_PROCESS_INDEX,
+  ENTRA_USER_INDEX,
+  HR_INDEX,
+  OKTA_USER_INDEX,
   resequenceEndpointEvents,
   seedClaudeCodeOtel,
+  seedCursorAudit,
   type GeneratedDocument,
 } from '../../generators/ai_agents/index.ts';
 import { resetSyntheticIdentities } from './synthetic_identities.ts';
-import { installPackage } from '../../utils/kibana_api.ts';
+import { createSpace, doesSpaceExist, installPackage } from '../../utils/kibana_api.ts';
 import { log } from '../../utils/logger.ts';
 import { bulkIngest } from '../shared/elasticsearch.ts';
 import { getEsClient } from '../utils/indices.ts';
 import {
-  AI_AGENT_SCENARIOS,
+  ALL_SCENARIOS,
   buildScenario,
   EXTRAPOLATED_SCENARIOS,
+  POC_MOCK_SCENARIOS,
+  SCENARIO_GROUPS,
   type AiAgentScenario,
 } from './scenarios.ts';
 
@@ -28,8 +36,11 @@ export interface AiAgentDataOptions {
   readonly mapSessionId: boolean;
   readonly sessionData: boolean;
   readonly installPackages: boolean;
+  readonly cursorAudit: boolean;
   readonly outputFile?: string;
   readonly space: string;
+  /** Data stream namespace for every `-default` index. Defaults to the space, so a space's maintainers read it. */
+  readonly namespace: string;
   readonly seed?: number;
   readonly domain: string;
   /** `latest` follows the registry. The default matches the lab, where `session_id` is unmapped. */
@@ -40,21 +51,35 @@ const SCENARIO_GAP_MS = 60_000;
 
 export const DEFAULT_ENDPOINT_VERSION = '9.6.1';
 
+const isScenario = (name: string): name is AiAgentScenario =>
+  (ALL_SCENARIOS as readonly string[]).includes(name);
+
+/** Scenario names and group names (`all`, `rule_trips`, `demo` and so on), expanded and deduplicated in order. */
 export const parseScenarios = (input: string): AiAgentScenario[] => {
   const names = input
     .split(',')
     .map((name) => name.trim())
     .filter(Boolean);
-  if (names.length === 1 && names[0] === 'all') {
-    return [...AI_AGENT_SCENARIOS];
-  }
-  const unknown = names.filter((name) => !(AI_AGENT_SCENARIOS as readonly string[]).includes(name));
+  const unknown = names.filter((name) => !isScenario(name) && !(name in SCENARIO_GROUPS));
   if (unknown.length > 0) {
     throw new Error(
-      `Unknown scenario(s): ${unknown.join(', ')}. Available: ${AI_AGENT_SCENARIOS.join(', ')}`,
+      `Unknown scenario(s): ${unknown.join(', ')}. Groups: ${Object.keys(SCENARIO_GROUPS).join(', ')}. Scenarios: ${ALL_SCENARIOS.join(', ')}`,
     );
   }
-  return names as AiAgentScenario[];
+  const expanded = names.flatMap((name) => (isScenario(name) ? [name] : SCENARIO_GROUPS[name]));
+  return [...new Set(expanded)];
+};
+
+/** Moves a document from its `-default` data stream to `namespace`. */
+export const applyNamespace = (doc: GeneratedDocument, namespace: string): GeneratedDocument => {
+  if (namespace === 'default' || !doc.index.endsWith('-default')) {
+    return doc;
+  }
+  const dataStream = doc.source.data_stream as { namespace?: string } | undefined;
+  if (dataStream) {
+    dataStream.namespace = namespace;
+  }
+  return { index: `${doc.index.slice(0, -'default'.length)}${namespace}`, source: doc.source };
 };
 
 export interface BuiltScenario {
@@ -67,7 +92,8 @@ export const buildAiAgentDocuments = (
   options: Pick<
     AiAgentDataOptions,
     'scenarios' | 'repeat' | 'timeWindowMs' | 'claudeOtel' | 'sessionData' | 'domain'
-  >,
+  > &
+    Partial<Pick<AiAgentDataOptions, 'cursorAudit' | 'namespace'>>,
   now: number = Date.now(),
 ): BuiltScenario[] => {
   resetSyntheticIdentities();
@@ -82,8 +108,14 @@ export const buildAiAgentDocuments = (
         organizationId,
         claudeOtel: options.claudeOtel,
         sessionData: options.sessionData,
+        cursorAudit: options.cursorAudit ?? false,
       });
-      built.push({ scenario, documents: output.documents });
+      built.push({
+        scenario,
+        documents: output.documents.map((doc) =>
+          applyNamespace(doc, options.namespace ?? 'default'),
+        ),
+      });
       cursor = output.end + SCENARIO_GAP_MS;
     }
   }
@@ -136,16 +168,30 @@ const installAgentPackages = async (
   }
 };
 
-const SESSION_ID_PROPERTY = {
+/** Endpoint templates are `dynamic: false`, so the PoC's scenario label and tags need mapping to be queryable. */
+const POC_PROPERTIES: Record<string, MappingProperty> = {
+  labels: {
+    properties: {
+      poc_scenario: { type: 'keyword', ignore_above: 1024 },
+      poc_install_shape: { type: 'keyword', ignore_above: 1024 },
+    },
+  },
+  tags: { type: 'keyword', ignore_above: 1024 },
+};
+
+const SESSION_ID_PROPERTY: Record<string, MappingProperty> = {
   process: {
     properties: {
       ai_agent: { properties: { session_id: { type: 'keyword', ignore_above: 1024 } } },
     },
   },
-} as const;
+};
 
-/** The `endpoint@custom` workaround for package 9.6.1, merged into any existing component template. */
-const mapSessionIdField = async (): Promise<void> => {
+/**
+ * Merges `properties` into `endpoint@custom`, which every Endpoint events and alerts template uses,
+ * and into the current Endpoint backing indices.
+ */
+const mapEndpointFields = async (properties: Record<string, MappingProperty>): Promise<void> => {
   const client = getEsClient();
   const name = 'endpoint@custom';
   const existing = await client.cluster
@@ -158,8 +204,31 @@ const mapSessionIdField = async (): Promise<void> => {
       throw error;
     });
   const template = existing?.template ?? {};
+  await client.cluster.putComponentTemplate({
+    name,
+    ...(existing?._meta && { _meta: existing._meta }),
+    ...(existing?.version !== undefined && { version: existing.version }),
+    template: {
+      ...template,
+      mappings: merge({}, template.mappings ?? {}, { properties }),
+    },
+  });
+  await client.indices.putMapping({
+    index: 'logs-endpoint.*',
+    allow_no_indices: true,
+    ignore_unavailable: true,
+    properties,
+  });
+};
+
+/** The `endpoint@custom` workaround for package 9.6.1. */
+const mapSessionIdField = async (): Promise<void> => {
+  const existing = await getEsClient()
+    .cluster.getComponentTemplate({ name: 'endpoint@custom' })
+    .then((response) => response.component_templates[0]?.component_template)
+    .catch(() => undefined);
   const currentType = (
-    template.mappings?.properties?.process as
+    existing?.template.mappings?.properties?.process as
       | { properties?: { ai_agent?: { properties?: { session_id?: { type?: string } } } } }
       | undefined
   )?.properties?.ai_agent?.properties?.session_id?.type;
@@ -168,23 +237,49 @@ const mapSessionIdField = async (): Promise<void> => {
       `endpoint@custom maps process.ai_agent.session_id as ${currentType}. Replacing it with keyword.`,
     );
   }
-  await client.cluster.putComponentTemplate({
-    name,
-    ...(existing?._meta && { _meta: existing._meta }),
-    ...(existing?.version !== undefined && { version: existing.version }),
-    template: {
-      ...template,
-      mappings: merge({}, template.mappings ?? {}, { properties: SESSION_ID_PROPERTY }),
-    },
-  });
-  await client.indices.putMapping({
-    index: 'logs-endpoint.events.*',
-    allow_no_indices: true,
-    ignore_unavailable: true,
-    properties: SESSION_ID_PROPERTY,
-  });
+  await mapEndpointFields(SESSION_ID_PROPERTY);
   log.info('Mapped process.ai_agent.session_id as keyword through endpoint@custom');
 };
+
+const HR_MAPPINGS = {
+  properties: {
+    '@timestamp': { type: 'date' },
+    user: { properties: { email: { type: 'keyword' }, full_name: { type: 'keyword' } } },
+    employee: {
+      properties: {
+        id: { type: 'keyword' },
+        department: { type: 'keyword' },
+        title: { type: 'keyword' },
+      },
+    },
+    employment: {
+      properties: {
+        status: { type: 'keyword' },
+        contract_type: { type: 'keyword' },
+        start_date: { type: 'date' },
+        termination_date: { type: 'date' },
+        termination_reason: { type: 'keyword' },
+      },
+    },
+    labels: { properties: { poc_scenario: { type: 'keyword' } } },
+    tags: { type: 'keyword' },
+  },
+} as const;
+
+const ensureHrIndex = async (): Promise<void> => {
+  const client = getEsClient();
+  if (!(await client.indices.exists({ index: HR_INDEX }))) {
+    await client.indices.create({ index: HR_INDEX, mappings: HR_MAPPINGS });
+  }
+};
+
+/** Indices written in the integrations' stored shape, or not owned by any integration, skip ingest pipelines. */
+const NO_PIPELINE_PREFIXES = [
+  CLAUDE_CODE_OTEL_INDEX,
+  CURSOR_AUDIT_INDEX,
+  OKTA_USER_INDEX,
+  ENTRA_USER_INDEX,
+].map((index) => index.slice(0, -'default'.length));
 
 const countByIndex = (documents: readonly GeneratedDocument[]): Map<string, number> => {
   const counts = new Map<string, number>();
@@ -198,6 +293,7 @@ export const generateAiAgentData = async (options: AiAgentDataOptions): Promise<
   if (options.seed !== undefined) {
     faker.seed(options.seed);
     seedClaudeCodeOtel(options.seed);
+    seedCursorAudit(options.seed);
   }
   const extrapolated = options.scenarios.filter((scenario) => EXTRAPOLATED_SCENARIOS.has(scenario));
   if (extrapolated.length > 0) {
@@ -208,6 +304,12 @@ export const generateAiAgentData = async (options: AiAgentDataOptions): Promise<
   if (options.claudeOtel) {
     log.warn(
       'Claude Code OTel events are extrapolated from the package fixtures, not observed data',
+    );
+  }
+  const mock = options.scenarios.filter((scenario) => POC_MOCK_SCENARIOS.has(scenario));
+  if (mock.length > 0 || options.cursorAudit) {
+    log.warn(
+      `Documents tagged poc-mock (inferred shapes): ${[...mock, ...(options.cursorAudit ? ['Cursor audit'] : [])].join(', ')}`,
     );
   }
 
@@ -226,11 +328,19 @@ export const generateAiAgentData = async (options: AiAgentDataOptions): Promise<
     return;
   }
 
+  if (options.space !== 'default' && !(await doesSpaceExist(options.space))) {
+    await createSpace(options.space);
+    log.info(`Created Kibana space ${options.space}`);
+  }
   if (options.installPackages) {
     await installAgentPackages(options.space, options.claudeOtel, options.endpointVersion);
   }
   if (options.mapSessionId) {
     await mapSessionIdField();
+  }
+  await mapEndpointFields(POC_PROPERTIES);
+  if (documents.some((doc) => doc.index === HR_INDEX)) {
+    await ensureHrIndex();
   }
 
   const byIndex = new Map<string, GeneratedDocument[]>();
@@ -247,12 +357,18 @@ export const generateAiAgentData = async (options: AiAgentDataOptions): Promise<
       action: 'create',
       metadata: true,
       showProgress: true,
-      pipeline: index === CLAUDE_CODE_OTEL_INDEX ? '_none' : undefined,
+      pipeline: NO_PIPELINE_PREFIXES.some((prefix) => index.startsWith(prefix))
+        ? '_none'
+        : undefined,
     });
   }
 
   const counts = countByIndex(documents);
+  const processIndex = applyNamespace(
+    { index: ENDPOINT_PROCESS_INDEX, source: {} },
+    options.namespace,
+  ).index;
   log.info(
-    `Done. ${documents.length} documents, ${counts.get(ENDPOINT_PROCESS_INDEX) ?? 0} of them process events.`,
+    `Done. ${documents.length} documents, ${counts.get(processIndex) ?? 0} of them process events.`,
   );
 };
