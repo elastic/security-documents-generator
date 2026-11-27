@@ -150,13 +150,13 @@ Applies the storyline's Kibana-side context, which only Kibana APIs can set. The
 yarn start ai-agents-context --space gen-demo --install-store --extract 4
 ```
 
-| Step                                  | API                                                                                                                                                                     |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Install the store (`--install-store`) | `POST /s/<space>/api/security/entity_store/install` with all five entity types                                                                                          |
-| Extract (`--extract <hours>`)         | `POST /s/<space>/internal/security/entity_store/{host,user,ai_agent}/force_log_extraction` (API version 2)                                                              |
-| `high_impact` on `ci-build-01`        | `PUT /s/<space>/api/security/entity_store/entities/bulk?force=true` with `asset.criticality` on `host:<host.id>`                                                        |
-| `jordan.blake` on Privileged Users    | `POST /s/<space>/api/entity_analytics/watchlists/install`, then `.../watchlists/<id>/entities/assign` with `user:<email>@okta`                                          |
-| Departing Employees from the HR index | `POST .../watchlists` (risk modifier 1.5), `.../<id>/entity_source` (type `index`, `hr-workday-demo`, `user.email`, `employment.status: "Terminated"`), `.../<id>/sync` |
+| Step                                  | API                                                                                                                                                                                                                |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Install the store (`--install-store`) | `POST /s/<space>/api/security/entity_store/install` with all five entity types                                                                                                                                     |
+| Extract (`--extract <hours>`)         | `POST /s/<space>/internal/security/entity_store/{host,user,ai_agent}/force_log_extraction` (API version 2)                                                                                                         |
+| `high_impact` on `ci-build-01`        | `PUT /s/<space>/api/security/entity_store/entities/bulk?force=true` with `asset.criticality` on `host:<host.id>`                                                                                                   |
+| `jordan.blake` on Privileged Users    | `POST /s/<space>/api/entity_analytics/watchlists/install`, then `.../watchlists/<id>/entities/assign` with `user:<email>@okta`                                                                                     |
+| Departing Employees from the HR index | `POST .../watchlists` (risk modifier 1.5), or `PUT .../watchlists/<id>` if it exists, `.../<id>/entity_source` (type `index`, `hr-workday-demo`, `user.email`, `employment.status: "Terminated"`), `.../<id>/sync` |
 
 The legacy `POST /api/asset_criticality` route writes the V1 criticality index, which Entity Store V2 doesn't read, so the command uses the entity bulk update the V2 flyout uses.
 

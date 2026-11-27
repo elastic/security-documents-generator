@@ -128,18 +128,24 @@ export const applyStorylineContext = async (options: StorylineContextOptions): P
   );
   log.info(`Assigned ${privilegedEuid} to ${PRIVILEGED_WATCHLIST}: ${JSON.stringify(assigned)}`);
 
+  const departingBody = JSON.stringify({
+    name: DEPARTING_WATCHLIST,
+    description: `People whose contract is terminated in ${HR_INDEX}.`,
+    riskModifier: 1.5,
+  });
+  const existingDeparting = await findWatchlist(space, DEPARTING_WATCHLIST);
+  if (existingDeparting) {
+    await kibanaFetch(
+      `${WATCHLISTS_URL}/${existingDeparting.id}`,
+      { method: 'PUT', body: departingBody },
+      { apiVersion: API_VERSIONS.public.v1, space },
+    );
+  }
   const departing =
-    (await findWatchlist(space, DEPARTING_WATCHLIST)) ??
+    existingDeparting ??
     (await kibanaFetch<Watchlist>(
       WATCHLISTS_URL,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          name: DEPARTING_WATCHLIST,
-          description: `People whose contract is terminated in ${HR_INDEX}. PoC, made-up HR data.`,
-          riskModifier: 1.5,
-        }),
-      },
+      { method: 'POST', body: departingBody },
       { apiVersion: API_VERSIONS.public.v1, space },
     ));
   const sources = await kibanaFetch<{ sources?: Array<{ type: string; indexPattern?: string }> }>(

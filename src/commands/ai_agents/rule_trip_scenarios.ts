@@ -568,14 +568,27 @@ const destination = (domain: string, ip: string, port = 443): Destination => ({ 
 export const DEST = {
   s3: destination('release-artifacts.s3.us-east-1.amazonaws.com', '198.51.100.70'),
   ec2: destination('ec2.us-east-1.amazonaws.com', '198.51.100.71'),
-  upload: destination('upload.poc-mock.example', '2001:db8:4b1d::10'),
-  toolchain: destination('toolchain.poc-mock.example', '198.51.100.81'),
+  upload: destination('ingest.filedrop-relay.example', '2001:db8:4b1d::10'),
+  toolchain: destination('dl.agentkit-tools.example', '198.51.100.81'),
   openai: destination('api.openai.com', '198.51.100.90'),
   imds: destination('', '169.254.169.254', 80),
 } as const;
 
-const suspiciousDomain = (scenario: string): Destination =>
-  destination(`${scenario.replace(/_/g, '-')}.poc-mock.xyz`, '198.51.100.85');
+/**
+ * `.xyz` because the suspicious TLD rule lists no reserved TLD (`agentkit-notes.xyz` was unregistered
+ * when chosen). One domain per scenario, because the Unusual Domain rule is a new term on `destination.domain`.
+ */
+const SUSPICIOUS_DOMAINS = {
+  rule_suspicious_domain_native_macos: 'docs.agentkit-notes.xyz',
+  rule_suspicious_domain_brew: 'setup.agentkit-notes.xyz',
+  rule_suspicious_domain_cursor_ide: 'cdn.agentkit-notes.xyz',
+  rule_suspicious_domain_windows: 'get.agentkit-notes.xyz',
+} as const;
+
+type SuspiciousDomainScenario = keyof typeof SUSPICIOUS_DOMAINS;
+
+const suspiciousDomain = (scenario: SuspiciousDomainScenario): Destination =>
+  destination(SUSPICIOUS_DOMAINS[scenario], '198.51.100.85');
 
 export const cmd = (
   image: ProcessImage,
@@ -595,8 +608,8 @@ export const commands = {
         'ec2',
         'terminate-instances',
         '--instance-ids',
-        'i-0poc0mock0000001',
-        'i-0poc0mock0000002',
+        'i-0a7f3c91e2b4d5068',
+        'i-0c19e8d4f6a2b3751',
       ]),
       { connections: [DEST.ec2], durationMs: 700 },
     ),
@@ -847,7 +860,7 @@ export const RULE_TRIP_BUILDS: Record<RuleTripScenario, ScenarioBuild> = {
       mcpServers: [
         {
           name: 'build-helper',
-          packageName: '@poc-mock/mcp-server-build-helper',
+          packageName: '@agentkit-tools/mcp-server-build-helper',
           binName: 'mcp-server-build-helper',
           firstInstall: false,
           spawns: [
@@ -868,7 +881,7 @@ export const RULE_TRIP_BUILDS: Record<RuleTripScenario, ScenarioBuild> = {
       behaviour: (run, at) =>
         run.mcpServer(
           {
-            packageName: '@poc-mock/mcp-server-build-helper',
+            packageName: '@agentkit-tools/mcp-server-build-helper',
             binName: 'mcp-server-build-helper',
             spawns: [
               cmd({
@@ -1143,7 +1156,7 @@ function agentFetch(
   builder: ScenarioBuilder,
   install: InstallMethod,
   os: HostOs,
-  scenario: string,
+  scenario: SuspiciousDomainScenario,
 ): void {
   mockRun(builder, {
     install,

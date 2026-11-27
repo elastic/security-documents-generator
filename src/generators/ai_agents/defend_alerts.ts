@@ -247,7 +247,7 @@ export const buildDefendAlert = (
           name: ruleName,
           ruleset: 'production',
           ...(details.kind === 'malicious_behavior' && {
-            description: `Mock behaviour rule for the AI agent PoC: ${ruleName}.`,
+            description: `Identifies ${ruleName.toLowerCase()}.`,
             version: '1.0.0',
           }),
         },

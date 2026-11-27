@@ -278,9 +278,7 @@ describe('demo scenarios', () => {
       sources(scenario, ENDPOINT_NETWORK_INDEX)
         .map((source) => (source.destination as { domain?: string }).domain)
         .filter(Boolean);
-    assert.deepEqual(domain('rule_suspicious_domain_brew'), [
-      'rule-suspicious-domain-brew.poc-mock.xyz',
-    ]);
+    assert.deepEqual(domain('rule_suspicious_domain_brew'), ['setup.agentkit-notes.xyz']);
     assert.deepEqual(domain('rule_suspicious_domain_windows'), []);
     assert.ok(
       sources('rule_suspicious_domain_windows', ENDPOINT_NETWORK_INDEX).some((source) =>
