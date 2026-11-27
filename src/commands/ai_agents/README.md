@@ -4,7 +4,7 @@
 
 Writes Elastic Defend, osquery and (optionally) Claude Code OTel documents for Claude Code and Cursor CLI, as a fixed set of named scenarios. The shapes, field population and process trees are copied from one lab run, so the data behaves like real agents do, for Entity Store, detection rule and AI agent feature work.
 
-The lab was a single Amazon Linux 2023 host with Elastic Defend 9.6.0 (eBPF, Endpoint package 9.6.1, Linux session data on), Claude Code 2.1.332 and `cursor-agent` 2026.11.22. The lab scenarios (`all`) are Linux and Amazon Linux shaped. The demo scenarios add macOS and Windows hosts, install methods the lab didn't use, Defend alerts, Cursor audit, Okta, Entra ID and HR documents. Those shapes are inferred, so their documents carry `tags: ["poc-mock"]` (see "Demo scenarios").
+The lab was a single Amazon Linux 2023 host with Elastic Defend 9.6.0 (eBPF, Endpoint package 9.6.1, Linux session data on), Claude Code 2.1.332 and `cursor-agent` 2026.11.22. The lab scenarios (`all`) are Linux and Amazon Linux shaped. The demo scenarios add macOS and Windows hosts, install methods the lab didn't use, Defend alerts, Cursor audit, Okta and Entra ID documents. Those shapes are inferred, so their documents carry `tags: ["poc-mock"]` (see "Demo scenarios").
 
 ### Usage
 
