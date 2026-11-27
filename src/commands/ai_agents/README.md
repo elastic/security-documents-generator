@@ -135,11 +135,22 @@ The two Ollama rules and Execution via OpenClaw Agent have no scenario (`SKIPPED
 `storyline` (`src/commands/ai_agents/storyline.ts`) is the demo's story, with synthetic people from `STORYLINE_PEOPLE`:
 
 - `ci-build-01`: Claude Code from cron as `ec2-user`, signed in as `avery.quinn@<domain>`, run as `claude -p "<issue text with 'Ignore previous instructions'>" --dangerously-skip-permissions`. Its tool shells download and unpack an agent kit into `~/Downloads` (a `CLAUDE.md`), run its `build-helper` (one Defend malware alert) and run `aws s3 rm s3://<org>-release-artifacts --recursive`. A second, ordinary interactive install as `jblake`, signed in as `jordan.blake@<domain>`.
-- `dev-aquinn-01` (interactive, as `aquinn`) and `jump-01` (print mode, as `ec2-user`): the same email on two other Claude Code installs.
+- `dev-aquinn-01` (interactive, as `aquinn`) and `jump-01` (print mode, as `ec2-user`): the same email on two other Claude Code installs. The `dev-aquinn-01` session starts last and is still running when the data ends: its Claude process has no `end` event and leaves out what Claude does on exit (the `open` session option). Its tool commands end, and osquery lists it as running.
 - Okta: `avery.quinn` `DEPROVISIONED` (`user.account.status.deprovisioned: true`), `jordan.blake` active. Entra ID: `avery.quinn` still enabled. No MFA state, because neither integration sends it. Both in the packages' stored shape, written with the `_none` pipeline, so Entity Store mints `user:<email>@okta` and `user:<email>@entra_id`.
 - With `--cursor-audit`: Cursor web login and a user API key for `avery.quinn` three days ago, then a SCIM `remove_user` for them a day ago.
 
 Host IDs change with the seed. Look hosts up by name.
+
+#### Accounts
+
+Every person a scenario creates with `builder.person()` is an employee with an active Okta user (`poc-mock`), so their installs resolve to a person. A few aren't, through `builder.person(kind)`:
+
+| Kind         | Email domain             | IdP user | Scenarios                                                                 |
+| ------------ | ------------------------ | -------- | ------------------------------------------------------------------------- |
+| `contractor` | `--domain`               | none     | `rule_llm_endpoint_native`, `rule_compile_brew`, `install_claude_windows` |
+| `personal`   | `example.net` (reserved) | none     | `rule_prompt_injection_cursor_cli`, `rule_sensitive_files_brew`           |
+
+Personal Cursor accounts get no Cursor audit events, because they aren't in the team. IdP documents draw from their own random source, so they don't change host names or IDs for a seed.
 
 ### `ai-agents-context`
 
@@ -149,26 +160,29 @@ Applies the storyline's Kibana-side context, which only Kibana APIs can set. The
 yarn start ai-agents-context --space gen-demo --install-store --extract 4
 ```
 
-| Step                                  | API                                                                                                                                                                                                                             |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Install the store (`--install-store`) | `POST /s/<space>/api/security/entity_store/install` with all five entity types                                                                                                                                                  |
-| Extract (`--extract <hours>`)         | `POST /s/<space>/internal/security/entity_store/{host,user,ai_agent}/force_log_extraction` (API version 2)                                                                                                                      |
-| `high_impact` on `ci-build-01`        | `PUT /s/<space>/api/security/entity_store/entities/bulk?force=true` with `asset.criticality` on `host:<host.id>`                                                                                                                |
-| `jordan.blake` on Privileged Users    | `POST /s/<space>/api/entity_analytics/watchlists/install`, then `.../watchlists/<id>/entities/assign` with `user:<email>@okta`                                                                                                  |
-| `avery.quinn` on Departing Employees  | `POST .../watchlists` (risk modifier 1.5), or `PUT .../watchlists/<id>` if it exists, then `.../<id>/entities/assign` with `user:<email>@okta` and `user:<email>@entra_id`. No entity source: an analyst assigns people by hand |
+| Step                                  | API                                                                                                                                                                                                                              |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Install the store (`--install-store`) | `POST /s/<space>/api/security/entity_store/install` with all five entity types                                                                                                                                                   |
+| Extract (`--extract <hours>`)         | `POST /s/<space>/internal/security/entity_store/{host,user,ai_agent}/force_log_extraction` (API version 2)                                                                                                                       |
+| `high_impact` on `ci-build-01`        | `PUT /s/<space>/api/security/entity_store/entities/bulk?force=true` with `asset.criticality` on `host:<host.id>`                                                                                                                 |
+| Store query on Unsanctioned AI agents | After `.../watchlists/install`, `POST .../watchlists/unsanctioned-ai-agents-watchlist-id-<space>/entity_source` with a store query, "Accounts outside `<domain>`", unless it has one. Fails if the prebuilt watchlist is missing |
+| `jordan.blake` on Privileged Users    | `POST /s/<space>/api/entity_analytics/watchlists/install`, then `.../watchlists/<id>/entities/assign` with `user:<email>@okta`                                                                                                   |
+| `avery.quinn` on Departing Employees  | `POST .../watchlists` (risk modifier 1.5), or `PUT .../watchlists/<id>` if it exists, then `.../<id>/entities/assign` with `user:<email>@okta` and `user:<email>@entra_id`. No entity source: an analyst assigns people by hand  |
 
 The legacy `POST /api/asset_criticality` route writes the V1 criticality index, which Entity Store V2 doesn't read, so the command uses the entity bulk update the V2 flyout uses.
 
 ### Indices
 
-| Index                                                                                              | Pipeline                                                     |
-| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `logs-endpoint.events.process-default`, `.file-default`, `.network-default`                        | Package default                                              |
-| `logs-osquery_manager.result-default`                                                              | Package default                                              |
-| `logs-claude_code.events.otel-default` (with `--claude-otel`)                                      | `_none`, because documents are in the package's stored shape |
-| `logs-endpoint.alerts-default` (demo scenarios)                                                    | Package default                                              |
-| `logs-cursor.audit-default` (with `--cursor-audit`)                                                | `_none`, stored shape                                        |
-| `logs-entityanalytics_okta.user-default`, `logs-entityanalytics_entra_id.user-default` (storyline) | `_none`, stored shape                                        |
+| Index                                                                                  | Pipeline                                                     |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `logs-endpoint.events.process-default`, `.file-default`, `.network-default`            | Package default                                              |
+| `logs-osquery_manager.result-default`                                                  | Package default                                              |
+| `logs-claude_code.events.otel-default` (with `--claude-otel`)                          | `_none`, because documents are in the package's stored shape |
+| `logs-endpoint.alerts-default` (demo scenarios)                                        | Package default                                              |
+| `logs-cursor.audit-default` (with `--cursor-audit`)                                    | `_none`, stored shape                                        |
+| `logs-entityanalytics_okta.user-default`, `logs-entityanalytics_entra_id.user-default` | `_none`, stored shape                                        |
+
+Okta users are written for every generated employee, Entra ID users for the storyline only.
 
 `-default` becomes `-<namespace>` with `--namespace` or a non-default `--space`.
 

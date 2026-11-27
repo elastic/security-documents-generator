@@ -5,6 +5,7 @@ import {
   buildCursorAuditEvents,
   buildCursorSession,
   buildDefendAlert,
+  buildOktaUser,
   buildOsqueryLiveQuery,
   bin,
   claudeCommands,
@@ -12,6 +13,7 @@ import {
   MockAgentRun,
   orgTelemetryCollector,
   POC_MOCK_TAG,
+  randomJob,
   type ClaudeCodeSessionOptions,
   type ClaudeCodeSessionResult,
   type CursorAuditEvent,
@@ -39,10 +41,12 @@ import {
   cloudDefaultUser,
   createPerson,
   createRuntime,
+  PERSONAL_EMAIL_DOMAIN,
   personalUser,
   rootUser,
   serviceUser,
   sshClientIp,
+  type AccountKind,
   type HostOptions,
   type Person,
 } from './synthetic_identities.ts';
@@ -238,7 +242,7 @@ export class ScenarioBuilder {
     const session = buildCursorSession({ ...options, runtime, clientIp: sshClientIp() });
     this.documents.push(...session.documents);
     this.remember(runtime, options.user, 'cursor');
-    if (options.identity.email) {
+    if (options.identity.email.endsWith(`@${this.context.domain}`)) {
       this.cursorUsers.push({ email: options.identity.email, at: options.start });
     }
     this.end = Math.max(this.end, session.process.end);
@@ -294,8 +298,19 @@ export class ScenarioBuilder {
     return { documents: this.documents, end: this.end };
   }
 
-  person(): Person {
-    return createPerson(this.context.domain, this.context.organizationId);
+  /** A new person. Employees also get an active Okta user, so their installs resolve to them. */
+  person(kind: AccountKind = 'employee'): Person {
+    const { domain, organizationId, start } = this.context;
+    const person = createPerson(
+      kind === 'personal' ? PERSONAL_EMAIL_DOMAIN : domain,
+      organizationId,
+    );
+    if (kind === 'employee') {
+      this.push([buildOktaUser({ ...person, ...randomJob() }, { at: start, status: 'ACTIVE' })], {
+        mock: true,
+      });
+    }
+    return person;
   }
 }
 

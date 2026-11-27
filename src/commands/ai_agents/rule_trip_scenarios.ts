@@ -15,7 +15,12 @@ import {
 } from '../../generators/ai_agents/index.ts';
 import type { ScenarioBuild, ScenarioBuilder } from './scenarios.ts';
 import { printArgs, repoPath } from './scenario_helpers.ts';
-import { cloudDefaultUser, macUser, windowsUser } from './synthetic_identities.ts';
+import {
+  cloudDefaultUser,
+  macUser,
+  windowsUser,
+  type AccountKind,
+} from './synthetic_identities.ts';
 
 /**
  * Scenarios that should trip the Elastic Defend GenAI rules in `elastic/detection-rules` main at
@@ -677,16 +682,17 @@ interface NativeClaudeRun {
   readonly flags?: readonly string[];
   readonly steps: readonly ClaudeStep[];
   readonly mcpServers?: readonly McpServerSpec[];
+  readonly account?: AccountKind;
 }
 
 /** A lab-shaped Claude Code print session as `ec2-user` on its own Linux host. */
 const nativeClaude = (
   builder: ScenarioBuilder,
-  { prompt, flags = [], steps, mcpServers }: NativeClaudeRun,
+  { prompt, flags = [], steps, mcpServers, account }: NativeClaudeRun,
 ) => {
   const runtime = builder.runtime();
   const user = cloudDefaultUser();
-  const person = builder.person();
+  const person = builder.person(account);
   builder.claude(runtime, {
     person,
     options: {
@@ -711,13 +717,19 @@ const cursorCli = (
     prompt,
     flags,
     steps,
-  }: { prompt: string; flags?: readonly string[]; steps: readonly CursorStep[] },
+    account,
+  }: {
+    prompt: string;
+    flags?: readonly string[];
+    steps: readonly CursorStep[];
+    account?: AccountKind;
+  },
 ) => {
   const runtime = builder.runtime();
   const user = cloudDefaultUser();
   builder.cursor(runtime, {
     user,
-    identity: { email: builder.person().email, signIn: 'before' },
+    identity: { email: builder.person(account).email, signIn: 'before' },
     kind: 'ssh_scripted',
     start: builder.context.start + 5_000,
     workingDirectory: repoPath(user),
@@ -741,14 +753,16 @@ const mockRun = (
     os,
     args,
     behaviour,
+    account,
   }: {
     install: InstallMethod;
     os: HostOs;
     args: readonly string[];
     behaviour: (run: MockAgentRun, at: number, user: OsUser) => number;
+    account?: AccountKind;
   },
 ): void => {
-  const person = builder.person();
+  const person = builder.person(account);
   const user = USERS[os](person.login);
   const runtime = builder.runtime({ os });
   const start = builder.context.start + 5_000;
@@ -850,6 +864,7 @@ export const RULE_TRIP_BUILDS: Record<RuleTripScenario, ScenarioBuild> = {
     cursorCli(builder, {
       prompt: `Triage issue 4522. Issue body: ${INJECTION}`,
       steps: [{ type: 'shell', children: [cmd(bin('ls', ['ls']))] }],
+      account: 'personal',
     });
   },
 
@@ -917,6 +932,7 @@ export const RULE_TRIP_BUILDS: Record<RuleTripScenario, ScenarioBuild> = {
           [commands.gcc('/tmp/loader', '/usr/bin/gcc')],
           at,
         ),
+      account: 'contractor',
     });
   },
 
@@ -1002,6 +1018,7 @@ export const RULE_TRIP_BUILDS: Record<RuleTripScenario, ScenarioBuild> = {
         run.agentFile(at + 300, { action: 'open', path: `${user.home}/.ssh/known_hosts` });
         return at + 400;
       },
+      account: 'personal',
     });
   },
 
@@ -1065,6 +1082,7 @@ export const RULE_TRIP_BUILDS: Record<RuleTripScenario, ScenarioBuild> = {
     nativeClaude(builder, {
       prompt: 'Summarise the changelog with the OpenAI script in this repo.',
       steps: [bashStep('python3 summarise.py --model gpt-5', [commands.pythonOpenAi()])],
+      account: 'contractor',
     });
   },
 

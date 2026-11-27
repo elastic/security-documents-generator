@@ -11,6 +11,7 @@ import {
   resequenceEndpointEvents,
   seedClaudeCodeOtel,
   seedCursorAudit,
+  seedIdentityContext,
   type GeneratedDocument,
 } from '../../generators/ai_agents/index.ts';
 import { resetSyntheticIdentities } from './synthetic_identities.ts';
@@ -261,6 +262,7 @@ export const generateAiAgentData = async (options: AiAgentDataOptions): Promise<
     faker.seed(options.seed);
     seedClaudeCodeOtel(options.seed);
     seedCursorAudit(options.seed);
+    seedIdentityContext(options.seed);
   }
   const extrapolated = options.scenarios.filter((scenario) => EXTRAPOLATED_SCENARIOS.has(scenario));
   if (extrapolated.length > 0) {

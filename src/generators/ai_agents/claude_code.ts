@@ -89,12 +89,18 @@ export interface ClaudeCodeSessionOptions {
   readonly apiKey?: string;
   /** The shell command for scripted SSH and cron sessions. */
   readonly sessionCommand?: string;
+  /**
+   * Still running when the generated data ends, so Claude never exits: no `end` event for the agent
+   * and none of what it does on exit. Its tool commands still end.
+   */
+  readonly open?: boolean;
 }
 
 export interface AgentProcessSummary {
   readonly pid: number;
   readonly parentPid: number;
   readonly start: number;
+  /** The exit, or the last event of a session left open. */
   readonly end: number;
   readonly executable: string;
   readonly commandLine: string;
@@ -779,6 +785,9 @@ class ClaudeSessionBuilder {
       }
     }
 
+    if (this.options.open) {
+      return this.result(time);
+    }
     const end = time + (interactive ? 8_000 : 1_600);
     servers.forEach(({ npx, server }) => {
       this.writer.processEvent(server, ['end'], end - 640, { exitCode: 130 });

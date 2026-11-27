@@ -1,10 +1,17 @@
-import { faker } from '@faker-js/faker';
+import { en, Faker } from '@faker-js/faker';
 import {
   ENTRA_USER_INDEX,
   OKTA_USER_INDEX,
   POC_MOCK_TAG,
   type GeneratedDocument,
 } from './types.ts';
+
+/** Its own instance, so adding IdP users doesn't move the host names and IDs a seed gives. */
+const faker = new Faker({ locale: [en] });
+
+export const seedIdentityContext = (seed: number): void => {
+  faker.seed(seed);
+};
 
 /**
  * IdP documents that give a signed-in email a person behind it. The IdP users are in the
@@ -20,6 +27,20 @@ export interface IdpPerson {
 }
 
 const iso = (ms: number): string => new Date(ms).toISOString();
+
+const JOBS = [
+  { department: 'Engineering', title: 'Software Engineer' },
+  { department: 'Engineering', title: 'Senior Software Engineer' },
+  { department: 'Platform Engineering', title: 'Site Reliability Engineer' },
+  { department: 'Data', title: 'Data Engineer' },
+  { department: 'Security', title: 'Security Engineer' },
+  { department: 'Product', title: 'Product Manager' },
+  { department: 'IT', title: 'IT Support Engineer' },
+] as const;
+
+/** A department and job title for a generated employee. */
+export const randomJob = (): { department: string; title: string } =>
+  faker.helpers.arrayElement(JOBS);
 
 export type OktaStatus = 'ACTIVE' | 'DEPROVISIONED' | 'SUSPENDED';
 

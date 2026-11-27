@@ -18,6 +18,11 @@ export interface StorylineContextOptions {
 const ENTITY_TYPES = ['user', 'host', 'service', 'generic', 'ai_agent'] as const;
 const DEPARTING_WATCHLIST = 'Departing Employees';
 const PRIVILEGED_WATCHLIST = 'Privileged Users';
+const UNSANCTIONED_WATCHLIST = 'Unsanctioned AI agents';
+const ACCOUNT_EMAIL_FIELD = 'entity.relationships.acts_on_behalf_of.raw_identifiers.user.email';
+
+const unsanctionedWatchlistId = (space: string): string =>
+  `unsanctioned-ai-agents-watchlist-id-${space}`;
 
 const spacePath = (space: string): string => (space === 'default' ? '' : `/s/${space}`);
 
@@ -40,6 +45,50 @@ const listWatchlists = (space: string) =>
 
 const findWatchlist = async (space: string, name: string): Promise<Watchlist | undefined> =>
   (await listWatchlists(space)).find((watchlist) => watchlist.name === name);
+
+interface EntitySource {
+  readonly id: string;
+  readonly type: string;
+  readonly name: string;
+}
+
+/**
+ * Gives the prebuilt Unsanctioned AI agents watchlist a store query for agents signed in with an
+ * account outside `domain`, unless it already has a store query.
+ */
+const addUnsanctionedSource = async (space: string, domain: string): Promise<void> => {
+  const id = unsanctionedWatchlistId(space);
+  if (!(await listWatchlists(space)).some((watchlist) => watchlist.id === id)) {
+    throw new Error(
+      `The prebuilt ${UNSANCTIONED_WATCHLIST} watchlist (${id}) isn't installed in ${space}. This Kibana build doesn't ship it.`,
+    );
+  }
+  const { sources } = await kibanaFetch<{ sources: EntitySource[] }>(
+    `${WATCHLISTS_URL}/${id}/entity_source/list`,
+    { method: 'GET' },
+    { apiVersion: API_VERSIONS.public.v1, space },
+  );
+  const existing = sources.find((source) => source.type === 'store');
+  if (existing) {
+    log.info(`${UNSANCTIONED_WATCHLIST} already has the store query "${existing.name}"`);
+    return;
+  }
+  const name = `Accounts outside ${domain}`;
+  await kibanaFetch(
+    `${WATCHLISTS_URL}/${id}/entity_source`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'store',
+        name,
+        enabled: true,
+        queryRule: `entity.EngineMetadata.Type: "ai_agent" and ${ACCOUNT_EMAIL_FIELD}: * and not ${ACCOUNT_EMAIL_FIELD}: *@${domain}`,
+      }),
+    },
+    { apiVersion: API_VERSIONS.public.v1, space },
+  );
+  log.info(`Added the store query "${name}" to ${UNSANCTIONED_WATCHLIST} (${id})`);
+};
 
 const buildServerHostId = async (namespace: string): Promise<string> => {
   const result = await getEsClient().esql.query({
@@ -84,9 +133,9 @@ const extract = async (space: string, hours: number): Promise<void> => {
 };
 
 /**
- * Applies the storyline's Kibana-side context: host criticality on the build server, the privileged
- * person on Privileged Users, and the departing person on Departing Employees. Both assignments are
- * manual, as an analyst would make them. The entity
+ * Applies the storyline's Kibana-side context: host criticality on the build server, a store query on
+ * Unsanctioned AI agents, the privileged person on Privileged Users, and the departing person on
+ * Departing Employees. Both assignments are manual, as an analyst would make them. The entity
  * rows must exist, so load the storyline and run extraction first (`--extract`).
  */
 export const applyStorylineContext = async (options: StorylineContextOptions): Promise<void> => {
@@ -116,6 +165,7 @@ export const applyStorylineContext = async (options: StorylineContextOptions): P
     { method: 'POST', body: JSON.stringify({}) },
     { apiVersion: API_VERSIONS.public.v1, space },
   );
+  await addUnsanctionedSource(space, domain);
   const privileged = await findWatchlist(space, PRIVILEGED_WATCHLIST);
   if (!privileged) {
     throw new Error(`The prebuilt ${PRIVILEGED_WATCHLIST} watchlist isn't installed in ${space}`);

@@ -7,7 +7,12 @@ import {
 } from '../../generators/ai_agents/index.ts';
 import type { ScenarioBuild, ScenarioBuilder } from './scenarios.ts';
 import { repoPath } from './scenario_helpers.ts';
-import { cloudDefaultUser, macUser, windowsUser } from './synthetic_identities.ts';
+import {
+  cloudDefaultUser,
+  macUser,
+  windowsUser,
+  type AccountKind,
+} from './synthetic_identities.ts';
 
 /**
  * One ordinary session per install method the lab didn't cover, for the inventory and the agent ID.
@@ -24,11 +29,11 @@ export type InstallVariantScenario = (typeof INSTALL_VARIANT_SCENARIOS)[number];
 
 export const INSTALL_VARIANT_SHAPES: Record<
   InstallVariantScenario,
-  { install: InstallMethod; os: HostOs }
+  { install: InstallMethod; os: HostOs; account?: AccountKind }
 > = {
   install_claude_brew: { install: 'claude_homebrew', os: 'macos' },
   install_claude_npm: { install: 'claude_npm', os: 'linux' },
-  install_claude_windows: { install: 'claude_windows', os: 'windows' },
+  install_claude_windows: { install: 'claude_windows', os: 'windows', account: 'contractor' },
   install_cursor_ide: { install: 'cursor_ide', os: 'macos' },
 };
 
@@ -54,8 +59,9 @@ const sessionFor = (
   install: InstallMethod,
   os: HostOs,
   user: (login: string) => OsUser,
+  account?: AccountKind,
 ): void => {
-  const person = builder.person();
+  const person = builder.person(account);
   const osUser = user(person.login);
   const runtime = builder.runtime({ os });
   const start = builder.context.start + 5_000;
@@ -96,8 +102,8 @@ const USERS: Record<HostOs, (login: string) => OsUser> = {
 
 export const INSTALL_VARIANT_BUILDS = Object.fromEntries(
   INSTALL_VARIANT_SCENARIOS.map((name) => {
-    const { install, os } = INSTALL_VARIANT_SHAPES[name];
-    const build: ScenarioBuild = (builder) => sessionFor(builder, install, os, USERS[os]);
+    const { install, os, account } = INSTALL_VARIANT_SHAPES[name];
+    const build: ScenarioBuild = (builder) => sessionFor(builder, install, os, USERS[os], account);
     return [name, build];
   }),
 ) as Record<InstallVariantScenario, ScenarioBuild>;

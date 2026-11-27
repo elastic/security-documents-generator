@@ -44,6 +44,8 @@ export {
 export {
   buildEntraUser,
   buildOktaUser,
+  randomJob,
+  seedIdentityContext,
   type IdpPerson,
   type OktaStatus,
 } from './identity_context.ts';

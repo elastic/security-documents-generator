@@ -20,6 +20,7 @@ import {
   OKTA_USER_INDEX,
   POC_MOCK_TAG,
   seedClaudeCodeOtel,
+  seedIdentityContext,
 } from '../../generators/ai_agents/index.ts';
 
 type Source = Record<string, unknown>;
@@ -49,6 +50,7 @@ const hostOf = (source: Source) =>
 const generate = (scenarios: readonly AiAgentScenario[], cursorAudit: boolean) => {
   faker.seed(4321);
   seedClaudeCodeOtel(4321);
+  seedIdentityContext(4321);
   return buildAiAgentDocuments(
     {
       scenarios,
@@ -367,6 +369,92 @@ describe('demo scenarios', () => {
         .sort(),
       ['behavior', 'malicious_file'],
     );
+  });
+
+  it('gives every employee one active Okta user, and leaves three contractors and two personal accounts without one', () => {
+    const scenarioOf = new Map<string, string>();
+    for (const source of sources(undefined, ENDPOINT_PROCESS_INDEX)) {
+      const email = processOf(source).ai_agent?.email;
+      if (email) {
+        scenarioOf.set(email, labelsOf(source).poc_scenario);
+      }
+    }
+    const oktaUsers = sources(undefined, OKTA_USER_INDEX).map(
+      (source) => source.user as { email: string; full_name: string; profile: { status: string } },
+    );
+    const oktaEmails = oktaUsers.map(({ email }) => email);
+    assert.equal(new Set(oktaEmails).size, oktaEmails.length);
+    assert.ok(oktaEmails.every((email) => scenarioOf.has(email)));
+    assert.equal(oktaUsers.length, scenarioOf.size - 5);
+    for (const { email, full_name: fullName, profile } of oktaUsers) {
+      assert.match(fullName, /^\S+ \S+/);
+      if (email !== 'avery.quinn@example.com') {
+        assert.equal(profile.status, 'ACTIVE', email);
+      }
+    }
+    assert.ok(!JSON.stringify(sources(undefined, OKTA_USER_INDEX)).includes('mfa'));
+
+    const withoutIdp = [...scenarioOf.keys()].filter((email) => !oktaEmails.includes(email));
+    assert.deepEqual(
+      withoutIdp
+        .filter((email) => email.endsWith('@example.com'))
+        .map((email) => scenarioOf.get(email))
+        .sort(),
+      ['install_claude_windows', 'rule_compile_brew', 'rule_llm_endpoint_native'],
+    );
+    const personal = withoutIdp.filter((email) => email.endsWith('@example.net'));
+    assert.deepEqual(personal.map((email) => scenarioOf.get(email)).sort(), [
+      'rule_prompt_injection_cursor_cli',
+      'rule_sensitive_files_brew',
+    ]);
+    assert.ok(
+      [...scenarioOf.keys()].every(
+        (email) => email.endsWith('@example.com') || email.endsWith('@example.net'),
+      ),
+    );
+    assert.ok(!JSON.stringify(sources(undefined, CURSOR_AUDIT_INDEX)).includes('@example.net'));
+  });
+
+  it('leaves the dev-aquinn-01 session running: no end event for Claude, ends for its tool commands', () => {
+    const storyline = sources('storyline', ENDPOINT_PROCESS_INDEX);
+    const dev = storyline.filter((source) => hostOf(source).name === STORYLINE_HOSTS.devVm);
+    const root = dev.find(
+      (source) =>
+        processOf(source).ai_agent?.is_descendant === false &&
+        processOf(source).args.join(' ') === 'claude',
+    );
+    assert.ok(root);
+    const rootId = processOf(root).entity_id;
+    const rootEvents = dev.filter((source) => processOf(source).entity_id === rootId);
+    assert.deepEqual(
+      rootEvents.map((source) => actionsOf(source)),
+      [['fork', 'exec']],
+    );
+    assert.ok(
+      dev.some(
+        (source) =>
+          processOf(source).Ext.ancestry.includes(rootId) &&
+          processOf(source).name === 'ls' &&
+          actionsOf(source).includes('end'),
+      ),
+    );
+    const latest = (events: Source[]) =>
+      Math.max(...events.map((source) => Date.parse(String(source['@timestamp']))));
+    assert.equal(latest(dev), latest(storyline));
+
+    const otherRoots = storyline.filter(
+      (source) =>
+        hostOf(source).name !== STORYLINE_HOSTS.devVm &&
+        processOf(source).ai_agent?.is_descendant === false &&
+        processOf(source).args[0] === 'claude',
+    );
+    for (const id of new Set(otherRoots.map((source) => processOf(source).entity_id))) {
+      assert.ok(
+        storyline.some(
+          (source) => processOf(source).entity_id === id && actionsOf(source).includes('end'),
+        ),
+      );
+    }
   });
 
   it('writes Cursor audit events only with the flag, without changing anything else for a seed', () => {

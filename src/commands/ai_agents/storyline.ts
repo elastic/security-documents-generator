@@ -17,9 +17,9 @@ import {
 /**
  * The demo storyline (`demo-plan.md`): Claude Code on a critical build server, running as `ec2-user`
  * from cron, signed in as a person whom Okta shows deprovisioned and Entra ID still has. The run
- * trips rules, and the same email is signed in on two other hosts. The `context` command puts that
- * person on Departing Employees by hand, and a second person on the same build server on Privileged
- * Users.
+ * trips rules, and the same email is signed in on two other hosts. The interactive session on the
+ * dev VM is still running when the data ends. The `context` command puts that person on Departing
+ * Employees by hand, and a second person on the same build server on Privileged Users.
  */
 export const STORYLINE_SCENARIOS = ['storyline'] as const;
 
@@ -55,25 +55,6 @@ export const STORYLINE_BUILDS: Record<StorylineScenario, ScenarioBuild> = {
       ],
       { mock: true },
     );
-
-    const devVm = builder.runtime({ name: STORYLINE_HOSTS.devVm });
-    const devUser = personalUser(departing.login, 1001, 'nvm');
-    builder.claude(devVm, {
-      person: departing,
-      typedPrompt: 'what does the release script do?',
-      options: {
-        user: devUser,
-        identity: { email: departing.email, signIn: 'before' },
-        kind: 'interactive',
-        start: start + 60_000,
-        workingDirectory: repoPath(devUser),
-        steps: [
-          { type: 'read', path: `${repoPath(devUser)}/release.sh` },
-          bashStep('ls', [cmd(bin('ls', ['ls']), { durationMs: 5 })]),
-        ],
-      },
-    });
-    builder.osquery(devVm);
 
     const jumpHost = builder.runtime({ name: STORYLINE_HOSTS.jumpHost });
     const jumpUser = cloudDefaultUser();
@@ -166,6 +147,26 @@ export const STORYLINE_BUILDS: Record<StorylineScenario, ScenarioBuild> = {
       tactic: { id: 'TA0002', name: 'Execution' },
       technique: { id: 'T1204', name: 'User Execution' },
     });
+
+    const devVm = builder.runtime({ name: STORYLINE_HOSTS.devVm });
+    const devUser = personalUser(departing.login, 1001, 'nvm');
+    const devSession = builder.claude(devVm, {
+      person: departing,
+      typedPrompt: 'what does the release script do?',
+      options: {
+        user: devUser,
+        identity: { email: departing.email, signIn: 'before' },
+        kind: 'interactive',
+        start: start + 780_000,
+        workingDirectory: repoPath(devUser),
+        steps: [
+          { type: 'read', path: `${repoPath(devUser)}/release.sh` },
+          bashStep('ls', [cmd(bin('ls', ['ls']), { durationMs: 5 })]),
+        ],
+        open: true,
+      },
+    });
+    builder.osquery(devVm, undefined, [devSession]);
 
     builder.cursorAuditEvents([
       { action: 'login', at: start - 3 * DAY_MS, email: departing.email },

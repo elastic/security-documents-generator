@@ -22,10 +22,22 @@ const CLOUD_DEFAULT_GROUPS = [
 
 export interface Person {
   readonly email: string;
+  readonly firstName: string;
+  readonly lastName: string;
   /** Short login derived from the name, which never equals the email's local part. */
   readonly login: string;
   readonly account: ClaudeAccount;
 }
+
+/**
+ * How a generated person signs in to an agent. An `employee` uses the corporate domain and has an
+ * Okta user. A `contractor` uses the corporate domain with no IdP user. `personal` is a personal
+ * account on `PERSONAL_EMAIL_DOMAIN`, with no IdP user.
+ */
+export type AccountKind = 'employee' | 'contractor' | 'personal';
+
+/** Reserved for documentation, so a domain rule can tell personal accounts from corporate ones. */
+export const PERSONAL_EMAIL_DOMAIN = 'example.net';
 
 const usedEmails = new Set<string>();
 const usedHostIps = new Set<string>();
@@ -37,14 +49,10 @@ export const resetSyntheticIdentities = (): void => {
 };
 
 export const createPerson = (domain: string, organizationId: string): Person => {
-  const first = faker.person
-    .firstName()
-    .toLowerCase()
-    .replace(/[^a-z]/g, '');
-  const last = faker.person
-    .lastName()
-    .toLowerCase()
-    .replace(/[^a-z]/g, '');
+  const firstName = faker.person.firstName();
+  const lastName = faker.person.lastName();
+  const first = firstName.toLowerCase().replace(/[^a-z]/g, '');
+  const last = lastName.toLowerCase().replace(/[^a-z]/g, '');
   let suffix = '';
   for (let attempt = 2; usedEmails.has(`${first}.${last}${suffix}@${domain}`); attempt++) {
     suffix = String(attempt);
@@ -53,6 +61,8 @@ export const createPerson = (domain: string, organizationId: string): Person => 
   usedEmails.add(email);
   return {
     email,
+    firstName,
+    lastName,
     login: `${first[0]}${last}`.slice(0, 10) + suffix,
     account: createClaudeAccount(email, organizationId),
   };
@@ -184,7 +194,7 @@ export const createNamedPerson = (
 ): Person => {
   const email = `${firstName}.${lastName}@${domain}`.toLowerCase();
   usedEmails.add(email);
-  return { email, login, account: createClaudeAccount(email, organizationId) };
+  return { email, firstName, lastName, login, account: createClaudeAccount(email, organizationId) };
 };
 
 export const sshClientIp = (): string => `203.0.113.${faker.number.int({ min: 2, max: 250 })}`;
