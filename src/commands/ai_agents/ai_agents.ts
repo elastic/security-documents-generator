@@ -21,11 +21,12 @@ import { bulkIngest } from '../shared/elasticsearch.ts';
 import { getEsClient } from '../utils/indices.ts';
 import {
   ALL_SCENARIOS,
-  buildScenario,
   EXTRAPOLATED_SCENARIOS,
   POC_MOCK_SCENARIOS,
   SCENARIO_GROUPS,
+  startScenario,
   type AiAgentScenario,
+  type ScenarioBuilder,
 } from './scenarios.ts';
 
 export interface AiAgentDataOptions {
@@ -37,6 +38,8 @@ export interface AiAgentDataOptions {
   readonly sessionData: boolean;
   readonly installPackages: boolean;
   readonly cursorAudit: boolean;
+  /** Days of quiet history ending with the generated window's day, for the installs that have it. 0 writes none. */
+  readonly historyDays: number;
   readonly outputFile?: string;
   readonly space: string;
   /** Data stream namespace for every `-default` index. Defaults to the space, so a space's maintainers read it. */
@@ -93,32 +96,35 @@ export const buildAiAgentDocuments = (
     AiAgentDataOptions,
     'scenarios' | 'repeat' | 'timeWindowMs' | 'claudeOtel' | 'sessionData' | 'domain'
   > &
-    Partial<Pick<AiAgentDataOptions, 'cursorAudit' | 'namespace'>>,
+    Partial<Pick<AiAgentDataOptions, 'cursorAudit' | 'namespace' | 'historyDays'>>,
   now: number = Date.now(),
 ): BuiltScenario[] => {
   resetSyntheticIdentities();
   const organizationId = faker.string.uuid();
-  const built: BuiltScenario[] = [];
+  const started: Array<{ scenario: AiAgentScenario; builder: ScenarioBuilder }> = [];
   let cursor = now - options.timeWindowMs;
   for (let copy = 0; copy < options.repeat; copy++) {
     for (const scenario of options.scenarios) {
-      const output = buildScenario(scenario, {
+      const builder = startScenario(scenario, {
         start: cursor,
         domain: options.domain,
         organizationId,
         claudeOtel: options.claudeOtel,
         sessionData: options.sessionData,
         cursorAudit: options.cursorAudit ?? false,
+        historyDays: options.historyDays ?? 0,
       });
-      built.push({
-        scenario,
-        documents: output.documents.map((doc) =>
-          applyNamespace(doc, options.namespace ?? 'default'),
-        ),
-      });
-      cursor = output.end + SCENARIO_GAP_MS;
+      started.push({ scenario, builder });
+      cursor = builder.end + SCENARIO_GAP_MS;
     }
   }
+  started.forEach(({ builder }) => builder.writeHistory());
+  const built: BuiltScenario[] = started.map(({ scenario, builder }) => ({
+    scenario,
+    documents: builder
+      .output(scenario)
+      .documents.map((doc) => applyNamespace(doc, options.namespace ?? 'default')),
+  }));
   const latest = built.reduce(
     (max, { documents }) =>
       documents.reduce(

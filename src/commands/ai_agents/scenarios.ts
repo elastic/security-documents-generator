@@ -36,6 +36,7 @@ import {
   RULE_TRIP_SCENARIOS,
 } from './rule_trip_scenarios.ts';
 import { CLAUDE_MODEL_NAME, DEMO_REPO, printArgs, repoPath } from './scenario_helpers.ts';
+import { historyStart } from './history.ts';
 import { STORYLINE_BUILDS, STORYLINE_SCENARIOS } from './storyline.ts';
 import {
   cloudDefaultUser,
@@ -121,6 +122,8 @@ export interface ScenarioContext {
   readonly sessionData: boolean;
   /** Also write Cursor audit events for the scenario's Cursor users. */
   readonly cursorAudit: boolean;
+  /** Days of quiet history ending with the scenario's own day (`history.ts`). 0 writes none. */
+  readonly historyDays: number;
 }
 
 export interface ScenarioOutput {
@@ -146,6 +149,7 @@ export class ScenarioBuilder {
   private readonly inventories = new Map<HostRuntime, Map<string, OsqueryUserInventory>>();
   private readonly mockDocuments = new Set<GeneratedDocument>();
   private readonly cursorUsers: Array<{ email: string; at: number }> = [];
+  private readonly historyBuilds: Array<() => void> = [];
   end: number;
 
   constructor(context: ScenarioContext) {
@@ -154,7 +158,25 @@ export class ScenarioBuilder {
   }
 
   runtime(options: HostOptions = {}): HostRuntime {
-    return createRuntime(this.context.start, this.context.sessionData, options);
+    return createRuntime(
+      historyStart(this.context.start, this.context.historyDays),
+      this.context.sessionData,
+      options,
+    );
+  }
+
+  /**
+   * Back-fills quiet history with `--history-days`. It runs after every scenario's live sessions,
+   * so the live data is the same for a seed with or without history.
+   */
+  history(build: () => void): void {
+    if (this.context.historyDays > 0) {
+      this.historyBuilds.push(build);
+    }
+  }
+
+  writeHistory(): void {
+    this.historyBuilds.splice(0).forEach((build) => build());
   }
 
   /** Adds documents, marking them `poc-mock` when `mock` is set. */
@@ -751,14 +773,15 @@ const scenarioBuilds: Record<AiAgentScenario, ScenarioBuild> = {
 };
 
 /**
- * Builds one scenario starting at `context.start`. Every scenario gets its own hosts and users.
- * Every document gets `labels.poc_scenario`, because rules read all Endpoint namespaces.
+ * Builds one scenario's live sessions starting at `context.start`. Every scenario gets its own hosts
+ * and users. Call `writeHistory` once every scenario is started, then `output`, which gives every
+ * document `labels.poc_scenario`, because rules read all Endpoint namespaces.
  */
-export const buildScenario = (
+export const startScenario = (
   scenario: AiAgentScenario,
   context: ScenarioContext,
-): ScenarioOutput => {
+): ScenarioBuilder => {
   const builder = new ScenarioBuilder(context);
   scenarioBuilds[scenario](builder);
-  return builder.output(scenario);
+  return builder;
 };

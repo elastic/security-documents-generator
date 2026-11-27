@@ -138,15 +138,18 @@ export const createHost = ({ os = 'linux', name }: HostOptions = {}): AgentHost 
   };
 };
 
-/** Linux hosts get Defend's session data when it's on. macOS and Windows Defend have none. */
+/**
+ * Linux hosts get Defend's session data when it's on. macOS and Windows Defend have none. Hosts boot
+ * an hour before `bootedBefore`, so system processes such as `crond` start before any session.
+ */
 export const createRuntime = (
-  start: number,
+  bootedBefore: number,
   sessionData: boolean,
   options: HostOptions = {},
 ): HostRuntime =>
   createHostRuntime({
     host: createHost(options),
-    bootTime: start - 3_600_000,
+    bootTime: bootedBefore - 3_600_000,
     sessionData: sessionData && (options.os ?? 'linux') === 'linux',
   });
 

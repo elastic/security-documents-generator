@@ -20,6 +20,7 @@ yarn start generate-ai-agent-data [options]
 | `--time-window <duration>` | `2h`          | Scenarios run back to back from this long before now. The command fails rather than write future timestamps                                                                      |
 | `--claude-otel`            | off           | Also write Claude Code OTel events for every Claude session. Extrapolated                                                                                                        |
 | `--cursor-audit`           | off           | Also write Cursor audit log events for each scenario's Cursor users and for the storyline, in `logs-cursor.audit-*`. `poc-mock`                                                  |
+| `--history-days <n>`       | `0`           | Back-fill quiet sessions so the data covers `<n>` days ending with the generated window (see "History"). `0` writes none                                                         |
 | `--map-session-id`         | off           | Map `process.ai_agent.session_id` as `keyword` through `endpoint@custom` before writing                                                                                          |
 | `--no-session-data`        | on            | Leave out `entry_leader`, `session_leader`, `group_leader`, `interactive`, `tty` and `process.previous`, as Defend's default policy does                                         |
 | `--no-install-packages`    | install       | Skip installing Endpoint, Osquery Manager and (with `--claude-otel`) Claude Code                                                                                                 |
@@ -140,6 +141,23 @@ The two Ollama rules and Execution via OpenClaw Agent have no scenario (`SKIPPED
 - With `--cursor-audit`: Cursor web login and a user API key for `avery.quinn` three days ago, then a SCIM `remove_user` for them a day ago.
 
 Host IDs change with the seed. Look hosts up by name.
+
+#### History
+
+`--history-days <n>` back-fills quiet sessions on four existing agents (`src/commands/ai_agents/history.ts`), so the data covers `<n>` days ending with the generated window. Days are UTC. The window's own day has only the live scenarios, so `--history-days 30` writes the 29 days before it.
+
+| Agent                                          | History                                                                                                                                                                                                                                                |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Claude Code as `ec2-user` on `ci-build-01`     | The release bot's cron job at 02:15 every night, signed in as `avery.quinn`, triaging an ordinary issue (4492 up to 4520) with `--allowedTools Read "Bash(git status)" "Bash(git log:*)"`. It reads `RELEASING.md` and runs `git status` and `git log` |
+| `install_claude_brew` (macOS)                  | Interactive sessions on weekdays, one to three a day starting 09:00 to 16:40                                                                                                                                                                           |
+| `install_cursor_ide` (macOS)                   | The same, with no sessions 8 to 14 days before the window's day, as if on leave                                                                                                                                                                        |
+| `install_claude_windows` (Windows, contractor) | The same, one or two a day                                                                                                                                                                                                                             |
+
+With `--history-days 30` the storyline agent has 30 sessions in the last 30 days: 29 quiet nights and tonight's prompt-injected run, the only one with `--dangerously-skip-permissions`. Every history session ends. Laptop sessions repeat the install variant's session (vendor API connection, a read, `git status`, an edit, `python3 main.py`) with a few minutes between steps, and start with no `-p`.
+
+History is written after every scenario's live sessions, so the live data is the same for a seed with or without it. Hosts boot an hour before the first history day, so `crond` and `sshd` start before every session.
+
+Detection rules filter on `event.ingested`, so a rule reads the history when it's loaded, whatever its `@timestamp`. The history has nothing the demo rules match: no permission bypass, injected prompt, `Downloads` write, unusual domain or sensitive file. Entity Store extraction filters on `@timestamp`, and `ai-agents-context --extract 4` reads the last 4 hours, so the history adds no agent and doesn't move `entity.lifecycle.first_seen`. macOS and Windows Defend send no session data, so the flyout shows the laptop sessions' launch mode as unknown.
 
 #### Accounts
 

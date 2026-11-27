@@ -45,6 +45,12 @@ export const aiAgentsCommands: CommandModule = {
         false,
       )
       .option(
+        '--history-days <n>',
+        'Back-fill quiet sessions so the data covers <n> days ending with the generated window: nightly cron runs for the storyline build server and weekday sessions on three laptop installs. 0 for none',
+        parseIntBase10,
+        0,
+      )
+      .option(
         '--map-session-id',
         'Map process.ai_agent.session_id as keyword through endpoint@custom first',
         false,
@@ -85,6 +91,7 @@ export const aiAgentsCommands: CommandModule = {
             timeWindow: string;
             claudeOtel: boolean;
             cursorAudit: boolean;
+            historyDays: number;
             namespace?: string;
             mapSessionId: boolean;
             sessionData: boolean;
@@ -96,12 +103,16 @@ export const aiAgentsCommands: CommandModule = {
             seed?: number;
           }) => {
             assertPositiveInt(options.repeat, '--repeat');
+            if (!Number.isInteger(options.historyDays) || options.historyDays < 0) {
+              throw new Error('--history-days must be a whole number of days, 0 or more');
+            }
             await generateAiAgentData({
               scenarios: parseScenarios(options.scenarios),
               repeat: options.repeat,
               timeWindowMs: parseDuration(options.timeWindow),
               claudeOtel: options.claudeOtel,
               cursorAudit: options.cursorAudit,
+              historyDays: options.historyDays,
               namespace: options.namespace ?? options.space,
               mapSessionId: options.mapSessionId,
               sessionData: options.sessionData,
