@@ -1,0 +1,40 @@
+--- original a1b2c3d4-e5f6-7890-abcd-ef1234567890 (package 9.6.2)
++++ copy copies/genai_suspicious_tld.eql
+@@ -1,23 +1,18 @@
+ network where host.os.type in ("macos", "windows") and
+ 
+-  // GenAI processes
+-  process.name in (
+-    "ollama.exe", "ollama", "Ollama",
+-    "textgen.exe", "textgen", "text-generation-webui.exe", "oobabooga.exe",
+-    "lmstudio.exe", "lmstudio", "LM Studio",
+-    "claude.exe", "claude", "Claude",
+-    "cursor.exe", "cursor", "Cursor",
+-    "copilot.exe", "copilot", "Copilot",
+-    "codex.exe", "codex",
+-    "Jan", "jan.exe", "jan",
+-    "gpt4all.exe", "gpt4all", "GPT4All",
+-    "gemini-cli.exe", "gemini-cli",
+-    "genaiscript.exe", "genaiscript",
+-    "grok.exe", "grok",
+-    "qwen.exe", "qwen",
+-    "koboldcpp.exe", "koboldcpp", "KoboldCpp",
+-    "llama-server", "llama-cli",
+-    "deno.exe", "deno",
+-    "npx", "pnpm", "yarn", "bunx"
++  // GenAI processes: the agent itself by Defend's agent fields (PoC), model runners and package runners by name
++  (
++    (process.ai_agent.name != null and process.ai_agent.is_descendant == false) or
++    process.name in (
++      "ollama.exe", "ollama", "Ollama",
++      "textgen.exe", "textgen", "text-generation-webui.exe", "oobabooga.exe",
++      "lmstudio.exe", "lmstudio", "LM Studio",
++      "Jan", "jan.exe", "jan",
++      "gpt4all.exe", "gpt4all", "GPT4All",
++      "koboldcpp.exe", "koboldcpp", "KoboldCpp",
++      "llama-server", "llama-cli",
++      "deno.exe", "deno",
++      "npx", "pnpm", "yarn", "bunx"
++    )
+   ) and
+ 

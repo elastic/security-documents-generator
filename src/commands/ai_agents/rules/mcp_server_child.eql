@@ -1,0 +1,107 @@
+process where event.type == "start" 
+  and (
+    // GenAI clients. PoC: agents by Defend's agent fields (any descendant), editors and model runners by name
+    process.ai_agent.is_descendant == true or
+    process.parent.name in (
+      "Code", "Code.exe", "code",
+      "Code Helper", "Code Helper (Plugin)", "Code Helper (GPU)", "Code Helper (Renderer)",
+      "Jan", "Jan.exe", "jan",
+      "Jan Helper", "Jan Helper (Plugin)", "Jan Helper (GPU)", "Jan Helper (Renderer)",
+      "LM Studio", "LM Studio.exe", "lmstudio",
+      "Ollama", "Ollama.exe", "ollama",
+      "GPT4All", "gpt4all", "gpt4all.exe",
+      "textgen.exe", "textgen", "text-generation-webui.exe", "oobabooga.exe",
+      "koboldcpp.exe", "koboldcpp", "KoboldCpp",
+      "llama-server", "llama-cli"
+    ) or
+    // Package managers running MCP servers
+    (process.parent.name in ("npx", "npx.exe", "pnpm", "pnpm.exe", "yarn", "yarn.exe", "bunx", "bunx.exe") and
+     process.parent.command_line like~ ("*@modelcontextprotocol/*", "*mcp-server-*", "*mcp_server*")) or
+    
+    // Node/Deno/Bun running MCP servers
+    (process.parent.name in ("node", "node.exe", "deno", "deno.exe", "bun", "bun.exe") and
+     process.parent.command_line like~ ("*@modelcontextprotocol/*", "*mcp-server-*", "*mcp_server*")) or
+    
+    // Python MCP servers
+    (process.parent.name like~ "python*" and
+     process.parent.command_line like~ ("*-m mcp_server*", "*mcp-server-*", "*mcp_server*")) or
+    
+    // MCP server binaries
+    process.parent.name like~ ("mcp-server*", "*-mcp-server", "*_mcp_server*") or
+    process.parent.name in ("mcp-server", "mcp-server-elastic-cloud", "github-mcp-server")
+  )
+  and process.name != null
+  // Exclusions
+  and not (
+    // Runtime self-spawns
+    (process.parent.name in ("node", "node.exe") and process.name in ("node", "node.exe")) or
+    (process.parent.name like~ "python*" and process.name like~ "python*") or
+    (process.parent.name in ("deno", "deno.exe") and process.name in ("deno", "deno.exe")) or
+    (process.parent.name in ("bun", "bun.exe") and process.name in ("bun", "bun.exe")) or
+    
+    // Electron helper noise: app -> helper, and helper -> helper
+    (process.parent.name like~ ("Cursor", "Cursor.exe", "Cursor Helper*") and
+     process.name like~ "Cursor Helper*") or
+    (process.parent.name like~ ("Claude", "Claude.exe", "Claude Helper*") and
+     process.name like~ "Claude Helper*") or
+    (process.parent.name like~ ("Windsurf", "Windsurf.exe", "Windsurf Helper*") and
+     process.name like~ "Windsurf Helper*") or
+    (process.parent.name like~ ("Code", "Code.exe", "Code Helper*") and
+     process.name like~ "Code Helper*") or
+    (process.parent.name like~ ("Jan", "Jan.exe", "Jan Helper*") and
+     process.name like~ "Jan Helper*") or
+    (process.parent.name like~ ("LM Studio", "LM Studio.exe", "LM Studio Helper*") and
+     process.name like~ ("LM Studio", "LM Studio.exe", "LM Studio Helper*")) or
+    (process.parent.name like~ ("Ollama", "Ollama.exe", "Ollama Helper*") and
+     process.name like~ "Ollama Helper*") or
+
+    // GenAI client same-name self-spawns (explicit pairs; no field-to-field compare)
+    (process.parent.name like~ ("cursor", "cursor.exe") and
+     process.name like~ ("cursor", "cursor.exe")) or
+    (process.parent.name like~ ("claude", "claude.exe") and
+     process.name like~ ("claude", "claude.exe")) or
+    (process.parent.name like~ ("windsurf", "windsurf.exe") and
+     process.name like~ ("windsurf", "windsurf.exe")) or
+    (process.parent.name like~ ("code", "code.exe") and
+     process.name like~ ("code", "code.exe")) or
+    (process.parent.name like~ ("codex", "codex.exe") and
+     process.name like~ ("codex", "codex.exe")) or
+    (process.parent.name like~ ("copilot", "copilot.exe") and
+     process.name like~ ("copilot", "copilot.exe")) or
+    (process.parent.name like~ ("jan", "jan.exe") and
+     process.name like~ ("jan", "jan.exe")) or
+    (process.parent.name like~ ("ollama", "ollama.exe") and
+     process.name like~ ("ollama", "ollama.exe")) or
+
+    // docker
+    (process.name in ("docker", "docker.exe") and process.args == "context" and process.args == "ls") or
+    // env probes: ps/getconf/lsb_release by name; neighbor/arp/which by args or /bin/sh -c
+    (
+      process.name in ("ps", "getconf", "lsb_release") or
+      process.args in (
+        "ip neigh show",
+        "arp -a -n -l",
+        "ip neighbor show dev wlan0",
+        "ip neighbor show dev eth0",
+        "arp -a | findstr /C:---"
+      ) or
+      process.command_line in (
+        "/bin/sh -c ip neigh show",
+        "/bin/sh -c arp -a -n -l",
+        "/bin/sh -c /bin/ps -ax -o pid=,ppid=,pcpu=,pmem=,command=",
+        "/bin/sh -c which ps"
+      )
+    ) or
+    // git
+    (process.name in ("git", "git.exe") and (
+      (process.args == "remote" and process.args == "get-url" and process.args == "origin") or
+      (process.args == "symbolic-ref" and process.args == "refs/remotes/origin/HEAD" and process.args == "--short") or
+      (process.args == "rev-parse" and process.args == "--abbrev-ref" and process.args == "HEAD") or
+      (process.args == "status" and process.args == "-z" and process.args == "-uall") or
+      (process.args == "config" and process.args == "--get" and process.args == "commit.template") or
+      (process.args == "config" and process.args == "user.email") or
+      (process.args == "rev-parse" and process.args == "--show-toplevel")
+    )) or
+    // version / help
+    process.args in ("--version", "--help", "-v", "-h", "-V", "version", "help")
+  )

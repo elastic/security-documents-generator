@@ -19,6 +19,7 @@ const ENTITY_TYPES = ['user', 'host', 'service', 'generic', 'ai_agent'] as const
 const DEPARTING_WATCHLIST = 'Departing Employees';
 const PRIVILEGED_WATCHLIST = 'Privileged Users';
 const UNSANCTIONED_WATCHLIST = 'Unsanctioned AI agents';
+const AGENTS_WATCHLIST = 'Agents acting for departing employees';
 const ACCOUNT_EMAIL_FIELD = 'entity.relationships.acts_on_behalf_of.raw_identifiers.user.email';
 
 const unsanctionedWatchlistId = (space: string): string =>
@@ -90,6 +91,56 @@ const addUnsanctionedSource = async (space: string, domain: string): Promise<voi
   log.info(`Added the store query "${name}" to ${UNSANCTIONED_WATCHLIST} (${id})`);
 };
 
+/**
+ * A store-query watchlist over agent rows: agents whose person is on Departing Employees, read from
+ * the `ai_agent_context` maintainer's `person_watchlists`. Its modifier raises the agents' own risk.
+ */
+const ensureAgentsWatchlist = async (space: string, departingId: string): Promise<void> => {
+  const body = JSON.stringify({
+    name: AGENTS_WATCHLIST,
+    description: `AI agents that act for a person on the ${DEPARTING_WATCHLIST} watchlist.`,
+    riskModifier: 1.5,
+  });
+  const existing = await findWatchlist(space, AGENTS_WATCHLIST);
+  if (existing) {
+    await kibanaFetch(
+      `${WATCHLISTS_URL}/${existing.id}`,
+      { method: 'PUT', body },
+      { apiVersion: API_VERSIONS.public.v1, space },
+    );
+  }
+  const agents =
+    existing ??
+    (await kibanaFetch<Watchlist>(
+      WATCHLISTS_URL,
+      { method: 'POST', body },
+      { apiVersion: API_VERSIONS.public.v1, space },
+    ));
+  const { sources } = await kibanaFetch<{ sources: EntitySource[] }>(
+    `${WATCHLISTS_URL}/${agents.id}/entity_source/list`,
+    { method: 'GET' },
+    { apiVersion: API_VERSIONS.public.v1, space },
+  );
+  if (sources.some((source) => source.type === 'store')) {
+    log.info(`${AGENTS_WATCHLIST} already has a store query`);
+    return;
+  }
+  await kibanaFetch(
+    `${WATCHLISTS_URL}/${agents.id}/entity_source`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'store',
+        name: `Agents for ${DEPARTING_WATCHLIST} (store query)`,
+        enabled: true,
+        queryRule: `entity.EngineMetadata.Type: "ai_agent" and entity.attributes.ai_agent_context.person_watchlists: "${departingId}"`,
+      }),
+    },
+    { apiVersion: API_VERSIONS.public.v1, space },
+  );
+  log.info(`Created ${AGENTS_WATCHLIST} (${agents.id}) with its store query`);
+};
+
 const buildServerHostId = async (namespace: string): Promise<string> => {
   const result = await getEsClient().esql.query({
     query: `FROM logs-endpoint.events.process-${namespace} | WHERE host.name == "${STORYLINE_HOSTS.buildServer}" | STATS seen = MAX(@timestamp) BY host.id | SORT seen DESC | LIMIT 1`,
@@ -133,10 +184,11 @@ const extract = async (space: string, hours: number): Promise<void> => {
 };
 
 /**
- * Applies the storyline's Kibana-side context: host criticality on the build server, a store query on
- * Unsanctioned AI agents, the privileged person on Privileged Users, and the departing person on
- * Departing Employees. Both assignments are manual, as an analyst would make them. The entity
- * rows must exist, so load the storyline and run extraction first (`--extract`).
+ * Applies the storyline's Kibana-side context: host criticality on the build server, a store query
+ * on Unsanctioned AI agents, the privileged person on Privileged Users, the departing person on
+ * Departing Employees, and a store-query watchlist for the agents acting for them. Both
+ * assignments are manual, as an analyst would make them. The entity rows must exist, so load the
+ * storyline and run extraction first (`--extract`).
  */
 export const applyStorylineContext = async (options: StorylineContextOptions): Promise<void> => {
   const { space, namespace, domain, criticality } = options;
@@ -208,4 +260,5 @@ export const applyStorylineContext = async (options: StorylineContextOptions): P
   log.info(
     `Assigned ${departingEuids.join(', ')} to ${DEPARTING_WATCHLIST} (${departing.id}): ${JSON.stringify(assignedDeparting)}`,
   );
+  await ensureAgentsWatchlist(space, departing.id);
 };

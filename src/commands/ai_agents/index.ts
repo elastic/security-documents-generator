@@ -8,6 +8,7 @@ import {
 } from '../utils/cli_utils.ts';
 import { DEFAULT_ENDPOINT_VERSION, generateAiAgentData, parseScenarios } from './ai_agents.ts';
 import { applyStorylineContext } from './context.ts';
+import { installAiAgentRules, RULE_SETS, type RuleSet } from './rules.ts';
 import { ALL_SCENARIOS, SCENARIO_GROUPS } from './scenarios.ts';
 
 export const aiAgentsCommands: CommandModule = {
@@ -169,6 +170,34 @@ export const aiAgentsCommands: CommandModule = {
             });
           },
         ),
+      );
+
+    program
+      .command('ai-agents-rules')
+      .description(
+        'Install the Elastic Defend GenAI prebuilt rules and PoC copies keyed on process.ai_agent.*, then enable a set of them',
+      )
+      .option('--space <space>', 'Kibana space to install the rules in', 'default')
+      .option(
+        '--enable <set>',
+        `Rules to enable: ${RULE_SETS.join(', ')}. demo is the promotion rule, every copy except the MCP child building block, and the originals with no copy`,
+        'none',
+      )
+      .option(
+        '--lookback <duration>',
+        "Set enabled rules' from to now-<duration>, such as 75m, so the first run covers data just loaded",
+      )
+      .action(
+        wrapAction(async (options: { space: string; enable: string; lookback?: string }) => {
+          if (!RULE_SETS.includes(options.enable as RuleSet)) {
+            throw new Error(`--enable must be one of ${RULE_SETS.join(', ')}`);
+          }
+          await installAiAgentRules({
+            space: options.space,
+            enable: options.enable as RuleSet,
+            lookback: options.lookback,
+          });
+        }),
       );
   },
 };

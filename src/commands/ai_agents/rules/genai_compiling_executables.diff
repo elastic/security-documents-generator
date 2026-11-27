@@ -1,0 +1,24 @@
+--- original b2c3d4e5-f6a7-8901-bcde-f123456789ab (package 9.6.2)
++++ copy copies/genai_compiling_executables.eql
+@@ -3,18 +3,13 @@
+   // GenAI parent process
+   (
++    // PoC: any descendant of an agent, by Defend's agent fields
++    process.ai_agent.is_descendant == true or
++
+     process.parent.name in (
+       "ollama.exe", "ollama", "Ollama",
+       "textgen.exe", "textgen", "text-generation-webui.exe", "oobabooga.exe",
+       "lmstudio.exe", "lmstudio", "LM Studio",
+-      "claude.exe", "claude", "Claude",
+-      "cursor.exe", "cursor", "Cursor", "Cursor Helper", "Cursor Helper (Plugin)",
+-      "copilot.exe", "copilot", "Copilot",
+-      "codex.exe", "codex",
+       "Jan", "jan.exe", "jan", "Jan Helper",
+       "gpt4all.exe", "gpt4all", "GPT4All",
+-      "gemini-cli.exe", "gemini-cli",
+-      "genaiscript.exe", "genaiscript",
+-      "grok.exe", "grok",
+-      "qwen.exe", "qwen",
+       "koboldcpp.exe", "koboldcpp", "KoboldCpp",
+       "llama-server", "llama-cli"

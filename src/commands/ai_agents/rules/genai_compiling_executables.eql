@@ -1,0 +1,51 @@
+process where event.type == "start" and
+
+  // GenAI parent process
+  (
+    // PoC: any descendant of an agent, by Defend's agent fields
+    process.ai_agent.is_descendant == true or
+
+    process.parent.name in (
+      "ollama.exe", "ollama", "Ollama",
+      "textgen.exe", "textgen", "text-generation-webui.exe", "oobabooga.exe",
+      "lmstudio.exe", "lmstudio", "LM Studio",
+      "Jan", "jan.exe", "jan", "Jan Helper",
+      "gpt4all.exe", "gpt4all", "GPT4All",
+      "koboldcpp.exe", "koboldcpp", "KoboldCpp",
+      "llama-server", "llama-cli"
+    ) or
+    
+    // Node/Deno with GenAI frameworks
+    (process.parent.name in ("node.exe", "node", "deno.exe", "deno") and
+     process.parent.command_line like~ ("*mcp-server*", "*@modelcontextprotocol*", "*langchain*", "*autogpt*", "*babyagi*", "*agentgpt*", "*crewai*", "*semantic-kernel*", "*llama-index*", "*haystack*")) or
+    
+    // Python with GenAI frameworks
+    (process.parent.name like~ "python*" and
+     process.parent.command_line like~ ("*langchain*", "*autogpt*", "*babyagi*", "*agentgpt*", "*crewai*", "*semantic-kernel*", "*llama-index*", "*haystack*"))
+  ) and
+
+  // Compilation tools
+  (
+    // Python packaging
+    process.name in ("pyinstaller", "py2exe", "cx_Freeze", "nuitka", "pyarmor", "pkg") or
+    
+    // C/C++ compilation with output
+    (process.name in ("gcc", "g++", "clang", "clang++", "cl.exe") and
+     process.command_line like~ "*-o *" and
+     process.command_line like~ ("*.c *", "*.c", "*.cpp *", "*.cpp", "*.cc *", "*.cc", "*.m *", "*.m") and
+     not process.command_line like~ "*git*") or
+    
+    // Go compilation
+    (process.name == "go" and process.args == "build") or
+    
+    // Rust compilation
+    (process.name == "cargo" and process.args == "build") or
+    (process.name == "rustc" and process.command_line like~ "*-o *") or
+    
+    // .NET compilation
+    process.name in ("csc.exe", "vbc.exe", "msbuild.exe") or
+    (process.name == "dotnet" and process.args == "build") or
+    
+    // Java compilation
+    process.name == "javac"
+  )

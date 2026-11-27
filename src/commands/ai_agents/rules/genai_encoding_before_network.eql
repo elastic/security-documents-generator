@@ -1,0 +1,69 @@
+sequence by process.entity_id with maxspan=30s
+
+  // Encoding/compression followed by network activity
+  [process where event.type == "start"
+     and event.type == "start"
+
+     // Encoding/chunking tools
+     and (
+       // Native encoding tools
+       process.name in ("base64", "gzip", "tar", "zip", "split", "7z", "7za", "7zr") or
+       
+       // PowerShell encoding
+       (process.name in ("powershell.exe", "pwsh.exe") and
+        process.command_line like~ ("*Compress-Archive*", "*[Convert]::ToBase64String*")) or
+       
+       // Python encoding
+       (process.name like~ "python*" and
+        process.command_line like~ ("*base64*", "*gzip*", "*zlib*", "*tarfile*", "*zipfile*")) or
+       
+       // Node.js encoding
+       (process.name in ("node.exe", "node") and
+        process.command_line like~ ("*Buffer.from*", "*zlib*", "*gzip*") and
+        not process.command_line like~ ("*mcp*start*", "*mcp-server*", "*npm exec*mcp*"))
+     )
+
+     // GenAI parent process
+     and (
+       // PoC: any descendant of an agent, by Defend's agent fields
+       process.ai_agent.is_descendant == true or
+
+       process.parent.name in (
+         "ollama.exe", "ollama", "Ollama",
+         "textgen.exe", "textgen", "text-generation-webui.exe", "oobabooga.exe",
+         "lmstudio.exe", "lmstudio", "LM Studio",
+         "Jan", "jan.exe", "jan", "Jan Helper",
+         "gpt4all.exe", "gpt4all", "GPT4All",
+         "koboldcpp.exe", "koboldcpp", "KoboldCpp",
+         "llama-server", "llama-cli"
+       ) or
+       
+       // Node/Deno with GenAI frameworks
+       (process.parent.name in ("node.exe", "node", "deno.exe", "deno") and
+        process.parent.command_line like~ (
+          "*ollama*", "*mcp-server*", "*@modelcontextprotocol*", "*langchain*", "*autogpt*",
+          "*babyagi*", "*agentgpt*", "*crewai*", "*semantic-kernel*", "*llama-index*",
+          "*haystack*", "*openai*", "*anthropic*", "*cohere*", "*mistral*"
+        )) or
+       
+       // Python with GenAI frameworks
+       (process.parent.name like~ "python*" and
+        process.parent.command_line like~ (
+          "*ollama*", "*mcp-server*", "*langchain*", "*autogpt*", "*babyagi*",
+          "*agentgpt*", "*crewai*", "*semantic-kernel*", "*llama-index*", "*haystack*",
+          "*openai*", "*anthropic*", "*cohere*", "*mistral*"
+        ))
+     )
+  ] by process.entity_id
+
+  // Outbound network connection (non-local)
+  [network where event.type == "start"
+     and event.action == "connection_attempted"
+     and destination.ip != null
+     and not cidrmatch(destination.ip, "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.0.0/29",
+                       "192.0.0.8/32", "192.0.0.9/32", "192.0.0.10/32", "192.0.0.170/32", "192.0.0.171/32", "192.0.2.0/24",
+                       "192.31.196.0/24", "192.52.193.0/24", "192.168.0.0/16", "192.88.99.0/24", "224.0.0.0/4", "100.64.0.0/10",
+                       "192.175.48.0/24","198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "::1", "FE80::/10",
+                       "FF00::/8")
+     
+  ] by process.entity_id

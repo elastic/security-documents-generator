@@ -178,16 +178,35 @@ Applies the storyline's Kibana-side context, which only Kibana APIs can set. The
 yarn start ai-agents-context --space gen-demo --install-store --extract 4
 ```
 
-| Step                                  | API                                                                                                                                                                                                                              |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Install the store (`--install-store`) | `POST /s/<space>/api/security/entity_store/install` with all five entity types                                                                                                                                                   |
-| Extract (`--extract <hours>`)         | `POST /s/<space>/internal/security/entity_store/{host,user,ai_agent}/force_log_extraction` (API version 2)                                                                                                                       |
-| `high_impact` on `ci-build-01`        | `PUT /s/<space>/api/security/entity_store/entities/bulk?force=true` with `asset.criticality` on `host:<host.id>`                                                                                                                 |
-| Store query on Unsanctioned AI agents | After `.../watchlists/install`, `POST .../watchlists/unsanctioned-ai-agents-watchlist-id-<space>/entity_source` with a store query, "Accounts outside `<domain>`", unless it has one. Fails if the prebuilt watchlist is missing |
-| `jordan.blake` on Privileged Users    | `POST /s/<space>/api/entity_analytics/watchlists/install`, then `.../watchlists/<id>/entities/assign` with `user:<email>@okta`                                                                                                   |
-| `avery.quinn` on Departing Employees  | `POST .../watchlists` (risk modifier 1.5), or `PUT .../watchlists/<id>` if it exists, then `.../<id>/entities/assign` with `user:<email>@okta` and `user:<email>@entra_id`. No entity source: an analyst assigns people by hand  |
+| Step                                  | API                                                                                                                                                                                                                                                                                        |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Install the store (`--install-store`) | `POST /s/<space>/api/security/entity_store/install` with all five entity types                                                                                                                                                                                                             |
+| Extract (`--extract <hours>`)         | `POST /s/<space>/internal/security/entity_store/{host,user,ai_agent}/force_log_extraction` (API version 2)                                                                                                                                                                                 |
+| `high_impact` on `ci-build-01`        | `PUT /s/<space>/api/security/entity_store/entities/bulk?force=true` with `asset.criticality` on `host:<host.id>`                                                                                                                                                                           |
+| Store query on Unsanctioned AI agents | After `.../watchlists/install`, `POST .../watchlists/unsanctioned-ai-agents-watchlist-id-<space>/entity_source` with a store query, "Accounts outside `<domain>`", unless it has one. Fails if the prebuilt watchlist is missing                                                           |
+| `jordan.blake` on Privileged Users    | `POST /s/<space>/api/entity_analytics/watchlists/install`, then `.../watchlists/<id>/entities/assign` with `user:<email>@okta`                                                                                                                                                             |
+| `avery.quinn` on Departing Employees  | `POST .../watchlists` (risk modifier 1.5), or `PUT .../watchlists/<id>` if it exists, then `.../<id>/entities/assign` with `user:<email>@okta` and `user:<email>@entra_id`. No entity source: an analyst assigns people by hand                                                            |
+| Agents acting for departing employees | `POST .../watchlists` (risk modifier 1.5), or `PUT` if it exists, then a store query on `entity.attributes.ai_agent_context.person_watchlists` matching Departing Employees, unless it has one. Its members come from the `ai_agent_context` maintainer, so run the maintainers afterwards |
 
 The legacy `POST /api/asset_criticality` route writes the V1 criticality index, which Entity Store V2 doesn't read, so the command uses the entity bulk update the V2 flyout uses.
+
+### `ai-agents-rules`
+
+Installs the 18 Elastic Defend GenAI prebuilt rules and the Defend promotion rule, then writes copies of nine of them keyed on `process.ai_agent.*` as disabled custom rules, and enables a chosen set. The prebuilt rules find agents by process name, and native Claude Code runs as its version string and Cursor CLI as `node`, so most generated installs only trip the copies.
+
+```bash
+yarn start ai-agents-rules --space gen-demo --enable demo --lookback 75m
+```
+
+| Flag                    | Default   | Meaning                                                                                                                                                                   |
+| ----------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--space <space>`       | `default` | Kibana space for the rules                                                                                                                                                |
+| `--enable <set>`        | `none`    | `none`, `promotion`, `originals`, `copies`, `demo` or `all`. `demo` is the promotion rule, every copy except the MCP child building block, and the originals with no copy |
+| `--lookback <duration>` | none      | Sets each enabled rule's `from` to `now-<duration>`, so its first run covers data just loaded                                                                             |
+
+Copies keep the original's name, carry the tag `PoC: AI agent`, and say which original they replace in their description. Enable the copies or their originals, not both, or one behaviour raises two alerts. The MCP child copy fires on every process an agent's tree starts, so `demo` leaves it off. Rerunning updates the copies and keeps their enabled state.
+
+The manifest, query files and a diff of each copy against its original are in `rules/`, with a README on what changed and why.
 
 ### Indices
 

@@ -1,0 +1,32 @@
+--- original c0136397-f82a-45e5-9b9f-a3651d77e21a (package 9.6.2)
++++ copy copies/genai_sensitive_file_access.eql
+@@ -1,26 +1,15 @@
+ file where event.action in ("open", "creation", "modification") and event.outcome == "success" and
+ 
+-  // GenAI process 
++  // GenAI process: the agent itself by Defend's agent fields (PoC), model runners by name
+     (
++      (process.ai_agent.name != null and process.ai_agent.is_descendant == false) or
+       process.name in~ (
+         "ollama.exe", "ollama",
+         "textgen.exe", "textgen", "text-generation-webui.exe", "oobabooga.exe",
+         "lmstudio.exe", "lmstudio", "LM Studio",
+-        "claude.exe", "claude",
+-        "cursor.exe", "cursor",
+-        "copilot.exe", "copilot",
+-        "codex.exe", "codex",
+         "jan.exe", "jan",
+         "gpt4all.exe", "gpt4all",
+-        "gemini-cli.exe", "gemini-cli", "gemini.exe",
+-        "genaiscript.exe", "genaiscript",
+-        "grok.exe", "grok",
+-        "qwen.exe", "qwen",
+         "koboldcpp.exe", "koboldcpp",
+-        "llama-server", "llama-cli",
+-        "windsurf.exe", "windsurf",
+-        "zed.exe", "zed",
+-        "opencode.exe", "opencode",
+-        "goose.exe", "goose"
++        "llama-server", "llama-cli"
+       )
+     ) and
