@@ -5,7 +5,7 @@
   "main": "index.ts",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test \"src/generators/**/*_test.ts\" \"src/commands/**/*_test.ts\"",
     "typecheck": "tsc",
     "start": "node src/index.ts",
     "lint": "eslint",

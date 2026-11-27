@@ -1,0 +1,145 @@
+{
+  "description": "The 18 Elastic Defend GenAI prebuilt rules from elastic/detection-rules main at 29aaacb49, the Defend promotion rule, and PoC copies keyed on process.ai_agent.* where an original identifies agents by process name.",
+  "copy_tag": "PoC: AI agent",
+  "promotion_rule": {
+    "rule_id": "9a1a2dae-0b5f-4c3d-8305-a268d404c306",
+    "name": "Endpoint Security (Elastic Defend)"
+  },
+  "rules": [
+    {
+      "slug": "common_llm_endpoint",
+      "rule_id": "4ae94fc1-f08f-419f-b692-053d28219380",
+      "name": "Connection to Common Large Language Model Endpoints",
+      "no_copy_reason": "Doesn't identify agents. It looks for interpreters, script hosts and unsigned binaries resolving LLM API domains, so agents are what it's trying to tell apart from, not what it keys on."
+    },
+    {
+      "slug": "genai_suspicious_tld",
+      "rule_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "GenAI Process Connection to Suspicious Top Level Domain",
+      "copy": {
+        "rule_id": "ffcd5fd6-2db8-5b79-a7ba-781d7ebb5ff3",
+        "query_file": "genai_suspicious_tld.eql"
+      }
+    },
+    {
+      "slug": "genai_unusual_domain",
+      "rule_id": "9050506c-df6d-4bdf-bc82-fcad0ef1e8c1",
+      "name": "GenAI Process Connection to Unusual Domain",
+      "copy": {
+        "rule_id": "41da76fe-f783-5bca-b664-1a571d026289",
+        "query_file": "genai_unusual_domain.kql"
+      }
+    },
+    {
+      "slug": "genai_sensitive_file_access",
+      "rule_id": "c0136397-f82a-45e5-9b9f-a3651d77e21a",
+      "name": "GenAI Process Accessing Sensitive Files",
+      "copy": {
+        "rule_id": "8db87aaa-1737-581e-9939-91b7c69d8f6a",
+        "query_file": "genai_sensitive_file_access.eql"
+      }
+    },
+    {
+      "slug": "secret_file_then_imds",
+      "rule_id": "2baf0a3c-50cd-43b1-9e9a-d7ff3153b36b",
+      "name": "Package Runtime Secret File Access Followed by IMDS Request",
+      "no_copy_reason": "Doesn't identify agents. It keys on package runtimes (python, node, ruby and so on) and package install paths, for supply chain malware."
+    },
+    {
+      "slug": "claude_cowork_vm_tamper",
+      "rule_id": "a0939500-a817-4ce9-85a9-191133352a9e",
+      "name": "Claude Cowork VM Boot Image Tamper",
+      "no_copy_reason": "The agent list is an exclusion for the legitimate writer (the Claude desktop app). Swapping it for process.ai_agent.* would exclude any Claude-tagged process, including a Claude Code descendant doing the tampering, which inverts the rule. Whether Defend tags the desktop app at all is unknown."
+    },
+    {
+      "slug": "genai_permission_bypass",
+      "rule_id": "c1326e45-6d3c-4a2d-9882-606a0c310299",
+      "name": "GenAI CLI Started with Unsafe Permission Bypass",
+      "copy": {
+        "rule_id": "5a08cea4-42e1-5b6e-93ef-8a143abb7213",
+        "query_file": "genai_permission_bypass.eql"
+      }
+    },
+    {
+      "slug": "genai_config_modification",
+      "rule_id": "590fc62d-7386-4c75-92b0-af4517018da1",
+      "name": "Unusual Process Modifying GenAI Configuration File",
+      "no_copy_reason": "Doesn't identify agents. It keys on agent configuration file paths and a new process.executable, whoever writes them."
+    },
+    {
+      "slug": "genai_compiling_executables",
+      "rule_id": "b2c3d4e5-f6a7-8901-bcde-f123456789ab",
+      "name": "GenAI Process Compiling or Generating Executables",
+      "copy": {
+        "rule_id": "340f47bd-6e0e-5d78-99c8-f0f342a79a0a",
+        "query_file": "genai_compiling_executables.eql"
+      }
+    },
+    {
+      "slug": "genai_encoding_before_network",
+      "rule_id": "c3d4e5f6-a7b8-9012-cdef-123456789abc",
+      "name": "GenAI Process Performing Encoding/Chunking Prior to Network Activity",
+      "copy": {
+        "rule_id": "e1964cbb-4109-5f10-afb9-9643e31152da",
+        "query_file": "genai_encoding_before_network.eql"
+      }
+    },
+    {
+      "slug": "openclaw_child_process",
+      "rule_id": "a7c3e8f2-4b19-4d6a-9e5c-8f1a2b3c4d5e",
+      "name": "Execution via OpenClaw Agent",
+      "no_copy_reason": "Specific to OpenClaw, found by node command line. We only know Defend's process.ai_agent.name values for Claude Code (claude_code) and Cursor (cursor). A generic 'any agent spawns a shell' copy would fire on every Claude Bash call."
+    },
+    {
+      "slug": "prompt_injection_shell",
+      "rule_id": "30cb6dea-ce4d-4685-bd6c-9ff5b1904781",
+      "name": "Potential Prompt Injection Coercing Shell Execution",
+      "no_copy_reason": "No agent list. It matches any shell whose parent command line has an injection phrase, so install method doesn't matter."
+    },
+    {
+      "slug": "destructive_aws_cli",
+      "rule_id": "2635d2ba-51e7-404a-9b17-db413a1351d5",
+      "name": "Potential Destructive AWS CLI Command Executed by GenAI Agent",
+      "copy": {
+        "rule_id": "986ccbb7-36bd-5cab-b9d1-3197615e1c28",
+        "query_file": "destructive_aws_cli.kql"
+      }
+    },
+    {
+      "slug": "defend_alert_genai_descendant",
+      "rule_id": "d4e5f6a7-b8c9-7d0e-1f2a-3b4c5d6e7f8a",
+      "name": "Elastic Defend Alerts from GenAI Utility or Descendant",
+      "copy": {
+        "rule_id": "13e27e89-7cf9-5b32-bb0a-3694d0f03af9",
+        "query_file": "defend_alert_genai_descendant.esql"
+      }
+    },
+    {
+      "slug": "instruction_file_in_downloads",
+      "rule_id": "c6c790fe-2bfa-45fa-b3c5-6b702e66bbea",
+      "name": "GenAI Agent Instruction File Written to Downloads",
+      "no_copy_reason": "Doesn't identify agents. The process list is browsers and archive tools writing AGENTS.md or CLAUDE.md into Downloads."
+    },
+    {
+      "slug": "ollama_external_access",
+      "rule_id": "d8f2a1b3-c4e5-6789-abcd-ef0123456789",
+      "name": "Ollama API Accessed from External Network",
+      "no_copy_reason": "Ollama is a local model server, not a coding agent. Nothing suggests Defend tags it with process.ai_agent.*."
+    },
+    {
+      "slug": "ollama_untrusted_dns",
+      "rule_id": "e9a3b2c1-d4f5-6789-0abc-def123456789",
+      "name": "Ollama DNS Query to Untrusted Domain",
+      "no_copy_reason": "Ollama is a local model server, not a coding agent. Nothing suggests Defend tags it with process.ai_agent.*."
+    },
+    {
+      "slug": "mcp_server_child",
+      "rule_id": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+      "name": "GenAI or MCP Server Child Process Execution",
+      "copy": {
+        "rule_id": "616dd7cb-cee9-5220-a5d9-213116358999",
+        "query_file": "mcp_server_child.eql"
+      }
+    }
+  ]
+}

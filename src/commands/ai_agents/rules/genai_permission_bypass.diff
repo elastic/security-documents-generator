@@ -1,0 +1,67 @@
+--- original c1326e45-6d3c-4a2d-9882-606a0c310299 (package 9.6.2)
++++ copy copies/genai_permission_bypass.eql
+@@ -1,3 +1,5 @@
+ process where event.type == "start" and event.action in ("exec", "start") and
++// PoC: every branch under the start filter. In the original, and binds tighter than or, so only the first branch has it
++(
+ (
+   (
+@@ -9,14 +11,5 @@
+     (process.args == "--permission-mode" and process.args == "bypassPermissions")
+   ) and
+-  (
+-    process.name in ("claude", "claude.exe") or
+-    process.executable : (
+-      "*/.local/share/claude/versions/*",
+-      "*/.claude/downloads/*",
+-      "*Caskroom/claude-code/*",
+-      "*\\Claude\\versions\\*"
+-    ) or
+-    (process.name in ("node", "node.exe") and process.args : "*@anthropic-ai/claude-code*")
+-  )
++  (process.ai_agent.name != null and process.ai_agent.is_descendant == false)
+ ) or
+ (
+@@ -31,12 +24,5 @@
+     )
+   ) and
+-  (
+-    process.name in (
+-      "codex", "codex.exe", "codex-exec",
+-      "codex-aarch64-apple-darwin", "codex-x86_64-apple-darwin",
+-      "codex-linux-arm64", "codex-linux-x64"
+-    ) or
+-    (process.name in ("node", "node.exe") and process.args : ("*@openai/codex*", "*/codex", "*\\codex*"))
+-  )
++  (process.ai_agent.name != null and process.ai_agent.is_descendant == false)
+ ) or
+ (
+@@ -46,8 +32,5 @@
+     process.args == "--approval-mode=yolo"
+   ) and
+-  (
+-    process.name in ("gemini", "gemini-cli", "gemini.exe", "gemini-cli.exe") or
+-    (process.name in ("node", "node.exe") and process.args : ("*@google/gemini-cli*", "*/gemini", "*\\gemini*"))
+-  )
++  (process.ai_agent.name != null and process.ai_agent.is_descendant == false)
+ ) or
+ (
+@@ -62,15 +45,9 @@
+     )
+   ) and
+-  (
+-    process.name in ("copilot", "copilot.exe") or
+-    (process.name in ("node", "node.exe") and process.args : ("*@github/copilot*", "*/copilot", "*\\copilot*"))
+-  )
++  (process.ai_agent.name != null and process.ai_agent.is_descendant == false)
+ ) or
+ (
+   process.args == "--dangerously-skip-permissions" and
+-  (
+-    process.name in ("opencode", "opencode.exe", ".opencode") or
+-    process.executable : ("*opencode-ai*", "*\\.opencode*") or
+-    (process.name in ("node", "node.exe") and process.args : ("*opencode-ai*", "*/opencode", "*\\opencode*"))
+-  )
++  (process.ai_agent.name != null and process.ai_agent.is_descendant == false)
+ )
++)

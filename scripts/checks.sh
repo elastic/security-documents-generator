@@ -12,11 +12,15 @@ pid_lint=$!
 yarn prettier --check . > "$tmp/prettier.log" 2>&1 &
 pid_prettier=$!
 
+yarn test > "$tmp/test.log" 2>&1 &
+pid_test=$!
+
 failed=0
 
 wait $pid_typecheck || { echo "❌ typecheck failed"; echo ""; cat "$tmp/typecheck.log"; echo ""; failed=1; }
 wait $pid_lint || { echo "❌ lint failed"; echo ""; cat "$tmp/lint.log"; echo ""; failed=1; }
 wait $pid_prettier || { echo "❌ prettier failed"; echo ""; cat "$tmp/prettier.log"; echo ""; failed=1; }
+wait $pid_test || { echo "❌ test failed"; echo ""; cat "$tmp/test.log"; echo ""; failed=1; }
 
 if [ $failed -ne 0 ]; then
   echo "‼️ run yarn fix to automatically fix issues ‼️"

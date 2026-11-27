@@ -1,0 +1,40 @@
+--- original b2c3d4e5-f6a7-8901-bcde-f23456789012 (package 9.6.2)
++++ copy copies/mcp_server_child.eql
+@@ -1,16 +1,9 @@
+ process where event.type == "start" 
+   and (
+-    // GenAI clients
++    // GenAI clients. PoC: agents by Defend's agent fields (any descendant), editors and model runners by name
++    process.ai_agent.is_descendant == true or
+     process.parent.name in (
+-      "Cursor", "Cursor.exe", "cursor",
+-      "Cursor Helper", "Cursor Helper (Plugin)", "Cursor Helper (GPU)", "Cursor Helper (Renderer)",
+-      "Claude", "Claude.exe", "claude",
+-      "Claude Helper", "Claude Helper (Plugin)", "Claude Helper (GPU)", "Claude Helper (Renderer)",
+-      "Windsurf", "Windsurf.exe", "windsurf",
+-      "Windsurf Helper", "Windsurf Helper (Plugin)", "Windsurf Helper (GPU)", "Windsurf Helper (Renderer)",
+       "Code", "Code.exe", "code",
+       "Code Helper", "Code Helper (Plugin)", "Code Helper (GPU)", "Code Helper (Renderer)",
+-      "codex", "codex.exe",
+-      "Copilot", "Copilot.exe", "copilot",
+       "Jan", "Jan.exe", "jan",
+       "Jan Helper", "Jan Helper (Plugin)", "Jan Helper (GPU)", "Jan Helper (Renderer)",
+@@ -19,17 +12,7 @@
+       "GPT4All", "gpt4all", "gpt4all.exe",
+       "textgen.exe", "textgen", "text-generation-webui.exe", "oobabooga.exe",
+-      "gemini-cli.exe", "gemini-cli",
+-      "genaiscript.exe", "genaiscript",
+-      "grok.exe", "grok",
+-      "qwen.exe", "qwen",
+       "koboldcpp.exe", "koboldcpp", "KoboldCpp",
+-      "llama-server", "llama-cli",
+-      "OpenClaw", "openclaw", "openclaw.exe",
+-      "Moltbot", "moltbot", "moltbot.exe",
+-      "Clawdbot", "clawdbot", "clawdbot.exe"
++      "llama-server", "llama-cli"
+     ) or
+-    // OpenClaw/Moltbot/Clawdbot via Node.js
+-    (process.parent.name in ("node", "node.exe") and
+-     process.parent.command_line like~ ("*openclaw*", "*moltbot*", "*clawdbot*")) or
+     // Package managers running MCP servers
+     (process.parent.name in ("npx", "npx.exe", "pnpm", "pnpm.exe", "yarn", "yarn.exe", "bunx", "bunx.exe") and

@@ -1,0 +1,31 @@
+network where host.os.type in ("macos", "windows") and
+
+  // GenAI processes: the agent itself by Defend's agent fields (PoC), model runners and package runners by name
+  (
+    (process.ai_agent.name != null and process.ai_agent.is_descendant == false) or
+    process.name in (
+      "ollama.exe", "ollama", "Ollama",
+      "textgen.exe", "textgen", "text-generation-webui.exe", "oobabooga.exe",
+      "lmstudio.exe", "lmstudio", "LM Studio",
+      "Jan", "jan.exe", "jan",
+      "gpt4all.exe", "gpt4all", "GPT4All",
+      "koboldcpp.exe", "koboldcpp", "KoboldCpp",
+      "llama-server", "llama-cli",
+      "deno.exe", "deno",
+      "npx", "pnpm", "yarn", "bunx"
+    )
+  ) and
+
+  // Suspicious TLDs 
+  (
+    // Windows DNS events
+    (host.os.type == "windows" and dns.question.name != null and
+     dns.question.name regex """.*\.(top|buzz|xyz|rest|ml|cf|gq|ga|onion|monster|cyou|quest|cc|bar|cfd|click|cam|surf|tk|shop|club|icu|pw|ws|online|fun|life|boats|store|hair|skin|motorcycles|christmas|lol|makeup|mom|bond|beauty|biz|live|work|zip|country|accountant|date|party|science|loan|win|men|faith|review|racing|download|host)""") or
+
+    // macOS network events
+    (host.os.type == "macos" and destination.domain != null and
+     destination.domain regex """.*\.(top|buzz|xyz|rest|ml|cf|gq|ga|onion|monster|cyou|quest|cc|bar|cfd|click|cam|surf|tk|shop|club|icu|pw|ws|online|fun|life|boats|store|hair|skin|motorcycles|christmas|lol|makeup|mom|bond|beauty|biz|live|work|zip|country|accountant|date|party|science|loan|win|men|faith|review|racing|download|host)""")
+
+    // Linux DNS events
+    // Revist when available
+  )

@@ -1,0 +1,35 @@
+--- original 2635d2ba-51e7-404a-9b17-db413a1351d5 (package 9.6.2)
++++ copy copies/destructive_aws_cli.kql
+@@ -1,31 +1,4 @@
+ event.category : "process" and event.type : "start" and event.action : (start or exec) and
+-(
+-  process.parent.name : (
+-    qterm or qterm.exe or qchat or qchat.exe or
+-    kiro or "kiro-cli" or "kiro-cli-chat" or "kiro-cli-term" or
+-    kiro.exe or "kiro-cli.exe" or "kiro-cli-chat.exe" or "kiro-cli-term.exe" or
+-    claude or "claude-bin" or claude.exe or codex or codex.exe or
+-    copilot or copilot.exe or cursor or cursor.exe or "Cursor Helper (Plugin)" or "Cursor Helper" or
+-    "gemini-cli" or "gemini-cli.exe" or windsurf or windsurf.exe or
+-    aider or aider.exe or cline or goose or goose.exe or opencode or opencode.exe
+-  ) or
+-  process.parent.executable : (
+-    */.local/bin/q or */usr/local/bin/q or
+-    *\\Users\\*\\AppData\\Local\\Programs\\Amazon Q\\q.exe or
+-    *\\Users\\*\\AppData\\Local\\Programs\\Amazon Q\\*\\q.exe or
+-    *\\Program Files\\Amazon Q\\q.exe or
+-    *\\Program Files\\Amazon Q\\*\\q.exe
+-  ) or
+-  (
+-    process.parent.name : (bash or zsh or sh or dash or cmd.exe or powershell.exe or pwsh or pwsh.exe) and
+-    process.parent.command_line : (
+-      */.claude/shell-snapshots/* or *\\.claude\\shell-snapshots\\* or
+-      */.codex/* or *\\.codex\\* or
+-      */.kiro/* or *\\.kiro\\* or
+-      */.aws/amazonq/* or *\\.aws\\amazonq\\* or
+-      */.goose/* or */.opencode/* or */.aider*
+-    )
+-  )
+-) and
++process.ai_agent.is_descendant : true and
+ (
+   (

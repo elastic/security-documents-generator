@@ -1,0 +1,53 @@
+process where event.type == "start" and event.action in ("exec", "start") and
+// PoC: every branch under the start filter. In the original, and binds tighter than or, so only the first branch has it
+(
+(
+  (
+    process.args in (
+      "--dangerously-skip-permissions",
+      "--allow-dangerously-skip-permissions",
+      "--permission-mode=bypassPermissions"
+    ) or
+    (process.args == "--permission-mode" and process.args == "bypassPermissions")
+  ) and
+  (process.ai_agent.name != null and process.ai_agent.is_descendant == false)
+) or
+(
+  (
+    process.args in ("--dangerously-bypass-approvals-and-sandbox", "--full-auto", "--yolo") or
+    process.command_line : (
+      "* -s danger-full-access*",
+      "*--sandbox danger-full-access*",
+      "*--sandbox=danger-full-access*",
+      "*--ask-for-approval never*",
+      "*--ask-for-approval=never*"
+    )
+  ) and
+  (process.ai_agent.name != null and process.ai_agent.is_descendant == false)
+) or
+(
+  (
+    process.args in ("--yolo", "-y") or
+    (process.args == "--approval-mode" and process.args == "yolo") or
+    process.args == "--approval-mode=yolo"
+  ) and
+  (process.ai_agent.name != null and process.ai_agent.is_descendant == false)
+) or
+(
+  (
+    process.args in (
+      "--yolo",
+      "--autopilot",
+      "--allow-all",
+      "--allow-all-tools",
+      "--allow-all-paths",
+      "--allow-all-urls"
+    )
+  ) and
+  (process.ai_agent.name != null and process.ai_agent.is_descendant == false)
+) or
+(
+  process.args == "--dangerously-skip-permissions" and
+  (process.ai_agent.name != null and process.ai_agent.is_descendant == false)
+)
+)

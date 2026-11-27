@@ -13,6 +13,7 @@ Generate synthetic Security data for Elasticsearch and Kibana development, demos
 - Risk engine datasets and ingest loads
 - Cloud Security Posture (Elastic + third-party sources)
 - Entity Store performance data + baseline comparison reports
+- AI agent (Claude Code, Cursor CLI) Elastic Defend and osquery data, shaped from a Linux lab run
 
 ## Requirements
 
@@ -140,6 +141,15 @@ yarn start privmon-quick --space default
 yarn start csp --data-sources all --findings-count 50
 ```
 
+### AI agent data
+
+```bash
+yarn start ai-agents --scenarios developer_claude,unattended_cron
+yarn start ai-agents --output-file /tmp/ai-agents.ndjson --seed 1
+```
+
+See `src/commands/ai_agents/README.md` for the scenarios and what is and isn't grounded in real data.
+
 ### Correlated Organization Data
 
 Interactive — prompts for size, productivity suite, and detection rules:
@@ -232,6 +242,7 @@ Detailed command documentation is colocated with command code under `src/command
 | `generate-cloud-security-posture` (`csp`)                        | Generate CSP findings across sources                                                | `src/commands/generate_cloud_security_posture/README.md` |
 | `generate-correlated-organization-data` (`org-data`)             | Generate correlated organization security integration data                          | `src/commands/org_data/`                                 |
 | `generate-correlated-organization-data-quick` (`org-data-quick`) | Quick correlated organization data generation with defaults                         | `src/commands/org_data/`                                 |
+| `generate-ai-agent-data` (`ai-agents`)                           | Claude Code and Cursor CLI Defend, osquery and Claude Code OTel scenarios           | `src/commands/ai_agents/README.md`                       |
 
 ### Quick command list
 
@@ -257,6 +268,8 @@ Detailed command documentation is colocated with command code under `src/command
   - `generate-correlated-organization-data` (`org-data`), `generate-correlated-organization-data-quick` (`org-data-quick`)
 - **Threat hunting leads**
   - `leads`
+- **AI agents**
+  - `generate-ai-agent-data` (`ai-agents`)
 
 ## AI assistant skills
 

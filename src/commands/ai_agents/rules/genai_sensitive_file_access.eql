@@ -1,0 +1,50 @@
+file where event.action in ("open", "creation", "modification") and event.outcome == "success" and
+
+  // GenAI process: the agent itself by Defend's agent fields (PoC), model runners by name
+    (
+      (process.ai_agent.name != null and process.ai_agent.is_descendant == false) or
+      process.name in~ (
+        "ollama.exe", "ollama",
+        "textgen.exe", "textgen", "text-generation-webui.exe", "oobabooga.exe",
+        "lmstudio.exe", "lmstudio", "LM Studio",
+        "jan.exe", "jan",
+        "gpt4all.exe", "gpt4all",
+        "koboldcpp.exe", "koboldcpp",
+        "llama-server", "llama-cli"
+      )
+    ) and
+
+  // Sensitive file paths
+  (
+    // Persistence via Shell configs
+    file.name in (".bashrc", ".bash_profile", ".zshrc", ".zshenv", ".zprofile", ".profile", ".bash_logout") or
+
+    // Credentials In Files 
+    file.name like~ 
+                 ("key?.db", 
+                  "logins.json", 
+                  "Login Data", 
+                  "Local State",
+                  "signons.sqlite",
+                  "Cookies", 
+                  "cookies.sqlite",
+                  "Cookies.binarycookies", 
+                  "login.keychain-db", 
+                  "System.keychain", 
+                  "credentials.db", 
+                  "credentials", 
+                  "access_tokens.db", 
+                  "accessTokens.json", 
+                  "azureProfile.json",
+                  "RDCMan.settings", 
+                  "known_hosts", 
+                  "KeePass.config.xml", 
+                  "Unattended.xml")
+  ) and not (
+    host.os.type == "windows" and
+    file.name like~ "Local State" and
+    file.path : (
+      "?:\\Users\\*\\AppData\\Roaming\\*\\Local State",
+      "?:\\Users\\*\\AppData\\Local\\Packages\\*\\LocalCache\\Roaming\\*\\Local State"
+    )
+  )

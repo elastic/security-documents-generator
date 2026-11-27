@@ -1,0 +1,29 @@
+event.category : "process" and event.type : "start" and event.action : (start or exec) and
+process.ai_agent.is_descendant : true and
+(
+  (
+    process.name : (aws or aws.exe) and
+    process.command_line : (
+      *ec2 terminate-instances* or *ec2 delete-volume* or *ec2 delete-snapshot* or
+      *s3 rb* or *s3 rm*--recursive* or *s3api delete-bucket* or *s3api delete-objects* or
+      *iam delete-user* or *iam delete-role* or *iam delete-login-profile* or *iam delete-access-key* or
+      *rds delete-db-instance* or *rds delete-db-cluster* or *dynamodb delete-table* or
+      *efs delete-file-system* or *eks delete-cluster* or *ecs delete-cluster* or
+      *lambda delete-function* or *kms schedule-key-deletion* or
+      *cloudformation delete-stack* or
+      *cloudtrail delete-trail* or *cloudtrail stop-logging* or
+      *backup delete-recovery-point* or *organizations close-account*
+    )
+  ) or
+  (
+    process.name : (sam or sam.exe) and process.command_line : *sam delete*
+  ) or
+  (
+    process.name : (terraform or terraform.exe or tofu or tofu.exe) and
+    process.command_line : *destroy*-auto-approve*
+  ) or
+  (
+    process.name : (kubectl or kubectl.exe) and
+    process.command_line : (*delete*--all* or *delete namespace* or *delete ns*)
+  )
+) and not process.args : ("--dry-run*" or "--help*" or "-help*" or "-h" or "help" or "--version*")
