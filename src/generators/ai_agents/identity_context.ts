@@ -7,7 +7,7 @@ import {
 } from './types.ts';
 
 /**
- * IdP and HR documents that give a signed-in email a person behind it. The IdP users are in the
+ * IdP documents that give a signed-in email a person behind it. The IdP users are in the
  * Okta and Entra ID entity analytics stored shapes (the packages' pipeline test outputs), so Entity
  * Store mints `user:<email>@okta` and `user:<email>@entra_id` rows from them. None of it is observed.
  */
@@ -37,8 +37,7 @@ export const buildOktaUser = (
     at,
     status,
     statusChangedAt = at,
-    mfaEnabled,
-  }: { at: number; status: OktaStatus; statusChangedAt?: number; mfaEnabled?: boolean },
+  }: { at: number; status: OktaStatus; statusChangedAt?: number },
 ): GeneratedDocument => {
   const id = `00u${faker.string.alphanumeric(17)}`;
   const fullName = `${person.firstName} ${person.lastName}`;
@@ -94,19 +93,14 @@ export const buildOktaUser = (
           change_date: iso(statusChangedAt),
         },
         profile: { department: person.department, job_title: person.title, status },
-        ...(mfaEnabled !== undefined && { entity: { attributes: { mfa_enabled: mfaEnabled } } }),
       },
     },
   };
 };
 
-/**
- * `mfaEnabled` goes to `user.entity.attributes.mfa_enabled`, which Entity Store keeps as
- * `entity.attributes.mfa_enabled`. The Entra ID integration doesn't send MFA state, so it's mock.
- */
 export const buildEntraUser = (
   person: IdpPerson,
-  { at, accountEnabled, mfaEnabled }: { at: number; accountEnabled: boolean; mfaEnabled: boolean },
+  { at, accountEnabled }: { at: number; accountEnabled: boolean },
 ): GeneratedDocument => {
   const id = faker.string.uuid();
   const fullName = `${person.firstName} ${person.lastName}`;
@@ -147,45 +141,7 @@ export const buildEntraUser = (
         last_name: person.lastName,
         job_title: person.title,
         ...(accountEnabled && { enabled: true }),
-        entity: { attributes: { mfa_enabled: mfaEnabled } },
       },
     },
   };
 };
-
-export const HR_INDEX = 'hr-workday-demo';
-
-export type EmploymentStatus = 'Active' | 'Terminated';
-
-/** One HR record per person, keyed by `user.email`. A made-up shape: no HR integration was looked at. */
-export const buildHrRecord = (
-  person: IdpPerson,
-  {
-    at,
-    status,
-    startDate,
-    terminationDate,
-  }: { at: number; status: EmploymentStatus; startDate: string; terminationDate?: string },
-): GeneratedDocument => ({
-  index: HR_INDEX,
-  source: {
-    '@timestamp': iso(at),
-    user: { email: person.email, full_name: `${person.firstName} ${person.lastName}` },
-    employee: {
-      id: `WD-${faker.string.numeric(6)}`,
-      department: person.department,
-      title: person.title,
-    },
-    employment: {
-      status,
-      contract_type: 'Permanent',
-      start_date: startDate,
-      ...(terminationDate && {
-        termination_date: terminationDate,
-        termination_reason: 'Contract terminated',
-      }),
-    },
-    event: { kind: 'asset', module: 'hr_workday_demo' },
-    tags: [POC_MOCK_TAG],
-  },
-});

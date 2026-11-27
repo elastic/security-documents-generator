@@ -43,10 +43,7 @@ export {
 } from './endpoint_events.ts';
 export {
   buildEntraUser,
-  buildHrRecord,
   buildOktaUser,
-  HR_INDEX,
-  type EmploymentStatus,
   type IdpPerson,
   type OktaStatus,
 } from './identity_context.ts';

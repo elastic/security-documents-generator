@@ -17,7 +17,6 @@ import {
   ENDPOINT_NETWORK_INDEX,
   ENDPOINT_PROCESS_INDEX,
   ENTRA_USER_INDEX,
-  HR_INDEX,
   OKTA_USER_INDEX,
   POC_MOCK_TAG,
   seedClaudeCodeOtel,
@@ -122,13 +121,9 @@ describe('demo scenarios', () => {
           assert.ok(mock, `${scenario} ${index}`);
         }
         if (
-          [
-            ENDPOINT_ALERTS_INDEX,
-            CURSOR_AUDIT_INDEX,
-            OKTA_USER_INDEX,
-            ENTRA_USER_INDEX,
-            HR_INDEX,
-          ].includes(index)
+          [ENDPOINT_ALERTS_INDEX, CURSOR_AUDIT_INDEX, OKTA_USER_INDEX, ENTRA_USER_INDEX].includes(
+            index,
+          )
         ) {
           assert.ok(mock, `${scenario} ${index}`);
         }
@@ -315,7 +310,7 @@ describe('demo scenarios', () => {
     }
   });
 
-  it('builds the storyline: the person on three installs, two agents on the build server, IdP and HR context', () => {
+  it('builds the storyline: the person on three installs, two agents on the build server, IdP context', () => {
     const storyline = sources('storyline', ENDPOINT_PROCESS_INDEX);
     const email = 'avery.quinn@example.com';
     const installs = new Set(
@@ -356,17 +351,15 @@ describe('demo scenarios', () => {
       true,
     );
     const entra = sources('storyline', ENTRA_USER_INDEX)[0];
-    assert.deepEqual(
-      (entra.user as { email: string; entity: { attributes: { mfa_enabled: boolean } } }).entity
-        .attributes,
-      { mfa_enabled: false },
+    assert.equal(
+      (entra.entityanalytics_entra_id as { user: { account_enabled: boolean } }).user
+        .account_enabled,
+      true,
     );
-    const terminated = sources('storyline', HR_INDEX).filter(
-      (source) => (source.employment as { status: string }).status === 'Terminated',
-    );
-    assert.deepEqual(
-      terminated.map((source) => (source.user as { email: string }).email),
-      [email],
+    assert.ok(
+      [...sources('storyline', OKTA_USER_INDEX), entra].every(
+        (source) => (source.user as { entity?: unknown }).entity === undefined,
+      ),
     );
     assert.deepEqual(
       sources('storyline', ENDPOINT_ALERTS_INDEX)
@@ -404,7 +397,10 @@ describe('demo scenarios', () => {
     );
     assert.equal(moved.index, 'logs-endpoint.events.process-gen-demo');
     assert.equal((moved.source.data_stream as { namespace: string }).namespace, 'gen-demo');
-    assert.equal(applyNamespace({ index: HR_INDEX, source: {} }, 'gen-demo').index, HR_INDEX);
+    assert.equal(
+      applyNamespace({ index: 'plain-index', source: {} }, 'gen-demo').index,
+      'plain-index',
+    );
   });
 
   it('has an expectation for every rule-trip scenario', () => {

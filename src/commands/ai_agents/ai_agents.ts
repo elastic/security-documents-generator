@@ -7,7 +7,6 @@ import {
   CURSOR_AUDIT_INDEX,
   ENDPOINT_PROCESS_INDEX,
   ENTRA_USER_INDEX,
-  HR_INDEX,
   OKTA_USER_INDEX,
   resequenceEndpointEvents,
   seedClaudeCodeOtel,
@@ -241,38 +240,6 @@ const mapSessionIdField = async (): Promise<void> => {
   log.info('Mapped process.ai_agent.session_id as keyword through endpoint@custom');
 };
 
-const HR_MAPPINGS = {
-  properties: {
-    '@timestamp': { type: 'date' },
-    user: { properties: { email: { type: 'keyword' }, full_name: { type: 'keyword' } } },
-    employee: {
-      properties: {
-        id: { type: 'keyword' },
-        department: { type: 'keyword' },
-        title: { type: 'keyword' },
-      },
-    },
-    employment: {
-      properties: {
-        status: { type: 'keyword' },
-        contract_type: { type: 'keyword' },
-        start_date: { type: 'date' },
-        termination_date: { type: 'date' },
-        termination_reason: { type: 'keyword' },
-      },
-    },
-    labels: { properties: { poc_scenario: { type: 'keyword' } } },
-    tags: { type: 'keyword' },
-  },
-} as const;
-
-const ensureHrIndex = async (): Promise<void> => {
-  const client = getEsClient();
-  if (!(await client.indices.exists({ index: HR_INDEX }))) {
-    await client.indices.create({ index: HR_INDEX, mappings: HR_MAPPINGS });
-  }
-};
-
 /** Indices written in the integrations' stored shape, or not owned by any integration, skip ingest pipelines. */
 const NO_PIPELINE_PREFIXES = [
   CLAUDE_CODE_OTEL_INDEX,
@@ -339,9 +306,6 @@ export const generateAiAgentData = async (options: AiAgentDataOptions): Promise<
     await mapSessionIdField();
   }
   await mapEndpointFields(POC_PROPERTIES);
-  if (documents.some((doc) => doc.index === HR_INDEX)) {
-    await ensureHrIndex();
-  }
 
   const byIndex = new Map<string, GeneratedDocument[]>();
   for (const doc of documents) {

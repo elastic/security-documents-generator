@@ -1,7 +1,6 @@
 import {
   bin,
   buildEntraUser,
-  buildHrRecord,
   buildOktaUser,
   type IdpPerson,
 } from '../../generators/ai_agents/index.ts';
@@ -17,9 +16,10 @@ import {
 
 /**
  * The demo storyline (`demo-plan.md`): Claude Code on a critical build server, running as `ec2-user`
- * from cron, signed in as a person whom Okta shows deprovisioned, HR shows terminated and Entra ID
- * still has, with MFA off. The run trips rules, and the same email is signed in on two other hosts.
- * A second person on the same build server is the Privileged Users watchlist member.
+ * from cron, signed in as a person whom Okta shows deprovisioned and Entra ID still has. The run
+ * trips rules, and the same email is signed in on two other hosts. The `context` command puts that
+ * person on Departing Employees by hand, and a second person on the same build server on Privileged
+ * Users.
  */
 export const STORYLINE_SCENARIOS = ['storyline'] as const;
 
@@ -33,8 +33,6 @@ export const STORYLINE_HOSTS = {
 } as const;
 
 const DAY_MS = 86_400_000;
-
-const isoDate = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
 
 export const STORYLINE_BUILDS: Record<StorylineScenario, ScenarioBuild> = {
   storyline: (builder) => {
@@ -52,28 +50,8 @@ export const STORYLINE_BUILDS: Record<StorylineScenario, ScenarioBuild> = {
           status: 'DEPROVISIONED',
           statusChangedAt: start - DAY_MS,
         }),
-        buildEntraUser(departingIdp, { at: start, accountEnabled: true, mfaEnabled: false }),
-        buildOktaUser(privilegedIdp, { at: start, status: 'ACTIVE', mfaEnabled: true }),
-        buildHrRecord(departingIdp, {
-          at: start,
-          status: 'Terminated',
-          startDate: '2023-03-01',
-          terminationDate: isoDate(start - 2 * DAY_MS),
-        }),
-        buildHrRecord(privilegedIdp, { at: start, status: 'Active', startDate: '2021-09-13' }),
-        ...[builder.person(), builder.person()].map((colleague) => {
-          const [first, last] = colleague.email.split('@')[0].split('.');
-          return buildHrRecord(
-            {
-              email: colleague.email,
-              firstName: first,
-              lastName: last,
-              department: 'Engineering',
-              title: 'Software Engineer',
-            },
-            { at: start, status: 'Active', startDate: '2024-01-08' },
-          );
-        }),
+        buildEntraUser(departingIdp, { at: start, accountEnabled: true }),
+        buildOktaUser(privilegedIdp, { at: start, status: 'ACTIVE' }),
       ],
       { mock: true },
     );

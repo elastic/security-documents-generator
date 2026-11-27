@@ -136,8 +136,7 @@ The two Ollama rules and Execution via OpenClaw Agent have no scenario (`SKIPPED
 
 - `ci-build-01`: Claude Code from cron as `ec2-user`, signed in as `avery.quinn@<domain>`, run as `claude -p "<issue text with 'Ignore previous instructions'>" --dangerously-skip-permissions`. Its tool shells download and unpack an agent kit into `~/Downloads` (a `CLAUDE.md`), run its `build-helper` (one Defend malware alert) and run `aws s3 rm s3://<org>-release-artifacts --recursive`. A second, ordinary interactive install as `jblake`, signed in as `jordan.blake@<domain>`.
 - `dev-aquinn-01` (interactive, as `aquinn`) and `jump-01` (print mode, as `ec2-user`): the same email on two other Claude Code installs.
-- Okta: `avery.quinn` `DEPROVISIONED` (`user.account.status.deprovisioned: true`), `jordan.blake` active. Entra ID: `avery.quinn` enabled with `user.entity.attributes.mfa_enabled: false`. Both in the packages' stored shape, written with the `_none` pipeline, so Entity Store mints `user:<email>@okta` and `user:<email>@entra_id`.
-- `hr-workday-demo`: one record per person keyed by `user.email`, with `employment.status: Terminated` for `avery.quinn` only.
+- Okta: `avery.quinn` `DEPROVISIONED` (`user.account.status.deprovisioned: true`), `jordan.blake` active. Entra ID: `avery.quinn` still enabled. No MFA state, because neither integration sends it. Both in the packages' stored shape, written with the `_none` pipeline, so Entity Store mints `user:<email>@okta` and `user:<email>@entra_id`.
 - With `--cursor-audit`: Cursor web login and a user API key for `avery.quinn` three days ago, then a SCIM `remove_user` for them a day ago.
 
 Host IDs change with the seed. Look hosts up by name.
@@ -150,13 +149,13 @@ Applies the storyline's Kibana-side context, which only Kibana APIs can set. The
 yarn start ai-agents-context --space gen-demo --install-store --extract 4
 ```
 
-| Step                                  | API                                                                                                                                                                                                                |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Install the store (`--install-store`) | `POST /s/<space>/api/security/entity_store/install` with all five entity types                                                                                                                                     |
-| Extract (`--extract <hours>`)         | `POST /s/<space>/internal/security/entity_store/{host,user,ai_agent}/force_log_extraction` (API version 2)                                                                                                         |
-| `high_impact` on `ci-build-01`        | `PUT /s/<space>/api/security/entity_store/entities/bulk?force=true` with `asset.criticality` on `host:<host.id>`                                                                                                   |
-| `jordan.blake` on Privileged Users    | `POST /s/<space>/api/entity_analytics/watchlists/install`, then `.../watchlists/<id>/entities/assign` with `user:<email>@okta`                                                                                     |
-| Departing Employees from the HR index | `POST .../watchlists` (risk modifier 1.5), or `PUT .../watchlists/<id>` if it exists, `.../<id>/entity_source` (type `index`, `hr-workday-demo`, `user.email`, `employment.status: "Terminated"`), `.../<id>/sync` |
+| Step                                  | API                                                                                                                                                                                                                             |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Install the store (`--install-store`) | `POST /s/<space>/api/security/entity_store/install` with all five entity types                                                                                                                                                  |
+| Extract (`--extract <hours>`)         | `POST /s/<space>/internal/security/entity_store/{host,user,ai_agent}/force_log_extraction` (API version 2)                                                                                                                      |
+| `high_impact` on `ci-build-01`        | `PUT /s/<space>/api/security/entity_store/entities/bulk?force=true` with `asset.criticality` on `host:<host.id>`                                                                                                                |
+| `jordan.blake` on Privileged Users    | `POST /s/<space>/api/entity_analytics/watchlists/install`, then `.../watchlists/<id>/entities/assign` with `user:<email>@okta`                                                                                                  |
+| `avery.quinn` on Departing Employees  | `POST .../watchlists` (risk modifier 1.5), or `PUT .../watchlists/<id>` if it exists, then `.../<id>/entities/assign` with `user:<email>@okta` and `user:<email>@entra_id`. No entity source: an analyst assigns people by hand |
 
 The legacy `POST /api/asset_criticality` route writes the V1 criticality index, which Entity Store V2 doesn't read, so the command uses the entity bulk update the V2 flyout uses.
 
@@ -170,7 +169,6 @@ The legacy `POST /api/asset_criticality` route writes the V1 criticality index, 
 | `logs-endpoint.alerts-default` (demo scenarios)                                                    | Package default                                              |
 | `logs-cursor.audit-default` (with `--cursor-audit`)                                                | `_none`, stored shape                                        |
 | `logs-entityanalytics_okta.user-default`, `logs-entityanalytics_entra_id.user-default` (storyline) | `_none`, stored shape                                        |
-| `hr-workday-demo` (storyline), created with keyword mappings                                       | None                                                         |
 
 `-default` becomes `-<namespace>` with `--namespace` or a non-default `--space`.
 

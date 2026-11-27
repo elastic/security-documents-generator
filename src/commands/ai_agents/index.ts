@@ -119,7 +119,7 @@ export const aiAgentsCommands: CommandModule = {
     program
       .command('ai-agents-context')
       .description(
-        'Apply the ai-agents storyline context through Kibana APIs: high_impact criticality on the build server, the privileged person on Privileged Users, and a Departing Employees watchlist fed from the HR index',
+        'Apply the ai-agents storyline context through Kibana APIs: high_impact criticality on the build server, the privileged person on Privileged Users, and the departing person on Departing Employees, both assigned by hand',
       )
       .option('--space <space>', 'Kibana space with the Entity Store', 'default')
       .option(

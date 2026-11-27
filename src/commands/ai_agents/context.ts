@@ -1,4 +1,3 @@
-import { HR_INDEX } from '../../generators/ai_agents/index.ts';
 import { API_VERSIONS, WATCHLISTS_URL } from '../../constants.ts';
 import { forceBulkUpdateEntitiesViaCrud, kibanaFetch } from '../../utils/kibana_api.ts';
 import { log } from '../../utils/logger.ts';
@@ -86,7 +85,8 @@ const extract = async (space: string, hours: number): Promise<void> => {
 
 /**
  * Applies the storyline's Kibana-side context: host criticality on the build server, the privileged
- * person on Privileged Users, and a Departing Employees watchlist fed from the HR index. The entity
+ * person on Privileged Users, and the departing person on Departing Employees. Both assignments are
+ * manual, as an analyst would make them. The entity
  * rows must exist, so load the storyline and run extraction first (`--extract`).
  */
 export const applyStorylineContext = async (options: StorylineContextOptions): Promise<void> => {
@@ -130,7 +130,7 @@ export const applyStorylineContext = async (options: StorylineContextOptions): P
 
   const departingBody = JSON.stringify({
     name: DEPARTING_WATCHLIST,
-    description: `People whose contract is terminated in ${HR_INDEX}.`,
+    description: 'People who are leaving or have left the organisation.',
     riskModifier: 1.5,
   });
   const existingDeparting = await findWatchlist(space, DEPARTING_WATCHLIST);
@@ -148,34 +148,14 @@ export const applyStorylineContext = async (options: StorylineContextOptions): P
       { method: 'POST', body: departingBody },
       { apiVersion: API_VERSIONS.public.v1, space },
     ));
-  const sources = await kibanaFetch<{ sources?: Array<{ type: string; indexPattern?: string }> }>(
-    `${WATCHLISTS_URL}/${departing.id}/entity_source/list`,
-    { method: 'GET' },
-    { apiVersion: API_VERSIONS.public.v1, space },
-  );
-  if (!(sources.sources ?? []).some((source) => source.indexPattern === HR_INDEX)) {
-    await kibanaFetch(
-      `${WATCHLISTS_URL}/${departing.id}/entity_source`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          type: 'index',
-          name: 'HR terminated contracts',
-          indexPattern: HR_INDEX,
-          identifierField: 'user.email',
-          queryRule: 'employment.status: "Terminated"',
-          enabled: true,
-        }),
-      },
-      { apiVersion: API_VERSIONS.public.v1, space },
-    );
-  }
-  await kibanaFetch(
-    `${WATCHLISTS_URL}/${departing.id}/sync`,
-    { method: 'POST', body: JSON.stringify({}) },
+  const departingEmail = emailOf(STORYLINE_PEOPLE.departing, domain);
+  const departingEuids = [`user:${departingEmail}@okta`, `user:${departingEmail}@entra_id`];
+  const assignedDeparting = await kibanaFetch<unknown>(
+    `${WATCHLISTS_URL}/${departing.id}/entities/assign`,
+    { method: 'POST', body: JSON.stringify({ euids: departingEuids }) },
     { apiVersion: API_VERSIONS.public.v1, space },
   );
   log.info(
-    `${DEPARTING_WATCHLIST} (${departing.id}) reads ${HR_INDEX} where employment.status is Terminated, by user.email, and was synced`,
+    `Assigned ${departingEuids.join(', ')} to ${DEPARTING_WATCHLIST} (${departing.id}): ${JSON.stringify(assignedDeparting)}`,
   );
 };
