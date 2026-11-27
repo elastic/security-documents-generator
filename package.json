@@ -15,7 +15,7 @@
     "prepare": "husky"
   },
   "engines": {
-    "node": "24.21.0",
+    "node": "26.13.0",
     "yarn": "^1.22.22"
   },
   "author": "",
@@ -31,20 +31,20 @@
     "globals": "^17.0.0",
     "lodash-es": "^4.17.21",
     "p-map": "^7.0.2",
-    "p-retry": "^8.0.0"
+    "p-retry": "^9.0.0"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/cli-progress": "3.11.6",
     "@types/lodash-es": "4.17.12",
-    "eslint": "10.11.0",
+    "eslint": "10.14.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-check-file": "3.3.2",
     "husky": "9.1.7",
     "lint-staged": "17.6.0",
-    "prettier": "3.9.9",
+    "prettier": "3.9.10",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.70.1"
+    "typescript-eslint": "8.72.1"
   },
   "lint-staged": {
     "*.ts": [

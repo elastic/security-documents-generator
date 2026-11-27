@@ -126,9 +126,11 @@ export const kibanaFetch = async <T>(
     apiVersion?: string;
     space?: string;
     omitApiVersion?: boolean;
+    /** Extra headers applied last (e.g. a case-sensitive x-elastic-internal-origin). */
+    headers?: Record<string, string>;
   } = {},
 ): Promise<T> => {
-  const { ignoreStatuses, apiVersion = '1', space, omitApiVersion } = opts;
+  const { ignoreStatuses, apiVersion = '1', space, omitApiVersion, headers: extraHeaders } = opts;
   const url = buildKibanaUrl({ path, space });
   const method = ((params as { method?: string }).method ?? 'GET').toUpperCase();
   const ignoreStatusesArray = Array.isArray(ignoreStatuses) ? ignoreStatuses : [ignoreStatuses];
@@ -139,6 +141,7 @@ export const kibanaFetch = async <T>(
 
   headers.set('x-elastic-internal-origin', 'kibana');
   if (!omitApiVersion) headers.set('elastic-api-version', apiVersion);
+  Object.entries(extraHeaders ?? {}).forEach(([name, value]) => headers.set(name, value));
   let result: Response;
   const safeUrl = redactUrl(url);
   try {
@@ -812,9 +815,15 @@ export const getEntityMaintainers = async (space: string = 'default', ids?: stri
   );
 };
 
-export const runEntityMaintainer = async (maintainerId: string, space: string = 'default') => {
+export const runEntityMaintainer = async (
+  maintainerId: string,
+  space: string = 'default',
+  { sync = false }: { sync?: boolean } = {},
+) => {
   const spacePath = getEntityStoreV2SpacePath(space);
-  const path = `${spacePath}${ENTITY_MAINTAINERS_RUN_URL(maintainerId)}?apiVersion=2`;
+  const path = `${spacePath}${ENTITY_MAINTAINERS_RUN_URL(maintainerId)}?apiVersion=2${
+    sync ? '&sync=true' : ''
+  }`;
   return kibanaFetch(
     path,
     {
